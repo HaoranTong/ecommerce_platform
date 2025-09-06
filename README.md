@@ -59,3 +59,26 @@ uvicorn app.main:app --reload --host $env:HOST --port $env:PORT
 ```
 
 关于 direnv：当前项目默认不使用 direnv。若你的 shell 中出现 `direnv` 的提示，可以忽略该提示，或在个人 shell 配置中移除 direnv 初始化。项目推荐使用上述显式的 venv 激活与 `.env` 管理流程。
+
+开发（建议混合模式，使用 docker 来运行数据库与缓存，应用在本机运行以便热重载）
+
+1) 启动依赖服务（MySQL, Redis）：
+
+```powershell
+docker-compose up -d mysql redis
+```
+
+2) 在本地激活虚拟环境并运行应用（快速热重载）：
+
+```powershell
+& .\.venv\Scripts\Activate.ps1
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+3) 可选：如果希望在容器内以开发模式运行应用（bind-mount 代码并启用 reload），使用：
+
+```powershell
+docker-compose up --build backend
+```
+
+说明：已添加 `docker-compose.override.yml` 用于开发覆盖，包含 `backend` 服务的 bind-mount 与 reload 配置；生产环境在 CI 中可忽略该覆盖文件或使用 `docker-compose -f docker-compose.yml`。
