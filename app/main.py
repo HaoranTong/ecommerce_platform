@@ -8,3 +8,9 @@ async def root():
 from app.api import routes as api_routes
 
 app.include_router(api_routes.router, prefix="/api", tags=["api"])
+try:
+    from app.api import product_routes as product_routes
+    app.include_router(product_routes.router, prefix="/api", tags=["products"])
+except Exception:
+    # product routes may be missing on some branches; ignore if not present
+    pass
