@@ -1,5 +1,6 @@
 Param(
-    [switch]$RunNow
+    [switch]$RunNow,
+    [switch]$DryRun
 )
 
 Set-StrictMode -Version Latest
@@ -32,10 +33,21 @@ try {
         exit $LASTEXITCODE
     }
 
-    # Merge into main
+    # Merge into main (with safer rollback)
     Write-Output "Merging dev into main..."
     git checkout main
     git pull origin main
+
+    $preMain = git rev-parse refs/heads/main
+
+    if ($DryRun) {
+        Write-Output "DryRun: showing merge plan (no changes will be made)"
+        git merge --no-ff --no-commit dev || Write-Output "Merge would fail or has conflicts"
+        git merge --abort || Write-Output "No merge to abort"
+        Write-Output "DryRun complete."
+        exit 0
+    }
+
     git merge --no-ff dev -m "chore(release): merge dev into main"
     if ($LASTEXITCODE -ne 0) {
         Write-Error "Merge failed. Resolve conflicts manually."
@@ -48,7 +60,9 @@ try {
     Write-Output "Running smoke test on main..."
     & .\scripts\smoke_test.ps1
     if ($LASTEXITCODE -ne 0) {
-        Write-Error "Smoke test on main failed (exit $LASTEXITCODE)."
+        Write-Error "Smoke test on main failed (exit $LASTEXITCODE). Rolling back main to pre-merge state."
+        git reset --hard $preMain
+        git push --force origin main
         exit $LASTEXITCODE
     }
 
