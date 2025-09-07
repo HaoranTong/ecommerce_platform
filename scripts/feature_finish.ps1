@@ -1,5 +1,6 @@
 Param(
-    [string]$FeatureBranch = ''
+    [string]$FeatureBranch = '',
+    [switch]$NoPush
 )
 
 Set-StrictMode -Version Latest
@@ -24,11 +25,16 @@ try {
     }
 
     # push feature branch up
-    Write-Output "Pushing feature branch to origin: $FeatureBranch"
-    git push origin $FeatureBranch
-    if ($LASTEXITCODE -ne 0) {
-        Write-Error "Failed to push feature branch to origin. Aborting."
-        exit 2
+    if ($NoPush) {
+        Write-Output "NoPush set: skipping push of feature branch to origin"
+    }
+    else {
+        Write-Output "Pushing feature branch to origin: $FeatureBranch"
+        git push origin $FeatureBranch
+        if ($LASTEXITCODE -ne 0) {
+            Write-Error "Failed to push feature branch to origin. Aborting."
+            exit 2
+        }
     }
 
     # run smoke tests on feature branch
@@ -72,11 +78,16 @@ try {
     }
 
     # push dev
-    Write-Output "Pushing dev to origin (merge succeeded)..."
-    git push origin dev
-    if ($LASTEXITCODE -ne 0) {
-        Write-Error "Failed to push dev to origin after merge. Please investigate."
-        exit 7
+    if ($NoPush) {
+        Write-Output "NoPush set: skipping push of dev to origin (merge succeeded locally)."
+    }
+    else {
+        Write-Output "Pushing dev to origin (merge succeeded)..."
+        git push origin dev
+        if ($LASTEXITCODE -ne 0) {
+            Write-Error "Failed to push dev to origin after merge. Please investigate."
+            exit 7
+        }
     }
 
     Write-Output "feature_finish completed successfully: $FeatureBranch -> dev"
