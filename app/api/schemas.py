@@ -30,3 +30,21 @@ class ProductRead(BaseModel):
 
     class Config:
         orm_mode = True
+
+
+class CertificateCreate(BaseModel):
+    name: str
+    issuer: Optional[str] = None
+    serial: str
+    description: Optional[str] = None
+
+
+class CertificateRead(BaseModel):
+    id: int
+    name: str
+    issuer: Optional[str] = None
+    serial: str
+    description: Optional[str] = None
+
+    class Config:
+        orm_mode = True
