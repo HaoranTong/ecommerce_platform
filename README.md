@@ -94,3 +94,62 @@ docker-compose up --build backend
 ```
 
 说明：已添加 `docker-compose.override.yml` 用于开发覆盖，包含 `backend` 服务的 bind-mount 与 reload 配置；生产环境在 CI 中可忽略该覆盖文件或使用 `docker-compose -f docker-compose.yml`。
+
+-----------------------------
+脚本使用说明（针对单人开发工作流）
+-----------------------------
+
+我们为单人开发场景准备了两个本地脚本，帮助你在本地完成 feature -> dev 的合并和 dev -> main 的发布。云端仅作为备份，不会自动创建 PR 或合并。
+
+1) feature_finish.ps1 — 在 feature 分支完成一个小任务后使用
+
+用法（在 feature 分支上执行，或者通过 -FeatureBranch 指定分支名）：
+
+```powershell
+# 当前在 feature/xxx 分支
+.\scripts\feature_finish.ps1
+
+# 或者在任何分支执行并指定要合并的 feature 分支
+.\scripts\feature_finish.ps1 -FeatureBranch 'feature/xxx'
+```
+
+脚本行为（简述）：
+- 自动将本地未提交的变动添加并提交（会生成一条自动提交信息）
+- 将 feature 分支 push 到远端
+- 在 feature 分支上运行 smoke test（`scripts/smoke_test.ps1`）——失败则中止
+- 切换到 `dev`，pull origin/dev，然后 merge feature -> dev（若冲突则中止并返回 feature）
+- 在 dev 上运行 smoke test（失败时会回退到 merge 前的 dev 状态并返回 feature）
+- 若 dev smoke test 通过，则 push origin/dev 并结束
+
+示例：
+
+```powershell
+git checkout feature/login-improve
+# 开发完成并本地测试通过后
+.\scripts\feature_finish.ps1
+```
+
+2) release_to_main.ps1 — 在准备好将 dev 发布到 main 时使用
+
+用法（先 dry run 再真正发布）：
+
+```powershell
+# 只查看合并计划，不做实际改动
+.\scripts\release_to_main.ps1 -DryRun
+
+# 真正执行合并并发布（会在失败时回滚 main）
+.\scripts\release_to_main.ps1 -RunNow
+```
+
+脚本行为（简述）：
+- 检查并要求工作区干净
+- 在 dev 上运行 smoke test（失败则中止）
+- 切换到 main 并保存 pre-merge commit hash
+- 合并 dev -> main 并 push origin/main
+- 在 main 上运行 smoke test（若失败则 force-reset main 到 pre-merge 并 push --force）
+
+注意事项：
+- 脚本不会自动解决合并冲突；若遇冲突，请手动在本地解决后再重试脚本
+- 这些脚本设计为本地执行（单人工作流），请在本地终端运行并观察输出
+
+以上命令在 Windows PowerShell / PowerShell Core 下可直接复制执行。若你同意，我可以将这些变更推到 `dev`（或直接合并到 `main`）并在仓库里更新 README（我会使用 dev 推送）。

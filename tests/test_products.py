@@ -39,12 +39,12 @@ app.dependency_overrides[get_session] = override_get_session
 client = TestClient(app)
 
 
-def test_create_and_list_user():
-    r = client.post('/api/users', json={'username': 'testu', 'email': 'testu@example.com'})
+def test_create_and_list_product():
+    r = client.post('/api/products', json={'name': 'TestProduct', 'sku': 'TP-001', 'description': 'desc'})
     assert r.status_code == 201
     data = r.json()
-    assert data['username'] == 'testu'
-    r2 = client.get('/api/users')
+    assert data['name'] == 'TestProduct'
+    r2 = client.get('/api/products')
     assert r2.status_code == 200
-    users = r2.json()
-    assert any(u['username'] == 'testu' for u in users)
+    products = r2.json()
+    assert any(p['name'] == 'TestProduct' for p in products)
