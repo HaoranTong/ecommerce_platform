@@ -75,6 +75,18 @@ docker-compose up -d mysql redis
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
+快速烟雾测试（smoke test）：
+
+项目包含一个简单的 PowerShell 脚本用于本地烟雾测试，位于 `scripts/smoke_test.ps1`。
+用法（在 Windows PowerShell 中）:
+
+```powershell
+cd /d E:\ecommerce_platform
+& .\scripts\smoke_test.ps1
+```
+
+脚本会激活本地 `.venv`（如果存在），检测或启动应用，执行一个临时用户的 POST/GET 测试，并在必要时停止服务器。建议在合并到 `main` 或每次本地集成后运行此脚本以确认主干健康。
+
 3) 可选：如果希望在容器内以开发模式运行应用（bind-mount 代码并启用 reload），使用：
 
 ```powershell
