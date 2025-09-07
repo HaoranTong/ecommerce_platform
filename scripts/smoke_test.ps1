@@ -24,6 +24,23 @@ try {
         Write-Output "No venv activate script found at $venvActivate"
     }
 
+    # ensure DB/Redis env vars for app startup (non-destructive defaults)
+    if (-not $env:DATABASE_URL -or $env:DATABASE_URL -eq '') {
+        # docker-compose maps host 3307 -> container 3306 by default to avoid conflicts with host MySQL
+        $env:DATABASE_URL = 'mysql+pymysql://root:rootpass@127.0.0.1:3307/dev_vision'
+        Write-Output "DATABASE_URL not set — defaulting to $env:DATABASE_URL (local docker-compose mapping 3307:3306)"
+    }
+    else {
+        Write-Output "Using DATABASE_URL from environment."
+    }
+    if (-not $env:REDIS_URL -or $env:REDIS_URL -eq '') {
+        $env:REDIS_URL = 'redis://127.0.0.1:6379/0'
+        Write-Output "REDIS_URL not set — defaulting to $env:REDIS_URL"
+    }
+    else {
+        Write-Output "Using REDIS_URL from environment."
+    }
+
     $baseUrl = 'http://127.0.0.1:8000'
     $apiUsers = "$baseUrl/api/users"
 
