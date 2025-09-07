@@ -58,12 +58,16 @@ try {
     if (-not (Test-Server)) {
         Write-Output "Server not responding; starting uvicorn..."
         $startedByScript = $true
-        # Run create_tables to ensure DB schema exists in local dev
-        $createScript = Join-Path $repo 'scripts\create_tables.py'
-        if (Test-Path $createScript) {
-            Write-Output "Ensuring DB tables exist by running $createScript"
-            $env:PYTHONPATH = (Resolve-Path $repo).Path
-            python -u $createScript
+        # Ensure migrations are applied via Alembic (do NOT create tables directly)
+        Write-Output "Applying Alembic migrations: alembic upgrade head"
+        $env:PYTHONPATH = (Resolve-Path $repo).Path
+        try {
+            python -m alembic upgrade head
+        }
+        catch {
+            Write-Error "Failed to run alembic upgrade head: $($_.Exception.Message)"
+            if ($startedByScript -and $uvProc) { $uvProc | Stop-Process -Force }
+            exit 3
         }
 
         $uvProc = Start-Process -FilePath python -ArgumentList '-m', 'uvicorn', 'app.main:app', '--host', '127.0.0.1', '--port', '8000' -NoNewWindow -PassThru

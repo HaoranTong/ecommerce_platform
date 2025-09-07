@@ -96,7 +96,13 @@ docker-compose up --build backend
 说明：已添加 `docker-compose.override.yml` 用于开发覆盖，包含 `backend` 服务的 bind-mount 与 reload 配置；生产环境在 CI 中可忽略该覆盖文件或使用 `docker-compose -f docker-compose.yml`。
 
 -----------------------------
-脚本使用说明（针对单人开发工作流）
+分支与本地开发规范（单人/小团队）
+
+- 所有新功能与改动应在 feature/* 分支上进行开发与本地验证（例如 `feature/add-certificate`）。
+- `dev` 与 `main` 为受保护的集成/主干分支，不应直接在其上做日常开发或启动临时建表操作。
+-- 在本地调试时，请通过 Alembic 生成并应用迁移（`alembic revision --autogenerate -m "..."` + `alembic upgrade head`）。
+-- 不要使用临时脚本或在运行时自动创建表来跳过迁移流程；所有 schema 变更必须通过 Alembic 管理并受版本控制。
+快速烟雾测试（smoke test）：
 -----------------------------
 
 我们为单人开发场景准备了两个本地脚本，帮助你在本地完成 feature -> dev 的合并和 dev -> main 的发布。云端仅作为备份，不会自动创建 PR 或合并。
