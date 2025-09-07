@@ -19,7 +19,8 @@ try {
     if (Test-Path $venvActivate) {
         Write-Output "Activating venv: $venvActivate"
         & $venvActivate
-    } else {
+    }
+    else {
         Write-Output "No venv activate script found at $venvActivate"
     }
 
@@ -30,7 +31,8 @@ try {
         try {
             Invoke-RestMethod -Method Get -Uri "$baseUrl/" -TimeoutSec 2 -ErrorAction Stop | Out-Null
             return $true
-        } catch {
+        }
+        catch {
             return $false
         }
     }
@@ -39,14 +41,15 @@ try {
     if (-not (Test-Server)) {
         Write-Output "Server not responding; starting uvicorn..."
         $startedByScript = $true
-        $uvProc = Start-Process -FilePath python -ArgumentList '-m','uvicorn','app.main:app','--host','127.0.0.1','--port','8000' -NoNewWindow -PassThru
+        $uvProc = Start-Process -FilePath python -ArgumentList '-m', 'uvicorn', 'app.main:app', '--host', '127.0.0.1', '--port', '8000' -NoNewWindow -PassThru
         Start-Sleep -Seconds 2
         if (-not (Test-Server)) {
             Write-Error "Failed to start server"
             if ($startedByScript -and $uvProc) { $uvProc | Stop-Process -Force }
             exit 2
         }
-    } else {
+    }
+    else {
         Write-Output "Server already running."
     }
 
@@ -57,7 +60,8 @@ try {
     try {
         $post = Invoke-RestMethod -Method Post -Uri $apiUsers -Body $payload -ContentType 'application/json' -TimeoutSec 10 -ErrorAction Stop
         Write-Output "POST result: $(ConvertTo-Json $post -Compress)"
-    } catch {
+    }
+    catch {
         Write-Error "POST failed: $($_.Exception.Message)"
     }
 
@@ -65,11 +69,13 @@ try {
         $list = Invoke-RestMethod -Method Get -Uri $apiUsers -TimeoutSec 10 -ErrorAction Stop
         Write-Output "GET /api/users result count: $($list.Count)"
         Write-Output (ConvertTo-Json $list -Depth 3)
-    } catch {
+    }
+    catch {
         Write-Error "GET failed: $($_.Exception.Message)"
     }
 
-} finally {
+}
+finally {
     if ($startedByScript -and $uvProc) {
         Write-Output "Stopping uvicorn (pid=$($uvProc.Id))"
         $uvProc | Stop-Process -Force
