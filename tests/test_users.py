@@ -1,0 +1,41 @@
+import pytest
+from fastapi.testclient import TestClient
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+
+from app.main import app
+import app.models as models
+from app.db import get_session, Base
+
+# use in-memory sqlite for fast tests
+SQLITE_URL = "sqlite+pysqlite:///:memory:"
+engine = create_engine(SQLITE_URL, connect_args={"check_same_thread": False}, future=True)
+TestingSessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)
+
+
+def setup_module(module):
+    # create tables
+    Base.metadata.create_all(bind=engine)
+
+
+def override_get_session():
+    db = TestingSessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+
+app.dependency_overrides[get_session] = override_get_session
+client = TestClient(app)
+
+
+def test_create_and_list_user():
+    r = client.post('/api/users', json={'username': 'testu', 'email': 'testu@example.com'})
+    assert r.status_code == 201
+    data = r.json()
+    assert data['username'] == 'testu'
+    r2 = client.get('/api/users')
+    assert r2.status_code == 200
+    users = r2.json()
+    assert any(u['username'] == 'testu' for u in users)
