@@ -153,3 +153,19 @@ git checkout feature/login-improve
 - 这些脚本设计为本地执行（单人工作流），请在本地终端运行并观察输出
 
 以上命令在 Windows PowerShell / PowerShell Core 下可直接复制执行。若你同意，我可以将这些变更推到 `dev`（或直接合并到 `main`）并在仓库里更新 README（我会使用 dev 推送）。
+
+---
+
+附注 — 端口映射与 .env 配置
+
+本仓库的 `docker-compose.yml` 默认为 MySQL 做了宿主端口到容器端口的映射：
+
+```
+# docker-compose.yml
+# services:
+#   mysql:
+#     ports:
+#       - "3307:3306"
+```
+
+这是为了避免与宿主机上可能存在、并监听在 3306 的 MySQL 实例冲突。请在本地使用 `.env` 中的 `DATABASE_URL`（示例指向 `127.0.0.1:3307`）或在你明确知道宿主机口没有占用 3306 时手动修改 compose 的映射。
