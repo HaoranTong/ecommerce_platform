@@ -5,6 +5,12 @@ from sqlalchemy import pool
 
 from alembic import context
 
+# ensure project root is on sys.path so 'app' package can be imported
+import sys
+from pathlib import Path
+proj_root = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(proj_root))
+
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
 config = context.config
