@@ -1,5 +1,8 @@
 name: CI - dev & feature
 
+permissions:
+  contents: write
+
 on:
   push:
     branches:
@@ -63,6 +66,33 @@ jobs:
           DATABASE_URL: mysql+pymysql://root:rootpass@127.0.0.1:3306/dev_vision
         run: |
           pytest -q
+
+  release:
+    needs: test
+    if: github.ref_name == 'dev' && success()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (persist credentials)
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Merge dev into main
+        run: |
+          git fetch origin main
+          git checkout main
+          git pull origin main
+          git merge --no-ff dev -m "chore(release): automated merge dev -> main by CI"
+          git push origin main
+
+      - name: Record release from CI
+        run: |
+          pwsh -NoProfile -Command "& './scripts/log_status.ps1' -Message 'CI: merged dev into main' -Files '' -PrUrl '${{ github.event.pull_request.html_url || '' }}' -Author 'ci' -Commit '${{ github.sha }}' -Branch 'main' -Actor '${{ github.actor }}'"
 
       - name: Record status from CI
         if: always()
