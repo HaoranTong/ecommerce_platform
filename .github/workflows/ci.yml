@@ -87,11 +87,24 @@ jobs:
 
       - name: Merge dev -> main
         run: |
-          git fetch origin main
-          git checkout main
-          git pull origin main || true
-          git merge --no-ff dev -m "chore(release): automated merge dev -> main by CI" || true
-          git push origin main || true
+          echo "Skipping direct git push in favor of opening a PR (protected main compatibility)."
+
+      - name: Create PR dev -> main (or reuse existing)
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const [owner, repo] = process.env.GITHUB_REPOSITORY.split('/');
+            const head = 'dev';
+            const base = 'main';
+            // Check for existing open PR from dev -> main
+            const existing = await github.rest.pulls.list({ owner, repo, head: `${owner}:${head}`, base, state: 'open' });
+            if (existing.data.length > 0) {
+              core.info(`Found existing PR: ${existing.data[0].html_url}`);
+            } else {
+              const pr = await github.rest.pulls.create({ owner, repo, head, base, title: 'Automated release: dev → main', body: 'CI: automatic PR to release dev into main', maintainer_can_modify: true });
+              core.info(`Created PR: ${pr.data.html_url}`);
+            }
 
       - name: Record release
         run: |
