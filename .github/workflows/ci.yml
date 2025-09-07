@@ -2,13 +2,12 @@ name: CI - dev & feature
 
 on:
   push:
-    branches:
-      - dev
-      - 'feature/**'
+    branches: [ dev, 'feature/**' ]
   pull_request:
-    branches:
-      - dev
-      - main
+    branches: [ dev, main ]
+
+permissions:
+  contents: write
 
 jobs:
   test:
@@ -19,23 +18,21 @@ jobs:
         env:
           MYSQL_ROOT_PASSWORD: rootpass
           MYSQL_DATABASE: dev_vision
-        ports:
-          - 3306:3306
+        ports: ['3306:3306']
         options: >-
           --health-cmd="mysqladmin ping --silent"
           --health-interval=5s --health-timeout=10s --health-retries=10
       redis:
         image: redis:7
-        ports:
-          - 6379:6379
+        ports: ['6379:6379']
         options: --health-cmd="redis-cli ping" --health-interval=5s --health-retries=10
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        name: Checkout
 
-      - name: Set up Python
-        uses: actions/setup-python@v4
+      - uses: actions/setup-python@v4
+        name: Set up Python
         with:
           python-version: '3.11'
 
@@ -55,11 +52,47 @@ jobs:
       - name: Run alembic migrations
         env:
           ALEMBIC_DSN: mysql+pymysql://root:rootpass@127.0.0.1:3306/dev_vision
-        run: |
-          alembic upgrade head
+        run: alembic upgrade head
 
       - name: Run tests
         env:
           DATABASE_URL: mysql+pymysql://root:rootpass@127.0.0.1:3306/dev_vision
+        run: pytest -q
+
+  release:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Print debug info
         run: |
-          pytest -q
+          echo "github.ref=${{ github.ref }}"
+          echo "GITHUB_REF=${GITHUB_REF}"
+          echo "needs.test.result=${{ needs.test.result }}"
+
+      - name: Exit early when not dev
+        if: ${{ github.ref != 'refs/heads/dev' }}
+        run: |
+          echo 'Not on dev; skipping release steps.'
+          exit 0
+
+      - name: Checkout (persist credentials)
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Merge dev -> main
+        run: |
+          git fetch origin main
+          git checkout main
+          git pull origin main || true
+          git merge --no-ff dev -m "chore(release): automated merge dev -> main by CI" || true
+          git push origin main || true
+
+      - name: Record release
+        run: |
+          pwsh -NoProfile -Command "& './scripts/log_status.ps1' -Message 'CI: attempted merge dev->main' -Files '' -PrUrl '${{ github.event.pull_request.html_url || '' }}' -Author 'ci' -Commit '${{ github.sha }}' -Branch 'main' -Actor '${{ github.actor }}'"
