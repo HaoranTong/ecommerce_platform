@@ -14,3 +14,8 @@ try:
 except Exception:
     # product routes may be missing on some branches; ignore if not present
     pass
+try:
+    from app.api import certificate_routes as certificate_routes
+    app.include_router(certificate_routes.router, prefix="/api", tags=["certificates"])
+except Exception:
+    pass
