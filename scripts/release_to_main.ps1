@@ -44,6 +44,10 @@ try {
 
     git push origin main
 
+    # Record merge into status log
+    Write-Output "Recording release merge into status log..."
+    pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\log_status.ps1 -Message "Merged dev into main" -Files "" -PrUrl "" -Author "release-bot"
+
     # Run smoke test on main
     Write-Output "Running smoke test on main..."
     & .\scripts\smoke_test.ps1
@@ -53,6 +57,9 @@ try {
     }
 
     Write-Output "Release to main completed successfully."
+
+    # Record release completion
+    pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\log_status.ps1 -Message "Release to main completed" -Files "" -PrUrl "" -Author "release-bot"
 } finally {
     Pop-Location
 }
