@@ -41,3 +41,19 @@
 
 ## 变更记录
 - 2025-09-07: 完成 Docker 启动、调整 MySQL 端口、提交到 main 并在 dev 上 scaffold DB 与 Alembic。
+
+## 2025-09-08 00:21:17 — release-bot
+
+- Summary: Merged dev into main
+- Branch: 
+- Commit: 
+
+
+
+## 2025-09-08 00:21:20 — release-bot
+
+- Summary: Release to main completed
+- Branch: 
+- Commit: 
+
+
