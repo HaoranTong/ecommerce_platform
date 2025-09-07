@@ -10,7 +10,14 @@ from alembic import context
 config = context.config
 
 # Interpret the config file for Python logging.
-fileConfig(config.config_file_name)
+try:
+    # alembic.ini may include a [loggers]/[handlers]/[formatters] section
+    # but some environments omit it; guard to avoid KeyError on missing sections.
+    fileConfig(config.config_file_name)
+except Exception:
+    # fall back to default logging configuration
+    import logging
+    logging.basicConfig()
 
 # import your models' MetaData object here
 import app.models as models
