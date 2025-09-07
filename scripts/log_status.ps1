@@ -18,7 +18,10 @@ param(
     [Parameter(Mandatory=$true)] [string]$Message,
     [string]$Files = "",
     [string]$PrUrl = "",
-    [string]$Author = "automation"
+    [string]$Author = "automation",
+    [string]$Commit = "",
+    [string]$Branch = "",
+    [string]$Actor = ""
 )
 
 $statusPath = Join-Path $PSScriptRoot "..\docs\status\status.md"
@@ -33,6 +36,9 @@ $entry = "`n## $now — $Author`n`n"
 $entry += "- Summary: $Message`n"
 if ($Files -ne "") { $entry += "- Files: $Files`n" }
 if ($PrUrl -ne "") { $entry += "- PR/Issue: $PrUrl`n" }
+$entry += "- Branch: $Branch`n"
+$entry += "- Commit: $Commit`n"
+if ($Actor -ne "") { $entry += "- Actor: $Actor`n" }
 $entry += "`n"
 
 Add-Content -Path $statusPath -Value $entry

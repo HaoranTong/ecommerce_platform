@@ -63,3 +63,10 @@ jobs:
           DATABASE_URL: mysql+pymysql://root:rootpass@127.0.0.1:3306/dev_vision
         run: |
           pytest -q
+
+      - name: Record status from CI
+        if: always()
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url || '' }}
+        run: |
+          pwsh -NoProfile -Command "& './scripts/log_status.ps1' -Message 'CI job completed' -Files '' -PrUrl '${{ env.PR_URL }}' -Author 'ci' -Commit '${{ github.sha }}' -Branch '${{ github.ref_name }}' -Actor '${{ github.actor }}'"
