@@ -14,3 +14,6 @@ def get_session():
         yield db
     finally:
         db.close()
+
+# Re-export Base from models for tests and alembic usage
+from app.models import Base  # noqa: E402
