@@ -14,3 +14,19 @@ class UserRead(BaseModel):
 
     class Config:
         orm_mode = True
+
+
+class ProductCreate(BaseModel):
+    name: str
+    sku: str
+    description: Optional[str] = None
+
+
+class ProductRead(BaseModel):
+    id: int
+    name: str
+    sku: str
+    description: Optional[str] = None
+
+    class Config:
+        orm_mode = True
