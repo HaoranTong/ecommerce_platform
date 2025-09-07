@@ -8,6 +8,7 @@ on:
 
 permissions:
   contents: write
+  pull-requests: write
 
 jobs:
   test:
@@ -89,7 +90,8 @@ jobs:
         run: |
           echo "Skipping direct git push in favor of opening a PR (protected main compatibility)."
 
-      - name: Create PR dev -> main (or reuse existing)
+      - id: create_pr
+        name: Create PR dev -> main (or reuse existing)
         uses: actions/github-script@v6
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -99,13 +101,16 @@ jobs:
             const base = 'main';
             // Check for existing open PR from dev -> main
             const existing = await github.rest.pulls.list({ owner, repo, head: `${owner}:${head}`, base, state: 'open' });
+            let prUrl = '';
             if (existing.data.length > 0) {
-              core.info(`Found existing PR: ${existing.data[0].html_url}`);
+              prUrl = existing.data[0].html_url;
+              core.info(`Found existing PR: ${prUrl}`);
             } else {
               const pr = await github.rest.pulls.create({ owner, repo, head, base, title: 'Automated release: dev → main', body: 'CI: automatic PR to release dev into main', maintainer_can_modify: true });
-              core.info(`Created PR: ${pr.data.html_url}`);
+              prUrl = pr.data.html_url;
+              core.info(`Created PR: ${prUrl}`);
             }
-
+            core.setOutput('pr_url', prUrl);
       - name: Record release
         run: |
-          pwsh -NoProfile -Command "& './scripts/log_status.ps1' -Message 'CI: attempted merge dev->main' -Files '' -PrUrl '${{ github.event.pull_request.html_url || '' }}' -Author 'ci' -Commit '${{ github.sha }}' -Branch 'main' -Actor '${{ github.actor }}'"
+          pwsh -NoProfile -Command "& './scripts/log_status.ps1' -Message 'CI: attempted merge dev->main' -Files '' -PrUrl '${{ steps.create_pr.outputs.pr_url }}' -Author 'ci' -Commit '${{ github.sha }}' -Branch 'main' -Actor '${{ github.actor }}'"
