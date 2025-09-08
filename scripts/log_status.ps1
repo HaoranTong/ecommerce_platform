@@ -102,32 +102,25 @@ $(if ($Files -ne "") { "**Files:** $Files`n" })$(if ($PrUrl -ne "") { "**PR/Issu
         Write-Output "No changes to commit on $statusBranch"
     }
     
-    # Push with timeout and error handling to both remotes
+    # Push to both remotes (simplified, no background jobs)
     Write-Output "Pushing automation logs to GitHub and Gitee..."
     
     # Push to GitHub
     Write-Output "Pushing to GitHub..."
-    $pushJob = Start-Job -ScriptBlock { git push github $using:statusBranch 2>&1 }
-    if (Wait-Job $pushJob -Timeout 30) {
-        $pushResult = Receive-Job $pushJob
-        Write-Output "GitHub: $pushResult"
+    git push github $statusBranch
+    if ($LASTEXITCODE -eq 0) {
+        Write-Output "GitHub push successful"
     } else {
-        Stop-Job $pushJob
-        Remove-Job $pushJob
-        Write-Warning "GitHub push operation timed out after 30 seconds"
+        Write-Warning "GitHub push failed (exit code: $LASTEXITCODE)"
     }
-    Remove-Job $pushJob -Force -ErrorAction SilentlyContinue
     
     # Push to Gitee
     Write-Output "Pushing to Gitee..."
-    $pushJob = Start-Job -ScriptBlock { git push gitee $using:statusBranch 2>&1 }
-    if (Wait-Job $pushJob -Timeout 30) {
-        $pushResult = Receive-Job $pushJob
-        Write-Output "Gitee: $pushResult"
+    git push gitee $statusBranch
+    if ($LASTEXITCODE -eq 0) {
+        Write-Output "Gitee push successful"
     } else {
-        Stop-Job $pushJob
-        Remove-Job $pushJob
-        Write-Warning "Gitee push operation timed out after 30 seconds"
+        Write-Warning "Gitee push failed (exit code: $LASTEXITCODE)"
     }
     Remove-Job $pushJob -Force -ErrorAction SilentlyContinue
 
