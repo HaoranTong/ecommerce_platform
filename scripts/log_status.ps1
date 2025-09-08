@@ -122,7 +122,6 @@ $(if ($Files -ne "") { "**Files:** $Files`n" })$(if ($PrUrl -ne "") { "**PR/Issu
     } else {
         Write-Warning "Gitee push failed (exit code: $LASTEXITCODE)"
     }
-    Remove-Job $pushJob -Force -ErrorAction SilentlyContinue
 
     # return to previous branch if possible
     if ($current -and $current -ne $statusBranch) { 
