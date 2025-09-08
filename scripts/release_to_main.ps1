@@ -23,7 +23,8 @@ try {
 
     # Update dev
     git checkout dev
-    git pull origin dev
+    git fetch github
+    git pull github dev
 
     # Run smoke test on dev
     Write-Output "Running smoke test on dev..."
@@ -36,7 +37,8 @@ try {
     # Merge into main (with safer rollback)
     Write-Output "Merging dev into main..."
     git checkout main
-    git pull origin main
+    git fetch github
+    git pull github main
 
     $preMain = git rev-parse refs/heads/main
 
