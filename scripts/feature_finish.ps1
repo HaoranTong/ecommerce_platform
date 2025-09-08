@@ -26,7 +26,7 @@ try {
 
     # push feature branch up
     if ($NoPush) {
-        Write-Output "NoPush set: skipping push of feature branch to origin"
+        Write-Output "NoPush set: skipping push of feature branch to remotes"
     }
     else {
         Write-Output "Pushing feature branch to remotes: $FeatureBranch"
@@ -51,9 +51,10 @@ try {
     $preDev = git rev-parse refs/heads/dev
 
     git checkout dev
-    git pull origin dev
+    git fetch github
+    git pull github dev
     if ($LASTEXITCODE -ne 0) {
-        Write-Error "Failed to pull origin/dev. Aborting."
+        Write-Error "Failed to pull github/dev. Aborting."
         git checkout $FeatureBranch
         exit 4
     }
