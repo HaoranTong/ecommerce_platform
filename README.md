@@ -1,75 +1,212 @@
-定制化电商平台 - Sprint0 模板
+# 定制化电商平台
 
-说明：该目录为 Sprint0 的 FastAPI 模板工程，用于快速搭建本地开发环境并验证最小下单/支付流程。请根据项目实施方案使用。 
+支持五常大米等农产品销售的电商平台，基于 FastAPI + SQLAlchemy + MySQL 架构。
 
-包含：
-- FastAPI 应用初始化
-- Alembic 初始迁移
-- docker-compose 用于快速启动 MySQL 与 Redis
-- OpenAPI 规范文件（docs/openapi.yaml）
-- 事件 Schema 注册表（docs/event-schemas/）
+## 🚀 快速启动
 
-docker-compose up -d
-本地运行示例（PowerShell）：
+### 一键启动
 
-# 创建虚拟环境并激活
+```powershell
+# 后台启动（推荐，避免终端被占用）
+.\start.ps1
+
+# 前台启动（开发调试时使用）
+.\start.ps1 -Foreground
+```
+
+### 访问服务
+
+启动成功后可以访问：
+- **应用首页**: http://127.0.0.1:8000/
+- **API 文档**: http://127.0.0.1:8000/docs  
+- **ReDoc 文档**: http://127.0.0.1:8000/redoc
+- **健康检查**: http://127.0.0.1:8000/api/health
+
+### 停止服务
+
+```powershell
+# 停止 FastAPI 应用
+Get-Process python | Where-Object {$_.ProcessName -eq "python"} | Stop-Process
+
+# 停止 Docker 容器
+docker-compose down
+```
+
+## 📋 手动启动步骤
+
+如果需要手动启动或出现问题，可以按以下步骤操作：
+
+### 1. 创建虚拟环境
+```powershell
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
-
-# 安装依赖
 pip install -r requirements.txt
+```
 
-# 启动 MySQL/Redis
+### 2. 启动 Docker 服务
+```powershell
+# 启动 MySQL 和 Redis
 docker-compose up -d
 
-# 运行 Alembic 迁移
+# 等待服务就绪（约 10-15 秒）
+Start-Sleep -Seconds 10
+```
+
+### 3. 设置环境变量
+```powershell
+$env:DATABASE_URL = "mysql+pymysql://root:rootpass@127.0.0.1:3307/ecommerce_platform"
+$env:ALEMBIC_DSN = $env:DATABASE_URL
+$env:REDIS_URL = "redis://127.0.0.1:6379/0"
+```
+
+### 4. 运行数据库迁移
+```powershell
 alembic upgrade head
-
-# 运行应用
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-
-小程序开发：使用微信开发者工具，HTTP 调用需配置本地反向代理或使用云调试代理。
-
-开发环境（PowerShell，Windows）
-
-1) 创建并激活虚拟环境：
-
-```powershell
-python -m venv .venv
-& .\.venv\Scripts\Activate.ps1
 ```
 
-2) 安装依赖：
-
+### 5. 启动应用
 ```powershell
-pip install -r requirements.txt
+# 开发模式（热重载）
+python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
+
+# 生产模式
+python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
 
-3) 使用 `.env`：复制示例并编辑本地值：
+## 📡 服务端点
 
-```powershell
-Copy-Item .env.example .env
-# 编辑 .env 中的 DATABASE_URL / REDIS_URL 等
-notepad .env
+启动成功后，可以访问以下端点：
+
+- **应用首页**: http://127.0.0.1:8000/
+- **API 文档**: http://127.0.0.1:8000/docs  
+- **ReDoc 文档**: http://127.0.0.1:8000/redoc
+- **健康检查**: http://127.0.0.1:8000/api/health
+
+## 🏗️ 项目架构
+
+### 技术栈
+- **后端框架**: FastAPI + SQLAlchemy 2.x + Alembic
+- **数据库**: MySQL 8.0 (Docker 容器)
+- **缓存**: Redis 7 (Docker 容器)
+- **API 规范**: OpenAPI 3.0
+- **事件架构**: JSON Schema 事件定义
+
+### 目录结构
+```
+ecommerce_platform/
+├── app/                    # 应用代码
+│   ├── main.py            # FastAPI 应用入口
+│   ├── models.py          # SQLAlchemy 数据模型
+│   ├── api/               # API 路由和 Schema
+│   └── db.py              # 数据库配置
+├── alembic/               # 数据库迁移
+├── docs/                  # 项目文档
+│   ├── openapi.yaml       # API 规范
+│   ├── event-schemas/     # 事件 Schema 定义
+│   ├── technical/         # 技术文档
+│   └── status/            # 项目状态
+├── scripts/               # 自动化脚本
+├── start.ps1              # 完整启动脚本
+├── quick-start.ps1        # 快速启动脚本
+├── stop.ps1               # 停止服务脚本
+├── status.ps1             # 状态检查脚本
+└── docker-compose.yml     # Docker 容器配置
 ```
 
-4) 运行应用：
+## 🔧 开发工具
+
+### 启动脚本
+项目提供了一个统一的启动脚本 `start.ps1`，支持两种模式：
 
 ```powershell
-uvicorn app.main:app --reload --host $env:HOST --port $env:PORT
+# 后台模式（默认，推荐）
+.\start.ps1
+
+# 前台模式（开发调试）
+.\start.ps1 -Foreground
 ```
 
-关于 direnv：当前项目默认不使用 direnv。若你的 shell 中出现 `direnv` 的提示，可以忽略该提示，或在个人 shell 配置中移除 direnv 初始化。项目推荐使用上述显式的 venv 激活与 `.env` 管理流程。
+**后台模式特点**：
+- ✅ 不占用终端，可以继续执行其他命令
+- ✅ 避免复制粘贴时中断应用
+- ✅ 适合演示和测试
 
-开发（建议混合模式，使用 docker 来运行数据库与缓存，应用在本机运行以便热重载）
+**前台模式特点**：
+- 📝 直接显示应用日志
+- 🐛 便于调试
+- ⚠️ 复制粘贴可能中断应用
 
-1) 启动依赖服务（MySQL, Redis）：
-
+### 常用开发命令
 ```powershell
-docker-compose up -d mysql redis
+# 查看容器状态
+docker-compose ps
+
+# 查看应用日志
+docker-compose logs -f
+
+# 重建容器
+docker-compose down && docker-compose up -d
+
+# 进入 MySQL 容器
+docker-compose exec mysql mysql -u root -p
+
+# 进入 Redis 容器
+docker-compose exec redis redis-cli
+
+# 检查应用状态
+Invoke-WebRequest -Uri "http://127.0.0.1:8000/api/health"
 ```
 
-2) 在本地激活虚拟环境并运行应用（快速热重载）：
+## 🐛 故障排除
+
+### 常见问题
+
+1. **Docker 启动失败**
+   ```powershell
+   # 检查 Docker Desktop 是否运行
+   docker info
+   
+   # 手动启动 Docker Desktop
+   start "C:\Program Files\Docker\Docker\Docker Desktop.exe"
+   ```
+
+2. **端口占用**
+   ```powershell
+   # 检查端口占用
+   netstat -ano | findstr :3307
+   netstat -ano | findstr :6379
+   netstat -ano | findstr :8000
+   
+   # 强制停止占用进程
+   taskkill /PID <PID> /F
+   ```
+
+3. **数据库连接失败**
+   ```powershell
+   # 检查 MySQL 容器状态
+   docker-compose exec mysql mysqladmin ping -u root -p
+   
+   # 重置数据库
+   docker-compose down -v
+   docker-compose up -d
+   ```
+
+4. **迁移失败**
+   ```powershell
+   # 检查迁移状态
+   alembic current
+   alembic history
+   
+   # 强制设置迁移版本
+   alembic stamp head
+   ```
+
+### 环境要求
+
+- **操作系统**: Windows 10/11
+- **Python**: 3.11+
+- **Docker**: Docker Desktop with WSL2
+- **PowerShell**: 5.1+ 或 PowerShell Core 7+
 
 ```powershell
 & .\.venv\Scripts\Activate.ps1
