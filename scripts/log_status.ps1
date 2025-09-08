@@ -16,7 +16,7 @@ Example:
 #>
 
 Param(
-    [Parameter(Mandatory=$true)] [string]$Message,
+    [Parameter(Mandatory = $true)] [string]$Message,
     [string]$Files = "",
     [string]$PrUrl = "",
     [string]$Author = "automation",
@@ -81,6 +81,7 @@ try {
     if ($LASTEXITCODE -ne 0) {
         Write-Output "No changes to commit on $statusBranch"
     }
+>>>>>>> dev
     git push origin $statusBranch
 
     # return to previous branch if possible
