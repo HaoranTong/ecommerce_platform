@@ -7,6 +7,10 @@ Param()
 # - Stops uvicorn if the script started it
 
 Set-StrictMode -Version Latest
+
+# 初始化测试状态
+$script:TestSuccess = $true
+
 # compute repository root (script is in <repo>/scripts)
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $repo = Split-Path $scriptDir -Parent
@@ -80,15 +84,21 @@ try {
     }
     catch {
         Write-Error "POST failed: $($_.Exception.Message)"
+        $script:TestSuccess = $false
     }
 
     try {
         $list = Invoke-RestMethod -Method Get -Uri $apiUsers -TimeoutSec 10 -ErrorAction Stop
         Write-Output "GET /api/users result count: $($list.Count)"
         Write-Output (ConvertTo-Json $list -Depth 3)
+        
+        # 如果到达这里，说明测试成功
+        Write-Output "✅ Smoke test completed successfully"
+        $script:TestSuccess = $true
     }
     catch {
         Write-Error "GET failed: $($_.Exception.Message)"
+        $script:TestSuccess = $false
     }
 
 }
@@ -98,4 +108,9 @@ finally {
         $uvProc | Stop-Process -Force
     }
     Pop-Location
+    
+    # 确保正确的退出代码
+    if ($script:TestSuccess -eq $false) {
+        exit 1
+    }
 }
