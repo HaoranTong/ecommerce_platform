@@ -7,6 +7,22 @@
 - `docs/technical/定制化电商平台功能需求方案-1.0.md` — 功能需求定稿（由用户维护）。
 - `docs/technical/定制化电商平整体实施方案-1.0.md` — 整体实施计划（由用户维护）。
 
+核心契约文件：
+
+- `docs/openapi.yaml` — API 契约规范（v1.1.0，完整电商核心 API）
+- `docs/event-schemas/` — 事件 Schema 注册表（JSON Schema 格式）
+- `docs/technical/directory_standards.md` — 目录架构与命名规范
+- `docs/technical/data_models.md` — 数据模型架构文档（v1.0，电商核心模型）
+
+架构状态：
+
+- **当前版本**: v1.1.0 - 电商核心架构稳定版
+- **后端框架**: FastAPI + SQLAlchemy 2.x + Alembic + Pydantic v2
+- **数据库**: MySQL 8.0 (Docker 容器)
+- **缓存**: Redis 7 (Docker 容器)  
+- **迁移状态**: 0001_initial.py (干净的电商核心模型迁移)
+- **兼容性**: 已完成 Pydantic v2 全面兼容
+
 
 辅助文档与状态：
 

@@ -16,7 +16,7 @@ Example:
 #>
 
 Param(
-    [Parameter(Mandatory=$true)] [string]$Message,
+    [Parameter(Mandatory = $true)] [string]$Message,
     [string]$Files = "",
     [string]$PrUrl = "",
     [string]$Author = "automation",
@@ -65,7 +65,7 @@ try {
     git fetch origin --prune | Out-Null
 
     # create or reset local status branch from remote if exists, otherwise create new
-+    $existsRemote = git ls-remote --heads origin $statusBranch | Select-String $statusBranch -Quiet
+    + $existsRemote = git ls-remote --heads origin $statusBranch | Select-String $statusBranch -Quiet
     if ($existsRemote) {
         git checkout -B $statusBranch origin/$statusBranch
     }
@@ -77,7 +77,7 @@ try {
 
     git add $statusFile
     $commitMsg = "status: $Message ($(Get-Date -Format o))"
-+    git commit -m $commitMsg || Write-Output "No changes to commit on $statusBranch"
+    + git commit -m $commitMsg || Write-Output "No changes to commit on $statusBranch"
     git push origin $statusBranch
 
     # return to previous branch if possible
