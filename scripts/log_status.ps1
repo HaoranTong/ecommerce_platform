@@ -81,7 +81,6 @@ try {
     if ($LASTEXITCODE -ne 0) {
         Write-Output "No changes to commit on $statusBranch"
     }
->>>>>>> dev
     git push origin $statusBranch
 
     # return to previous branch if possible
