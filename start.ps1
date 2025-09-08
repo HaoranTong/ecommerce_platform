@@ -43,8 +43,19 @@ Write-Host "⏳ 等待服务就绪 (15秒)..." -ForegroundColor Blue
 Start-Sleep -Seconds 15
 
 # 激活虚拟环境
-Write-Host "🐍 激活虚拟环境..." -ForegroundColor Blue
-& .\.venv\Scripts\Activate.ps1
+Write-Host "🐍 检查虚拟环境..." -ForegroundColor Blue
+if ($env:VIRTUAL_ENV) {
+    Write-Host "✅ 虚拟环境已激活: $env:VIRTUAL_ENV" -ForegroundColor Green
+} else {
+    Write-Host "🔄 激活虚拟环境..." -ForegroundColor Yellow
+    if (Test-Path ".\.venv\Scripts\Activate.ps1") {
+        & .\.venv\Scripts\Activate.ps1
+        Write-Host "✅ 虚拟环境激活成功" -ForegroundColor Green
+    } else {
+        Write-Warning "⚠️  虚拟环境不存在，请先创建: python -m venv .venv"
+        exit 1
+    }
+}
 
 # 设置环境变量
 $env:DATABASE_URL = "mysql+pymysql://root:rootpass@127.0.0.1:3307/ecommerce_platform"
