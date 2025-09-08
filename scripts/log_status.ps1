@@ -102,16 +102,32 @@ $(if ($Files -ne "") { "**Files:** $Files`n" })$(if ($PrUrl -ne "") { "**PR/Issu
         Write-Output "No changes to commit on $statusBranch"
     }
     
-    # Push with timeout and error handling
-    Write-Output "Pushing automation logs to origin/$statusBranch..."
-    $pushJob = Start-Job -ScriptBlock { git push origin $using:statusBranch 2>&1 }
+    # Push with timeout and error handling to both remotes
+    Write-Output "Pushing automation logs to GitHub and Gitee..."
+    
+    # Push to GitHub
+    Write-Output "Pushing to GitHub..."
+    $pushJob = Start-Job -ScriptBlock { git push github $using:statusBranch 2>&1 }
     if (Wait-Job $pushJob -Timeout 30) {
         $pushResult = Receive-Job $pushJob
-        Write-Output $pushResult
+        Write-Output "GitHub: $pushResult"
     } else {
         Stop-Job $pushJob
         Remove-Job $pushJob
-        Write-Warning "Push operation timed out after 30 seconds"
+        Write-Warning "GitHub push operation timed out after 30 seconds"
+    }
+    Remove-Job $pushJob -Force -ErrorAction SilentlyContinue
+    
+    # Push to Gitee
+    Write-Output "Pushing to Gitee..."
+    $pushJob = Start-Job -ScriptBlock { git push gitee $using:statusBranch 2>&1 }
+    if (Wait-Job $pushJob -Timeout 30) {
+        $pushResult = Receive-Job $pushJob
+        Write-Output "Gitee: $pushResult"
+    } else {
+        Stop-Job $pushJob
+        Remove-Job $pushJob
+        Write-Warning "Gitee push operation timed out after 30 seconds"
     }
     Remove-Job $pushJob -Force -ErrorAction SilentlyContinue
 
