@@ -31,7 +31,10 @@ try {
     # ensure DB/Redis env vars for app startup (non-destructive defaults)
     if (-not $env:DATABASE_URL -or $env:DATABASE_URL -eq '') {
         # docker-compose maps host 3307 -> container 3306 by default to avoid conflicts with host MySQL
-        $env:DATABASE_URL = 'mysql+pymysql://root:rootpass@127.0.0.1:3307/dev_vision'
+        # Default to the project-specific database so migrations run against ecommerce_platform
+        $env:DATABASE_URL = 'mysql+pymysql://root:rootpass@127.0.0.1:3307/ecommerce_platform'
+        # Also set ALEMBIC_DSN explicitly so alembic.env.py picks the correct target
+        $env:ALEMBIC_DSN = $env:DATABASE_URL
         Write-Output "DATABASE_URL not set — defaulting to $env:DATABASE_URL (local docker-compose mapping 3307:3306)"
     }
     else {
@@ -62,6 +65,18 @@ try {
     if (-not (Test-Server)) {
         Write-Output "Server not responding; starting uvicorn..."
         $startedByScript = $true
+        # Ensure migrations are applied via Alembic (do NOT create tables directly)
+        Write-Output "Applying Alembic migrations: alembic upgrade head"
+        $env:PYTHONPATH = (Resolve-Path $repo).Path
+        try {
+            python -m alembic upgrade head
+        }
+        catch {
+            Write-Error "Failed to run alembic upgrade head: $($_.Exception.Message)"
+            if ($startedByScript -and $uvProc) { $uvProc | Stop-Process -Force }
+            exit 3
+        }
+
         $uvProc = Start-Process -FilePath python -ArgumentList '-m', 'uvicorn', 'app.main:app', '--host', '127.0.0.1', '--port', '8000' -NoNewWindow -PassThru
         Start-Sleep -Seconds 2
         if (-not (Test-Server)) {

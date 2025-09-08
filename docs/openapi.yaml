@@ -1,0 +1,305 @@
+openapi: 3.0.3
+info:
+  title: 定制化电商平台 API
+  description: |
+    支持五常大米等农产品销售的电商平台 API
+    
+    ## 版本历史
+    - v1.1.0: 完整电商核心 API，包含用户、商品、分类、订单管理
+    - v1.0.0: 基础用户和商品 API
+    
+    ## 技术架构
+    - 后端: FastAPI + SQLAlchemy 2.x + MySQL
+    - 缓存: Redis
+    - 兼容性: Pydantic v2
+  version: 1.1.0
+  contact:
+    name: 开发团队
+servers:
+  - url: http://localhost:8000
+    description: 本地开发环境
+  - url: https://api.ecommerce.example.com
+    description: 生产环境
+
+paths:
+  /api/health:
+    get:
+      tags: [系统]
+      summary: 健康检查
+      responses:
+        '200':
+          description: 系统正常
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "ok"
+
+  /api/users:
+    get:
+      tags: [用户管理]
+      summary: 获取用户列表
+      parameters:
+        - name: skip
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 100
+      responses:
+        '200':
+          description: 用户列表
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/User'
+    post:
+      tags: [用户管理]
+      summary: 创建用户
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserCreate'
+      responses:
+        '201':
+          description: 用户创建成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          description: 用户名或邮箱已存在
+
+  /api/users/{user_id}:
+    get:
+      tags: [用户管理]
+      summary: 获取用户详情
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: 用户详情
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '404':
+          description: 用户不存在
+    delete:
+      tags: [用户管理]
+      summary: 删除用户
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '204':
+          description: 删除成功
+        '404':
+          description: 用户不存在
+
+  /api/products:
+    get:
+      tags: [商品管理]
+      summary: 获取商品列表
+      parameters:
+        - name: skip
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 100
+        - name: category_id
+          in: query
+          schema:
+            type: integer
+          description: 按分类筛选
+      responses:
+        '200':
+          description: 商品列表
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Product'
+    post:
+      tags: [商品管理]
+      summary: 创建商品
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProductCreate'
+      responses:
+        '201':
+          description: 商品创建成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Product'
+
+  /api/products/{product_id}:
+    get:
+      tags: [商品管理]
+      summary: 获取商品详情
+      parameters:
+        - name: product_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: 商品详情
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Product'
+        '404':
+          description: 商品不存在
+
+  # 预留的电商核心 API（将在后续 Sprint 实现）
+  /api/v1/orders:
+    post:
+      tags: [订单管理]
+      summary: 创建订单（未实现）
+      description: "将在 Sprint 1 实现"
+      responses:
+        '501':
+          description: 功能未实现
+
+  /api/v1/cart:
+    get:
+      tags: [购物车]
+      summary: 获取购物车（未实现）
+      description: "将在 Sprint 1 实现"
+      responses:
+        '501':
+          description: 功能未实现
+
+  /api/v1/payments/callback:
+    post:
+      tags: [支付]
+      summary: 支付回调（未实现）
+      description: "将在 Sprint 1 实现，支持微信支付"
+      responses:
+        '501':
+          description: 功能未实现
+
+components:
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        username:
+          type: string
+          example: "user123"
+        email:
+          type: string
+          format: email
+          example: "user@example.com"
+      required: [id, username, email]
+
+    UserCreate:
+      type: object
+      properties:
+        username:
+          type: string
+          maxLength: 50
+          example: "user123"
+        email:
+          type: string
+          format: email
+          example: "user@example.com"
+      required: [username, email]
+
+    Product:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        name:
+          type: string
+          example: "五常大米"
+        sku:
+          type: string
+          example: "RICE_5KG_001"
+        description:
+          type: string
+          nullable: true
+          example: "优质五常大米，5公斤装"
+      required: [id, name, sku]
+
+    ProductCreate:
+      type: object
+      properties:
+        name:
+          type: string
+          example: "五常大米"
+        sku:
+          type: string
+          example: "RICE_5KG_001"
+        description:
+          type: string
+          nullable: true
+          example: "优质五常大米，5公斤装"
+      required: [name, sku]
+
+    Error:
+      type: object
+      properties:
+        detail:
+          type: string
+          example: "错误详情"
+      required: [detail]
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      description: "JWT token 认证（将在用户认证模块实现）"
+
+# 全局安全配置（暂时不启用）
+# security:
+#   - BearerAuth: []
+
+tags:
+  - name: 系统
+    description: 系统级接口
+  - name: 用户管理
+    description: 用户相关操作
+  - name: 商品管理
+    description: 商品相关操作
+  - name: 订单管理
+    description: 订单相关操作（待实现）
+  - name: 购物车
+    description: 购物车操作（待实现）
+  - name: 支付
+    description: 支付相关操作（待实现）
