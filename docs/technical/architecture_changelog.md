@@ -98,6 +98,113 @@ ALTER TABLE products ADD COLUMN category_id INT REFERENCES categories(id);
 - ✅ FastAPI 应用成功启动在 http://127.0.0.1:8000
 - ✅ 数据库连接正常，所有表创建成功
 - ✅ Alembic 迁移状态正确 (0001_initial)
+
+## v1.1.1 - 自动化脚本修复与分支架构优化 (2025-09-08)
+
+### 🎯 目标
+修复 PowerShell 自动化脚本的语法错误和死循环问题，建立独立的日志分支架构。
+
+### 📋 变更摘要
+
+#### 脚本错误修复
+- **语法错误**: 修复 `scripts/log_status.ps1` 中的 PowerShell 语法错误
+  - 删除多余的 `+` 符号 (lines 68, 80)
+  - 修复 `||` 运算符为 PowerShell 兼容的 `$LASTEXITCODE` 检查
+- **退出码修复**: 优化 `scripts/smoke_test.ps1` 的退出码处理
+  - 添加 `$script:TestSuccess` 变量跟踪测试状态
+  - 确保成功时返回 `exit 0`，失败时返回 `exit 1`
+
+#### 分支架构重构
+- **独立日志分支**: 创建 `status/logs` 分支专门用于自动化日志
+- **文件分离**:
+  - `docs/status/automation_logs.md` - 仅存在于 `status/logs` 分支
+  - `docs/status/status.md` - 存在于所有分支，用于人工状态记录
+- **避免死循环**: 自动化脚本不再修改主开发分支的文件
+
+#### 推送优化
+- **超时处理**: 添加 30 秒推送超时限制
+- **错误处理**: 增强 Git 操作的错误检测和恢复机制
+- **远程同步**: 优化多远程仓库（GitHub + Gitee）的推送策略
+
+### 🔧 技术细节
+
+#### PowerShell 语法修复
+```powershell
+# 修复前 (错误语法)
++ $existsRemote = git ls-remote --heads origin $statusBranch | Select-String $statusBranch -Quiet
++ git commit -m $commitMsg || Write-Output "No changes to commit"
+
+# 修复后 (正确语法)
+$existsRemote = git ls-remote --heads origin $statusBranch | Select-String $statusBranch -Quiet
+git commit -m $commitMsg
+if ($LASTEXITCODE -ne 0) {
+    Write-Output "No changes to commit on $statusBranch"
+}
+```
+
+#### 烟雾测试退出码修复
+```powershell
+# 添加测试状态跟踪
+$script:TestSuccess = $true
+
+# 在测试失败时设置状态
+if ($response.StatusCode -ne 200) {
+    $script:TestSuccess = $false
+}
+
+# 正确的退出码处理
+if ($script:TestSuccess) {
+    exit 0  # 成功
+} else {
+    exit 1  # 失败
+}
+```
+
+#### 分支架构设计
+```
+main / dev (主开发分支)
+├── docs/status/status.md (人工状态记录)
+└── (不包含 automation_logs.md)
+
+status/logs (独立日志分支)
+├── docs/status/status.md (从主分支同步)
+├── docs/status/automation_logs.md (自动化日志)
+└── scripts/ (脚本修复版本)
+```
+
+### 🔄 自动化流程修复
+
+#### 发布脚本 (`scripts/release_to_main.ps1`)
+1. ✅ 在 dev 分支运行烟雾测试
+2. ✅ 合并 dev → main (无冲突)
+3. ✅ 推送到远程仓库
+4. ✅ 记录合并日志到独立分支
+5. ✅ 在 main 分支运行最终验证
+6. ✅ 记录发布完成日志
+
+#### 日志脚本 (`scripts/log_status.ps1`)
+1. ✅ 切换到独立的 `status/logs` 分支
+2. ✅ 在独立分支添加自动化日志条目
+3. ✅ 提交并推送日志更新
+4. ✅ 返回原分支，不影响工作状态
+
+### ✅ 验证结果
+
+#### 脚本功能验证
+- ✅ PowerShell 语法错误全部修复
+- ✅ 烟雾测试正确返回退出码 (0=成功, 1=失败)
+- ✅ 发布自动化流程完整运行无错误
+- ✅ 日志记录到独立分支，避免死循环
+
+#### 分支架构验证
+- ✅ `automation_logs.md` 仅存在于 `status/logs` 分支
+- ✅ 主开发分支 (main/dev) 不包含自动化日志文件
+- ✅ 分支切换和合并不产生意外的文件变更
+
+#### 推送性能验证
+- ✅ 添加 30 秒超时限制，避免无限等待
+- ✅ GitHub 和 Gitee 双远程推送策略优化
+- ✅ 错误恢复机制工作正常
 - ✅ API 端点响应正常
 - ✅ 烟雾测试通过
 

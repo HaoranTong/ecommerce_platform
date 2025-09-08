@@ -13,20 +13,28 @@
 - `docs/event-schemas/` — 事件 Schema 注册表（JSON Schema 格式）
 - `docs/technical/directory_standards.md` — 目录架构与命名规范
 - `docs/technical/data_models.md` — 数据模型架构文档（v1.0，电商核心模型）
+- `docs/technical/automation_scripts.md` — 自动化脚本使用指南（v1.1.1）
 
 架构状态：
 
-- **当前版本**: v1.1.0 - 电商核心架构稳定版
+- **当前版本**: v1.1.1 - 自动化脚本修复与分支架构优化
 - **后端框架**: FastAPI + SQLAlchemy 2.x + Alembic + Pydantic v2
 - **数据库**: MySQL 8.0 (Docker 容器)
 - **缓存**: Redis 7 (Docker 容器)  
 - **迁移状态**: 0001_initial.py (干净的电商核心模型迁移)
 - **兼容性**: 已完成 Pydantic v2 全面兼容
+- **自动化**: PowerShell 脚本修复完成，独立日志分支架构建立
 
 
 辅助文档与状态：
 
 - `docs/status/status.md` — 实时工作状态与每日更新（用于记录每日进展、阻碍与下一步；仅包含短时态信息、行动项与决策日志）。
+- `docs/status/automation_logs.md` — 自动化操作日志（仅存在于 `status/logs` 分支，记录发布、合并等自动化操作）
+- `scripts/` — PowerShell 自动化脚本集
+  - `start.ps1` — 统一启动脚本（Docker + FastAPI 服务）
+  - `scripts/release_to_main.ps1` — 自动化发布脚本（dev → main）
+  - `scripts/smoke_test.ps1` — API 烟雾测试脚本
+  - `scripts/log_status.ps1` — 状态日志记录脚本
 
 建议工作流程：
 - 所有接口/事件/DDL 变更先更新对应文档并在 PR 中标注变更点。
