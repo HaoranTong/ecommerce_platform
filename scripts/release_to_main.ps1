@@ -54,7 +54,11 @@ try {
         exit 2
     }
 
-    git push origin main
+    # Push to both remotes
+    Write-Output "Pushing to GitHub..."
+    git push github main
+    Write-Output "Pushing to Gitee..."
+    git push gitee main
 
     # Record merge into status log
     Write-Output "Recording release merge into status log..."
@@ -66,7 +70,8 @@ try {
     if ($LASTEXITCODE -ne 0) {
         Write-Error "Smoke test on main failed (exit $LASTEXITCODE). Rolling back main to pre-merge state."
         git reset --hard $preMain
-        git push --force origin main
+        git push --force github main
+        git push --force gitee main
         exit $LASTEXITCODE
     }
 

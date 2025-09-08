@@ -29,10 +29,11 @@ try {
         Write-Output "NoPush set: skipping push of feature branch to origin"
     }
     else {
-        Write-Output "Pushing feature branch to origin: $FeatureBranch"
-        git push origin $FeatureBranch
+        Write-Output "Pushing feature branch to remotes: $FeatureBranch"
+        git push github $FeatureBranch
+        git push gitee $FeatureBranch
         if ($LASTEXITCODE -ne 0) {
-            Write-Error "Failed to push feature branch to origin. Aborting."
+            Write-Error "Failed to push feature branch to remotes. Aborting."
             exit 2
         }
     }
@@ -79,13 +80,14 @@ try {
 
     # push dev
     if ($NoPush) {
-        Write-Output "NoPush set: skipping push of dev to origin (merge succeeded locally)."
+        Write-Output "NoPush set: skipping push of dev to remotes (merge succeeded locally)."
     }
     else {
-        Write-Output "Pushing dev to origin (merge succeeded)..."
-        git push origin dev
+        Write-Output "Pushing dev to remotes (merge succeeded)..."
+        git push github dev
+        git push gitee dev
         if ($LASTEXITCODE -ne 0) {
-            Write-Error "Failed to push dev to origin after merge. Please investigate."
+            Write-Error "Failed to push dev to remotes after merge. Please investigate."
             exit 7
         }
     }
