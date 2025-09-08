@@ -27,7 +27,10 @@ try {
     # ensure DB/Redis env vars for app startup (non-destructive defaults)
     if (-not $env:DATABASE_URL -or $env:DATABASE_URL -eq '') {
         # docker-compose maps host 3307 -> container 3306 by default to avoid conflicts with host MySQL
-        $env:DATABASE_URL = 'mysql+pymysql://root:rootpass@127.0.0.1:3307/dev_vision'
+        # Default to the project-specific database so migrations run against ecommerce_platform
+        $env:DATABASE_URL = 'mysql+pymysql://root:rootpass@127.0.0.1:3307/ecommerce_platform'
+        # Also set ALEMBIC_DSN explicitly so alembic.env.py picks the correct target
+        $env:ALEMBIC_DSN = $env:DATABASE_URL
         Write-Output "DATABASE_URL not set — defaulting to $env:DATABASE_URL (local docker-compose mapping 3307:3306)"
     }
     else {

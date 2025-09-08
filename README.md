@@ -4,9 +4,10 @@
 
 包含：
 - FastAPI 应用初始化
-- Alembic 初始迁移（空）
+- Alembic 初始迁移
 - docker-compose 用于快速启动 MySQL 与 Redis
-- OpenAPI 入口文件（docs/openapi.yaml）
+- OpenAPI 规范文件（docs/openapi.yaml）
+- 事件 Schema 注册表（docs/event-schemas/）
 
 docker-compose up -d
 本地运行示例（PowerShell）：
