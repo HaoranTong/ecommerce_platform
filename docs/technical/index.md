@@ -11,6 +11,18 @@
 
 - `docs/openapi.yaml` — API 契约规范（v1.1.0，完整电商核心 API）
 - `docs/event-schemas/` — 事件 Schema 注册表（JSON Schema 格式）
+
+开发状态：
+
+- `docs/status/status.md` — 项目开发状态和里程碑记录
+- `docs/technical/architecture_changelog.md` — 架构变更历史记录
+
+**最新更新 (2025-09-09)**:
+- ✅ 产品管理完整CRUD功能实现 
+- ✅ 分类管理层级功能实现
+- ✅ 数据库连接和迁移问题彻底解决
+- ✅ Docker开发环境标准化配置
+- ✅ API功能验证和测试数据创建
 - `docs/technical/directory_standards.md` — 目录架构与命名规范
 - `docs/technical/data_models.md` — 数据模型架构文档（v1.0，电商核心模型）
 - `docs/technical/automation_scripts.md` — 自动化脚本使用指南（v1.1.1）
