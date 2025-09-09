@@ -60,6 +60,9 @@ class Product(Base):
     # 商品状态
     status = Column(String(20), nullable=False, default='active')  # active, inactive, out_of_stock
     
+    # 商品图片
+    image_url = Column(String(500), nullable=True)  # 主图URL
+    
     # 商品属性（JSON 存储，为后续扩展预留）
     attributes = Column(Text, nullable=True)  # JSON string
     images = Column(Text, nullable=True)      # JSON string of image URLs
