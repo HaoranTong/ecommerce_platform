@@ -113,7 +113,80 @@ Certificate (证书)                                   Category (分类)
 - 前端框架选型与集成准备
 
 ### 变更记录
-- 2025-09-08: 完成基础架构稳定化，消除所有兼容性问题，建立干净的开发环境 
+- 2025-09-08: 完成基础架构稳定化，消除所有兼容性问题，建立干净的开发环境
+- 2025-09-09: 完成产品和分类CRUD功能开发，修复数据库连接问题，功能验证通过
+
+## 2025-09-09 03:35:00 — 产品管理功能开发完成
+
+### 今日完成
+- **产品CRUD API**: 完整实现产品的创建、读取、更新、删除功能
+  - `POST /api/products` - 创建产品（支持SKU重复检验、分类关联）
+  - `GET /api/products` - 获取产品列表（支持分页、筛选、搜索）
+  - `GET /api/products/{id}` - 获取单个产品详情
+  - `PUT /api/products/{id}` - 更新产品信息
+  - `PATCH /api/products/{id}/stock` - 库存管理（支持正负变更、自动状态切换）
+  - `DELETE /api/products/{id}` - 删除产品（智能软删除/硬删除）
+
+- **分类管理API**: 完整实现分类层级管理功能
+  - `POST /api/categories` - 创建分类（支持父子关系、同级名称检验）
+  - `GET /api/categories` - 获取分类列表（支持层级筛选）
+  - `GET /api/categories/tree` - 获取分类树结构
+  - `GET /api/categories/{id}` - 获取单个分类详情
+  - `PUT /api/categories/{id}` - 更新分类（防循环引用检验）
+  - `DELETE /api/categories/{id}` - 删除分类（级联检查）
+
+- **数据库连接修复**: 彻底解决Docker开发环境数据库连接问题
+  - 修复`.env`文件缺失导致的环境变量加载失败
+  - 修复`alembic/env.py`中环境变量加载逻辑
+  - 修复`start.ps1`默认配置与docker-compose.yml不匹配
+  - 数据库迁移成功，所有表结构正确创建
+
+- **Pydantic Schema扩展**: 完善API数据验证和序列化
+  - `ProductCreate/Update/Read/StockUpdate` - 产品相关Schema
+  - `CategoryCreate/Update/Read/TreeRead` - 分类相关Schema
+  - 完整的字段验证、类型检查和业务规则约束
+
+### 技术细节
+- **业务逻辑增强**: 
+  - SKU唯一性校验
+  - 库存自动状态管理（active/out_of_stock切换）
+  - 分类层级关系和循环引用防护
+  - 智能删除策略（软删除vs硬删除）
+
+- **API设计优化**:
+  - RESTful路由设计
+  - 统一错误处理和状态码
+  - 中文错误消息提升用户体验
+  - 查询参数验证和分页支持
+
+- **环境配置标准化**:
+  - `.env`文件模板和实例配置
+  - Docker容器与本地开发环境一致性
+  - 环境变量加载优先级和容错机制
+
+### 验证结果
+- ✅ 所有API端点正常响应
+- ✅ 数据库CRUD操作验证通过
+- ✅ 业务逻辑规则正确执行
+- ✅ 创建测试数据：五常大米产品、粮食类分类
+- ✅ Swagger UI文档完整可用 (http://127.0.0.1:8000/docs)
+- ✅ 服务前台/后台启动模式正常
+
+### 当前进行
+- 在`feature/add-product-crud`分支完成开发
+- 准备提交代码并合并到dev分支
+
+### 阻碍 / 问题
+- 无技术阻碍，所有核心功能正常
+
+### 明日计划 / Next
+- 完善产品功能测试覆盖率
+- 实现用户注册登录功能
+- 开始订单管理系统开发
+- 集成支付接口准备
+
+### 变更记录
+- 2025-09-09: 产品和分类管理核心功能开发完成，环境配置问题彻底解决 
 
 
 
@@ -146,5 +219,51 @@ Certificate (证书)                                   Category (分类)
 - Summary: 测试超时修复
 - Branch: main
 - Commit: 
+
+
+## 2025-09-09 12:45:00 — feature/add-user-auth 完成
+
+### 今日完成
+- ✅ **彻底修复 Alembic 自动生成问题**
+  - 修复了 `alembic.ini` 配置文件缺失完整配置段
+  - 修复了 `script.py.mako` 模板文件完全错误的问题
+  - 成功实现自动检测模型变化并生成迁移文件
+  - 验证了数据库迁移功能完全正常
+
+- ✅ **完成用户认证系统全功能开发**
+  - 实现 User 模型扩展（password_hash, is_active 字段）
+  - 创建完整的 JWT 认证工具模块 (`app/auth.py`)
+  - 实现用户注册、登录、获取当前用户信息 API
+  - 修复 Pydantic 2.x 兼容性问题（regex → pattern）
+  - 选择并集成 PyJWT 替代 python-jose
+  - 修复 JWT Subject 类型问题（必须为字符串）
+
+- ✅ **API 功能验证**
+  - 用户注册 API: `POST /api/auth/register` ✅
+  - 用户登录 API: `POST /api/auth/login` ✅
+  - 用户信息 API: `GET /api/auth/me` ✅ (JWT 保护)
+  - 密码加密验证、Token 生成解码全部正常
+
+### 技术栈选择
+- **JWT 库**: PyJWT 2.8.0（替代 python-jose）
+  - 更轻量、性能更好、官方维护
+  - 专注 JWT 功能，符合项目需求
+- **密码加密**: passlib + bcrypt
+- **API 验证**: Pydantic 2.x 兼容模式
+
+### 当前架构状态
+- 数据库迁移系统：完全正常 ✅
+- 产品管理系统：完成 ✅
+- 分类管理系统：完成 ✅
+- 用户认证系统：完成 ✅
+- 下一步：订单管理系统开发
+
+### 阻碍解决
+- **Alembic 自动生成问题**：已彻底解决，后续开发不再受此困扰
+- **Pydantic 版本兼容**：已解决并标准化
+
+### 分支状态
+- Branch: feature/add-user-auth
+- 准备提交合并到 dev 分支
 
 
