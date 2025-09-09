@@ -221,3 +221,49 @@ Certificate (证书)                                   Category (分类)
 - Commit: 
 
 
+## 2025-09-09 12:45:00 — feature/add-user-auth 完成
+
+### 今日完成
+- ✅ **彻底修复 Alembic 自动生成问题**
+  - 修复了 `alembic.ini` 配置文件缺失完整配置段
+  - 修复了 `script.py.mako` 模板文件完全错误的问题
+  - 成功实现自动检测模型变化并生成迁移文件
+  - 验证了数据库迁移功能完全正常
+
+- ✅ **完成用户认证系统全功能开发**
+  - 实现 User 模型扩展（password_hash, is_active 字段）
+  - 创建完整的 JWT 认证工具模块 (`app/auth.py`)
+  - 实现用户注册、登录、获取当前用户信息 API
+  - 修复 Pydantic 2.x 兼容性问题（regex → pattern）
+  - 选择并集成 PyJWT 替代 python-jose
+  - 修复 JWT Subject 类型问题（必须为字符串）
+
+- ✅ **API 功能验证**
+  - 用户注册 API: `POST /api/auth/register` ✅
+  - 用户登录 API: `POST /api/auth/login` ✅
+  - 用户信息 API: `GET /api/auth/me` ✅ (JWT 保护)
+  - 密码加密验证、Token 生成解码全部正常
+
+### 技术栈选择
+- **JWT 库**: PyJWT 2.8.0（替代 python-jose）
+  - 更轻量、性能更好、官方维护
+  - 专注 JWT 功能，符合项目需求
+- **密码加密**: passlib + bcrypt
+- **API 验证**: Pydantic 2.x 兼容模式
+
+### 当前架构状态
+- 数据库迁移系统：完全正常 ✅
+- 产品管理系统：完成 ✅
+- 分类管理系统：完成 ✅
+- 用户认证系统：完成 ✅
+- 下一步：订单管理系统开发
+
+### 阻碍解决
+- **Alembic 自动生成问题**：已彻底解决，后续开发不再受此困扰
+- **Pydantic 版本兼容**：已解决并标准化
+
+### 分支状态
+- Branch: feature/add-user-auth
+- 准备提交合并到 dev 分支
+
+
