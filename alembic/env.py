@@ -5,10 +5,24 @@ from sqlalchemy import pool
 
 from alembic import context
 
-# ensure project root is on sys.path so 'app' package can be imported
-import sys
+# Load .env file if it exists
 from pathlib import Path
-proj_root = Path(__file__).resolve().parents[1]
+import sys
+
+# Get the project root directory (parent of alembic directory)
+alembic_dir = Path(__file__).resolve().parent
+proj_root = alembic_dir.parent
+env_file = proj_root / '.env'
+
+if env_file.exists():
+    with open(env_file, 'r', encoding='utf-8') as f:
+        for line in f:
+            line = line.strip()
+            if line and not line.startswith('#') and '=' in line:
+                key, value = line.split('=', 1)
+                os.environ.setdefault(key.strip(), value.strip())
+
+# ensure project root is on sys.path so 'app' package can be imported
 sys.path.insert(0, str(proj_root))
 
 # this is the Alembic Config object, which provides
