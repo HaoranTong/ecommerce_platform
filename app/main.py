@@ -41,3 +41,10 @@ try:
     app.include_router(certificate_routes.router, prefix="/api", tags=["certificates"])
 except Exception:
     pass
+
+try:
+    from app.api import user_routes
+    app.include_router(user_routes.router, prefix="/api", tags=["users"])
+except Exception:
+    # user routes may be missing on some branches; ignore if not present
+    pass
