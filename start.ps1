@@ -106,8 +106,8 @@ if (Test-Path ".env") {
     Write-Host "✅ 环境变量加载成功" -ForegroundColor Green
 } else {
     Write-Host "⚠️  .env文件不存在，使用默认环境变量" -ForegroundColor Yellow
-    # 设置默认环境变量
-    $env:DATABASE_URL = "mysql+pymysql://root:123456@localhost:3307/ecommerce_db"
+    # 设置默认环境变量（与docker-compose.yml保持一致）
+    $env:DATABASE_URL = "mysql+pymysql://root:rootpass@localhost:3307/ecommerce_platform"
     $env:ALEMBIC_DSN = $env:DATABASE_URL
     $env:REDIS_URL = "redis://localhost:6379/0"
 }
