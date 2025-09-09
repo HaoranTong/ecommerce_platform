@@ -1,15 +1,32 @@
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 from typing import Optional, List
 from datetime import datetime
 from decimal import Decimal
 
 
-# 用户相关 Schema
-class UserCreate(BaseModel):
-    username: str = Field(..., max_length=50)
-    email: str
-    phone: Optional[str] = None
-    real_name: Optional[str] = None
+# 用户认证相关 Schema
+class UserRegister(BaseModel):
+    username: str = Field(..., min_length=3, max_length=50)
+    email: str = Field(..., pattern=r'^[^\s@]+@[^\s@]+\.[^\s@]+$')
+    password: str = Field(..., min_length=6, max_length=128)
+    phone: Optional[str] = Field(None, pattern=r'^1[3-9]\d{9}$')
+    real_name: Optional[str] = Field(None, max_length=100)
+
+
+class UserLogin(BaseModel):
+    username: str  # 可以是用户名或邮箱
+    password: str
+
+
+class UserUpdate(BaseModel):
+    email: Optional[str] = Field(None, pattern=r'^[^\s@]+@[^\s@]+\.[^\s@]+$')
+    phone: Optional[str] = Field(None, pattern=r'^1[3-9]\d{9}$')
+    real_name: Optional[str] = Field(None, max_length=100)
+
+
+class UserChangePassword(BaseModel):
+    old_password: str
+    new_password: str = Field(..., min_length=6, max_length=128)
 
 
 class UserRead(BaseModel):
@@ -18,11 +35,31 @@ class UserRead(BaseModel):
     email: str
     phone: Optional[str] = None
     real_name: Optional[str] = None
+    is_active: bool
     wx_openid: Optional[str] = None
     created_at: datetime
 
     class Config:
         from_attributes = True
+
+
+class Token(BaseModel):
+    access_token: str
+    refresh_token: str
+    token_type: str = "bearer"
+    expires_in: int  # seconds
+
+
+class TokenRefresh(BaseModel):
+    refresh_token: str
+
+
+# 用户相关 Schema (保留兼容性)
+class UserCreate(BaseModel):
+    username: str = Field(..., max_length=50)
+    email: str
+    phone: Optional[str] = None
+    real_name: Optional[str] = None
 
 
 # 分类相关 Schema
@@ -138,7 +175,8 @@ class OrderCreate(BaseModel):
     shipping_address: Optional[str] = None  # JSON string
     remark: Optional[str] = None
 
-    @validator('items')
+    @field_validator('items')
+    @classmethod
     def validate_items_not_empty(cls, v):
         if not v:
             raise ValueError('订单必须包含至少一个商品')
