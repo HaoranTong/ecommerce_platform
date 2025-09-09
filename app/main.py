@@ -48,3 +48,10 @@ try:
 except Exception:
     # user routes may be missing on some branches; ignore if not present
     pass
+
+try:
+    from app.api import order_routes
+    app.include_router(order_routes.router, prefix="/api", tags=["orders"])
+except Exception:
+    # order routes may be missing on some branches; ignore if not present
+    pass
