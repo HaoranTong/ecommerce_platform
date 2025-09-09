@@ -49,7 +49,6 @@ try {
     }
 
     $baseUrl = 'http://127.0.0.1:8000'
-    $apiUsers = "$baseUrl/api/users"
 
     function Test-Server {
         try {
@@ -91,10 +90,15 @@ try {
 
     # perform a POST with a randomized username to avoid conflicts
     $rnd = Get-Random -Maximum 100000
-    $payload = @{ username = "smoke$rnd"; email = "smoke$rnd@example.com" } | ConvertTo-Json
-    Write-Output "POST $apiUsers -> payload: $payload"
+    $payload = @{ 
+        username = "smoke$rnd"; 
+        email = "smoke$rnd@example.com"; 
+        password = "testpass123" 
+    } | ConvertTo-Json
+    $apiRegister = "http://127.0.0.1:8000/api/auth/register"
+    Write-Output "POST $apiRegister -> payload: $payload"
     try {
-        $post = Invoke-RestMethod -Method Post -Uri $apiUsers -Body $payload -ContentType 'application/json' -TimeoutSec 10 -ErrorAction Stop
+        $post = Invoke-RestMethod -Method Post -Uri $apiRegister -Body $payload -ContentType 'application/json' -TimeoutSec 10 -ErrorAction Stop
         Write-Output "POST result: $(ConvertTo-Json $post -Compress)"
     }
     catch {
@@ -103,9 +107,20 @@ try {
     }
 
     try {
-        $list = Invoke-RestMethod -Method Get -Uri $apiUsers -TimeoutSec 10 -ErrorAction Stop
-        Write-Output "GET /api/users result count: $($list.Count)"
-        Write-Output (ConvertTo-Json $list -Depth 3)
+        # 登录获取token
+        $loginPayload = @{ 
+            username = "smoke$rnd"; 
+            password = "testpass123" 
+        } | ConvertTo-Json
+        $apiLogin = "http://127.0.0.1:8000/api/auth/login"
+        $loginResult = Invoke-RestMethod -Method Post -Uri $apiLogin -Body $loginPayload -ContentType 'application/json' -TimeoutSec 10 -ErrorAction Stop
+        
+        # 使用token获取用户信息
+        $headers = @{ Authorization = "Bearer $($loginResult.access_token)" }
+        $apiMe = "http://127.0.0.1:8000/api/auth/me"
+        $userInfo = Invoke-RestMethod -Method Get -Uri $apiMe -Headers $headers -TimeoutSec 10 -ErrorAction Stop
+        
+        Write-Output "GET $apiMe result: $(ConvertTo-Json $userInfo -Compress)"
         
         # 如果到达这里，说明测试成功
         Write-Output "✅ Smoke test completed successfully"
