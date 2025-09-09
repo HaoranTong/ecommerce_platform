@@ -50,6 +50,38 @@ class Token(BaseModel):
     expires_in: int  # seconds
 
 
+# 购物车相关 Schema
+class CartItemAdd(BaseModel):
+    product_id: int = Field(..., gt=0, description="商品ID")
+    quantity: int = Field(..., gt=0, le=99, description="添加数量（1-99）")
+
+
+class CartItemUpdate(BaseModel):
+    quantity: int = Field(..., ge=0, le=99, description="更新数量（0表示删除）")
+
+
+class CartItemRead(BaseModel):
+    product_id: int
+    product_name: str
+    product_sku: str
+    price: Decimal
+    quantity: int
+    subtotal: Decimal  # 小计
+    stock_quantity: int  # 库存数量
+    image_url: Optional[str] = None
+
+
+class CartSummary(BaseModel):
+    user_id: int
+    items: List[CartItemRead]
+    total_items: int  # 商品种类数
+    total_quantity: int  # 总数量
+    total_amount: Decimal  # 总金额
+    
+    class Config:
+        from_attributes = True
+
+
 class TokenRefresh(BaseModel):
     refresh_token: str
 
@@ -112,6 +144,7 @@ class ProductCreate(BaseModel):
     status: str = Field(default="active", pattern="^(active|inactive|out_of_stock)$")
     attributes: Optional[str] = None  # JSON string
     images: Optional[str] = None      # JSON string
+    image_url: Optional[str] = Field(None, max_length=500, description="主图URL")
 
 
 class ProductUpdate(BaseModel):
@@ -142,6 +175,7 @@ class ProductRead(BaseModel):
     status: str
     attributes: Optional[str] = None
     images: Optional[str] = None
+    image_url: Optional[str] = None  # 主图URL
     created_at: datetime
     updated_at: datetime
 

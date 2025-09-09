@@ -1,15 +1,34 @@
-# 定制化电商平台 v1.1
+# 定制化电商平台 v1.2
 
-支持五常大米等农产品销售的电商平台，基于 FastAPI + SQLAlchemy + MySQL 架构。
+支持五常大米等农产品销售的电商平台，基于 FastAPI + SQLAlchemy + MySQL + Redis 架构。
 
 **最新更新**: 
-- ✅ 完整自动化发布流程
-- ✅ PowerShell 脚本优化
-- ✅ 烟雾测试集成
+- ✅ 购物车系统完整实现
+- ✅ 标准化开发工具和流程
+- ✅ 完整的API测试套件
+- ✅ 技术文档规范化
 
 ## 🚀 快速启动
 
-### 一键启动
+### 开发环境启动（推荐）
+
+使用标准化开发工具：
+
+```powershell
+# 1. 配置开发环境
+. .\dev_env.ps1
+
+# 2. 检查数据库状态
+.\dev_tools.ps1 check-db
+
+# 3. 启动API服务（如需要）
+.\dev_tools.ps1 start-api
+
+# 4. 运行购物车测试
+.\dev_tools.ps1 test-cart
+```
+
+### 传统启动方式
 
 ```powershell
 # 后台启动（推荐，避免终端被占用）
@@ -87,41 +106,46 @@ python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 - **ReDoc 文档**: http://127.0.0.1:8000/redoc
 - **健康检查**: http://127.0.0.1:8000/api/health
 
-## 🏗️ 项目架构
+## ✨ 核心功能
 
-### 技术栈
-- **后端框架**: FastAPI + SQLAlchemy 2.x + Alembic
-- **数据库**: MySQL 8.0 (Docker 容器)
-- **缓存**: Redis 7 (Docker 容器)
-- **API 规范**: OpenAPI 3.0
-- **事件架构**: JSON Schema 事件定义
+### 购物车系统
+- ✅ 基于Redis的高性能购物车存储
+- ✅ 商品添加、修改、删除功能
+- ✅ 实时库存验证
+- ✅ 用户购物车数据隔离
+- ✅ 完整的API测试套件
 
-### 目录结构
-```
-ecommerce_platform/
-├── app/                    # 应用代码
-│   ├── main.py            # FastAPI 应用入口
-│   ├── models.py          # SQLAlchemy 数据模型
-│   ├── api/               # API 路由和 Schema
-│   └── db.py              # 数据库配置
-├── alembic/               # 数据库迁移
-├── docs/                  # 项目文档
-│   ├── openapi.yaml       # API 规范
-│   ├── event-schemas/     # 事件 Schema 定义
-│   ├── technical/         # 技术文档
-│   └── status/            # 项目状态
-├── scripts/               # 自动化脚本
-├── start.ps1              # 完整启动脚本
-├── quick-start.ps1        # 快速启动脚本
-├── stop.ps1               # 停止服务脚本
-├── status.ps1             # 状态检查脚本
-└── docker-compose.yml     # Docker 容器配置
-```
+### 用户管理
+- ✅ JWT Token认证
+- ✅ 用户注册、登录
+- ✅ 用户信息管理
+
+### 商品管理
+- ✅ 商品CRUD操作
+- ✅ 分类管理
+- ✅ 库存管理
+- ✅ 商品状态控制
 
 ## 🔧 开发工具
 
-### 启动脚本
-项目提供了一个统一的启动脚本 `start.ps1`，支持两种模式：
+### 标准化开发流程
+项目提供了完整的开发工具链：
+
+```powershell
+# 环境配置脚本
+. .\dev_env.ps1
+
+# 开发工具集
+.\dev_tools.ps1 check-db    # 检查数据库
+.\dev_tools.ps1 migrate     # 执行迁移
+.\dev_tools.ps1 test-cart   # 购物车测试
+.\dev_tools.ps1 start-api   # 启动API
+.\dev_tools.ps1 stop-api    # 停止API
+.\dev_tools.ps1 reset-env   # 重置环境
+```
+
+### 传统启动脚本
+项目也保留了传统的启动脚本 `start.ps1`，支持两种模式：
 
 ```powershell
 # 后台模式（默认，推荐）
