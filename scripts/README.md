@@ -3,52 +3,55 @@
 - 内容：自动化脚本目录说明和使用指南
 - 使用方法：开发者了解和使用项目自动化脚本
 - 更新方法：新增或修改脚本时更新
-- 引用关系：被docs/usage/scripts.md引用
 - 更新频率：脚本变化时
 -->
 
-# 🤖 自动化脚本目录
+# 🤖 脚本使用指南
 
-项目开发和运维过程中使用的PowerShell自动化脚本集合。
+项目开发中使用的PowerShell自动化脚本。
 
-## 📁 脚本列表
+## � 当前可用脚本
 
-| 脚本文件 | 功能描述 | 使用场景 |
-|---------|----------|----------|
-| `feature_finish.ps1` | 完成功能开发的自动化流程 | 功能开发完成时 |
-| `log_status.ps1` | 记录项目状态日志 | 每日状态更新 |
-| `release_to_main.ps1` | 发布到主分支的自动化流程 | 版本发布时 |
-| `smoke_test.ps1` | 冒烟测试自动化脚本 | 部署后验证 |
-| `sync_env.ps1` | 环境同步脚本 | 环境配置更新 |
-| `_smoke_cert.py` | 冒烟测试证书验证工具 | SSL证书验证 |
-
-## 🚀 使用方法
-
-### 前置条件
-1. **PowerShell 5.1+** 或 **PowerShell Core 7+**
-2. **Git** 命令行工具
-3. **Python 3.8+** (用于 _smoke_cert.py)
-4. 项目根目录执行权限
-
-### 基本用法
-
-#### 1. 功能开发完成
+### 1. 快速文档检查
 ```powershell
-# 在项目根目录执行
-.\scripts\feature_finish.ps1
+.\scripts\check_docs.ps1
+```
+- 检查文档数量和状态
+- 发现空文档
+- 验证核心文件
+
+### 2. 详细文档检查  
+```powershell
+.\scripts\doc_basic_check.ps1
+```
+- 显示所有文档详情
+- 检查文档大小和结构
+
+### 3. 环境变量管理
+```powershell
+# 创建.env文件
+.\scripts\sync_env.ps1 -Action create
+
+# 检查环境
+.\scripts\sync_env.ps1 -Action check
 ```
 
-#### 2. 记录状态日志
-```powershell
-# 记录当前开发状态
-.\scripts\log_status.ps1
-```
+## 🚀 快速开始
 
-#### 3. 发布到主分支
-```powershell
-# 发布当前分支到main
-.\scripts\release_to_main.ps1
-```
+**第一次使用**:
+1. 打开PowerShell，进入项目目录
+2. 运行: `.\scripts\check_docs.ps1`
+3. 如果出现权限错误，运行: `Set-ExecutionPolicy RemoteSigned -Scope CurrentUser`
+
+**日常使用**:
+- 检查项目状态: `.\scripts\check_docs.ps1`
+- 设置环境: `.\scripts\sync_env.ps1 -Action create`
+
+## ⚠️ 注意事项
+
+- 简化脚本，避免复杂功能
+- 在项目根目录运行
+- 有错误就检查文件路径
 
 #### 4. 执行冒烟测试
 ```powershell
