@@ -47,105 +47,78 @@
 - 检查项目状态: `.\scripts\check_docs.ps1`
 - 设置环境: `.\scripts\sync_env.ps1 -Action create`
 
-## ⚠️ 注意事项
+## 🔄 开发流程脚本
 
-- 简化脚本，避免复杂功能
-- 在项目根目录运行
-- 有错误就检查文件路径
+### feature_finish.ps1
+**用途**：完成一个本地 feature 分支的合并到 `dev` 并运行 smoke tests
 
-#### 4. 执行冒烟测试
+**常用参数**：
+- `-FeatureBranch <name>`：要完成的 feature 分支（可省略，脚本会尝试从当前分支推断）
+- `-NoPush`：只在本地合并和测试，不推送到远端（用于演练或 CI 回放）
+
+**示例**：
 ```powershell
-# 部署后验证系统功能
+# 直接在 feature 分支上完成并推送到 origin/dev
+.\scripts\feature_finish.ps1 -FeatureBranch feature/awesome
+
+# 在本地演练合并但不推送远端
+.\scripts\feature_finish.ps1 -FeatureBranch feature/awesome -NoPush
+```
+
+### release_to_main.ps1
+**用途**：将 `dev` 合并到 `main`（在本地执行），支持 dry-run 和回滚
+
+**常用参数**：
+- `-DryRun`：仅生成合并计划（git --no-commit --no-ff），不会提交。用于审阅将要发生的变更
+- `-RunNow`：在确认后执行真正的合并、测试并推送 `main` 到远端
+
+**示例**：
+```powershell
+# 生成合并计划（仅查看）
+.\scripts\release_to_main.ps1 -DryRun
+
+# 执行合并并在本地测试，测试通过后推送 main
+.\scripts\release_to_main.ps1 -RunNow
+```
+
+**设计说明**：
+- 本仓库设计为单人开发友好流程：feature → dev → main
+- CI 在 `dev` 上运行测试并创建 PR（dev → main），但合并 `main` 的动作建议在本地由开发者执行以便回退和审查
+- 脚本内置回滚机制，测试失败时自动恢复到合并前状态
+
+### smoke_test.ps1
+**用途**：执行系统烟雾测试，验证关键功能是否正常
+
+**示例**：
+```powershell
+# 运行烟雾测试
 .\scripts\smoke_test.ps1
 ```
 
-#### 5. 同步环境配置
+### log_status.ps1
+**用途**：记录开发状态和重要操作到项目日志
+
+**常用参数**：
+- `-Message <string>`：要记录的消息
+- `-Files <string>`：相关文件列表
+- `-Author <string>`：操作者
+
+**示例**：
 ```powershell
-# 同步开发环境配置
-.\scripts\sync_env.ps1
+# 记录状态
+.\scripts\log_status.ps1 -Message "完成功能开发" -Files "app/api/routes.py" -Author "developer"
 ```
-
-#### 6. SSL证书验证
-```python
-# 验证SSL证书
-python scripts\_smoke_cert.py
-```
-
-## ⚙️ 脚本配置
-
-### 环境变量
-大部分脚本会使用以下环境变量：
-- `ECOMMERCE_ENV`: 环境标识 (dev/staging/prod)
-- `DATABASE_URL`: 数据库连接字符串
-- `REDIS_URL`: Redis连接字符串
-
-### 配置文件
-脚本配置存储在：
-- `.env`: 环境变量配置
-- `docker-compose.yml`: 容器配置
-- `alembic.ini`: 数据库迁移配置
-
-## 🔧 脚本开发规范
-
-### 文件命名
-- 功能脚本: `{功能名}.ps1`
-- 工具脚本: `_{工具名}.{扩展名}`
-- 测试脚本: `test_{功能名}.ps1`
-
-### 脚本结构
-```powershell
-# 脚本头部说明
-# 功能: 脚本功能描述
-# 作者: 开发者
-# 版本: 1.0.0
-# 更新: 2025-09-10
-
-# 参数定义
-param(
-    [string]$Environment = "dev",
-    [switch]$Force
-)
-
-# 函数定义
-function Write-StatusLog {
-    # 函数实现
-}
-
-# 主逻辑
-try {
-    # 脚本主要逻辑
-} catch {
-    Write-Error "脚本执行失败: $_"
-    exit 1
-}
-```
-
-### 错误处理
-- 使用 `try-catch` 处理异常
-- 设置适当的退出码
-- 提供清晰的错误信息
-
-## 📊 脚本监控
-
-### 日志记录
-- 所有脚本执行都会记录到 `docs/status/daily-log.md`
-- 错误日志记录到 `logs/` 目录 (如果存在)
-
-### 执行历史
-- 使用 `log_status.ps1` 记录重要操作
-- Git提交记录包含脚本执行信息
-
-## 🔗 相关文档
-
-- [开发工作流程](../docs/development/workflow.md)
-- [脚本使用指南](../docs/usage/scripts.md)
-- [环境配置说明](../docs/operations/environment.md)
-- [测试指南](../docs/development/testing.md)
 
 ## ⚠️ 注意事项
 
-1. **执行权限**: 确保有PowerShell脚本执行权限
+1. **执行权限**: 确保有PowerShell脚本执行权限 (`Set-ExecutionPolicy RemoteSigned -Scope CurrentUser`)
 2. **环境检查**: 脚本会检查必要的依赖和环境
 3. **备份**: 重要操作前脚本会自动备份
 4. **日志**: 所有操作都有详细日志记录
 5. **回滚**: 支持操作回滚的脚本会提供回滚选项
+
+## 🔗 相关文档
+
+- [开发工作流程](../docs/development/workflow.md)
+- [环境配置说明](../docs/operations/environment.md)
+- [测试指南](../docs/development/testing.md)
