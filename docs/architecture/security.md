@@ -1,0 +1,615 @@
+<!--
+文档说明：
+- 内容：系统安全架构设计和实施规范
+- 使用方法：安全相关功能开发时的指导文档
+- 更新方法：安全要求变更或漏洞修复时更新
+- 引用关系：被各模块安全实现引用
+- 更新频率：安全策略调整时
+-->
+
+# 安全架构规范
+
+## 安全设计原则
+
+### 核心原则
+1. **零信任原则** - 不信任任何内外部网络和用户
+2. **最小权限原则** - 用户和服务只获得必需的最小权限
+3. **纵深防御** - 多层安全防护机制
+4. **安全by设计** - 从架构设计阶段考虑安全
+5. **持续监控** - 实时安全监控和威胁检测
+
+### 安全目标
+- **机密性** - 保护敏感数据不被未授权访问
+- **完整性** - 确保数据在传输和存储过程中不被篡改
+- **可用性** - 确保系统服务的持续可用
+- **可追溯性** - 完整的操作审计和日志记录
+
+## 身份认证架构
+
+### 认证方式
+```
+用户认证流程：
+1. 用户名密码认证
+2. 手机验证码认证
+3. 微信OAuth认证
+4. JWT Token验证
+```
+
+### 多因子认证 (MFA)
+```python
+# 认证因子组合
+class AuthFactor:
+    KNOWLEDGE = "password"      # 知识因子：密码
+    POSSESSION = "sms_code"     # 持有因子：短信验证码
+    INHERENCE = "biometric"     # 生物因子：指纹/面部识别
+
+# 认证策略
+def authenticate_user(username, password, sms_code=None):
+    # 第一因子：密码验证
+    if not verify_password(username, password):
+        return False
+    
+    # 第二因子：短信验证码（高风险操作）
+    if is_high_risk_operation():
+        if not verify_sms_code(username, sms_code):
+            return False
+    
+    return generate_jwt_token(username)
+```
+
+### JWT Token 安全
+```python
+# Token 配置
+JWT_CONFIG = {
+    "algorithm": "HS256",
+    "access_token_expire": 3600,    # 1小时
+    "refresh_token_expire": 86400,  # 24小时
+    "issuer": "ecommerce-platform",
+    "audience": "api-users"
+}
+
+# Token 结构
+{
+    "header": {
+        "alg": "HS256",
+        "typ": "JWT"
+    },
+    "payload": {
+        "user_id": "123456",
+        "username": "user@example.com",
+        "roles": ["user"],
+        "permissions": ["read:products", "write:cart"],
+        "exp": 1640995200,
+        "iat": 1640908800,
+        "iss": "ecommerce-platform",
+        "aud": "api-users",
+        "jti": "token-unique-id"  # Token ID，用于撤销
+    }
+}
+```
+
+## 授权访问控制
+
+### RBAC 权限模型
+```python
+# 角色定义
+class Role:
+    GUEST = "guest"           # 游客
+    USER = "user"            # 普通用户
+    PREMIUM = "premium"      # 高级用户
+    MERCHANT = "merchant"    # 商户
+    ADMIN = "admin"          # 管理员
+    SUPER_ADMIN = "super_admin"  # 超级管理员
+
+# 权限定义
+class Permission:
+    # 商品权限
+    READ_PRODUCTS = "read:products"
+    WRITE_PRODUCTS = "write:products"
+    DELETE_PRODUCTS = "delete:products"
+    
+    # 订单权限
+    READ_ORDERS = "read:orders"
+    WRITE_ORDERS = "write:orders"
+    
+    # 用户权限
+    READ_USERS = "read:users"
+    WRITE_USERS = "write:users"
+    
+    # 系统权限
+    SYSTEM_CONFIG = "system:config"
+    SYSTEM_MONITOR = "system:monitor"
+
+# 角色权限映射
+ROLE_PERMISSIONS = {
+    Role.GUEST: [
+        Permission.READ_PRODUCTS
+    ],
+    Role.USER: [
+        Permission.READ_PRODUCTS,
+        Permission.READ_ORDERS,
+        Permission.WRITE_ORDERS
+    ],
+    Role.MERCHANT: [
+        Permission.READ_PRODUCTS,
+        Permission.WRITE_PRODUCTS,
+        Permission.READ_ORDERS
+    ],
+    Role.ADMIN: [
+        Permission.READ_PRODUCTS,
+        Permission.WRITE_PRODUCTS,
+        Permission.DELETE_PRODUCTS,
+        Permission.READ_ORDERS,
+        Permission.READ_USERS,
+        Permission.SYSTEM_MONITOR
+    ]
+}
+```
+
+### API 权限控制
+```python
+from functools import wraps
+
+def require_permission(permission):
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            current_user = get_current_user()
+            if not current_user.has_permission(permission):
+                raise HTTPException(
+                    status_code=403,
+                    detail="权限不足"
+                )
+            return func(*args, **kwargs)
+        return wrapper
+    return decorator
+
+# 使用示例
+@app.get("/api/v1/products")
+@require_permission(Permission.READ_PRODUCTS)
+def get_products():
+    return ProductService.get_all()
+
+@app.post("/api/v1/products")
+@require_permission(Permission.WRITE_PRODUCTS)
+def create_product(product_data):
+    return ProductService.create(product_data)
+```
+
+## 数据加密保护
+
+### 传输加密
+```nginx
+# HTTPS 配置
+server {
+    listen 443 ssl http2;
+    server_name api.example.com;
+    
+    # SSL 证书配置
+    ssl_certificate /path/to/certificate.crt;
+    ssl_certificate_key /path/to/private.key;
+    
+    # SSL 安全配置
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers ECDHE-RSA-AES128-GCM-SHA256:ECDHE-RSA-AES256-GCM-SHA384;
+    ssl_prefer_server_ciphers off;
+    
+    # HSTS 安全头
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+}
+```
+
+### 存储加密
+```python
+from cryptography.fernet import Fernet
+import hashlib
+import bcrypt
+
+class DataEncryption:
+    def __init__(self, key):
+        self.cipher = Fernet(key)
+    
+    def encrypt_sensitive_data(self, data):
+        """加密敏感数据"""
+        return self.cipher.encrypt(data.encode()).decode()
+    
+    def decrypt_sensitive_data(self, encrypted_data):
+        """解密敏感数据"""
+        return self.cipher.decrypt(encrypted_data.encode()).decode()
+
+class PasswordSecurity:
+    @staticmethod
+    def hash_password(password):
+        """密码哈希"""
+        salt = bcrypt.gensalt()
+        return bcrypt.hashpw(password.encode('utf-8'), salt)
+    
+    @staticmethod
+    def verify_password(password, hashed):
+        """密码验证"""
+        return bcrypt.checkpw(password.encode('utf-8'), hashed)
+
+# 数据库敏感字段加密
+class User(Base):
+    __tablename__ = 'users'
+    
+    id = Column(BigInteger, primary_key=True)
+    username = Column(String(50), nullable=False)
+    email = Column(String(100), nullable=False)
+    phone_encrypted = Column(Text)  # 加密存储的手机号
+    password_hash = Column(String(255), nullable=False)
+    
+    @property
+    def phone(self):
+        if self.phone_encrypted:
+            return encryption.decrypt_sensitive_data(self.phone_encrypted)
+        return None
+    
+    @phone.setter
+    def phone(self, value):
+        self.phone_encrypted = encryption.encrypt_sensitive_data(value)
+```
+
+## API 安全防护
+
+### 请求验证
+```python
+from pydantic import BaseModel, validator
+from typing import Optional
+
+class ProductCreateRequest(BaseModel):
+    name: str
+    price: float
+    category_id: int
+    description: Optional[str] = None
+    
+    @validator('name')
+    def validate_name(cls, v):
+        if len(v) < 1 or len(v) > 200:
+            raise ValueError('商品名称长度必须在1-200字符之间')
+        # XSS 防护
+        if '<script>' in v.lower() or 'javascript:' in v.lower():
+            raise ValueError('商品名称包含非法字符')
+        return v
+    
+    @validator('price')
+    def validate_price(cls, v):
+        if v < 0:
+            raise ValueError('价格不能为负数')
+        if v > 999999.99:
+            raise ValueError('价格不能超过999999.99')
+        return v
+
+# SQL 注入防护
+class ProductRepository:
+    def get_by_category(self, category_id: int):
+        # 使用参数化查询防止 SQL 注入
+        query = """
+        SELECT * FROM products 
+        WHERE category_id = :category_id 
+        AND status = 'active'
+        """
+        return self.db.execute(query, {"category_id": category_id})
+```
+
+### 速率限制
+```python
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
+
+# 限流器配置
+limiter = Limiter(
+    key_func=get_remote_address,
+    default_limits=["100 per minute"]
+)
+
+# 应用限流
+@app.get("/api/v1/products")
+@limiter.limit("10 per minute")
+def get_products(request: Request):
+    return ProductService.get_all()
+
+@app.post("/api/v1/auth/login")
+@limiter.limit("5 per minute")  # 登录接口更严格的限制
+def login(request: Request, credentials: LoginRequest):
+    return AuthService.login(credentials)
+
+# 自定义限流策略
+class UserBasedLimiter:
+    def __init__(self):
+        self.limits = {
+            'guest': "50 per minute",
+            'user': "200 per minute",
+            'premium': "500 per minute",
+            'admin': "1000 per minute"
+        }
+    
+    def get_limit(self, user_role):
+        return self.limits.get(user_role, "50 per minute")
+```
+
+## 支付安全
+
+### 支付数据保护
+```python
+class PaymentSecurity:
+    @staticmethod
+    def mask_card_number(card_number):
+        """银行卡号脱敏"""
+        if len(card_number) < 8:
+            return card_number
+        return card_number[:4] + '*' * (len(card_number) - 8) + card_number[-4:]
+    
+    @staticmethod
+    def generate_payment_signature(data, secret_key):
+        """生成支付签名"""
+        sorted_data = sorted(data.items())
+        sign_string = '&'.join([f"{k}={v}" for k, v in sorted_data])
+        sign_string += f"&key={secret_key}"
+        return hashlib.md5(sign_string.encode()).hexdigest().upper()
+    
+    @staticmethod
+    def verify_payment_callback(data, signature, secret_key):
+        """验证支付回调签名"""
+        expected_signature = PaymentSecurity.generate_payment_signature(
+            data, secret_key
+        )
+        return signature == expected_signature
+
+# 支付风控
+class PaymentRiskControl:
+    def __init__(self):
+        self.risk_rules = [
+            self.check_amount_limit,
+            self.check_frequency_limit,
+            self.check_device_fingerprint,
+            self.check_ip_blacklist
+        ]
+    
+    def evaluate_risk(self, payment_request):
+        risk_score = 0
+        for rule in self.risk_rules:
+            risk_score += rule(payment_request)
+        
+        if risk_score > 80:
+            return "HIGH_RISK"
+        elif risk_score > 50:
+            return "MEDIUM_RISK"
+        else:
+            return "LOW_RISK"
+```
+
+## 安全监控与审计
+
+### 操作审计
+```python
+class AuditLog(Base):
+    __tablename__ = 'audit_logs'
+    
+    id = Column(BigInteger, primary_key=True)
+    user_id = Column(BigInteger, nullable=True)
+    action = Column(String(50), nullable=False)
+    resource_type = Column(String(50), nullable=False)
+    resource_id = Column(String(100), nullable=True)
+    ip_address = Column(String(45), nullable=True)
+    user_agent = Column(Text, nullable=True)
+    request_data = Column(JSON, nullable=True)
+    response_data = Column(JSON, nullable=True)
+    created_at = Column(TIMESTAMP, default=func.now())
+
+def audit_log(action, resource_type, resource_id=None):
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            request = get_current_request()
+            user = get_current_user()
+            
+            # 记录请求信息
+            audit = AuditLog(
+                user_id=user.id if user else None,
+                action=action,
+                resource_type=resource_type,
+                resource_id=resource_id,
+                ip_address=request.client.host,
+                user_agent=request.headers.get('user-agent'),
+                request_data=request.json()
+            )
+            
+            try:
+                result = func(*args, **kwargs)
+                audit.response_data = {"success": True}
+                return result
+            except Exception as e:
+                audit.response_data = {
+                    "success": False,
+                    "error": str(e)
+                }
+                raise
+            finally:
+                db.add(audit)
+                db.commit()
+        
+        return wrapper
+    return decorator
+
+# 使用审计装饰器
+@app.post("/api/v1/products")
+@audit_log("CREATE", "PRODUCT")
+def create_product(product_data):
+    return ProductService.create(product_data)
+```
+
+### 安全监控
+```python
+class SecurityMonitor:
+    def __init__(self):
+        self.threat_patterns = [
+            self.detect_sql_injection,
+            self.detect_xss_attempt,
+            self.detect_brute_force,
+            self.detect_unusual_activity
+        ]
+    
+    def analyze_request(self, request):
+        threats = []
+        for pattern in self.threat_patterns:
+            threat = pattern(request)
+            if threat:
+                threats.append(threat)
+        
+        if threats:
+            self.alert_security_team(threats, request)
+        
+        return threats
+    
+    def detect_sql_injection(self, request):
+        sql_patterns = [
+            r"union.*select",
+            r"drop.*table",
+            r"insert.*into",
+            r"delete.*from"
+        ]
+        
+        content = str(request.json()) + str(request.query_params)
+        for pattern in sql_patterns:
+            if re.search(pattern, content, re.IGNORECASE):
+                return {
+                    "type": "SQL_INJECTION",
+                    "pattern": pattern,
+                    "content": content[:100]
+                }
+        return None
+    
+    def detect_brute_force(self, request):
+        if request.url.path.endswith('/login'):
+            ip = request.client.host
+            # 检查该IP的登录失败次数
+            failed_attempts = get_failed_login_attempts(ip, 
+                                                      last_minutes=10)
+            if failed_attempts > 5:
+                return {
+                    "type": "BRUTE_FORCE",
+                    "ip": ip,
+                    "attempts": failed_attempts
+                }
+        return None
+```
+
+## 合规性要求
+
+### 数据保护合规
+```python
+class GDPRCompliance:
+    """GDPR/个人信息保护法合规"""
+    
+    def user_consent_required(self, data_type):
+        """检查是否需要用户同意"""
+        sensitive_data = [
+            'email', 'phone', 'address', 
+            'payment_info', 'biometric_data'
+        ]
+        return data_type in sensitive_data
+    
+    def anonymize_user_data(self, user_id):
+        """用户数据匿名化"""
+        # 删除或匿名化个人标识信息
+        # 保留必要的业务数据（如订单统计）
+        pass
+    
+    def export_user_data(self, user_id):
+        """导出用户数据（数据可携带权）"""
+        # 导出用户的所有个人数据
+        pass
+    
+    def delete_user_data(self, user_id):
+        """删除用户数据（被遗忘权）"""
+        # 删除用户的所有个人数据
+        # 保留法律要求的审计数据
+        pass
+
+# PCI DSS 合规
+class PCIDSSCompliance:
+    """支付卡行业数据安全标准合规"""
+    
+    def validate_card_data_handling(self):
+        """验证银行卡数据处理合规性"""
+        checks = [
+            self.check_card_data_encryption(),
+            self.check_access_control(),
+            self.check_network_security(),
+            self.check_vulnerability_management(),
+            self.check_monitoring_and_testing()
+        ]
+        return all(checks)
+```
+
+## 安全配置管理
+
+### 环境配置
+```python
+# 安全配置
+SECURITY_CONFIG = {
+    # JWT 配置
+    "jwt": {
+        "secret_key": os.getenv("JWT_SECRET_KEY"),
+        "algorithm": "HS256",
+        "access_token_expire": 3600,
+        "refresh_token_expire": 86400
+    },
+    
+    # 加密配置
+    "encryption": {
+        "key": os.getenv("ENCRYPTION_KEY"),
+        "algorithm": "AES-256-GCM"
+    },
+    
+    # 密码策略
+    "password": {
+        "min_length": 8,
+        "require_uppercase": True,
+        "require_lowercase": True,
+        "require_numbers": True,
+        "require_symbols": False,
+        "max_age_days": 90
+    },
+    
+    # 会话配置
+    "session": {
+        "timeout": 3600,
+        "secure": True,
+        "http_only": True,
+        "same_site": "strict"
+    }
+}
+```
+
+### 安全头配置
+```python
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
+from fastapi.middleware.cors import CORSMiddleware
+
+# 安全中间件
+app.add_middleware(
+    TrustedHostMiddleware, 
+    allowed_hosts=["api.example.com", "*.example.com"]
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["https://app.example.com"],
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "DELETE"],
+    allow_headers=["*"],
+)
+
+# 安全响应头
+@app.middleware("http")
+async def add_security_headers(request, call_next):
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+    response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    return response
+```

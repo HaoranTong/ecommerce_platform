@@ -37,7 +37,7 @@ except Exception as e:
     
     'test-cart' {
         Write-Host "🛒 执行购物车测试..." -ForegroundColor Yellow
-        . .\test_cart_system.ps1
+        . .\tests\integration\test_cart_system.ps1
     }
     
     'start-api' {

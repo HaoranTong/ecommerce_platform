@@ -48,6 +48,9 @@ var/
 .env.*
 secrets.yml
 
+# Documentation archives
+docs/_archive/
+
 # IDEs
 .vscode/
 .idea/
