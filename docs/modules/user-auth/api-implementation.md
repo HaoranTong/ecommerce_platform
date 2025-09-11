@@ -1159,5 +1159,5 @@ def test_complete_user_flow():
 
 - [用户认证模块](../authentication/overview.md)
 - [API数据模型Schema](../schemas/overview.md)
-- [JWT认证文档](../../api/standards.md#认证机制)
+- [JWT认证文档](../../api/api-design-standards.md#认证机制)
 - [FastAPI路由文档](https://fastapi.tiangolo.com/tutorial/bigger-applications/)

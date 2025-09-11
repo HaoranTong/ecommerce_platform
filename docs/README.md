@@ -18,7 +18,7 @@
 
 ### 📡 API接口
 - [API文档中心](api/README.md) - API文档导航
-- [API设计标准](api/standards.md) - 接口设计规范
+- [API设计标准](api/api-design-standards.md) - 接口设计规范
 - [OpenAPI规范](api/openapi.yaml) - 完整API规范
 - [购物车API](api/modules/cart/api-spec.md) - 购物车接口
 
@@ -30,7 +30,7 @@
 - [支付系统](modules/payment-service/overview.md) - 支付集成
 
 ### 🛠️ 开发指南
-- [编码标准](development/standards.md) - 代码规范
+- [编码标准](development/development-standards.md) - 代码规范
 - [测试指南](development/testing.md) - 测试方法
 - [开发工具](development/tools.md) - 工具配置
 
@@ -47,7 +47,7 @@
 
 **开发人员**:
 1. 阅读 [架构概览](architecture/overview.md)
-2. 查看 [编码标准](development/standards.md)
+2. 查看 [编码标准](development/development-standards.md)
 3. 了解相关的[功能模块](modules/)
 
 **运维人员**:

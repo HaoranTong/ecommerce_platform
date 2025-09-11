@@ -674,6 +674,6 @@ def monitor_auth_performance(func):
 ## 相关文档
 
 - [用户管理模块](../user-auth/overview.md)
-- [API安全规范](../../api/standards.md#安全认证)
+- [API安全规范](../../api/api-design-standards.md#安全认证)
 - [FastAPI认证文档](https://fastapi.tiangolo.com/tutorial/security/)
 - [JWT标准规范](https://tools.ietf.org/html/rfc7519)
