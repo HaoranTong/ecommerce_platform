@@ -112,28 +112,28 @@ images = [
 ### 标准API端点模式
 | 操作 | HTTP方法 | 路径模式 | 示例 |
 |------|----------|----------|------|
-| 创建 | POST | `/{resources}` | `POST /products` |
-| 列表 | GET | `/{resources}` | `GET /products` |
-| 详情 | GET | `/{resources}/{id}` | `GET /products/123` |
-| 更新 | PUT | `/{resources}/{id}` | `PUT /products/123` |
-| 删除 | DELETE | `/{resources}/{id}` | `DELETE /products/123` |
+| 创建 | POST | `/api/{resources}` | `POST /api/products` |
+| 列表 | GET | `/api/{resources}` | `GET /api/products` |
+| 详情 | GET | `/api/{resources}/{id}` | `GET /api/products/123` |
+| 更新 | PUT | `/api/{resources}/{id}` | `PUT /api/products/123` |
+| 删除 | DELETE | `/api/{resources}/{id}` | `DELETE /api/products/123` |
 
 ### 特殊操作命名
 | 操作类型 | 路径模式 | 示例 |
 |----------|----------|------|
-| 子资源 | `/{resources}/{id}/{sub_resources}` | `GET /orders/123/items` |
-| 操作动作 | `/{resources}/{id}/{action}` | `POST /orders/123/cancel` |
-| 状态更新 | `PATCH /{resources}/{id}/{field}` | `PATCH /orders/123/status` |
+| 子资源 | `/api/{resources}/{id}/{sub_resources}` | `GET /api/orders/123/items` |
+| 操作动作 | `/api/{resources}/{id}/{action}` | `POST /api/orders/123/cancel` |
+| 状态更新 | `PATCH /api/{resources}/{id}/{field}` | `PATCH /api/orders/123/status` |
 
 ### 用户认证API规范
 ```
-POST /auth/register     # 用户注册
-POST /auth/login        # 用户登录  
-POST /auth/refresh      # 刷新令牌
-GET  /auth/me           # 获取当前用户
-PUT  /auth/me           # 更新当前用户
-POST /auth/logout       # 用户登出
-POST /auth/change-password  # 修改密码
+POST /api/auth/register     # 用户注册
+POST /api/auth/login        # 用户登录  
+POST /api/auth/refresh      # 刷新令牌
+GET  /api/auth/me           # 获取当前用户
+PUT  /api/auth/me           # 更新当前用户
+POST /api/auth/logout       # 用户登出
+POST /api/auth/change-password  # 修改密码
 ```
 
 ## 🔧 代码文件命名规范
