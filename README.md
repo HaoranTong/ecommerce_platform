@@ -288,6 +288,8 @@ ecommerce_platform/
 
 ### 🎯 开发入口
 - **[总纲文档](MASTER.md)** - **必读！** 开发工作流程和强制检查点
+- **[命名规范](docs/standards/naming-conventions.md)** - **强制执行！** 项目统一命名标准
+- **[脚本使用指南](scripts/README.md)** - **命名检查必备！** 自动化工具使用说明
 
 ### 📋 需求与规范
 - **[业务需求](docs/requirements/business.md)** - 项目业务需求和目标
@@ -344,7 +346,20 @@ ecommerce_platform/
 > - **standards.md**: 用于规范和标准类文档（如 `docs/api/standards.md`）
 > - 这种命名规范确保了文档层次清晰，便于开发者快速定位所需信息
 
-## �️ 开发工具
+## 🛠️ 开发工具
+
+### 命名规范检查工具
+
+```powershell
+# 📋 命名规范检查（强制每日执行）
+.\scripts\check_naming_compliance.ps1           # 标准检查
+.\scripts\check_naming_compliance.ps1 -Verbose  # 详细报告
+
+# 🔧 配置管理
+.\scripts\check_naming_compliance.ps1 -ConfigPath .\scripts\naming_config.json
+```
+
+**重要**: 所有开发者每日必须执行命名检查，确保代码符合项目规范。详见 **[脚本使用指南](scripts/README.md)**
 
 ### 标准化开发工具集
 
@@ -415,16 +430,43 @@ alembic stamp head                   # 强制设置迁移版本
 
 ## 🌟 开发工作流
 
+### 命名规范强制执行
+所有开发活动必须严格遵循项目命名规范，确保跨层一致性：
+
+```powershell
+# 📋 强制命名检查（每日必做）
+.\scripts\check_naming_compliance.ps1
+
+# 🔍 查看详细报告
+.\scripts\check_naming_compliance.ps1 -Verbose
+
+# ⚠️  修复不符合规范的命名
+# 根据检查报告修复后重新验证
+.\scripts\check_naming_compliance.ps1 -ConfigPath .\scripts\naming_config.json
+```
+
+**命名规范优先级**: 文档 → 数据库 → API → 代码
+- **模块命名**: 统一使用 `user-auth`, `shopping-cart`, `product-catalog`, `order-management`
+- **API端点**: RESTful规范，如 `/api/users`, `/api/products`, `/api/carts`
+- **数据库表**: snake_case，如 `users`, `products`, `cart_items`
+- **代码文件**: snake_case，如 `user_routes.py`, `cart_routes.py`
+
+详细说明参见：**[命名规范文档](docs/standards/naming-conventions.md)**
+
 ### 分支策略
 - `main` - 生产就绪代码
 - `dev` - 开发集成分支
 - `feature/*` - 功能开发分支
 
 ### 开发流程
-1. 从 `dev` 创建 `feature/` 分支
-2. 在功能分支进行开发和测试
-3. 使用 `.\scripts\feature_finish.ps1` 自动合并到 `dev`
-4. 使用 `.\scripts\release_to_main.ps1` 发布到 `main`
+1. **命名检查** - 执行 `.\scripts\check_naming_compliance.ps1` 确保符合规范
+2. 从 `dev` 创建 `feature/` 分支
+3. 在功能分支进行开发和测试
+4. **再次命名检查** - 开发完成后验证命名一致性
+5. 使用 `.\scripts\feature_finish.ps1` 自动合并到 `dev`
+6. 使用 `.\scripts\release_to_main.ps1` 发布到 `main`
+
+> **⚠️ 重要提醒**: 所有文档、API、数据库、代码的命名必须严格遵循命名规范。不符合规范的代码将无法通过CI/CD检查。
 
 ## 📞 支持与贡献
 
@@ -434,10 +476,18 @@ alembic stamp head                   # 强制设置迁移版本
 - 参考 **[开发工作流程](docs/development/workflow.md)**
 
 ### 贡献指南
+- **强制执行命名规范** - 提交前必须通过 `.\scripts\check_naming_compliance.ps1` 检查
 - 遵循 **[编码规范](docs/development/standards.md)**
 - 确保所有测试通过
 - 更新相关文档
 - 使用标准化脚本进行提交
+
+**命名规范检查清单**：
+```powershell
+# 提交前必须执行的检查
+.\scripts\check_naming_compliance.ps1 -Verbose
+# 返回码必须为 0（无违规）才能提交
+```
 
 ---
 

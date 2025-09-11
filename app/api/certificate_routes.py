@@ -9,7 +9,7 @@ from app.api import schemas
 router = APIRouter()
 
 
-@router.post("/certificates", response_model=schemas.CertificateRead, status_code=status.HTTP_201_CREATED)
+@router.post("/api/certificates", response_model=schemas.CertificateRead, status_code=status.HTTP_201_CREATED)
 def create_certificate(payload: schemas.CertificateCreate, db: Session = Depends(get_session)):
     existing = db.query(models.Certificate).filter(models.Certificate.serial == payload.serial).first()
     if existing:
@@ -21,13 +21,13 @@ def create_certificate(payload: schemas.CertificateCreate, db: Session = Depends
     return cert
 
 
-@router.get("/certificates", response_model=List[schemas.CertificateRead])
+@router.get("/api/certificates", response_model=List[schemas.CertificateRead])
 def list_certificates(skip: int = 0, limit: int = 100, db: Session = Depends(get_session)):
     certs = db.query(models.Certificate).offset(skip).limit(limit).all()
     return certs
 
 
-@router.get("/certificates/{cert_id}", response_model=schemas.CertificateRead)
+@router.get("/api/certificates/{cert_id}", response_model=schemas.CertificateRead)
 def get_certificate(cert_id: int, db: Session = Depends(get_session)):
     cert = db.query(models.Certificate).get(cert_id)
     if not cert:
@@ -35,7 +35,7 @@ def get_certificate(cert_id: int, db: Session = Depends(get_session)):
     return cert
 
 
-@router.delete("/certificates/{cert_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/api/certificates/{cert_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_certificate(cert_id: int, db: Session = Depends(get_session)):
     cert = db.query(models.Certificate).get(cert_id)
     if not cert:

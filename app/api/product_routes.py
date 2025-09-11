@@ -9,7 +9,7 @@ from app.api import schemas
 router = APIRouter()
 
 
-@router.post("/products", response_model=schemas.ProductRead, status_code=status.HTTP_201_CREATED)
+@router.post("/api/products", response_model=schemas.ProductRead, status_code=status.HTTP_201_CREATED)
 def create_product(payload: schemas.ProductCreate, db: Session = Depends(get_session)):
     """创建新商品"""
     # 检查SKU是否已存在
@@ -38,7 +38,7 @@ def create_product(payload: schemas.ProductCreate, db: Session = Depends(get_ses
     return product
 
 
-@router.get("/products", response_model=List[schemas.ProductRead])
+@router.get("/api/products", response_model=List[schemas.ProductRead])
 def list_products(
     skip: int = Query(0, ge=0, description="跳过记录数"),
     limit: int = Query(100, ge=1, le=1000, description="返回记录数"),
@@ -67,7 +67,7 @@ def list_products(
     return products
 
 
-@router.get("/products/{product_id}", response_model=schemas.ProductRead)
+@router.get("/api/products/{product_id}", response_model=schemas.ProductRead)
 def get_product(product_id: int, db: Session = Depends(get_session)):
     """获取单个商品详情"""
     product = db.query(models.Product).get(product_id)
@@ -79,7 +79,7 @@ def get_product(product_id: int, db: Session = Depends(get_session)):
     return product
 
 
-@router.put("/products/{product_id}", response_model=schemas.ProductRead)
+@router.put("/api/products/{product_id}", response_model=schemas.ProductRead)
 def update_product(
     product_id: int, 
     payload: schemas.ProductUpdate, 
@@ -124,7 +124,7 @@ def update_product(
     return product
 
 
-@router.patch("/products/{product_id}/stock", response_model=schemas.ProductRead)
+@router.patch("/api/products/{product_id}/stock", response_model=schemas.ProductRead)
 def update_product_stock(
     product_id: int,
     stock_update: schemas.ProductStockUpdate,
@@ -158,7 +158,7 @@ def update_product_stock(
     return product
 
 
-@router.delete("/products/{product_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/api/products/{product_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_product(product_id: int, db: Session = Depends(get_session)):
     """删除商品（软删除）"""
     product = db.query(models.Product).get(product_id)

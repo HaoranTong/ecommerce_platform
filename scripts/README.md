@@ -10,7 +10,36 @@
 
 项目开发中使用的PowerShell自动化脚本。
 
-## � 当前可用脚本
+## 📋 核心规范检查脚本
+
+### 🔍 命名规范合规性检查 (必须)
+```powershell
+# 全面检查所有命名规范
+.\scripts\check_naming_compliance.ps1
+
+# 只检查API命名
+.\scripts\check_naming_compliance.ps1 -CheckType api
+
+# 只检查数据库命名
+.\scripts\check_naming_compliance.ps1 -CheckType database
+
+# 只检查文档命名
+.\scripts\check_naming_compliance.ps1 -CheckType docs
+
+# 只检查代码命名
+.\scripts\check_naming_compliance.ps1 -CheckType code
+
+# 尝试自动修复（谨慎使用）
+.\scripts\check_naming_compliance.ps1 -Fix
+```
+
+**使用场景**：
+- ✅ **开发前必须检查** - 确保环境命名规范
+- ✅ **编码后必须检查** - 验证代码命名合规
+- ✅ **提交前必须检查** - 确保符合规范才能提交
+- ✅ **CI/CD集成** - 自动化检查流程
+
+## 📚 文档检查脚本
 
 ### 1. 快速文档检查
 ```powershell
@@ -27,6 +56,8 @@
 - 显示所有文档详情
 - 检查文档大小和结构
 
+## 🔧 开发环境脚本
+
 ### 3. 环境变量管理
 ```powershell
 # 创建.env文件
@@ -36,16 +67,92 @@
 .\scripts\sync_env.ps1 -Action check
 ```
 
-## 🚀 快速开始
+## 🚀 强制执行工作流程
+
+### 📋 开发阶段必须执行的检查
+```powershell
+# 1. 开发前环境检查
+.\scripts\check_naming_compliance.ps1
+.\scripts\check_docs.ps1
+
+# 2. 开发过程中持续检查
+.\scripts\check_naming_compliance.ps1 -CheckType code
+
+# 3. 提交前最终检查
+.\scripts\check_naming_compliance.ps1
+```
+
+### 🚨 检查结果处理
+- **✅ 检查通过**: 可以继续开发/提交
+- **❌ 检查失败**: 必须修复所有问题后重新检查
+- **⚠️ 警告信息**: 建议修复，记录原因
+
+## 🔄 快速开始
 
 **第一次使用**:
 1. 打开PowerShell，进入项目目录
-2. 运行: `.\scripts\check_docs.ps1`
-3. 如果出现权限错误，运行: `Set-ExecutionPolicy RemoteSigned -Scope CurrentUser`
+2. 检查执行策略: `Get-ExecutionPolicy`
+3. 如果受限，运行: `Set-ExecutionPolicy RemoteSigned -Scope CurrentUser`
+4. 运行初始检查: `.\scripts\check_naming_compliance.ps1`
 
-**日常使用**:
-- 检查项目状态: `.\scripts\check_docs.ps1`
-- 设置环境: `.\scripts\sync_env.ps1 -Action create`
+**日常开发工作流**:
+```powershell
+# 每日开始工作前
+.\scripts\check_naming_compliance.ps1
+
+# 编写代码后
+.\scripts\check_naming_compliance.ps1 -CheckType code
+
+# Git提交前
+.\scripts\check_naming_compliance.ps1
+```
+
+## 📊 脚本执行结果说明
+
+### 退出码含义
+- `0`: 检查通过，无问题
+- `1`: 发现违规问题，需要修复
+- `2`: 脚本执行错误
+
+### 输出颜色说明
+- 🔴 **红色**: 错误和违规问题
+- 🟢 **绿色**: 成功和建议修复
+- 🔵 **蓝色**: 信息和进度
+- 🟡 **黄色**: 警告和分隔线
+- 🔵 **青色**: 标题和分类
+
+## ⚙️ 脚本配置
+
+### 命名规范配置文件
+脚本使用内置配置，包含：
+- 模块名称映射表
+- API命名规范模式
+- 数据库命名规范
+- 代码命名规范
+
+如需修改配置，编辑 `.\scripts\check_naming_compliance.ps1` 中的 `$NamingConfig` 变量。
+
+## 🐛 故障排除
+
+### 常见问题
+1. **执行策略限制**
+   ```powershell
+   Set-ExecutionPolicy RemoteSigned -Scope CurrentUser
+   ```
+
+2. **路径找不到**
+   - 确保在项目根目录执行
+   - 检查文件路径是否正确
+
+3. **权限不足**
+   - 以管理员身份运行PowerShell
+   - 检查文件访问权限
+
+### 获取帮助
+```powershell
+# 查看脚本帮助
+Get-Help .\scripts\check_naming_compliance.ps1 -Full
+```
 
 ## 🔄 开发流程脚本
 

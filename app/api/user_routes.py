@@ -197,7 +197,7 @@ async def update_current_user(
         )
 
 
-@router.post("/auth/change-password")
+@router.put("/api/users/password")
 async def change_password(
     password_data: UserChangePassword,
     current_user: User = Depends(get_current_active_user),

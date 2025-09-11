@@ -8,7 +8,7 @@ from ..models import User
 
 router = APIRouter()
 
-@router.get("/test-auth")
+@router.get("/api/test/auth")
 async def test_auth(current_user: User = Depends(get_current_user)):
     """简单的认证测试端点"""
     return {
