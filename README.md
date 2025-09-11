@@ -16,7 +16,11 @@
 
 **技术栈:**
 - **后端**: FastAPI + SQLAlchemy + Alembic
-- **数据库**: MySQL + Redis
+- **数### 📝 文档模板和规范
+- **[模块文档模板](docs/templates/module-template.md)** - 标准化模块文档模板
+- **[文档命名规范](MASTER.md#文档命名规范)** - 统一的文档命名标准（在MASTER.md中定义）
+
+## ⚙️ 开发工具 + Redis
 - **容器化**: Docker + Docker Compose
 - **测试**: pytest + API测试套件
 - **文档**: OpenAPI + Markdown
@@ -55,6 +59,7 @@
 
 | 文件 | 作用 | 描述 |
 |------|------|------|
+| `MASTER.md` | 📋 文档驱动开发总纲 | **开发者必读！** 项目的核心指导文档，包含强制检查点和工作流程 |
 | `requirements.txt` | Python依赖管理 | 生产环境所需的Python包列表，使用`pip install -r requirements.txt`安装 |
 | `docker-compose.yml` | 容器编排配置 | 定义MySQL、Redis等服务的Docker容器配置，一键启动开发环境 |
 | `alembic.ini` | 数据库迁移配置 | Alembic数据库版本管理工具的配置文件，管理数据库结构变更 |
@@ -70,6 +75,7 @@
 ecommerce_platform/
 ├── 📁 app/                          # 🚀 应用核心代码
 │   ├── main.py                     # FastAPI应用入口点
+│   ├── db.py                       # 数据库连接和会话管理
 │   ├── database.py                 # 数据库连接配置
 │   ├── redis_client.py             # Redis连接配置
 │   ├── auth.py                     # 认证相关功能
@@ -90,18 +96,23 @@ ecommerce_platform/
 │   └── script.py.mako              # 迁移脚本模板
 ├── 📁 docs/                         # 📚 项目文档 (详见docs/README.md)
 │   ├── README.md                   # 📖 文档中心导航和使用指南
-│   ├── MASTER.md                   # 🎯 开发工作总纲 (开发者必读)
 │   ├── 📁 requirements/            # 📋 需求文档
 │   │   ├── business.md             # 业务需求规格
 │   │   ├── functional.md           # 功能需求说明
 │   │   └── non-functional.md       # 非功能需求
 │   ├── 📁 architecture/            # 🏗️ 架构设计文档
 │   │   ├── overview.md             # 系统架构总览
-│   │   ├── api-standards.md        # API设计规范
 │   │   ├── data-models.md          # 数据模型设计
 │   │   ├── security.md             # 安全架构设计
 │   │   ├── integration.md          # 第三方集成方案
 │   │   └── event-driven.md         # 事件驱动架构
+│   ├── 📁 api/                     # 📡 API文档中心
+│   │   ├── README.md               # API文档导航
+│   │   ├── standards.md            # API设计标准规范
+│   │   ├── openapi.yaml            # OpenAPI 3.0规范文档
+│   │   └── 📁 modules/             # 各模块API文档
+│   │       └── 📁 cart/            # 购物车API
+│   │           └── api-spec.md     # 购物车API规范
 │   ├── 📁 modules/                 # 📦 模块设计文档
 │   │   ├── README.md               # 模块总览索引
 │   │   ├── 📁 user-auth/           # 用户认证模块
@@ -111,15 +122,15 @@ ecommerce_platform/
 │   │   ├── 📁 inventory/           # 库存管理模块
 │   │   ├── 📁 payment/             # 支付服务模块
 │   │   ├── 📁 notification/        # 通知服务模块
+│   │   ├── 📁 batch-traceability/  # 批次溯源模块
+│   │   ├── 📁 distributor/         # 分销商管理模块
 │   │   └── 📁 recommendation/      # 推荐系统模块
-│   ├── 📁 api/                     # 📡 API文档和规范
-│   │   ├── cart_api.md             # 购物车API文档
-│   │   └── openapi.yaml            # OpenAPI 3.0规范文档
 │   ├── 📁 operations/              # 🔧 运维部署文档
 │   │   ├── README.md               # 运维指南
 │   │   ├── deployment.md           # 部署指南
 │   │   └── environment.md          # 环境配置
 │   ├── 📁 development/             # 💻 开发相关文档
+│   │   ├── README.md               # 开发指南导航
 │   │   ├── standards.md            # 开发标准规范
 │   │   ├── testing.md              # 测试指南
 │   │   ├── tools.md                # 开发工具说明
@@ -130,6 +141,8 @@ ecommerce_platform/
 │   │   ├── daily-log.md            # 每日工作日志
 │   │   ├── issues-tracking.md      # 问题跟踪记录
 │   │   └── milestones.md           # 里程碑进展
+│   ├── 📁 templates/               # 📝 文档模板
+│   │   └── module-template.md      # 模块文档标准模板
 │   └── 📁 _archive/                # 🗂️ 已归档文档
 │       ├── event-schemas/          # 事件架构历史版本
 │       ├── technical_old/          # 整合的旧技术文档
@@ -168,7 +181,7 @@ ecommerce_platform/
 | 目录 | 功能说明 | 重要文件 |
 |------|----------|----------|
 | **app/** | 应用核心代码，包含所有业务逻辑 | `main.py`, `database.py`, `api/routes.py` |
-| **docs/** | 完整项目文档，包含架构设计和模块文档 | `MASTER.md`, `README.md`, `modules/` |
+| **docs/** | 完整项目文档，包含架构设计和模块文档 | `README.md`, `requirements/`, `modules/` |
 | **tests/** | 测试代码，包含单元测试和集成测试 | `conftest.py`, `integration/` |
 | **scripts/** | 自动化开发脚本 | `smoke_test.ps1`, `feature_finish.ps1` |
 | **alembic/** | 数据库版本管理和迁移 | `versions/`, `env.py` |
@@ -274,7 +287,7 @@ ecommerce_platform/
 ## 📚 技术文档导航
 
 ### 🎯 开发入口
-- **[总纲文档](docs/MASTER.md)** - **必读！** 开发工作流程和强制检查点
+- **[总纲文档](MASTER.md)** - **必读！** 开发工作流程和强制检查点
 
 ### 📋 需求与规范
 - **[业务需求](docs/requirements/business.md)** - 项目业务需求和目标
@@ -309,10 +322,27 @@ ecommerce_platform/
 - **[开发工具](docs/development/tools.md)** - 开发环境配置
 
 ### 📊 项目状态
-- **[工作日志](docs/status/daily-log.md)** - 每日进展和问题记录
-- **[当前阶段](docs/status/current-sprint.md)** - 当前开发状态
-- **[问题跟踪](docs/status/issues-tracking.md)** - Bug和任务跟踪
-- **[里程碑](docs/status/milestones.md)** - 版本发布记录
+- **[项目状态总览](docs/status/status.md)** - 整体进度和模块完成情况 **（每周更新）**
+- **[当前冲刺](docs/status/current-sprint.md)** - 当前Sprint的任务和进展 **（每日更新）**  
+- **[工作日志](docs/status/daily-log.md)** - 每日开发工作记录 **（每日更新）**
+- **[问题跟踪](docs/status/issues-tracking.md)** - Bug、任务和解决方案跟踪 **（实时更新）**
+- **[里程碑](docs/status/milestones.md)** - 版本发布和重要节点记录 **（里程碑达成时更新）**
+
+> **📋 Status目录使用说明**  
+> - **目的**: 提供项目实时状态跟踪，便于团队协作和进度管理
+> - **更新责任**: 开发团队成员每日更新工作日志，项目经理每周汇总状态
+> - **自动化集成**: 结合Git提交记录和CI/CD流程自动更新部分状态信息
+> - **查看方式**: 团队会议时查看整体状态，个人开发时查看当前冲刺和问题跟踪
+
+### 📝 文档模板和规范
+- **[模块文档模板](docs/templates/module-template.md)** - 标准化模块文档模板
+- **[文档命名规范说明](docs/README.md#文档命名规范)** - 为什么有些是README.md，有些是overview.md
+
+> **📋 文档命名规范说明**  
+> - **README.md**: 用于目录级别的导航和说明文档（如 `docs/development/README.md`）
+> - **overview.md**: 用于具体功能模块的概览文档（如 `docs/modules/user-auth/overview.md`）
+> - **standards.md**: 用于规范和标准类文档（如 `docs/api/standards.md`）
+> - 这种命名规范确保了文档层次清晰，便于开发者快速定位所需信息
 
 ## �️ 开发工具
 
@@ -411,4 +441,4 @@ alembic stamp head                   # 强制设置迁移版本
 
 ---
 
-**开始开发前，请务必阅读 [总纲文档](docs/MASTER.md)！**
+**开始开发前，请务必阅读 [总纲文档](MASTER.md)！**

@@ -97,8 +97,13 @@ class Role:
     GUEST = "guest"           # 游客
     USER = "user"            # 普通用户
     PREMIUM = "premium"      # 高级用户
-    MERCHANT = "merchant"    # 商户
-    ADMIN = "admin"          # 管理员
+    DISTRIBUTOR = "distributor"  # 分销商
+    SUPPLIER = "supplier"     # 供应商
+    CUSTOMER_SERVICE = "customer_service"  # 客服人员
+    OPERATIONS = "operations" # 运营人员
+    FINANCE = "finance"       # 财务人员
+    MERCHANT = "merchant"     # 商户
+    ADMIN = "admin"           # 管理员
     SUPER_ADMIN = "super_admin"  # 超级管理员
 
 # 权限定义
@@ -111,10 +116,46 @@ class Permission:
     # 订单权限
     READ_ORDERS = "read:orders"
     WRITE_ORDERS = "write:orders"
+    MANAGE_ORDERS = "manage:orders"
     
     # 用户权限
     READ_USERS = "read:users"
     WRITE_USERS = "write:users"
+    MANAGE_USERS = "manage:users"
+    
+    # 分销权限
+    READ_DISTRIBUTORS = "read:distributors"
+    WRITE_DISTRIBUTORS = "write:distributors"
+    MANAGE_COMMISSIONS = "manage:commissions"
+    
+    # 供应商权限
+    READ_SUPPLIERS = "read:suppliers"
+    WRITE_SUPPLIERS = "write:suppliers"
+    MANAGE_SUPPLIERS = "manage:suppliers"
+    
+    # 会员权限
+    READ_MEMBERS = "read:members"
+    WRITE_MEMBERS = "write:members"
+    MANAGE_POINTS = "manage:points"
+    
+    # 营销权限
+    READ_CAMPAIGNS = "read:campaigns"
+    WRITE_CAMPAIGNS = "write:campaigns"
+    MANAGE_COUPONS = "manage:coupons"
+    
+    # 溯源权限
+    READ_TRACE = "read:trace"
+    WRITE_TRACE = "write:trace"
+    
+    # 客服权限
+    READ_TICKETS = "read:tickets"
+    WRITE_TICKETS = "write:tickets"
+    MANAGE_TICKETS = "manage:tickets"
+    
+    # 财务权限
+    READ_FINANCE = "read:finance"
+    WRITE_FINANCE = "write:finance"
+    MANAGE_SETTLEMENTS = "manage:settlements"
     
     # 系统权限
     SYSTEM_CONFIG = "system:config"
@@ -128,7 +169,50 @@ ROLE_PERMISSIONS = {
     Role.USER: [
         Permission.READ_PRODUCTS,
         Permission.READ_ORDERS,
-        Permission.WRITE_ORDERS
+        Permission.WRITE_ORDERS,
+        Permission.READ_TRACE
+    ],
+    Role.DISTRIBUTOR: [
+        Permission.READ_PRODUCTS,
+        Permission.READ_ORDERS,
+        Permission.WRITE_ORDERS,
+        Permission.READ_DISTRIBUTORS,
+        Permission.WRITE_DISTRIBUTORS,
+        Permission.READ_TRACE
+    ],
+    Role.SUPPLIER: [
+        Permission.READ_PRODUCTS,
+        Permission.WRITE_PRODUCTS,
+        Permission.READ_ORDERS,
+        Permission.MANAGE_ORDERS,
+        Permission.READ_SUPPLIERS,
+        Permission.WRITE_SUPPLIERS,
+        Permission.WRITE_TRACE
+    ],
+    Role.CUSTOMER_SERVICE: [
+        Permission.READ_PRODUCTS,
+        Permission.READ_ORDERS,
+        Permission.MANAGE_ORDERS,
+        Permission.READ_USERS,
+        Permission.READ_TICKETS,
+        Permission.WRITE_TICKETS,
+        Permission.MANAGE_TICKETS
+    ],
+    Role.OPERATIONS: [
+        Permission.READ_PRODUCTS,
+        Permission.WRITE_PRODUCTS,
+        Permission.READ_CAMPAIGNS,
+        Permission.WRITE_CAMPAIGNS,
+        Permission.MANAGE_COUPONS,
+        Permission.READ_USERS,
+        Permission.WRITE_USERS
+    ],
+    Role.FINANCE: [
+        Permission.READ_ORDERS,
+        Permission.READ_FINANCE,
+        Permission.WRITE_FINANCE,
+        Permission.MANAGE_SETTLEMENTS,
+        Permission.MANAGE_COMMISSIONS
     ],
     Role.MERCHANT: [
         Permission.READ_PRODUCTS,
@@ -140,7 +224,9 @@ ROLE_PERMISSIONS = {
         Permission.WRITE_PRODUCTS,
         Permission.DELETE_PRODUCTS,
         Permission.READ_ORDERS,
+        Permission.MANAGE_ORDERS,
         Permission.READ_USERS,
+        Permission.MANAGE_USERS,
         Permission.SYSTEM_MONITOR
     ]
 }
