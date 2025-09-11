@@ -15,7 +15,12 @@
 - 🔄 标准化开发工具和自动化脚本
 
 **技术栈:**
-- **后端**: FastAPI + SQLAlchemy + Alembic
+- **后端**: FastAPI + ### 📦 功能模块
+- **[用户认证模块](docs/modules/user-auth/)** - 用户注册、登录、权限管理
+- **[商品目录模块](docs/modules/product-catalog/)** - 商品CRUD、分类、库存
+- **[购物车模块](docs/modules/shopping-cart/)** - 购物车功能和Redis存储
+- **[订单管理模块](docs/modules/order-management/)** - 订单处理流程
+- **[支付系统模块](docs/modules/payment-service/)** - 支付集成和回调hemy + Alembic
 - **数### 📝 文档模板和规范
 - **[模块文档模板](docs/templates/module-template.md)** - 标准化模块文档模板
 - **[文档命名规范](MASTER.md#文档命名规范)** - 统一的文档命名标准（在MASTER.md中定义）
@@ -264,15 +269,6 @@ ecommerce_platform/
 ├── dev_tools.ps1               # 🔨 开发工具集
 └── test_cart_system.ps1        # 🧪 购物车系统测试
 ```
-│
-├── scripts/                    # 🔧 自动化脚本
-│   ├── smoke_test.ps1          # 烟雾测试脚本
-│   ├── feature_finish.ps1      # 功能完成自动化
-│   ├── release_to_main.ps1     # 发布到主分支
-│   ├── log_status.ps1          # 状态日志记录
-│   └── sync_env.ps1            # 环境同步脚本
-│
-├── docs/                       # 📚 技术文档（详见下方文档导航）
 ├── .github/                    # ⚙️ GitHub工作流配置
 ├── .venv/                      # 🐍 Python虚拟环境
 ├── .env                        # 🔐 环境变量配置
