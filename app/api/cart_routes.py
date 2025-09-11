@@ -7,7 +7,7 @@ from decimal import Decimal
 
 from ..database import get_db
 from ..auth import get_current_active_user
-from ..models import User, Product
+from ..models import User, Product, Cart, CartItem
 from ..redis_client import cart_manager
 from .schemas import (
     CartItemAdd, 
