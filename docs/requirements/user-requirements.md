@@ -1,4 +1,31 @@
 <!--
+⚠️ 标记为待删除 - MARKED FOR DELETION ⚠️
+
+删除原因：
+1. 违反MASTER.md文档创建规则 - 创建时未检查现有文档
+2. 内容与business.md重复 - 用户角色、用户画像、业务场景等内容重复
+3. 架构冗余 - 两个文档功能重叠，维护成本高
+
+内容迁移状态：
+✅ 用户画像详细信息 → 已迁移至business.md
+✅ 用户旅程分析 → 已迁移至business.md  
+✅ 痛点分析 → 已迁移至business.md
+❌ 优先级表格 → 与functional.md重复，无需迁移
+❌ 用户故事 → 属于详细设计层面，应在模块文档中体现
+❌ 情感化设计 → 属于UI/UX设计文档范畴
+
+引用检查结果：
+✅ 无外部文档引用此文档
+✅ 无需更新引用链接
+
+等待删除确认期：24小时
+计划删除时间：内容迁移完成后24小时
+删除提交信息：docs: remove duplicate user-requirements.md after content migration to business.md per MASTER.md workflow
+
+理由：遵循文档驱动开发原则，消除重复文档，保持架构清晰
+-->
+
+<!--
 文档说明：
 - 内容：详细的用户画像、用户需求和用户旅程分析
 - 使用方法：产品设计和用户体验设计的参考依据
