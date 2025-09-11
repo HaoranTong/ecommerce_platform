@@ -52,7 +52,7 @@
 - **风控管理** - 支付风险识别和防控
 - **对账系统** - 自动对账和资金管理
 
-*详见: [支付系统模块](../modules/payment-system/requirements.md)*
+*详见: [支付系统模块](../modules/payment/overview.md)*
 
 ## 核心业务规则
 

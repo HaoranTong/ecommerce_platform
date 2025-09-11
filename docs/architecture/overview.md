@@ -95,20 +95,36 @@
 3. **接口标准** - 统一的 API 设计和通信规范
 4. **故障隔离** - 服务间故障不相互影响
 
-### 核心服务模块
+### 核心服务模块（基于DDD边界设计）
 ```
 app/
 ├── api/                    # API 路由层
-│   ├── user_routes.py      # 用户认证服务
-│   ├── product_routes.py   # 商品管理服务
-│   ├── cart_routes.py      # 购物车服务
-│   ├── order_routes.py     # 订单管理服务
-│   └── payment_routes.py   # 支付服务
+│   ├── user_routes.py      # 用户认证服务 (user-service)
+│   ├── product_routes.py   # 商品管理服务 (product-service)
+│   ├── cart_routes.py      # 购物车服务 (独立Redis存储)
+│   ├── order_routes.py     # 订单管理服务 (order-service)
+│   ├── payment_routes.py   # 支付服务 (checkout-service)
+│   └── category_routes.py  # 分类管理 (product-service的一部分)
 ├── models/                 # 数据模型层
 ├── services/               # 业务逻辑层
 ├── adapters/               # 第三方适配器层
 └── core/                   # 核心组件层
 ```
+
+### DDD微服务边界映射
+**当前模块化实现 → 未来微服务边界**:
+- `user_routes.py` → `user-service` (用户管理和认证)
+- `product_routes.py + category_routes.py` → `product-service` (商品管理和分类)
+- `cart_routes.py` → `cart-service` (购物车，基于Redis)
+- `order_routes.py` → `order-service` (订单处理和状态管理)
+- `payment_routes.py` → `checkout-service` (结算和支付流程)
+
+**规划中的微服务模块**:
+- `inventory-service` - 库存管理和预警
+- `batch-service` - 批次管理和溯源
+- `member-service` - 会员体系和积分
+- `ai-service` - AI推荐和分析
+- `distributor-service` - 分销商管理
 
 ### 数据架构
 - **主数据库**: MySQL - 事务性数据存储
