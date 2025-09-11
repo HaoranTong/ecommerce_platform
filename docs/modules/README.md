@@ -19,6 +19,17 @@
 | 批次溯源模块 | 📝 新增 | [batch-traceability/overview.md](./batch-traceability/overview.md) | 农产品溯源、批次管理、质量追溯、区块链存证 |
 | 分销商管理模块 | 📝 新增 | [distributor/overview.md](./distributor/overview.md) | 多级分销、佣金管理、推广工具、团队管理 |
 
+### 核心技术模块 (P0优先级 - ✅ 已完成)
+
+| 模块 | 状态 | 文档链接 | 主要功能 |
+|------|------|----------|----------|
+| 应用入口模块 | ✅ 已完成 | [application/overview.md](./application/overview.md) | FastAPI应用入口、路由注册、生命周期管理 |
+| 数据库连接模块 | ✅ 已完成 | [database/overview.md](./database/overview.md) | SQLAlchemy引擎、连接池、会话管理 |
+| 数据模型模块 | ✅ 已完成 | [models/overview.md](./models/overview.md) | ORM模型定义、关系映射、索引优化 |
+| 用户认证模块 | ✅ 已完成 | [authentication/overview.md](./authentication/overview.md) | JWT认证、密码加密、权限控制 |
+| Redis客户端模块 | ✅ 已完成 | [redis/overview.md](./redis/overview.md) | Redis连接、购物车存储、缓存管理 |
+| 数据库工具模块 | ✅ 已完成 | [database-utils/overview.md](./database-utils/overview.md) | 数据库工具函数、脚本支持、测试辅助 |
+
 ### 支撑服务模块
 
 | 模块 | 状态 | 描述 |
