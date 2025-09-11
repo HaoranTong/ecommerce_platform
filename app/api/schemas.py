@@ -35,6 +35,7 @@ class UserRead(BaseModel):
     email: str
     phone: Optional[str] = None
     real_name: Optional[str] = None
+    role: str  # V1.0 Mini-MVP: 用户角色
     is_active: bool
     wx_openid: Optional[str] = None
     created_at: datetime

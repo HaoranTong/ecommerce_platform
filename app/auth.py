@@ -140,6 +140,26 @@ async def get_current_active_user(current_user: User = Depends(get_current_user)
     return current_user
 
 
+async def get_current_admin_user(current_user: User = Depends(get_current_active_user)) -> User:
+    """获取当前管理员用户（权限检查）"""
+    if current_user.role not in ['admin', 'super_admin']:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="管理员权限不足，无法访问此资源"
+        )
+    return current_user
+
+
+async def get_current_super_admin_user(current_user: User = Depends(get_current_active_user)) -> User:
+    """获取当前超级管理员用户（最高权限检查）"""
+    if current_user.role != 'super_admin':
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="超级管理员权限不足，无法访问此资源"
+        )
+    return current_user
+
+
 def get_optional_current_user(
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
     db: Session = Depends(get_db)
@@ -152,3 +172,21 @@ def get_optional_current_user(
         return get_current_user(credentials, db)
     except AuthenticationError:
         return None
+
+
+def require_ownership(resource_user_id: int, current_user: User) -> bool:
+    """检查资源所有权（用户只能操作自己的资源）"""
+    if current_user.role in ['admin', 'super_admin']:
+        return True  # 管理员可以操作所有资源
+    
+    return resource_user_id == current_user.id
+
+
+def check_resource_ownership(resource_user_id: int, current_user: User = Depends(get_current_active_user)):
+    """资源所有权检查依赖"""
+    if not require_ownership(resource_user_id, current_user):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="只能操作自己的资源"
+        )
+    return current_user

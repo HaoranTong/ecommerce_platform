@@ -14,6 +14,8 @@ class User(Base):
     # 密码认证
     password_hash = Column(String(255), nullable=False)
     is_active = Column(Boolean, default=True)
+    # 用户角色权限 (V1.0 Mini-MVP)
+    role = Column(String(20), default='user', nullable=False)  # 'user', 'admin', 'super_admin'
     # 微信相关字段（为小程序对接预留）
     wx_openid = Column(String(100), unique=True, nullable=True)
     wx_unionid = Column(String(100), unique=True, nullable=True)
