@@ -16,6 +16,8 @@
 | 支付服务模块 | ✅ 已完成 | [payment/overview.md](./payment/overview.md) | 多支付渠道、支付流程、风控安全、财务管理 |
 | 通知服务模块 | ✅ 已完成 | [notification/overview.md](./notification/overview.md) | 多渠道通知、模板管理、智能发送、效果跟踪 |
 | 推荐系统模块 | ✅ 已完成 | [recommendation/overview.md](./recommendation/overview.md) | 个性化推荐、实时推荐、智能搜索、推荐优化 |
+| 批次溯源模块 | 📝 新增 | [batch-traceability/overview.md](./batch-traceability/overview.md) | 农产品溯源、批次管理、质量追溯、区块链存证 |
+| 分销商管理模块 | 📝 新增 | [distributor/overview.md](./distributor/overview.md) | 多级分销、佣金管理、推广工具、团队管理 |
 
 ### 支撑服务模块
 
