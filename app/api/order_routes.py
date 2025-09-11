@@ -12,7 +12,8 @@ from sqlalchemy import and_, or_, desc
 
 from app.database import get_db
 from app.models import Order, OrderItem, Product, User
-from app.auth import get_current_active_user
+# V1.0 Mini-MVP: 导入更新的认证依赖
+from app.auth import get_current_active_user, get_current_admin_user, require_ownership
 from app.api.schemas import (
     OrderCreate,
     OrderRead,
@@ -37,12 +38,12 @@ async def create_order(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ):
-    """创建订单"""
+    """创建订单（用户只能为自己创建，管理员可为任何人创建）"""
     
-    # 验证当前用户是否有权为指定用户创建订单（可以为自己创建，管理员可以为任何人创建）
+    # V1.0 Mini-MVP: 使用新的权限检查
     if order_data.user_id != current_user.id:
-        # TODO: 这里应该检查是否是管理员，当前先简单限制只能为自己创建订单
-        if not hasattr(current_user, 'is_admin') or not current_user.is_admin:
+        # 检查是否是管理员
+        if current_user.role not in ['admin', 'super_admin']:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="只能为自己创建订单"
@@ -148,12 +149,12 @@ async def list_orders(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ):
-    """获取订单列表"""
+    """获取订单列表（用户只能查看自己的订单，管理员可查看所有）"""
     
     query = db.query(Order)
     
-    # 如果不是管理员，只能查看自己的订单
-    if not (hasattr(current_user, 'is_admin') and current_user.is_admin):
+    # V1.0 Mini-MVP: 使用新的权限检查
+    if current_user.role not in ['admin', 'super_admin']:
         query = query.filter(Order.user_id == current_user.id)
     elif user_id:
         # 管理员可以按用户ID过滤
@@ -175,7 +176,7 @@ async def get_order(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ):
-    """获取订单详情"""
+    """获取订单详情（所有权验证）"""
     
     order = db.query(Order).filter(Order.id == order_id).first()
     if not order:
@@ -184,8 +185,8 @@ async def get_order(
             detail="订单不存在"
         )
     
-    # 检查权限：只能查看自己的订单或管理员可以查看所有订单
-    if order.user_id != current_user.id and not (hasattr(current_user, 'is_admin') and current_user.is_admin):
+    # V1.0 Mini-MVP: 使用新的权限检查
+    if not require_ownership(order.user_id, current_user):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="无权访问此订单"
@@ -199,22 +200,15 @@ async def update_order_status(
     order_id: int,
     status_update: OrderStatusUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_admin: User = Depends(get_current_admin_user)  # V1.0: 管理员权限
 ):
-    """更新订单状态"""
+    """更新订单状态（需要管理员权限）"""
     
     order = db.query(Order).filter(Order.id == order_id).first()
     if not order:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="订单不存在"
-        )
-    
-    # 检查权限：只有管理员可以更新订单状态
-    if not (hasattr(current_user, 'is_admin') and current_user.is_admin):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="无权修改订单状态"
         )
     
     old_status = order.status
@@ -257,7 +251,7 @@ async def cancel_order(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ):
-    """取消订单"""
+    """取消订单（用户可取消自己的订单，管理员可取消任何订单）"""
     
     order = db.query(Order).filter(Order.id == order_id).first()
     if not order:
@@ -266,8 +260,8 @@ async def cancel_order(
             detail="订单不存在"
         )
     
-    # 检查权限：用户可以取消自己的订单，管理员可以取消任何订单
-    if order.user_id != current_user.id and not (hasattr(current_user, 'is_admin') and current_user.is_admin):
+    # V1.0 Mini-MVP: 使用新的权限检查
+    if not require_ownership(order.user_id, current_user):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="无权取消此订单"
@@ -300,7 +294,7 @@ async def get_order_items(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ):
-    """获取订单商品列表"""
+    """获取订单商品列表（所有权验证）"""
     
     order = db.query(Order).filter(Order.id == order_id).first()
     if not order:
@@ -309,8 +303,8 @@ async def get_order_items(
             detail="订单不存在"
         )
     
-    # 检查权限
-    if order.user_id != current_user.id and not (hasattr(current_user, 'is_admin') and current_user.is_admin):
+    # V1.0 Mini-MVP: 使用新的权限检查
+    if not require_ownership(order.user_id, current_user):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="无权访问此订单"
