@@ -12,8 +12,15 @@
 ### 🏗️ 系统架构
 - [架构概览](architecture/overview.md) - 技术架构设计
 - [数据模型](architecture/data-models.md) - 数据库设计
-- [API标准](architecture/api-standards.md) - 接口规范
 - [安全架构](architecture/security.md) - 安全设计
+- [事件驱动](architecture/event-driven.md) - 事件驱动架构
+- [集成架构](architecture/integration.md) - 系统集成设计
+
+### 📡 API接口
+- [API文档中心](api/README.md) - API文档导航
+- [API设计标准](api/standards.md) - 接口设计规范
+- [OpenAPI规范](api/openapi.yaml) - 完整API规范
+- [购物车API](api/modules/cart/api-spec.md) - 购物车接口
 
 ### 🔧 功能模块
 - [用户认证](modules/user-auth/overview.md) - 登录注册功能
