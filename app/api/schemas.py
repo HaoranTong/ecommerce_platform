@@ -382,3 +382,8 @@ class WechatPaymentCallback(BaseModel):
     bank_type: Optional[str] = Field(None, description="银行类型")
     attach: Optional[str] = Field(None, description="附加数据")
     success_time: Optional[str] = Field(None, description="支付完成时间")
+
+
+class RefundStatusUpdate(BaseModel):
+    status: str = Field(..., description="退款状态")
+    admin_note: Optional[str] = Field(None, description="管理员备注")
