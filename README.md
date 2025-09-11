@@ -15,17 +15,8 @@
 - 🔄 标准化开发工具和自动化脚本
 
 **技术栈:**
-- **后端**: FastAPI + ### 📦 功能模块
-- **[用户认证模块](docs/modules/user-auth/)** - 用户注册、登录、权限管理
-- **[商品目录模块](docs/modules/product-catalog/)** - 商品CRUD、分类、库存
-- **[购物车模块](docs/modules/shopping-cart/)** - 购物车功能和Redis存储
-- **[订单管理模块](docs/modules/order-management/)** - 订单处理流程
-- **[支付系统模块](docs/modules/payment-service/)** - 支付集成和回调hemy + Alembic
-- **数### 📝 文档模板和规范
-- **[模块文档模板](docs/templates/module-template.md)** - 标准化模块文档模板
-- **[文档命名规范](MASTER.md#文档命名规范)** - 统一的文档命名标准（在MASTER.md中定义）
-
-## ⚙️ 开发工具 + Redis
+- **后端**: FastAPI + SQLAlchemy + Alembic
+- **数据库**: MySQL + Redis
 - **容器化**: Docker + Docker Compose
 - **测试**: pytest + API测试套件
 - **文档**: OpenAPI + Markdown
