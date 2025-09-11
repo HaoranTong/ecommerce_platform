@@ -5,13 +5,19 @@ from typing import List, Optional
 from app.db import get_session
 import app.models as models
 from app.api import schemas
+# V1.0 Mini-MVP: 导入认证依赖
+from app.auth import get_current_admin_user
 
 router = APIRouter()
 
 
 @router.post("/api/products", response_model=schemas.ProductRead, status_code=status.HTTP_201_CREATED)
-def create_product(payload: schemas.ProductCreate, db: Session = Depends(get_session)):
-    """创建新商品"""
+def create_product(
+    payload: schemas.ProductCreate, 
+    db: Session = Depends(get_session),
+    current_admin: models.User = Depends(get_current_admin_user)  # V1.0: 管理员权限检查
+):
+    """创建新商品（需要管理员权限）"""
     # 检查SKU是否已存在
     existing = db.query(models.Product).filter(models.Product.sku == payload.sku).first()
     if existing:
@@ -83,9 +89,10 @@ def get_product(product_id: int, db: Session = Depends(get_session)):
 def update_product(
     product_id: int, 
     payload: schemas.ProductUpdate, 
-    db: Session = Depends(get_session)
+    db: Session = Depends(get_session),
+    current_admin: models.User = Depends(get_current_admin_user)  # V1.0: 管理员权限检查
 ):
-    """更新商品信息"""
+    """更新商品信息（需要管理员权限）"""
     product = db.query(models.Product).get(product_id)
     if not product:
         raise HTTPException(
@@ -128,9 +135,10 @@ def update_product(
 def update_product_stock(
     product_id: int,
     stock_update: schemas.ProductStockUpdate,
-    db: Session = Depends(get_session)
+    db: Session = Depends(get_session),
+    current_admin: models.User = Depends(get_current_admin_user)  # V1.0: 管理员权限检查
 ):
-    """更新商品库存"""
+    """更新商品库存（需要管理员权限）"""
     product = db.query(models.Product).get(product_id)
     if not product:
         raise HTTPException(
@@ -159,8 +167,12 @@ def update_product_stock(
 
 
 @router.delete("/api/products/{product_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_product(product_id: int, db: Session = Depends(get_session)):
-    """删除商品（软删除）"""
+def delete_product(
+    product_id: int, 
+    db: Session = Depends(get_session),
+    current_admin: models.User = Depends(get_current_admin_user)  # V1.0: 管理员权限检查
+):
+    """删除商品（需要管理员权限，软删除）"""
     product = db.query(models.Product).get(product_id)
     if not product:
         raise HTTPException(

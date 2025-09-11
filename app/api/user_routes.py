@@ -67,6 +67,7 @@ async def register_user(
             password_hash=hashed_password,
             phone=user_data.phone,
             real_name=user_data.real_name,
+            role='user',  # V1.0 Mini-MVP: 默认普通用户角色
             is_active=True
         )
         
