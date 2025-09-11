@@ -290,7 +290,7 @@ class Test{Entity}API:
 - [数据模型规范](../architecture/data-models.md)
 
 ### 开发文档
-- [开发规范](../development/standards.md)
+- [开发规范](../development/development-standards.md)
 - [测试指南](../development/testing.md)
 - [部署指南](../operations/deployment.md)
 

@@ -180,7 +180,7 @@ ecommerce_platform/
 ### 开发指南
 - `MASTER.md` - 文档驱动开发总纲
 - `docs/standards/naming-conventions.md` - 命名规范
-- `docs/development/standards.md` - 开发标准
+- `docs/development/development-standards.md` - 开发标准
 
 ### API文档
 - `docs/modules/user-auth/api-implementation.md`

@@ -104,7 +104,7 @@ ecommerce_platform/
 │   │   └── event-driven.md         # 事件驱动架构
 │   ├── 📁 api/                     # 📡 API文档中心
 │   │   ├── README.md               # API文档导航
-│   │   ├── standards.md            # API设计标准规范
+│   │   ├── api-design-standards.md # API设计标准规范
 │   │   ├── openapi.yaml            # OpenAPI 3.0规范文档
 │   │   └── 📁 modules/             # 各模块API文档
 │   │       └── 📁 cart/            # 购物车API
@@ -127,7 +127,7 @@ ecommerce_platform/
 │   │   └── environment.md          # 环境配置
 │   ├── 📁 development/             # 💻 开发相关文档
 │   │   ├── README.md               # 开发指南导航
-│   │   ├── standards.md            # 开发标准规范
+│   │   ├── development-standards.md # 开发标准规范
 │   │   ├── testing.md              # 测试指南
 │   │   ├── tools.md                # 开发工具说明
 │   │   └── workflow.md             # 开发工作流程
@@ -306,7 +306,7 @@ ecommerce_platform/
 
 ### 🛠️ 开发指南
 - **[开发工作流程](docs/development/workflow.md)** - 标准开发流程
-- **[编码规范](docs/development/standards.md)** - 代码质量标准
+- **[编码规范](docs/development/development-standards.md)** - 代码质量标准
 - **[测试策略](docs/development/testing.md)** - 测试方法和工具
 - **[开发工具](docs/development/tools.md)** - 开发环境配置
 
@@ -330,7 +330,7 @@ ecommerce_platform/
 > **📋 文档命名规范说明**  
 > - **README.md**: 用于目录级别的导航和说明文档（如 `docs/development/README.md`）
 > - **overview.md**: 用于具体功能模块的概览文档（如 `docs/modules/user-auth/overview.md`）
-> - **standards.md**: 用于规范和标准类文档（如 `docs/api/standards.md`）
+> - **standards.md**: 用于规范和标准类文档（如 `docs/api/api-design-standards.md`）
 > - 这种命名规范确保了文档层次清晰，便于开发者快速定位所需信息
 
 ## 🛠️ 开发工具
@@ -464,7 +464,7 @@ alembic stamp head                   # 强制设置迁移版本
 
 ### 贡献指南
 - **强制执行命名规范** - 提交前必须通过 `.\scripts\check_naming_compliance.ps1` 检查
-- 遵循 **[编码规范](docs/development/standards.md)**
+- 遵循 **[编码规范](docs/development/development-standards.md)**
 - 确保所有测试通过
 - 更新相关文档
 - 使用标准化脚本进行提交

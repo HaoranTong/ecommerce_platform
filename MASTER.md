@@ -76,7 +76,7 @@
 
 #### 2. 🏗️ 架构设计阶段
 - [ ] 阅读 [系统架构总览](architecture/overview.md)
-- [ ] 阅读 [API设计规范](api/standards.md)
+- [ ] 阅读 [API设计规范](api/api-design-standards.md)
 - [ ] 阅读 [数据模型规范](architecture/data-models.md)
 - [ ] **强制执行命名检查** - 架构中所有实体命名必须遵循规范
 - [ ] 如涉及安全，阅读 [安全架构](architecture/security.md)
@@ -85,10 +85,10 @@
 #### 3. 💻 代码开发阶段 (强制文档优先)
 - [ ] **文档优先检查** - 确认相关文档已完整编写
 - [ ] **禁止无文档编码** - 文档未描述的功能严禁编写代码
-- [ ] 遵循 [开发规范](development/standards.md)
+- [ ] 遵循 [开发规范](development/development-standards.md)
 - [ ] **强制执行命名检查** - 所有代码实体命名必须遵循规范
 - [ ] 参考 [模块文档模板](templates/module-template.md)
-- [ ] 编写符合 [API规范](api/standards.md) 的接口
+- [ ] 编写符合 [API规范](api/api-design-standards.md) 的接口
 - [ ] 同步更新模块文档
 
 #### 4. 🧪 测试阶段
@@ -246,7 +246,7 @@ graph TD
 
 **输出文档**:
 - `architecture/overview.md` - 系统架构总览
-- `api/standards.md` - API设计规范
+- `api/api-design-standards.md` - API设计规范
 - `architecture/data-models.md` - 数据模型设计
 - `modules/{module}/overview.md` - 模块设计文档
 
@@ -403,7 +403,7 @@ graph TD
 
 - **standards.md** - **标准和规范类文档**
   - 作用：定义设计标准、开发规范、技术标准
-  - 示例：`docs/api/standards.md`、`docs/development/standards.md`
+  - 示例：`docs/api/api-design-standards.md`、`docs/development/development-standards.md`
 
 #### 专用文档命名
 - **business.md / functional.md / non-functional.md** - 需求文档
@@ -542,7 +542,7 @@ graph TD
 
 ### 📡 API文档
 - [API文档中心](api/README.md) - API文档导航
-- [API设计标准](api/standards.md) - 接口设计规范
+- [API设计标准](api/api-design-standards.md) - 接口设计规范
 - [OpenAPI规范](api/openapi.yaml) - 完整API规范文件
 
 ### 📦 模块文档
@@ -553,7 +553,7 @@ graph TD
 - [更多模块...](modules/)
 
 ### 💻 开发指南
-- [开发规范](development/standards.md) - 代码和开发标准
+- [开发规范](development/development-standards.md) - 代码和开发标准
 - [测试指南](development/testing.md) - 测试策略和规范
 - [工作流程](development/workflow.md) - 开发工作流程
 - [开发工具](development/tools.md) - 工具配置指南
