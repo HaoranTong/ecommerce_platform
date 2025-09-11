@@ -29,7 +29,7 @@ class User(Base):
     # 关系
     orders = relationship("Order", back_populates="user")
     payments = relationship("Payment", back_populates="user")
-    payments = relationship("Payment", back_populates="user")  # V1.0: 支付关系
+    carts = relationship("Cart", back_populates="user")
 
 
 class Category(Base):
@@ -255,4 +255,57 @@ class Refund(Base):
     __table_args__ = (
         Index('idx_payment_status', 'payment_id', 'status'),
         Index('idx_gateway_refund', 'gateway_refund_id'),
+    )
+
+
+class Cart(Base):
+    """购物车模型"""
+    __tablename__ = 'carts'
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    status = Column(String(20), default='active', nullable=False)  # active, inactive, converted
+    total_amount = Column(DECIMAL(10, 2), default=0.00)
+    total_discount = Column(DECIMAL(10, 2), default=0.00)
+    item_count = Column(Integer, default=0)
+    expires_at = Column(DateTime, nullable=True)  # 购物车过期时间
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+    
+    # 关系
+    user = relationship("User", back_populates="carts")
+    items = relationship("CartItem", back_populates="cart", cascade="all, delete-orphan")
+    
+    # 索引
+    __table_args__ = (
+        Index('idx_user_status', 'user_id', 'status'),
+        Index('idx_cart_expires', 'expires_at'),
+    )
+
+
+class CartItem(Base):
+    """购物车项目模型"""
+    __tablename__ = 'cart_items'
+    
+    id = Column(Integer, primary_key=True, index=True)
+    cart_id = Column(Integer, ForeignKey('carts.id'), nullable=False)
+    product_id = Column(Integer, ForeignKey('products.id'), nullable=False)
+    quantity = Column(Integer, nullable=False)
+    unit_price = Column(DECIMAL(10, 2), nullable=False)  # 商品单价
+    original_price = Column(DECIMAL(10, 2), nullable=False)  # 原始价格
+    discount_amount = Column(DECIMAL(10, 2), default=0.00)  # 折扣金额
+    total_price = Column(DECIMAL(10, 2), nullable=False)  # 小计
+    added_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+    
+    # 关系
+    cart = relationship("Cart", back_populates="items")
+    product = relationship("Product")
+    
+    # 约束和索引
+    __table_args__ = (
+        Index('idx_cart_product', 'cart_id', 'product_id'),
+        Index('idx_cart_items_cart', 'cart_id'),
+        # 确保同一购物车中每个商品只有一条记录
+        # UniqueConstraint('cart_id', 'product_id', name='uq_cart_product'),
     )
