@@ -3,8 +3,9 @@
 - 内容：API设计的全局标准和规范，不包含具体API接口定义
 - 使用方法：开发API时遵循的设计规范，确保API一致性
 - 更新方法：API设计标准变更时更新，需要架构师确认
-- 引用关系：被各模块的api-spec.md文档引用
+- 引用关系：被各模块的api-spec.md文档引用，被architecture/overview.md引用
 - 更新频率：设计标准变化时
+- 位置说明：从architecture目录迁移到api目录，集中管理API相关文档
 -->
 
 # API设计标准
@@ -41,6 +42,7 @@ https://api.example.com/v1/products?category=rice&page=1
 
 ### 路径结构
 ```
+# 基础商品管理
 GET    /api/v1/products           # 获取商品列表
 GET    /api/v1/products/{id}      # 获取指定商品
 POST   /api/v1/products           # 创建商品
@@ -50,6 +52,32 @@ DELETE /api/v1/products/{id}      # 删除商品
 # 嵌套资源
 GET    /api/v1/products/{id}/reviews     # 获取商品评论
 POST   /api/v1/products/{id}/reviews     # 创建商品评论
+
+# 农产品电商特色API
+GET    /api/v1/products/{id}/batches     # 获取商品批次信息
+GET    /api/v1/batches/{id}/trace        # 获取批次溯源信息
+POST   /api/v1/batches/{id}/trace        # 记录溯源信息
+
+# 会员和积分系统
+GET    /api/v1/members/{id}/points       # 获取会员积分
+POST   /api/v1/members/{id}/points       # 增加积分记录
+GET    /api/v1/members/{id}/rewards      # 获取会员奖励
+
+# 分销商管理
+GET    /api/v1/distributors              # 获取分销商列表
+POST   /api/v1/distributors/applications # 提交分销商申请
+GET    /api/v1/distributors/{id}/commissions # 获取分销佣金
+
+# 社交电商功能
+POST   /api/v1/products/{id}/share       # 分享商品
+GET    /api/v1/group-orders              # 获取拼团订单
+POST   /api/v1/group-orders              # 发起拼团
+POST   /api/v1/group-orders/{id}/join    # 参与拼团
+
+# 营销活动
+GET    /api/v1/campaigns                 # 获取活动列表
+GET    /api/v1/coupons                   # 获取优惠券
+POST   /api/v1/coupons/{id}/claim        # 领取优惠券
 ```
 
 ## HTTP 方法使用

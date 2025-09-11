@@ -299,7 +299,45 @@ graph TD
 - **API文档**: 接口开发者负责
 - **运维文档**: 运维团队负责
 
-## 🛠️ 文档工具链
+## � 文档命名规范
+
+### 强制命名规则
+
+#### 目录级文档命名
+- **README.md** - 每个目录的**导航和索引文档**（强制要求）
+  - 作用：提供该目录的总览、文档索引、使用说明
+  - 位置：每个docs子目录必须有README.md
+  - 示例：`docs/modules/README.md`、`docs/architecture/README.md`
+
+#### 功能性文档命名
+- **overview.md** - **模块或组件的详细概述文档**
+  - 作用：描述具体模块的功能、架构、设计原理
+  - 位置：每个模块目录下使用overview.md
+  - 示例：`docs/modules/user-auth/overview.md`
+
+- **standards.md** - **标准和规范类文档**
+  - 作用：定义设计标准、开发规范、技术标准
+  - 示例：`docs/api/standards.md`、`docs/development/standards.md`
+
+#### 专用文档命名
+- **business.md / functional.md / non-functional.md** - 需求文档
+- **design.md** - 详细设计文档
+- **api-spec.md** - API规范文档
+- **deployment.md** - 部署相关文档
+
+### 命名原则
+1. **一致性原则** - 相同类型的文档使用相同命名模式
+2. **描述性原则** - 文件名要清晰表达文档内容
+3. **层次性原则** - README.md用于导航，overview.md用于详述
+4. **英文优先** - 文件名使用英文，避免中文和特殊字符
+
+### ❌ 禁止的命名方式
+- 使用中文文件名
+- 随意命名（如 doc1.md, temp.md）
+- 功能相同但命名不一致
+- 缺少目录级README.md文档
+
+## �🛠️ 文档工具链
 
 ### 推荐工具栈
 1. **编写工具**: VS Code + Markdown All in One
@@ -411,9 +449,15 @@ graph TD
 
 ### 🏗️ 架构和设计  
 - [系统架构总览](architecture/overview.md) - 整体技术架构
-- [API设计规范](architecture/api-standards.md) - 接口设计标准
 - [数据模型规范](architecture/data-models.md) - 数据设计标准
 - [安全架构](architecture/security.md) - 安全设计指南
+- [事件驱动架构](architecture/event-driven.md) - 事件驱动设计
+- [集成架构](architecture/integration.md) - 系统集成设计
+
+### 📡 API文档
+- [API文档中心](api/README.md) - API文档导航
+- [API设计标准](api/standards.md) - 接口设计规范
+- [OpenAPI规范](api/openapi.yaml) - 完整API规范文件
 
 ### 📦 模块文档
 - [模块总览](modules/README.md) - 所有模块的导航
