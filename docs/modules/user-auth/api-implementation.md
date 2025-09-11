@@ -143,6 +143,7 @@ app/api/user_routes.py
   "real_name": "John Doe",
   "phone": "13800138000",
   "is_active": true,
+  "role": "user",
   "created_at": "2025-09-11T10:00:00",
   "updated_at": "2025-09-11T10:00:00"
 }
@@ -228,6 +229,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
   "real_name": "John Doe",
   "phone": "13800138000",
   "is_active": true,
+  "role": "user",
   "created_at": "2025-09-11T10:00:00",
   "updated_at": "2025-09-11T10:00:00"
 }
@@ -263,6 +265,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
   "real_name": "John Smith",
   "phone": "13900139000",
   "is_active": true,
+  "role": "user",
   "created_at": "2025-09-11T10:00:00",
   "updated_at": "2025-09-11T10:30:00"
 }
@@ -346,6 +349,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
     "email": "john@example.com",
     "real_name": "John Doe",
     "is_active": true,
+    "role": "user",
     "created_at": "2025-09-11T10:00:00"
   },
   {
@@ -354,6 +358,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
     "email": "jane@example.com",
     "real_name": "Jane Smith",
     "is_active": true,
+    "role": "admin",
     "created_at": "2025-09-11T11:00:00"
   }
 ]
@@ -385,6 +390,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
   "real_name": "John Doe",
   "phone": "13800138000",
   "is_active": true,
+  "role": "user",
   "wx_openid": null,
   "wx_unionid": null,
   "created_at": "2025-09-11T10:00:00",
@@ -397,6 +403,108 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 - `401`: 未认证
 - `403`: 权限不足
 - `404`: 用户不存在
+
+## 权限体系实现
+
+### 角色定义
+
+本模块实现基于角色的权限控制（RBAC），通过User模型的`role`字段定义用户权限级别：
+
+#### 角色类型
+- **`user`** - 普通用户 (默认)
+  - 只能访问和操作自己的数据
+  - 可以查看和修改个人信息
+  - 可以创建和管理自己的订单、购物车等
+
+- **`admin`** - 管理员
+  - 拥有所有普通用户权限
+  - 可以查看和管理所有用户的订单
+  - 可以管理商品目录（增删改查）
+  - 可以查看用户列表和详情
+
+- **`super_admin`** - 超级管理员
+  - 拥有所有管理员权限  
+  - 可以管理用户角色（提升/降级权限）
+  - 可以访问系统级管理功能
+  - 拥有最高权限
+
+### 权限检查机制
+
+#### 认证依赖函数
+
+```python
+# 基础用户认证 - 验证token有效性
+def get_current_active_user(token: str = Depends(oauth2_scheme)):
+    """验证并返回当前活跃用户，适用于需要用户登录的操作"""
+    
+# 管理员权限认证 - 验证管理员角色
+def get_current_admin_user(current_user: User = Depends(get_current_active_user)):
+    """验证当前用户是否为管理员，用于管理功能"""
+    if current_user.role not in ['admin', 'super_admin']:
+        raise HTTPException(403, "需要管理员权限")
+    return current_user
+
+# 所有权验证 - 检查资源所有权
+def require_ownership(resource_user_id: int, current_user: User) -> bool:
+    """检查用户是否有权访问特定资源"""
+    # 管理员可以访问所有资源
+    if current_user.role in ['admin', 'super_admin']:
+        return True
+    # 普通用户只能访问自己的资源
+    return resource_user_id == current_user.id
+```
+
+#### 权限验证流程
+
+```mermaid
+graph TD
+    A[API请求] --> B[Token验证]
+    B --> C{Token有效?}
+    C -->|否| D[返回401]
+    C -->|是| E[获取用户信息]
+    E --> F{需要管理员权限?}
+    F -->|是| G{用户是管理员?}
+    F -->|否| H[检查资源所有权]
+    G -->|否| I[返回403]
+    G -->|是| J[允许访问]
+    H --> K{拥有资源?}
+    K -->|否| I
+    K -->|是| J
+```
+
+### 数据模型中的角色字段
+
+在User模型中，role字段的实现细节：
+
+```python
+class User(SQLAlchemyBase):
+    # ... 其他字段
+    role: Mapped[str] = mapped_column(
+        String(20), 
+        default="user",  # 默认为普通用户
+        nullable=False
+    )
+    
+    # 角色验证约束
+    __table_args__ = (
+        CheckConstraint(
+            "role IN ('user', 'admin', 'super_admin')",
+            name='valid_role_check'
+        ),
+    )
+```
+
+### API端点权限矩阵
+
+| API端点 | 匿名用户 | 普通用户 | 管理员 | 超级管理员 | 说明 |
+|---------|---------|---------|--------|------------|------|
+| `POST /api/auth/register` | ✅ | ✅ | ✅ | ✅ | 用户注册 |
+| `POST /api/auth/login` | ✅ | ✅ | ✅ | ✅ | 用户登录 |
+| `GET /api/auth/me` | ❌ | ✅ | ✅ | ✅ | 获取个人信息 |
+| `PUT /api/auth/me` | ❌ | ✅ | ✅ | ✅ | 更新个人信息 |
+| `POST /api/auth/change-password` | ❌ | ✅ | ✅ | ✅ | 修改密码 |
+| `GET /api/auth/users` | ❌ | ❌ | ✅ | ✅ | 用户列表 |
+| `GET /api/auth/users/{id}` | ❌ | ❌ | ✅ | ✅ | 用户详情 |
 
 ## 数据模型
 
@@ -444,6 +552,7 @@ class UserRead(BaseModel):
     real_name: Optional[str]
     phone: Optional[str]
     is_active: bool
+    role: str  # 用户角色：'user', 'admin', 'super_admin'
     created_at: datetime
     updated_at: datetime
     

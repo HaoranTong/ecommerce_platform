@@ -80,6 +80,13 @@ except Exception:
     pass
 
 try:
+    from app.api import payment_routes
+    app.include_router(payment_routes.router, prefix="/api", tags=["payments"])
+except Exception:
+    # payment routes may be missing on some branches; ignore if not present
+    pass
+
+try:
     from app.api import test_routes
     app.include_router(test_routes.router, prefix="/api/test", tags=["test"])
 except Exception:

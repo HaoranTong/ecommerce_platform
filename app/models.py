@@ -28,6 +28,7 @@ class User(Base):
     
     # 关系
     orders = relationship("Order", back_populates="user")
+    payments = relationship("Payment", back_populates="user")  # V1.0: 支付关系
 
 
 class Category(Base):
@@ -118,6 +119,7 @@ class Order(Base):
     # 关系
     user = relationship("User", back_populates="orders")
     order_items = relationship("OrderItem", back_populates="order")
+    payments = relationship("Payment", back_populates="order")  # V1.0: 支付关系
     
     # 索引
     __table_args__ = (
@@ -165,4 +167,50 @@ class Certificate(Base):
     name = Column(String(200), nullable=False)
     issuer = Column(String(200), nullable=True)
     serial = Column(String(200), unique=True, nullable=False)
+
+
+class Payment(Base):
+    """支付单模型 - V1.0 Mini-MVP"""
+    __tablename__ = 'payments'
+    
+    id = Column(Integer, primary_key=True, index=True)
+    order_id = Column(Integer, ForeignKey('orders.id'), nullable=False)
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)  # 所有权字段
+    
+    # 支付信息
+    payment_method = Column(String(50), nullable=False)  # 'wechat', 'alipay'
+    amount = Column(DECIMAL(10, 2), nullable=False)
+    currency = Column(String(3), default='CNY')
+    
+    # 支付单号
+    payment_no = Column(String(100), unique=True, nullable=False)  # 内部支付单号
+    
+    # 状态字段
+    status = Column(String(20), default='pending')  # 'pending', 'paid', 'failed', 'refunded'
+    
+    # 第三方信息
+    external_payment_id = Column(String(200), nullable=True)  # 微信订单号
+    external_transaction_id = Column(String(200), nullable=True)  # 微信交易号
+    
+    # 回调信息
+    callback_received_at = Column(DateTime, nullable=True)
+    callback_data = Column(Text, nullable=True)  # 加密存储的回调数据
+    
+    # 时间戳
+    created_at = Column(DateTime, server_default=func.now())
+    paid_at = Column(DateTime, nullable=True)
+    failed_at = Column(DateTime, nullable=True)
+    refunded_at = Column(DateTime, nullable=True)
+    
+    # 关系
+    order = relationship("Order", back_populates="payments")
+    user = relationship("User", back_populates="payments")
+    
+    # 索引
+    __table_args__ = (
+        Index('idx_payment_no', 'payment_no'),
+        Index('idx_order_user', 'order_id', 'user_id'),
+        Index('idx_status_created', 'status', 'created_at'),
+        Index('idx_external_payment', 'external_payment_id'),
+    )
     description = Column(String(1000), nullable=True)
