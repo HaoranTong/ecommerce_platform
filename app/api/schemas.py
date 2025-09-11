@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field, field_validator
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 from datetime import datetime
 from decimal import Decimal
 
@@ -268,14 +268,26 @@ class CertificateRead(BaseModel):
 # 支付相关 Schema - V1.0 Mini-MVP
 class PaymentCreate(BaseModel):
     order_id: int = Field(..., description="订单ID")
-    payment_method: str = Field(..., description="支付方式", pattern=r'^(wechat|alipay)$')
+    payment_method: str = Field(..., description="支付方式", pattern=r'^(wechat|alipay|unionpay|paypal|balance)$')
+    amount: Optional[Decimal] = Field(None, description="支付金额，为空时使用订单金额")
+    currency: str = Field("CNY", description="货币类型")
+    return_url: Optional[str] = Field(None, description="前端回调URL")
+    notify_url: Optional[str] = Field(None, description="后端通知URL")
+    description: Optional[str] = Field(None, description="支付描述")
     
     @field_validator('payment_method')
     @classmethod
     def validate_payment_method(cls, v):
-        allowed_methods = ['wechat', 'alipay']
+        allowed_methods = ['wechat', 'alipay', 'unionpay', 'paypal', 'balance']
         if v not in allowed_methods:
             raise ValueError(f'支付方式必须是: {", ".join(allowed_methods)}')
+        return v
+    
+    @field_validator('amount')
+    @classmethod
+    def validate_amount(cls, v):
+        if v is not None and v <= 0:
+            raise ValueError('支付金额必须大于0')
         return v
 
 
@@ -290,13 +302,60 @@ class PaymentRead(BaseModel):
     status: str
     external_payment_id: Optional[str] = None
     external_transaction_id: Optional[str] = None
+    pay_url: Optional[str] = None
+    qr_code: Optional[str] = None
+    expires_at: Optional[datetime] = None
     created_at: datetime
     paid_at: Optional[datetime] = None
     failed_at: Optional[datetime] = None
     refunded_at: Optional[datetime] = None
+    description: Optional[str] = None
 
     class Config:
         from_attributes = True
+
+
+class PaymentListResponse(BaseModel):
+    items: List[PaymentRead]
+    total: int
+    page: int
+    page_size: int
+    pages: int
+
+
+class RefundCreate(BaseModel):
+    amount: Decimal = Field(..., description="退款金额")
+    reason: str = Field(..., description="退款原因")
+    operator_id: Optional[int] = Field(None, description="操作员ID")
+    
+    @field_validator('amount')
+    @classmethod
+    def validate_amount(cls, v):
+        if v <= 0:
+            raise ValueError('退款金额必须大于0')
+        return v
+
+
+class RefundRead(BaseModel):
+    id: int
+    payment_id: int
+    amount: Decimal
+    reason: str
+    status: str
+    gateway_refund_id: Optional[str] = None
+    processed_at: Optional[datetime] = None
+    operator_id: Optional[int] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class PaymentStats(BaseModel):
+    period: Dict[str, str]
+    summary: Dict[str, Any]
+    by_method: Dict[str, Dict[str, Any]]
+    daily_trend: List[Dict[str, Any]]
 
 
 class PaymentStatusUpdate(BaseModel):

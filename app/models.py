@@ -28,6 +28,7 @@ class User(Base):
     
     # 关系
     orders = relationship("Order", back_populates="user")
+    payments = relationship("Payment", back_populates="user")
     payments = relationship("Payment", back_populates="user")  # V1.0: 支付关系
 
 
@@ -178,23 +179,31 @@ class Payment(Base):
     user_id = Column(Integer, ForeignKey('users.id'), nullable=False)  # 所有权字段
     
     # 支付信息
-    payment_method = Column(String(50), nullable=False)  # 'wechat', 'alipay'
+    payment_method = Column(String(50), nullable=False)  # 'wechat', 'alipay', 'unionpay', 'paypal', 'balance'
     amount = Column(DECIMAL(10, 2), nullable=False)
     currency = Column(String(3), default='CNY')
     
     # 支付单号
     payment_no = Column(String(100), unique=True, nullable=False)  # 内部支付单号
     
-    # 状态字段
-    status = Column(String(20), default='pending')  # 'pending', 'paid', 'failed', 'refunded'
+    # 状态字段  
+    status = Column(String(20), default='pending')  # 'pending', 'paid', 'failed', 'cancelled', 'expired', 'refunding', 'refunded'
     
     # 第三方信息
-    external_payment_id = Column(String(200), nullable=True)  # 微信订单号
-    external_transaction_id = Column(String(200), nullable=True)  # 微信交易号
+    external_payment_id = Column(String(200), nullable=True)  # 支付网关订单号
+    external_transaction_id = Column(String(200), nullable=True)  # 支付网关交易号
+    
+    # 支付页面信息
+    pay_url = Column(String(1000), nullable=True)  # 支付页面URL
+    qr_code = Column(Text, nullable=True)  # 二维码Base64数据
+    expires_at = Column(DateTime, nullable=True)  # 支付过期时间
     
     # 回调信息
     callback_received_at = Column(DateTime, nullable=True)
     callback_data = Column(Text, nullable=True)  # 加密存储的回调数据
+    
+    # 描述信息
+    description = Column(String(1000), nullable=True)
     
     # 时间戳
     created_at = Column(DateTime, server_default=func.now())
@@ -205,6 +214,7 @@ class Payment(Base):
     # 关系
     order = relationship("Order", back_populates="payments")
     user = relationship("User", back_populates="payments")
+    refunds = relationship("Refund", back_populates="payment")
     
     # 索引
     __table_args__ = (
@@ -213,4 +223,36 @@ class Payment(Base):
         Index('idx_status_created', 'status', 'created_at'),
         Index('idx_external_payment', 'external_payment_id'),
     )
-    description = Column(String(1000), nullable=True)
+
+
+class Refund(Base):
+    """退款单模型 - V1.0 Mini-MVP"""
+    __tablename__ = 'refunds'
+    
+    id = Column(Integer, primary_key=True, index=True)
+    payment_id = Column(Integer, ForeignKey('payments.id'), nullable=False)
+    
+    # 退款信息
+    amount = Column(DECIMAL(10, 2), nullable=False)
+    reason = Column(String(500), nullable=False)
+    status = Column(String(20), default='processing')  # 'processing', 'success', 'failed', 'cancelled'
+    
+    # 第三方退款信息
+    gateway_refund_id = Column(String(200), nullable=True)
+    
+    # 操作信息
+    operator_id = Column(Integer, ForeignKey('users.id'), nullable=True)
+    
+    # 时间字段
+    created_at = Column(DateTime, server_default=func.now())
+    processed_at = Column(DateTime, nullable=True)
+    
+    # 关系
+    payment = relationship("Payment", back_populates="refunds")
+    operator = relationship("User", foreign_keys=[operator_id])
+    
+    # 索引
+    __table_args__ = (
+        Index('idx_payment_status', 'payment_id', 'status'),
+        Index('idx_gateway_refund', 'gateway_refund_id'),
+    )
