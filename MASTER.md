@@ -76,7 +76,7 @@
 
 #### 2. 🏗️ 架构设计阶段
 - [ ] 阅读 [系统架构总览](architecture/overview.md)
-- [ ] 阅读 [API设计规范](architecture/api-standards.md)
+- [ ] 阅读 [API设计规范](api/standards.md)
 - [ ] 阅读 [数据模型规范](architecture/data-models.md)
 - [ ] **强制执行命名检查** - 架构中所有实体命名必须遵循规范
 - [ ] 如涉及安全，阅读 [安全架构](architecture/security.md)
@@ -88,7 +88,7 @@
 - [ ] 遵循 [开发规范](development/standards.md)
 - [ ] **强制执行命名检查** - 所有代码实体命名必须遵循规范
 - [ ] 参考 [模块文档模板](templates/module-template.md)
-- [ ] 编写符合 [API规范](architecture/api-standards.md) 的接口
+- [ ] 编写符合 [API规范](api/standards.md) 的接口
 - [ ] 同步更新模块文档
 
 #### 4. 🧪 测试阶段
@@ -246,7 +246,7 @@ graph TD
 
 **输出文档**:
 - `architecture/overview.md` - 系统架构总览
-- `architecture/api-standards.md` - API设计规范
+- `api/standards.md` - API设计规范
 - `architecture/data-models.md` - 数据模型设计
 - `modules/{module}/overview.md` - 模块设计文档
 

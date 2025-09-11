@@ -263,3 +263,63 @@ class CertificateRead(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+# 支付相关 Schema - V1.0 Mini-MVP
+class PaymentCreate(BaseModel):
+    order_id: int = Field(..., description="订单ID")
+    payment_method: str = Field(..., description="支付方式", pattern=r'^(wechat|alipay)$')
+    
+    @field_validator('payment_method')
+    @classmethod
+    def validate_payment_method(cls, v):
+        allowed_methods = ['wechat', 'alipay']
+        if v not in allowed_methods:
+            raise ValueError(f'支付方式必须是: {", ".join(allowed_methods)}')
+        return v
+
+
+class PaymentRead(BaseModel):
+    id: int
+    order_id: int
+    user_id: int
+    payment_method: str
+    amount: Decimal
+    currency: str
+    payment_no: str
+    status: str
+    external_payment_id: Optional[str] = None
+    external_transaction_id: Optional[str] = None
+    created_at: datetime
+    paid_at: Optional[datetime] = None
+    failed_at: Optional[datetime] = None
+    refunded_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+class PaymentStatusUpdate(BaseModel):
+    status: str = Field(..., description="支付状态")
+    external_payment_id: Optional[str] = Field(None, description="第三方支付ID")
+    external_transaction_id: Optional[str] = Field(None, description="第三方交易ID")
+    callback_data: Optional[str] = Field(None, description="回调数据")
+    
+    @field_validator('status')
+    @classmethod
+    def validate_status(cls, v):
+        allowed_statuses = ['pending', 'paid', 'failed', 'refunded']
+        if v not in allowed_statuses:
+            raise ValueError(f'支付状态必须是: {", ".join(allowed_statuses)}')
+        return v
+
+
+class WechatPaymentCallback(BaseModel):
+    """微信支付回调数据模型"""
+    out_trade_no: str = Field(..., description="商户订单号")
+    transaction_id: str = Field(..., description="微信支付订单号")
+    trade_state: str = Field(..., description="交易状态")
+    trade_state_desc: str = Field(..., description="交易状态描述")
+    bank_type: Optional[str] = Field(None, description="银行类型")
+    attach: Optional[str] = Field(None, description="附加数据")
+    success_time: Optional[str] = Field(None, description="支付完成时间")

@@ -102,6 +102,54 @@ sequenceDiagram
     A-->>C: 返回更新结果
 ```
 
+## 认证集成实现
+
+### 权限体系
+
+本模块基于用户角色实现权限控制，所有管理性操作需要管理员权限：
+
+- **普通用户** (`role: "user"`)：只能查看商品信息
+- **管理员** (`role: "admin"` 或 `"super_admin"`)：拥有完整的商品管理权限
+
+### 认证依赖
+
+```python
+from app.auth import get_current_admin_user
+
+# 管理员权限认证
+async def admin_required(
+    current_admin: User = Depends(get_current_admin_user)
+) -> User:
+    """验证当前用户是否为管理员"""
+    return current_admin
+```
+
+### 权限矩阵
+
+| API端点 | 匿名用户 | 普通用户 | 管理员 | 说明 |
+|---------|---------|---------|--------|------|
+| `GET /api/products` | ✅ | ✅ | ✅ | 商品列表查询 |
+| `GET /api/products/{id}` | ✅ | ✅ | ✅ | 商品详情查询 |
+| `POST /api/products` | ❌ | ❌ | ✅ | 创建商品 |
+| `PUT /api/products/{id}` | ❌ | ❌ | ✅ | 更新商品 |
+| `DELETE /api/products/{id}` | ❌ | ❌ | ✅ | 删除商品 |
+| `PATCH /api/products/{id}/inventory` | ❌ | ❌ | ✅ | 库存管理 |
+
+### 实际实现
+
+所有需要管理员权限的端点都使用 `get_current_admin_user` 依赖：
+
+```python
+# 示例：创建商品端点
+@router.post("/api/products", response_model=ProductRead)
+async def create_product(
+    product_data: ProductCreate,
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(get_current_admin_user)  # 管理员认证
+):
+    """创建新商品 - 需要管理员权限"""
+```
+
 ## API接口详解
 
 ### 商品管理接口
