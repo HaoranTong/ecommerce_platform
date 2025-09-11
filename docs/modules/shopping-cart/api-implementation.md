@@ -53,11 +53,11 @@ graph TB
     J --> M[Stock Validation]
     
     subgraph "API Endpoints"
-        N[/cart/add]
-        O[/cart/items/{id}]
-        P[/cart]
-        Q[/cart/clear]
-        R[/cart/count]
+        N[/api/carts/items]
+        O[/api/carts/items/{id}]
+        P[/api/carts]
+        Q[/api/carts/items]
+        R[/api/carts/summary]
     end
 ```
 
@@ -73,7 +73,7 @@ sequenceDiagram
     participant Stock as Inventory
     
     Note over C,Stock: 添加商品到购物车
-    C->>A: POST /cart/add
+    C->>A: POST /api/carts/items
     A->>Auth: 验证用户令牌
     Auth-->>A: 返回用户信息
     A->>DB: 查询商品信息
@@ -85,7 +85,7 @@ sequenceDiagram
     A-->>C: 返回操作结果
     
     Note over C,Stock: 获取购物车详情
-    C->>A: GET /cart
+    C->>A: GET /api/carts
     A->>Auth: 验证用户令牌
     Auth-->>A: 返回用户信息
     A->>Cache: 获取购物车数据
@@ -102,7 +102,7 @@ sequenceDiagram
 
 #### 1. 添加商品到购物车
 
-**端点**: `POST /cart/add`  
+**端点**: `POST /api/carts/items`  
 **功能**: 将指定商品添加到用户购物车  
 **认证**: 需要有效的访问令牌  
 
@@ -147,7 +147,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
 
 #### 2. 更新购物车商品数量
 
-**端点**: `PUT /cart/items/{product_id}`  
+**端点**: `PUT /api/carts/items/{product_id}`  
 **功能**: 更新购物车中指定商品的数量  
 **认证**: 需要有效的访问令牌  
 
@@ -183,7 +183,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
 
 #### 3. 移除购物车商品
 
-**端点**: `DELETE /cart/items/{product_id}`  
+**端点**: `DELETE /api/carts/items/{product_id}`  
 **功能**: 从购物车中移除指定商品  
 **认证**: 需要有效的访问令牌  
 
@@ -206,7 +206,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
 
 #### 4. 获取购物车详情
 
-**端点**: `GET /cart`  
+**端点**: `GET /api/carts`  
 **功能**: 获取用户购物车的完整详情  
 **认证**: 需要有效的访问令牌  
 
@@ -258,7 +258,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
 
 #### 5. 清空购物车
 
-**端点**: `DELETE /cart/clear`  
+**端点**: `DELETE /api/carts/items`  
 **功能**: 清空用户购物车中的所有商品  
 **认证**: 需要有效的访问令牌  
 
@@ -276,7 +276,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
 
 #### 6. 获取购物车统计
 
-**端点**: `GET /cart/count`  
+**端点**: `GET /api/carts/summary`  
 **功能**: 获取购物车的基本统计信息  
 **认证**: 需要有效的访问令牌  
 
@@ -526,7 +526,7 @@ async def add_to_cart(access_token: str, product_id: int, quantity: int):
     
     async with httpx.AsyncClient() as client:
         response = await client.post(
-            "http://localhost:8000/api/cart/add",
+            "http://localhost:8000/api/carts/items",
             headers=headers,
             json=cart_data
         )
@@ -552,7 +552,7 @@ async def get_cart(access_token: str):
     
     async with httpx.AsyncClient() as client:
         response = await client.get(
-            "http://localhost:8000/api/cart",
+            "http://localhost:8000/api/carts",
             headers=headers
         )
         
@@ -585,7 +585,7 @@ async def update_cart_item(access_token: str, product_id: int, quantity: int):
     
     async with httpx.AsyncClient() as client:
         response = await client.put(
-            f"http://localhost:8000/api/cart/items/{product_id}",
+            f"http://localhost:8000/api/carts/items/{product_id}",
             headers=headers,
             json=update_data
         )
@@ -610,7 +610,7 @@ async def remove_from_cart(access_token: str, product_id: int):
     
     async with httpx.AsyncClient() as client:
         response = await client.delete(
-            f"http://localhost:8000/api/cart/items/{product_id}",
+            f"http://localhost:8000/api/carts/items/{product_id}",
             headers=headers
         )
         
@@ -634,7 +634,7 @@ async def clear_cart(access_token: str):
     
     async with httpx.AsyncClient() as client:
         response = await client.delete(
-            "http://localhost:8000/api/cart/clear",
+            "http://localhost:8000/api/carts/items",
             headers=headers
         )
         
