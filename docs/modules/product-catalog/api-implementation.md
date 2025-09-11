@@ -53,11 +53,11 @@ graph TB
     J --> M[Stock Management]
     
     subgraph "API Endpoints"
-        N[POST /products]
-        O[GET /products]
-        P[GET /products/{id}]
-        Q[PUT /products/{id}]
-        R[DELETE /products/{id}]
+        N[POST /api/products]
+        O[GET /api/products]
+        P[GET /api/products/{id}]
+        Q[PUT /api/products/{id}]
+        R[DELETE /api/products/{id}]
     end
 ```
 
@@ -73,7 +73,7 @@ sequenceDiagram
     participant Stock as Inventory
     
     Note over C,Stock: 创建商品流程
-    C->>A: POST /products
+    C->>A: POST /api/products
     A->>Auth: 验证管理员权限
     Auth-->>A: 权限确认
     A->>Cat: 验证分类存在性
@@ -85,14 +85,14 @@ sequenceDiagram
     A-->>C: 返回创建结果
     
     Note over C,Stock: 查询商品流程
-    C->>A: GET /products
+    C->>A: GET /api/products
     A->>DB: 查询商品列表
     DB-->>A: 返回商品数据
     A->>A: 数据过滤和分页
     A-->>C: 返回商品列表
     
     Note over C,Stock: 更新商品流程
-    C->>A: PUT /products/{id}
+    C->>A: PUT /api/products/{id}
     A->>Auth: 验证管理员权限
     Auth-->>A: 权限确认
     A->>DB: 查询现有商品
@@ -108,7 +108,7 @@ sequenceDiagram
 
 #### 1. 创建商品
 
-**端点**: `POST /products`  
+**端点**: `POST /api/products`  
 **功能**: 创建新的商品记录  
 **认证**: 需要管理员权限  
 
@@ -160,7 +160,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
 
 #### 2. 获取商品列表
 
-**端点**: `GET /products`  
+**端点**: `GET /api/products`  
 **功能**: 获取商品列表，支持分页和筛选  
 **认证**: 无需认证（公开接口）  
 
@@ -175,7 +175,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
 
 **请求示例**:
 ```
-GET /products?category_id=101&status=active&skip=0&limit=20&min_price=1000&max_price=10000
+GET /api/products?category_id=101&status=active&skip=0&limit=20&min_price=1000&max_price=10000
 ```
 
 **响应**:
@@ -212,7 +212,7 @@ GET /products?category_id=101&status=active&skip=0&limit=20&min_price=1000&max_p
 
 #### 3. 获取商品详情
 
-**端点**: `GET /products/{product_id}`  
+**端点**: `GET /api/products/{product_id}`  
 **功能**: 获取指定商品的详细信息  
 **认证**: 无需认证（公开接口）  
 
@@ -226,7 +226,7 @@ GET /products?category_id=101&status=active&skip=0&limit=20&min_price=1000&max_p
 
 #### 4. 更新商品信息
 
-**端点**: `PUT /products/{product_id}`  
+**端点**: `PUT /api/products/{product_id}`  
 **功能**: 更新指定商品的信息  
 **认证**: 需要管理员权限  
 
@@ -254,7 +254,7 @@ GET /products?category_id=101&status=active&skip=0&limit=20&min_price=1000&max_p
 
 #### 5. 删除商品
 
-**端点**: `DELETE /products/{product_id}`  
+**端点**: `DELETE /api/products/{product_id}`  
 **功能**: 删除指定商品（软删除，标记为不可用）  
 **认证**: 需要管理员权限  
 
