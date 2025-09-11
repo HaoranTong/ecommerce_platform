@@ -27,7 +27,7 @@
 - [购物车](modules/shopping-cart/overview.md) - 购物车功能
 - [商品管理](modules/product-catalog/overview.md) - 商品管理
 - [订单管理](modules/order-management/overview.md) - 订单处理
-- [支付系统](modules/payment/overview.md) - 支付集成
+- [支付系统](modules/payment-service/overview.md) - 支付集成
 
 ### 🛠️ 开发指南
 - [编码标准](development/standards.md) - 代码规范

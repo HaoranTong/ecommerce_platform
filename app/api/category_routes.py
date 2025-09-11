@@ -9,7 +9,7 @@ from app.api import schemas
 router = APIRouter()
 
 
-@router.post("/categories", response_model=schemas.CategoryRead, status_code=status.HTTP_201_CREATED)
+@router.post("/api/categories", response_model=schemas.CategoryRead, status_code=status.HTTP_201_CREATED)
 def create_category(payload: schemas.CategoryCreate, db: Session = Depends(get_session)):
     """创建新分类"""
     # 检查父分类是否存在
@@ -41,7 +41,7 @@ def create_category(payload: schemas.CategoryCreate, db: Session = Depends(get_s
     return category
 
 
-@router.get("/categories", response_model=List[schemas.CategoryRead])
+@router.get("/api/categories", response_model=List[schemas.CategoryRead])
 def list_categories(
     parent_id: Optional[int] = Query(None, description="父分类ID，不传则返回顶级分类"),
     include_inactive: bool = Query(False, description="是否包含已停用的分类"),
@@ -66,7 +66,7 @@ def list_categories(
     return categories
 
 
-@router.get("/categories/tree")
+@router.get("/api/categories/tree")
 def get_category_tree(
     include_inactive: bool = Query(False, description="是否包含已停用的分类"),
     db: Session = Depends(get_session)
@@ -100,7 +100,7 @@ def get_category_tree(
     return build_tree()
 
 
-@router.get("/categories/{category_id}", response_model=schemas.CategoryRead)
+@router.get("/api/categories/{category_id}", response_model=schemas.CategoryRead)
 def get_category(category_id: int, db: Session = Depends(get_session)):
     """获取单个分类详情"""
     category = db.query(models.Category).get(category_id)
@@ -112,7 +112,7 @@ def get_category(category_id: int, db: Session = Depends(get_session)):
     return category
 
 
-@router.put("/categories/{category_id}", response_model=schemas.CategoryRead)
+@router.put("/api/categories/{category_id}", response_model=schemas.CategoryRead)
 def update_category(
     category_id: int,
     payload: schemas.CategoryUpdate,
@@ -183,7 +183,7 @@ def update_category(
     return category
 
 
-@router.delete("/categories/{category_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/api/categories/{category_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_category(category_id: int, db: Session = Depends(get_session)):
     """删除分类"""
     category = db.query(models.Category).get(category_id)

@@ -31,7 +31,7 @@ def generate_order_no() -> str:
     return f"ORD{timestamp}{random_suffix}"
 
 
-@router.post("/orders", response_model=OrderRead, status_code=status.HTTP_201_CREATED)
+@router.post("/api/orders", response_model=OrderRead, status_code=status.HTTP_201_CREATED)
 async def create_order(
     order_data: OrderCreate,
     db: Session = Depends(get_db),
@@ -139,7 +139,7 @@ async def create_order(
     return order
 
 
-@router.get("/orders", response_model=List[OrderRead])
+@router.get("/api/orders", response_model=List[OrderRead])
 async def list_orders(
     status_filter: Optional[str] = Query(None, description="订单状态过滤"),
     user_id: Optional[int] = Query(None, description="用户ID过滤"),
@@ -169,7 +169,7 @@ async def list_orders(
     return orders
 
 
-@router.get("/orders/{order_id}", response_model=OrderRead)
+@router.get("/api/orders/{order_id}", response_model=OrderRead)
 async def get_order(
     order_id: int,
     db: Session = Depends(get_db),
@@ -194,7 +194,7 @@ async def get_order(
     return order
 
 
-@router.patch("/orders/{order_id}/status", response_model=OrderRead)
+@router.patch("/api/orders/{order_id}/status", response_model=OrderRead)
 async def update_order_status(
     order_id: int,
     status_update: OrderStatusUpdate,
@@ -251,7 +251,7 @@ async def update_order_status(
     return order
 
 
-@router.delete("/orders/{order_id}")
+@router.delete("/api/orders/{order_id}")
 async def cancel_order(
     order_id: int,
     db: Session = Depends(get_db),
@@ -294,7 +294,7 @@ async def cancel_order(
     return {"message": "订单已取消", "order_id": order_id}
 
 
-@router.get("/orders/{order_id}/items", response_model=List[OrderItemRead])
+@router.get("/api/orders/{order_id}/items", response_model=List[OrderItemRead])
 async def get_order_items(
     order_id: int,
     db: Session = Depends(get_db),
