@@ -46,13 +46,13 @@ graph TB
     S --> V[Data Validation]
     D --> M[User Model]
     
-    R --> E1[/auth/register]
-    R --> E2[/auth/login]
-    R --> E3[/auth/refresh]
-    R --> E4[/auth/me]
-    R --> E5[/auth/logout]
-    R --> E6[/auth/change-password]
-    R --> E7[/auth/users]
+    R --> E1[/api/auth/register]
+    R --> E2[/api/auth/login]
+    R --> E3[/api/auth/refresh]
+    R --> E4[/api/auth/me]
+    R --> E5[/api/auth/logout]
+    R --> E6[/api/auth/change-password]
+    R --> E7[/api/auth/users]
 ```
 
 ### 认证流程
@@ -65,14 +65,14 @@ sequenceDiagram
     participant D as Database
     
     Note over C,D: 用户注册流程
-    C->>R: POST /auth/register
+    C->>R: POST /api/auth/register
     R->>D: 检查用户名/邮箱
     R->>A: 密码哈希
     R->>D: 创建用户
     R-->>C: 返回用户信息
     
     Note over C,D: 用户登录流程
-    C->>R: POST /auth/login
+    C->>R: POST /api/auth/login
     R->>A: 验证用户凭据
     A->>D: 查询用户
     A->>A: 验证密码
@@ -80,7 +80,7 @@ sequenceDiagram
     R-->>C: 返回令牌
     
     Note over C,D: 访问保护资源
-    C->>R: GET /auth/me (with JWT)
+    C->>R: GET /api/auth/me (with JWT)
     R->>A: 验证令牌
     A->>D: 查询用户
     R-->>C: 返回用户信息
@@ -104,18 +104,18 @@ app/api/user_routes.py
 ### 路由分组
 
 #### 1. 认证相关路由
-- `/auth/register` - 用户注册
-- `/auth/login` - 用户登录
-- `/auth/refresh` - 令牌刷新
-- `/auth/logout` - 用户登出
+- `/api/auth/register` - 用户注册
+- `/api/auth/login` - 用户登录
+- `/api/auth/refresh` - 令牌刷新
+- `/api/auth/logout` - 用户登出
 
 #### 2. 用户资料路由
-- `/auth/me` - 获取/更新当前用户信息
-- `/auth/change-password` - 修改密码
+- `/api/auth/me` - 获取/更新当前用户信息
+- `/api/auth/change-password` - 修改密码
 
 #### 3. 管理员路由
-- `/auth/users` - 用户列表
-- `/auth/users/{user_id}` - 用户详情
+- `/api/auth/users` - 用户列表
+- `/api/auth/users/{user_id}` - 用户详情
 
 ## API接口文档
 
@@ -693,7 +693,7 @@ def validate_password_strength(password: str) -> bool:
     return sum([has_upper, has_lower, has_digit, has_special]) >= 3
 
 # 密码策略中间件
-@router.post("/auth/register")
+@router.post("/api/auth/register")
 async def register_user(user_data: UserRegister, db: Session = Depends(get_db)):
     if not validate_password_strength(user_data.password):
         raise HTTPException(
@@ -731,7 +731,7 @@ def check_rate_limit(identifier: str, max_attempts: int = 5, window_minutes: int
     login_attempts[identifier].append(now)
     return True
 
-@router.post("/auth/login")
+@router.post("/api/auth/login")
 async def login_user(user_data: UserLogin, db: Session = Depends(get_db)):
     # 检查频率限制
     if not check_rate_limit(user_data.username):
@@ -778,7 +778,7 @@ class UserRegister(BaseModel):
 
 ```python
 # 优化用户查询
-@router.get("/auth/users")
+@router.get("/api/auth/users")
 async def list_users(
     skip: int = 0,
     limit: int = 100,
@@ -833,7 +833,7 @@ async def cache_user_info(user: User, ttl: int = 300):
         json.dumps(user_data)
     )
 
-@router.get("/auth/me")
+@router.get("/api/auth/me")
 async def get_current_user_info(current_user: User = Depends(get_current_user)):
     # 尝试从缓存获取
     cached_user = await get_user_from_cache(current_user.id)
@@ -872,7 +872,7 @@ async def user_api_exception_handler(request, exc: UserAPIException):
     )
 
 # 使用示例
-@router.post("/auth/register")
+@router.post("/api/auth/register")
 async def register_user(user_data: UserRegister, db: Session = Depends(get_db)):
     try:
         # 检查用户名是否已存在
