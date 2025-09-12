@@ -23,6 +23,56 @@
 - **集成测试 (Integration Tests)**：测试模块间的交互
 - **端到端测试 (E2E Tests)**：测试完整的用户场景
 
+## 测试脚本组织管理
+
+### 测试脚本分类规范
+
+| 测试类型 | 存放位置 | 命名规范 | 执行方式 | 生命周期 |
+|---------|---------|---------|---------|---------|
+| **单元测试** | `tests/` | `test_*.py` | `pytest tests/` | 长期维护 |
+| **集成测试** | `tests/integration/` | `test_*_integration.py` | `pytest tests/integration/` | 长期维护 |
+| **端到端测试** | `tests/e2e/` | `test_*_e2e.py` | `pytest tests/e2e/` | 长期维护 |
+| **系统测试脚本** | `scripts/` | `*_test.ps1` | `.\scripts\*_test.ps1` | 长期维护 |
+| **临时调试脚本** | 根目录 | `test_*.py` | `python test_*.py` | 临时使用 |
+
+### 根目录测试脚本管理
+
+#### 临时测试脚本使用规范
+```powershell
+# ✅ 允许的临时测试脚本
+test_auth_integration.py     # 认证功能调试
+test_inventory_api.py        # 库存API调试  
+test_inventory_integration.py # 库存集成调试
+
+# ❌ 禁止的命名方式
+temp_test.py                 # 命名不明确
+debug.py                     # 功能不清晰
+my_test.py                   # 个人化命名
+```
+
+#### 清理规则
+- **开发完成**：移至对应的tests子目录
+- **功能废弃**：直接删除
+- **需要保留**：移至scripts/目录并规范化
+- **提交前**：必须在README.md中说明临时脚本的用途
+
+### 测试目录结构标准
+```
+tests/
+├── unit/                    # 单元测试
+│   ├── test_models/         # 模型测试
+│   ├── test_services/       # 服务测试
+│   └── test_utils/          # 工具测试
+├── integration/             # 集成测试
+│   ├── test_api/            # API集成测试
+│   ├── test_database/       # 数据库集成测试
+│   └── test_cart_system.ps1 # 购物车系统测试脚本
+├── e2e/                     # 端到端测试
+│   ├── test_user_journey.py # 用户流程测试
+│   └── test_order_journey.py # 订单流程测试
+└── conftest.py              # pytest配置
+```
+
 ## 测试框架和工具
 
 ### 主要测试框架

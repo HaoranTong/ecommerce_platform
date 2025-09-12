@@ -10,6 +10,23 @@
 
 项目开发中使用的PowerShell自动化脚本。
 
+## 📁 脚本目录结构
+
+```
+scripts/
+├── check_naming_compliance.ps1  # 命名规范检查脚本
+├── check_docs.ps1               # 文档状态检查脚本
+├── doc_basic_check.ps1          # 基础文档检查脚本
+├── dev-checkpoint.ps1           # 开发检查点脚本
+├── feature_finish.ps1           # 功能完成流程脚本
+├── log_status.ps1               # 状态日志记录脚本
+├── release_to_main.ps1          # 发布到主分支脚本
+├── smoke_test.ps1               # 冒烟测试脚本
+├── sync_env.ps1                 # 环境同步脚本
+├── _smoke_cert.py               # SSL证书验证工具
+└── README.md                    # 本文档
+```
+
 ## 📋 核心规范检查脚本
 
 ### 🔍 命名规范合规性检查 (必须)
