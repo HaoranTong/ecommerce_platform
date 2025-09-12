@@ -2,15 +2,15 @@
 
 ## 模块概述
 
-库存管理模块负责商品库存的实时跟踪、预占机制、补货预警、多仓库管理和库存同步。确保库存数据的准确性和一致性，防止超卖现象。
+库存管理模块负责商品库存的实时跟踪、预占机制、补货预警和库存同步。确保库存数据的准确性和一致性，防止超卖现象。
 
 ### 主要功能
 
 1. **库存跟踪**
    - 实时库存监控
    - 库存变更日志
-   - 多维度库存视图 (可用、预占、在途)
-   - 批次和序列号管理
+   - 多维度库存视图 (可用、预占、总量)
+   - 商品库存状态管理
 
 2. **预占机制**
    - 购物车预占
@@ -18,17 +18,17 @@
    - 预占超时释放
    - 库存回滚机制
 
-3. **补货管理**
+3. **库存管理**
+   - 管理员库存调整
    - 库存预警设置
-   - 自动补货建议
-   - 采购订单生成
-   - 供应商协同
+   - 低库存商品监控
+   - 库存变动历史追踪
 
-4. **多仓库支持**
-   - 仓库层级管理
-   - 库存分配策略
-   - 跨仓调拨
-   - 就近发货规则
+4. **系统集成**
+   - 与购物车模块集成
+   - 与订单模块集成
+   - 与商品模块集成
+   - Redis缓存支持
 
 ## 技术架构
 
@@ -36,18 +36,266 @@
 
 ```
 inventory/
-├── controllers/
-│   ├── inventory_controller.py    # 库存控制器
-│   ├── warehouse_controller.py    # 仓库控制器
-│   ├── reservation_controller.py  # 预占控制器
-│   └── replenishment_controller.py # 补货控制器
-├── services/
-│   ├── inventory_service.py       # 库存业务逻辑
-│   ├── reservation_service.py     # 预占服务
-│   ├── replenishment_service.py   # 补货服务
-│   ├── allocation_service.py      # 分配服务
-│   └── sync_service.py            # 同步服务
 ├── models/
+│   ├── inventory.py              # 库存数据模型
+│   ├── inventory_transaction.py  # 库存交易记录模型
+│   └── cart_reservation.py       # 购物车预占模型
+├── services/
+│   └── inventory_service.py      # 库存业务逻辑服务
+├── schemas/
+│   └── inventory.py              # 库存数据传输对象
+└── api/
+    └── inventory_routes.py       # 库存API路由
+```
+
+### 数据库设计
+
+#### 1. 库存主表 (inventory)
+```sql
+CREATE TABLE inventory (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    product_id BIGINT NOT NULL COMMENT '商品ID',
+    available_quantity INT NOT NULL DEFAULT 0 COMMENT '可用库存数量',
+    reserved_quantity INT NOT NULL DEFAULT 0 COMMENT '预占库存数量', 
+    total_quantity INT NOT NULL DEFAULT 0 COMMENT '总库存数量',
+    warning_threshold INT NOT NULL DEFAULT 10 COMMENT '预警阈值',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE,
+    UNIQUE KEY uk_product_id (product_id),
+    INDEX idx_available_quantity (available_quantity),
+    INDEX idx_total_quantity (total_quantity)
+);
+```
+
+#### 2. 库存交易记录表 (inventory_transactions)
+```sql
+CREATE TABLE inventory_transactions (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    product_id BIGINT NOT NULL COMMENT '商品ID',
+    transaction_type ENUM('purchase', 'sale', 'adjustment', 'reserve', 'release', 'deduct') NOT NULL COMMENT '交易类型',
+    quantity INT NOT NULL COMMENT '数量变化',
+    reference_id VARCHAR(100) COMMENT '关联业务ID',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE,
+    INDEX idx_product_id (product_id),
+    INDEX idx_transaction_type (transaction_type),
+    INDEX idx_created_at (created_at),
+    INDEX idx_reference_id (reference_id)
+);
+```
+
+#### 3. 购物车预占表 (cart_reservations)
+```sql
+CREATE TABLE cart_reservations (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    user_id BIGINT NOT NULL COMMENT '用户ID',
+    product_id BIGINT NOT NULL COMMENT '商品ID',
+    reserved_quantity INT NOT NULL COMMENT '预占数量',
+    expires_at TIMESTAMP NOT NULL COMMENT '过期时间',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE,
+    INDEX idx_user_id (user_id),
+    INDEX idx_product_id (product_id),
+    INDEX idx_expires_at (expires_at)
+);
+```
+
+### Redis 缓存设计
+
+#### 缓存策略
+```python
+# 库存缓存 (TTL: 60秒)
+inventory:product:{product_id} = {
+    "available_quantity": 50,
+    "reserved_quantity": 10,
+    "total_quantity": 60,
+    "is_low_stock": false
+}
+
+# 低库存商品缓存 (TTL: 300秒)  
+inventory:low_stock = [1001, 1002, 1003]
+
+# 预占记录缓存 (TTL: 1800秒)
+inventory:reservation:cart:{user_id} = {
+    "items": [
+        {"product_id": 1001, "quantity": 2}
+    ],
+    "expires_at": "2024-12-19T11:00:00Z"
+}
+```
+
+## API 接口
+
+库存管理模块提供完整的库存操作API，详细的接口规范请参考 [API规范文档](api-spec.md)。
+
+### 主要接口分类
+
+#### 1. 库存查询接口
+- `GET /api/inventory/{product_id}` - 获取商品库存信息
+- `POST /api/inventory/batch` - 批量获取商品库存
+
+#### 2. 库存预占接口  
+- `POST /api/inventory/reserve/cart` - 购物车库存预占
+- `POST /api/inventory/reserve/order` - 订单库存预占
+- `DELETE /api/inventory/reserve/cart` - 释放购物车预占
+- `DELETE /api/inventory/reserve/order/{order_id}` - 释放订单预占
+
+#### 3. 库存扣减接口
+- `POST /api/inventory/deduct` - 订单完成库存扣减
+
+#### 4. 库存管理接口（管理员）
+- `PUT /api/inventory/{product_id}/adjust` - 库存调整
+- `PUT /api/inventory/{product_id}/threshold` - 设置预警阈值
+- `GET /api/inventory/low-stock` - 获取低库存商品列表
+
+#### 5. 库存历史接口
+- `GET /api/inventory/{product_id}/transactions` - 获取库存变动历史
+
+#### 6. 系统维护接口
+- `POST /api/inventory/cleanup/expired-reservations` - 清理过期预占
+
+### API 设计特点
+
+#### 数据模型
+- **基于商品ID**: 使用 `product_id` 作为主要标识符
+- **简化设计**: 适合中小型电商平台的库存管理需求
+- **实时同步**: 库存数据实时更新，确保准确性
+
+#### 权限控制
+- **用户级接口**: 库存查询、预占操作
+- **管理员接口**: 库存调整、阈值设置、历史查询
+- **系统内部**: 库存扣减、过期清理
+
+#### 性能优化
+- **Redis缓存**: 热门商品库存缓存
+- **批量操作**: 支持批量库存查询
+- **异步处理**: 过期预占自动清理
+
+## 业务流程
+
+### 购物车预占流程
+```mermaid
+sequenceDiagram
+    participant User as 用户
+    participant Cart as 购物车
+    participant Inventory as 库存服务
+    participant Redis as Redis缓存
+    
+    User->>Cart: 添加商品到购物车
+    Cart->>Inventory: 请求库存预占
+    Inventory->>Inventory: 检查库存可用性
+    Inventory->>Redis: 更新缓存
+    Inventory->>Cart: 返回预占结果
+    Cart->>User: 显示购物车状态
+    
+    Note over Inventory: 30分钟后自动释放预占
+```
+
+### 订单库存扣减流程
+```mermaid
+sequenceDiagram
+    participant Order as 订单服务
+    participant Payment as 支付服务
+    participant Inventory as 库存服务
+    participant DB as 数据库
+    
+    Order->>Inventory: 创建订单预占
+    Inventory->>DB: 记录预占信息
+    Payment->>Order: 支付成功通知
+    Order->>Inventory: 执行库存扣减
+    Inventory->>DB: 更新库存数据
+    Inventory->>Order: 扣减完成确认
+```
+
+### 库存调整流程
+```mermaid
+sequenceDiagram
+    participant Admin as 管理员
+    participant Inventory as 库存服务
+    participant DB as 数据库
+    participant Redis as Redis缓存
+    
+    Admin->>Inventory: 提交库存调整
+    Inventory->>DB: 更新库存数量
+    Inventory->>DB: 记录调整历史
+    Inventory->>Redis: 清除缓存
+    Inventory->>Admin: 返回调整结果
+```
+
+## 核心服务
+
+### InventoryService 核心方法
+
+```python
+class InventoryService:
+    def get_or_create_inventory(self, product_id: int) -> Inventory
+    def get_inventories_batch(self, product_ids: List[int]) -> List[Inventory]
+    def reserve_for_cart(self, user_id: int, items: List[CartItem], expires_minutes: int) -> ReservationResponse
+    def reserve_for_order(self, order_id: int, items: List[OrderItem]) -> ReservationResponse
+    def release_cart_reservations(self, user_id: int) -> ReleaseResult
+    def release_order_reservations(self, order_id: int) -> ReleaseResult
+    def deduct_inventory(self, order_id: int, items: List[OrderItem]) -> DeductResult
+    def adjust_inventory(self, product_id: int, adjustment: InventoryAdjustment) -> Inventory
+    def set_warning_threshold(self, product_id: int, threshold: int) -> Inventory
+    def get_low_stock_products(self, filters: LowStockQuery) -> PaginatedResponse
+    def get_inventory_transactions(self, product_id: int, filters: TransactionQuery) -> PaginatedResponse
+    def cleanup_expired_reservations(self) -> CleanupResult
+```
+
+## 配置说明
+
+### 环境变量配置
+```bash
+# 库存预占过期时间（分钟）
+INVENTORY_CART_RESERVATION_MINUTES=30
+INVENTORY_ORDER_RESERVATION_MINUTES=60
+
+# 库存缓存配置
+INVENTORY_CACHE_TTL=60
+LOW_STOCK_CACHE_TTL=300
+
+# 批量操作限制
+INVENTORY_BATCH_QUERY_LIMIT=100
+
+# 清理任务配置
+INVENTORY_CLEANUP_INTERVAL_MINUTES=10
+```
+
+### Redis配置
+```bash
+# Redis连接配置
+REDIS_URL=redis://localhost:6379/0
+REDIS_PASSWORD=your_password
+REDIS_DB=0
+```
+
+## 监控与运维
+
+### 关键指标
+- **库存准确率**: 实际库存与系统库存的一致性
+- **预占成功率**: 库存预占操作的成功率
+- **响应时间**: API接口响应时间
+- **并发处理**: 高并发下的系统稳定性
+
+### 日志记录
+- 所有库存变动操作记录详细日志
+- 预占和扣减操作的审计记录
+- 系统异常和错误日志
+
+### 定时任务
+- 过期预占自动清理（每10分钟）
+- 低库存商品检查（每小时）
+- 库存数据一致性检查（每日）
+
+---
+
+**文档关联**:
+- [API规范文档](api-spec.md) - 详细的API接口定义
+- [购物车模块](../shopping-cart/overview.md) - 库存预占集成
+- [订单管理模块](../order-management/overview.md) - 库存扣减集成
+- [商品目录模块](../product-catalog/overview.md) - 商品库存关联
 │   ├── inventory.py               # 库存模型
 │   ├── warehouse.py               # 仓库模型
 │   ├── reservation.py             # 预占模型
@@ -214,140 +462,50 @@ low_stock_alerts = [
 
 ## API 接口
 
-### 库存查询
+库存管理模块提供完整的库存操作API，详细的接口规范请参考 [API规范文档](api-spec.md)。
 
-```yaml
-/api/v1/inventory:
-  GET /:
-    summary: 查询库存
-    parameters:
-      - name: sku_id
-        in: query
-        schema:
-          type: string
-          format: uuid
-      - name: warehouse_id
-        in: query
-        schema:
-          type: string
-          format: uuid
-      - name: include_reserved
-        in: query
-        schema:
-          type: boolean
-          default: false
-    responses:
-      200:
-        description: 库存信息
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                inventories:
-                  type: array
-                  items:
-                    $ref: '#/components/schemas/InventoryInfo'
+### 主要接口分类
 
-  GET /{sku_id}/availability:
-    summary: 检查商品可用性
-    parameters:
-      - name: sku_id
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-      - name: quantity
-        in: query
-        required: true
-        schema:
-          type: integer
-          minimum: 1
-      - name: warehouse_id
-        in: query
-        schema:
-          type: string
-          format: uuid
-    responses:
-      200:
-        description: 可用性检查结果
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                available:
-                  type: boolean
-                quantity_available:
-                  type: integer
-                warehouses:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      warehouse_id:
-                        type: string
-                      quantity_available:
-                        type: integer
+#### 1. 库存查询接口
+- `GET /api/inventory/{product_id}` - 获取商品库存信息
+- `POST /api/inventory/batch` - 批量获取商品库存
 
-  PUT /{sku_id}/adjust:
-    summary: 库存调整
-    security:
-      - BearerAuth: []
-    parameters:
-      - name: sku_id
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-    requestBody:
-      required: true
-      content:
-        application/json:
-          schema:
-            type: object
-            properties:
-              warehouse_id:
-                type: string
-                format: uuid
-              adjustment_type:
-                type: string
-                enum: [increase, decrease, set]
-              quantity:
-                type: integer
-              reason:
-                type: string
-    responses:
-      200:
-        description: 调整成功
-```
+#### 2. 库存预占接口  
+- `POST /api/inventory/reserve/cart` - 购物车库存预占
+- `POST /api/inventory/reserve/order` - 订单库存预占
+- `DELETE /api/inventory/reserve/cart` - 释放购物车预占
+- `DELETE /api/inventory/reserve/order/{order_id}` - 释放订单预占
 
-### 预占管理
+#### 3. 库存扣减接口
+- `POST /api/inventory/deduct` - 订单完成库存扣减
 
-```yaml
-/api/v1/inventory/reservations:
-  POST /:
-    summary: 创建库存预占
-    security:
-      - BearerAuth: []
-    requestBody:
-      required: true
-      content:
-        application/json:
-          schema:
-            type: object
-            properties:
-              items:
-                type: array
-                items:
-                  type: object
-                  properties:
-                    sku_id:
-                      type: string
-                      format: uuid
-                    quantity:
+#### 4. 库存管理接口（管理员）
+- `PUT /api/inventory/{product_id}/adjust` - 库存调整
+- `PUT /api/inventory/{product_id}/threshold` - 设置预警阈值
+- `GET /api/inventory/low-stock` - 获取低库存商品列表
+
+#### 5. 库存历史接口
+- `GET /api/inventory/{product_id}/transactions` - 获取库存变动历史
+
+#### 6. 系统维护接口
+- `POST /api/inventory/cleanup/expired-reservations` - 清理过期预占
+
+### API 设计特点
+
+#### 数据模型
+- **基于商品ID**: 使用 `product_id` 作为主要标识符
+- **简化设计**: 适合中小型电商平台的库存管理需求
+- **实时同步**: 库存数据实时更新，确保准确性
+
+#### 权限控制
+- **用户级接口**: 库存查询、预占操作
+- **管理员接口**: 库存调整、阈值设置、历史查询
+- **系统内部**: 库存扣减、过期清理
+
+#### 性能优化
+- **Redis缓存**: 热门商品库存缓存
+- **批量操作**: 支持批量库存查询
+- **异步处理**: 过期预占自动清理
                       type: integer
                       minimum: 1
                     warehouse_id:
