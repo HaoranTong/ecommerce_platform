@@ -31,9 +31,13 @@
 
 ### 辅助检查点 (条件触发)
 - create_file docs/* → 文档结构规范检查点
-- 操作API代码 → API设计标准检查点
-- 操作数据库代码 → 数据库设计规范检查点
+- create_file *.py → 代码开发强制检查点
+- create_file *_routes.py → API设计标准检查点
+- create_file test_*.py → 测试规范检查点
+- 操作models.py → 数据库设计规范检查点
 - 任何命名操作 → 命名规范检查点
+- 创建类/函数/变量 → 代码开发检查清单
+- 设计数据库表/字段 → 数据库命名检查点
 
 ## 🔍 检查点执行格式
 🔍 检查点触发：[操作类型]
@@ -49,11 +53,14 @@
 - docs/standards/code-standards.md - 代码组织规范
 - docs/standards/testing-standards.md - 测试规范
 - docs/standards/workflow-standards.md - 工作流程规范
+- docs/standards/code-development-checklist.md - 代码开发检查清单
 
 ## ⚡ 条件分支执行
 IF 创建新模块 THEN 检查 docs/templates/module-template.md
-IF 修改API THEN 检查 docs/standards/api-standards.md  
-IF 操作数据库 THEN 确认 docs/standards/database-standards.md
+IF create_file *.py THEN 执行 docs/standards/code-development-checklist.md
+IF create_file *_routes.py THEN 检查 docs/standards/api-standards.md  
+IF 操作models.py THEN 确认 docs/standards/database-standards.md
+IF create_file test_*.py THEN 检查 docs/standards/testing-standards.md
 IF 创建文档 THEN 检查 docs/standards/document-standards.md
 IF 命名实体 THEN 确认 docs/standards/naming-conventions.md
 IF 编写测试 THEN 检查 docs/standards/testing-standards.md

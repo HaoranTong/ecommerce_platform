@@ -22,8 +22,8 @@
 
 #### 1.2 技术方案设计
 - [ ] 遵循 [架构总览](../architecture/overview.md) 的技术栈选择
-- [ ] 按照 [API设计标准](../architecture/api-standards.md) 设计接口
-- [ ] 遵循 [数据模型标准](../architecture/data-standards.md) 设计数据结构
+- [ ] 按照 [API设计标准](api-standards.md) 设计接口
+- [ ] 遵循 [数据库设计规范](database-standards.md) 设计数据结构
 - [ ] 考虑 [安全架构](../architecture/security.md) 要求
 - [ ] 规划 [第三方集成](../architecture/integration.md) 需求
 

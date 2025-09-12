@@ -3,9 +3,8 @@
 - 内容：API设计的全局标准和规范，不包含具体API接口定义
 - 使用方法：开发API时遵循的设计规范，确保API一致性
 - 更新方法：API设计标准变更时更新，需要架构师确认
-- 引用关系：被各模块的api-spec.md文档引用，被architecture/overview.md引用
+- 引用关系：被各模块的API文档引用，被workflow-standards.md引用
 - 更新频率：设计标准变化时
-- 位置说明：从architecture目录迁移到api目录，集中管理API相关文档
 -->
 
 # API设计标准
