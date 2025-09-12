@@ -21,7 +21,20 @@ from pydantic import BaseModel, Field, field_validator
 from typing import Optional, List, Dict, Any
 from datetime import datetime
 from decimal import Decimal
+from enum import Enum
 from app.schemas.base import BaseSchema, TimestampSchema
+
+
+# ============ 枚举定义 ============
+
+class OrderStatus(str, Enum):
+    """订单状态枚举"""
+    PENDING = "pending"
+    PAID = "paid"
+    SHIPPED = "shipped"
+    DELIVERED = "delivered"
+    CANCELLED = "cancelled"
+    RETURNED = "returned"
 
 
 # ============ 订单项相关模式 ============
@@ -73,7 +86,7 @@ class OrderUpdate(BaseSchema):
 
 class OrderStatusUpdate(BaseSchema):
     """订单状态更新模式"""
-    status: str = Field(..., regex="^(pending|paid|shipped|delivered|cancelled|returned)$", description="订单状态")
+    status: str = Field(..., pattern="^(pending|paid|shipped|delivered|cancelled|returned)$", description="订单状态")
     note: Optional[str] = Field(None, max_length=200, description="状态变更备注")
 
 
@@ -137,6 +150,10 @@ class CartItemAdd(BaseSchema):
     quantity: int = Field(..., gt=0, le=99, description="添加数量（1-99）")
 
 
+# 为了兼容性，创建别名
+CartItemCreate = CartItemAdd
+
+
 class CartItemUpdate(BaseSchema):
     """购物车商品更新模式"""
     quantity: int = Field(..., ge=0, le=99, description="更新数量（0表示删除）")
@@ -165,9 +182,10 @@ class CartSummary(BaseSchema):
     total_items: int  # 商品种类数
     total_quantity: int  # 总数量
     total_amount: Decimal  # 总金额
-    
-    class Config:
-        from_attributes = True
+
+
+# 为了兼容性，创建别名
+CartRead = CartSummary
 
 
 class CartValidation(BaseSchema):
@@ -190,12 +208,23 @@ class CartMerge(BaseSchema):
 class OrderBatch(BaseSchema):
     """订单批量操作模式"""
     order_ids: List[int] = Field(..., min_items=1, description="订单ID列表")
-    action: str = Field(..., regex="^(export|print|update_status|cancel)$", description="操作类型")
+    action: str = Field(..., pattern="^(export|print|update_status|cancel)$", description="操作类型")
     params: Optional[Dict[str, Any]] = Field(None, description="操作参数")
 
 
 class OrderExport(BaseSchema):
     """订单导出模式"""
-    format: str = Field("excel", regex="^(excel|csv|pdf)$", description="导出格式")
+    format: str = Field("excel", pattern="^(excel|csv|pdf)$", description="导出格式")
     fields: Optional[List[str]] = Field(None, description="导出字段")
     filters: Optional[OrderSearch] = Field(None, description="筛选条件")
+
+
+class OrderSummary(BaseSchema):
+    """订单摘要模式"""
+    id: int
+    order_number: str
+    total_amount: Decimal
+    status: OrderStatus
+    created_at: datetime
+    item_count: int
+    customer_name: Optional[str] = None

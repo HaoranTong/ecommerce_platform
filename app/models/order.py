@@ -53,11 +53,7 @@ class Order(BaseModel, TimestampMixin):
     # 关系映射
     user = relationship("User", back_populates="orders")
     order_items = relationship("OrderItem", back_populates="order", cascade="all, delete-orphan")
-    
-    # 关系映射（延迟导入避免循环依赖）
-    def __init_relationships__(self):
-        """初始化关系映射"""
-        self.payments = relationship("Payment", back_populates="order")
+    payments = relationship("Payment", back_populates="order")
     
     # 索引优化
     __table_args__ = (

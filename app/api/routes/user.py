@@ -73,11 +73,11 @@ def login_user(login_data: UserLogin, db: Session = Depends(get_db)):
         )
     
     # 生成访问令牌
-    access_token, refresh_token = UserService.generate_tokens(user)
+    tokens = UserService.generate_tokens(user)
     
     return Token(
-        access_token=access_token,
-        refresh_token=refresh_token,
+        access_token=tokens["access_token"],
+        refresh_token=tokens["refresh_token"],
         token_type="bearer",
         expires_in=3600  # 1小时
     )

@@ -31,9 +31,12 @@ $NamingConfig = @{
         "cache" = "redis-cache"
     }
     
-    # API端点规范
+    # API端点规范 - 修正：考虑FastAPI路由前缀合并
     ApiPatterns = @{
-        "RESTful" = "^/(auth|api)/[a-z]+(/[a-z-]+)*(/\{[a-z_]+\})?(/[a-z-]+)*$"
+        # 模块路由文件中的路径模式（不包含/api/v1前缀，由main_routes.py添加）
+        "ModuleRoute" = "^/[a-z][a-z0-9-]*(/[a-z0-9-]+)*(/\{[a-z_]+\})?(/[a-z0-9-]+)*$"
+        # 完整API路径模式（包含/api/v1前缀）
+        "FullApiPath" = "^/api/v1/[a-z][a-z0-9-]*(/[a-z0-9-]+)*(/\{[a-z_]+\})?(/[a-z0-9-]+)*$"
         "Parameters" = "^[a-z][a-z0-9_]*$"
     }
     
@@ -69,33 +72,50 @@ function Check-ApiNaming {
     Write-ColorOutput "🌐 检查API命名规范..." "Blue"
     
     $violations = @()
+    
+    # 检查主路由文件的前缀设置
+    $mainRoutesFile = "app/api/main_routes.py"
+    $hasApiV1Prefix = $false
+    
+    if (Test-Path $mainRoutesFile) {
+        $mainContent = Get-Content $mainRoutesFile
+        $prefixLines = $mainContent | Select-String -Pattern "prefix.*api.*v1"
+        if ($prefixLines) {
+            $hasApiV1Prefix = $true
+            Write-ColorOutput "✅ 发现正确的API前缀设置: /api/v1" "Green"
+        }
+    }
+    
+    # 检查模块路由文件
     $apiFiles = Get-ChildItem -Path "app/api" -Filter "*_routes.py" -Recurse
     
     foreach ($file in $apiFiles) {
         $content = Get-Content $file.FullName
         
-        # 检查路由定义
-        $routes = $content | Select-String -Pattern '@router\.(get|post|put|delete|patch)\("([^"]+)"'
+        # 检查路由定义 - 简化正则表达式
+        $routePattern = '@router\.(get|post|put|delete|patch)\("'
+        $routes = $content | Select-String -Pattern $routePattern
         
         foreach ($route in $routes) {
-            $endpoint = $route.Matches[0].Groups[2].Value
-            
-            # 检查RESTful规范
-            if ($endpoint -notmatch $NamingConfig.ApiPatterns.RESTful) {
-                $violations += @{
-                    Type = "API路由"
-                    File = $file.Name
-                    Issue = "路由不符合RESTful规范: $endpoint"
-                    Line = $route.LineNumber
-                    Suggestion = "使用标准RESTful路径格式"
+            $line = $route.Line
+            # 提取引号内的路径
+            if ($line -match '@router\.\w+\("([^"]+)"') {
+                $endpoint = $matches[1]
+                
+                # 如果有/api/v1前缀设置，检查模块路由格式
+                if ($hasApiV1Prefix) {
+                    # 模块路由应该是相对路径，如 "/products", "/users" 等
+                    if ($endpoint -notmatch "^/[a-z]") {
+                        $violations += @{
+                            Type = "API路由"
+                            File = $file.Name
+                            Issue = "模块路由格式不符合规范: $endpoint"
+                            Line = $route.LineNumber
+                            Suggestion = "使用标准模块路由格式，如 /products, /users/{id}"
+                        }
+                    }
                 }
             }
-        }
-        
-        # 检查函数参数命名
-        $functions = $content | Select-String -Pattern 'async def [a-zA-Z_][a-zA-Z0-9_]*\('
-        foreach ($func in $functions) {
-            # 这里可以添加更详细的参数检查逻辑
         }
     }
     

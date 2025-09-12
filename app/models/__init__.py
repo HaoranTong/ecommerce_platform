@@ -23,7 +23,7 @@ from .base import Base, BaseModel, TimestampMixin
 
 # 导入所有模型
 from .user import User
-from .product import Product, Category
+from .product import Product, Category, Inventory, InventoryTransaction, CartReservation, TransactionType, ReferenceType
 from .order import Order, OrderItem, Cart
 from .payment import Payment, Refund
 
@@ -40,6 +40,11 @@ __all__ = [
     # 商品模块
     'Product',
     'Category',
+    'Inventory',
+    'InventoryTransaction',
+    'CartReservation',
+    'TransactionType',
+    'ReferenceType',
     
     # 订单模块
     'Order',

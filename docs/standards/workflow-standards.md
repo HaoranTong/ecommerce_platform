@@ -31,7 +31,8 @@
 - [ ] 在 `docs/modules/{module-name}/` 创建模块目录
 - [ ] 编写 `requirements.md` - 详细功能需求
 - [ ] 编写 `design.md` - 技术设计方案
-- [ ] 编写 `api-spec.md` - API接口规范
+- [ ] 编写 `api-spec.md` - API接口规范（遵循 standards/openapi.yaml 契约）
+- [ ] 创建 `api-implementation.md` - API接口实施细节记录
 - [ ] 创建 `implementation.md` - 开发记录文档
 
 ### Phase 2: 开发实施阶段
@@ -167,8 +168,9 @@ pytest --cov=app tests/
 **目标**: 完整准确的技术文档
 
 #### 4.1 API文档更新
-- [ ] 更新 `docs/modules/{module}/api-spec.md`
-- [ ] 确保OpenAPI规范同步更新
+- [ ] 更新 `docs/modules/{module}/api-spec.md` - 接口规范要求
+- [ ] 更新 `docs/modules/{module}/api-implementation.md` - 实施细节记录
+- [ ] 确保遵循 `standards/openapi.yaml` 全局契约
 - [ ] 添加完整的请求响应示例
 - [ ] 说明错误处理和状态码
 

@@ -29,7 +29,7 @@ router = APIRouter()
 
 # ============ 库存查询接口 ============
 
-@router.get("/{product_id}", response_model=InventoryRead, summary="获取商品库存信息")
+@router.get("/inventory/{product_id}", response_model=InventoryRead, summary="获取商品库存信息")
 async def get_product_inventory(
     product_id: int,
     db: Session = Depends(get_db),
@@ -210,7 +210,7 @@ async def deduct_inventory(
 
 # ============ 库存管理接口（管理员） ============
 
-@router.put("/{product_id}/adjust", summary="库存调整")
+@router.put("/inventory/{product_id}/adjust", summary="库存调整")
 async def adjust_inventory(
     product_id: int,
     adjustment: InventoryAdjustment,
@@ -245,7 +245,7 @@ async def adjust_inventory(
     return inventory
 
 
-@router.put("/{product_id}/threshold", summary="设置预警阈值")
+@router.put("/inventory/{product_id}/threshold", summary="设置预警阈值")
 async def update_warning_threshold(
     product_id: int,
     threshold_update: ThresholdUpdate,
@@ -308,7 +308,7 @@ async def get_low_stock_products(
     )
 
 
-@router.get("/{product_id}/transactions", response_model=PaginatedResponse, summary="获取库存变动历史")
+@router.get("/inventory/{product_id}/transactions", response_model=PaginatedResponse, summary="获取库存变动历史")
 async def get_inventory_transactions(
     product_id: int,
     query: TransactionQuery = Depends(),

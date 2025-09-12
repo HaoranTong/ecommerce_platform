@@ -9,22 +9,46 @@
 app/
 ├── main.py              # 应用入口
 ├── database.py          # 数据库连接
-├── db.py               # 数据库会话管理
+├── data_models.py       # 统一数据模型（废弃，仅兼容）
 ├── auth.py             # 认证相关
-├── models.py           # SQLAlchemy数据模型 (单文件)
 ├── redis_client.py     # Redis连接
 ├── payment_auth.py     # 支付认证服务
 ├── payment_service.py  # 支付业务逻辑
-├── api/                # API路由
+├── models/             # SQLAlchemy数据模型（模块化架构）
 │   ├── __init__.py
-│   ├── routes.py       # 主路由
-│   └── {module}_routes.py
-├── schemas/            # Pydantic模式
+│   ├── base.py         # 基础模型类
+│   ├── user.py         # 用户相关模型
+│   ├── product.py      # 商品相关模型
+│   ├── order.py        # 订单相关模型
+│   └── payment.py      # 支付相关模型
+├── api/                # API路由（模块化路由）
 │   ├── __init__.py
-│   └── {schema}.py
-├── services/           # 业务逻辑
+│   ├── main_routes.py  # 主路由
+│   ├── user_routes.py  # 用户路由
+│   ├── product_routes.py # 商品路由
+│   ├── order_routes.py # 订单路由
+│   ├── payment_routes.py # 支付路由
+│   ├── cart_routes.py  # 购物车路由
+│   ├── category_routes.py # 分类路由
+│   ├── inventory_routes.py # 库存路由
+│   └── routes/         # 路由子模块
+├── schemas/            # Pydantic模式（模块化架构）
 │   ├── __init__.py
-│   └── {service}.py
+│   ├── base.py         # 基础Schema类
+│   ├── user.py         # 用户Schema
+│   ├── product.py      # 商品Schema
+│   ├── order.py        # 订单Schema
+│   ├── payment.py      # 支付Schema
+│   └── inventory.py    # 库存Schema
+├── services/           # 业务逻辑（模块化服务）
+│   ├── __init__.py
+│   ├── user_service.py # 用户服务
+│   ├── product_service.py # 商品服务
+│   ├── order_service.py # 订单服务
+│   ├── payment_service.py # 支付服务
+│   ├── cart_service.py # 购物车服务
+│   ├── category_service.py # 分类服务
+│   └── inventory.py    # 库存服务
 └── utils/              # 工具函数 (如需要)
     ├── __init__.py
     └── {util}.py
@@ -38,10 +62,16 @@ app/
 - 文件名要清晰表达功能
 
 ### 模块文件命名
-- 路由文件：`{module}_routes.py`
-- 数据模型：在 `models.py` 中定义类 (单数形式)
-- Pydantic模式：`{schema}.py`
-- 服务类：`{service}.py`
+- 路由文件：`{module}_routes.py` (如: user_routes.py, product_routes.py)
+- 数据模型：在 `models/{module}.py` 中定义类 (如: models/user.py, models/product.py)
+- Pydantic模式：在 `schemas/{module}.py` 中定义 (如: schemas/user.py, schemas/product.py)
+- 服务类：在 `services/{module}_service.py` 中定义 (如: services/user_service.py)
+
+### 模块化架构规范
+- **models/** - 按业务域组织数据模型，每个模型文件包含相关的SQLAlchemy类
+- **schemas/** - 按业务域组织Pydantic模式，每个Schema文件对应相关的API数据结构
+- **services/** - 按业务域组织服务层，每个服务文件包含相关的业务逻辑
+- **api/** - 按业务域组织路由，每个路由文件包含相关的API端点
 
 ## 🚨 强制注释规范
 
@@ -60,7 +90,9 @@ app/
 - 路由前缀：/api/v1/users
 - 认证要求：部分接口需要JWT认证
 依赖模块：
-- app.models.User: 用户数据模型
+- app.models.user.User: 用户数据模型
+- app.schemas.user.UserCreate, UserRead: 用户Schema
+- app.services.user_service: 用户业务逻辑
 - app.auth: 用户认证相关功能
 创建时间：2025-09-12
 最后修改：2025-09-12
@@ -192,7 +224,7 @@ from sqlalchemy.orm import Session
 
 # 本地导入
 from app.database import get_db
-from app.models import User
+from app.models.user import User
 from app.schemas.user import UserCreate, UserRead
 ```
 

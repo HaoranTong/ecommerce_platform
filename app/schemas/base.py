@@ -42,7 +42,7 @@ class PaginationParams(BaseModel):
 class SortParams(BaseModel):
     """排序参数模式"""
     sort_by: Optional[str] = Field(None, description="排序字段")
-    sort_order: Optional[str] = Field("desc", regex="^(asc|desc)$", description="排序方向")
+    sort_order: Optional[str] = Field("desc", pattern="^(asc|desc)$", description="排序方向")
 
 
 class ApiResponse(BaseSchema):

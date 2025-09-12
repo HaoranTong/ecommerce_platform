@@ -9,7 +9,7 @@ from sqlalchemy.orm import sessionmaker
 # 从环境变量读取数据库配置
 DATABASE_URL = os.getenv(
     "DATABASE_URL",
-    "mysql+pymysql://root:123456@localhost:3307/ecommerce_platform"
+    "mysql+pymysql://root:rootpass@localhost:3307/ecommerce_platform"
 )
 
 # 创建数据库引擎
