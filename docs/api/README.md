@@ -1,32 +1,38 @@
-<!--
-文档说明：
-- 内容：API文档的导航和使用说明
-- 使用方法：API文档的入口，提供完整的API文档导航
-- 更新方法：新增API模块时更新导航链接
-- 引用关系：被开发团队、前端团队、测试团队引用
-- 更新频率：新模块API文档创建时
--->
+# API接口文档
 
-# API文档中心
+API规范和接口文档中心。
 
-## 📋 文档导航
+## 📁 目录结构
 
-### 🎯 API设计规范
-- **[API设计标准](api-design-standards.md)** - API设计原则、URL规范、认证授权标准
-- **[OpenAPI规范](openapi.yaml)** - 完整的API规范文件，支持代码生成
+```
+api/
+├── openapi.yaml           # OpenAPI 3.0规范文件
+└── README.md              # 本文档
+```
 
-### 🔧 模块API文档
+## 📋 文档说明
 
-#### 核心交易模块
-- **[购物车API](modules/cart/api-spec.md)** - 购物车管理接口
-- **[用户认证API](modules/user-auth/api-spec.md)** - 用户登录注册接口 *(规划中)*
-- **[商品管理API](modules/product/api-spec.md)** - 商品CRUD接口 *(规划中)*
-- **[订单管理API](modules/order/api-spec.md)** - 订单处理接口 *(规划中)*
-- **[支付系统API](modules/payment/api-spec.md)** - 支付集成接口 *(规划中)*
+| 文件 | 用途 | 维护责任 |
+|-----|------|---------|
+| **openapi.yaml** | 完整的API规范定义 | 后端开发团队 |
+| **README.md** | API文档中心导航 | 技术负责人 |
 
-#### 农产品特色模块
-- **[批次溯源API](modules/batch-trace/api-spec.md)** - 农产品溯源接口 *(规划中)*
-- **[分销商API](modules/distributor/api-spec.md)** - 分销商管理接口 *(规划中)*
+## 🔗 相关文档
+
+- [API设计规范](../standards/api-standards.md) - API设计标准和约定
+- [模块API文档](../modules/) - 各功能模块的详细API说明
+- [数据模型](../architecture/data-models.md) - API数据结构设计
+
+## 🚀 快速开始
+
+1. **查看API规范** → [openapi.yaml](openapi.yaml)
+2. **了解设计标准** → [API设计规范](../standards/api-standards.md)
+3. **模块API详情** → [功能模块文档](../modules/)
+
+## 📝 更新说明
+
+- **openapi.yaml** - 随API接口变更更新
+- **本README** - 新增API文档时更新导航
 
 #### 营销和服务模块
 - **[会员系统API](modules/member/api-spec.md)** - 会员等级积分接口 *(规划中)*
