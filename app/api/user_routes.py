@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 
 from app.database import get_db
-from app.models import User
+from app.data_models import User
 from app.auth import (
     authenticate_user, 
     create_access_token, 
@@ -198,7 +198,7 @@ async def update_current_user(
         )
 
 
-@router.put("/api/users/password")
+@router.put("/users/password")
 async def change_password(
     password_data: UserChangePassword,
     current_user: User = Depends(get_current_active_user),

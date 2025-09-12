@@ -2,15 +2,15 @@ from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 from typing import List, Optional
 
-from app.db import get_session
-import app.models as models
+from app.database import get_db
+import app.data_models as models
 from app.api import schemas
 
 router = APIRouter()
 
 
-@router.post("/api/categories", response_model=schemas.CategoryRead, status_code=status.HTTP_201_CREATED)
-def create_category(payload: schemas.CategoryCreate, db: Session = Depends(get_session)):
+@router.post("/categories", response_model=schemas.CategoryRead, status_code=status.HTTP_201_CREATED)
+def create_category(payload: schemas.CategoryCreate, db: Session = Depends(get_db)):
     """创建新分类"""
     # 检查父分类是否存在
     if payload.parent_id:
@@ -41,11 +41,11 @@ def create_category(payload: schemas.CategoryCreate, db: Session = Depends(get_s
     return category
 
 
-@router.get("/api/categories", response_model=List[schemas.CategoryRead])
+@router.get("/categories", response_model=List[schemas.CategoryRead])
 def list_categories(
     parent_id: Optional[int] = Query(None, description="父分类ID，不传则返回顶级分类"),
     include_inactive: bool = Query(False, description="是否包含已停用的分类"),
-    db: Session = Depends(get_session)
+    db: Session = Depends(get_db)
 ):
     """获取分类列表"""
     query = db.query(models.Category)
@@ -66,10 +66,10 @@ def list_categories(
     return categories
 
 
-@router.get("/api/categories/tree")
+@router.get("/categories/tree")
 def get_category_tree(
     include_inactive: bool = Query(False, description="是否包含已停用的分类"),
-    db: Session = Depends(get_session)
+    db: Session = Depends(get_db)
 ):
     """获取分类树结构"""
     # 获取所有分类
@@ -100,8 +100,8 @@ def get_category_tree(
     return build_tree()
 
 
-@router.get("/api/categories/{category_id}", response_model=schemas.CategoryRead)
-def get_category(category_id: int, db: Session = Depends(get_session)):
+@router.get("/categories/{category_id}", response_model=schemas.CategoryRead)
+def get_category(category_id: int, db: Session = Depends(get_db)):
     """获取单个分类详情"""
     category = db.query(models.Category).get(category_id)
     if not category:
@@ -112,11 +112,11 @@ def get_category(category_id: int, db: Session = Depends(get_session)):
     return category
 
 
-@router.put("/api/categories/{category_id}", response_model=schemas.CategoryRead)
+@router.put("/categories/{category_id}", response_model=schemas.CategoryRead)
 def update_category(
     category_id: int,
     payload: schemas.CategoryUpdate,
-    db: Session = Depends(get_session)
+    db: Session = Depends(get_db)
 ):
     """更新分类信息"""
     category = db.query(models.Category).get(category_id)
@@ -183,8 +183,8 @@ def update_category(
     return category
 
 
-@router.delete("/api/categories/{category_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_category(category_id: int, db: Session = Depends(get_session)):
+@router.delete("/categories/{category_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_category(category_id: int, db: Session = Depends(get_db)):
     """删除分类"""
     category = db.query(models.Category).get(category_id)
     if not category:

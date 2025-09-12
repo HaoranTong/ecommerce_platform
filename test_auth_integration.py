@@ -5,7 +5,7 @@ import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from app.auth import create_access_token, decode_token, get_password_hash, verify_password
-from app.models import User
+from app.data_models import User
 import json
 
 def test_jwt_functionality():

@@ -5,8 +5,8 @@ from typing import List, Optional
 from datetime import datetime, timedelta
 from decimal import Decimal
 
-from app.db import get_session
-import app.models as models
+from app.database import get_db
+import app.data_models as models
 from app.api import schemas
 from app.auth import get_current_active_user, get_current_admin_user, require_ownership
 
@@ -19,7 +19,7 @@ async def health():
 
 
 @router.post("/users", response_model=schemas.UserRead, status_code=status.HTTP_201_CREATED)
-def create_user(payload: schemas.UserCreate, db: Session = Depends(get_session)):
+def create_user(payload: schemas.UserCreate, db: Session = Depends(get_db)):
     # check uniqueness
     existing = db.query(models.User).filter((models.User.username == payload.username) | (models.User.email == payload.email)).first()
     if existing:
@@ -32,13 +32,13 @@ def create_user(payload: schemas.UserCreate, db: Session = Depends(get_session))
 
 
 @router.get("/users", response_model=List[schemas.UserRead])
-def list_users(skip: int = 0, limit: int = 100, db: Session = Depends(get_session)):
+def list_users(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
     users = db.query(models.User).offset(skip).limit(limit).all()
     return users
 
 
 @router.get("/users/{user_id}", response_model=schemas.UserRead)
-def get_user(user_id: int, db: Session = Depends(get_session)):
+def get_user(user_id: int, db: Session = Depends(get_db)):
     user = db.query(models.User).get(user_id)
     if not user:
         raise HTTPException(status_code=404, detail="user not found")
@@ -46,7 +46,7 @@ def get_user(user_id: int, db: Session = Depends(get_session)):
 
 
 @router.delete("/users/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_user(user_id: int, db: Session = Depends(get_session)):
+def delete_user(user_id: int, db: Session = Depends(get_db)):
     user = db.query(models.User).get(user_id)
     if not user:
         raise HTTPException(status_code=404, detail="user not found")
@@ -57,10 +57,10 @@ def delete_user(user_id: int, db: Session = Depends(get_session)):
 
 # ====== 支付模块路由 ======
 
-@router.post("/api/payments", response_model=schemas.PaymentRead, status_code=status.HTTP_201_CREATED)
+@router.post("/payments", response_model=schemas.PaymentRead, status_code=status.HTTP_201_CREATED)
 async def create_payment(
     payment_data: schemas.PaymentCreate,
-    db: Session = Depends(get_session),
+    db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_active_user)
 ):
     """创建支付订单"""
@@ -106,13 +106,13 @@ async def create_payment(
     return payment
 
 
-@router.get("/api/payments", response_model=List[schemas.PaymentRead])
+@router.get("/payments", response_model=List[schemas.PaymentRead])
 async def list_payments(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=500),
     status: Optional[str] = Query(None),
     payment_method: Optional[str] = Query(None),
-    db: Session = Depends(get_session),
+    db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_active_user)
 ):
     """获取支付记录列表"""
@@ -135,10 +135,10 @@ async def list_payments(
     return payments
 
 
-@router.get("/api/payments/{payment_id}", response_model=schemas.PaymentRead)
+@router.get("/payments/{payment_id}", response_model=schemas.PaymentRead)
 async def get_payment(
     payment_id: int,
-    db: Session = Depends(get_session),
+    db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_active_user)
 ):
     """获取支付详情"""
@@ -153,11 +153,11 @@ async def get_payment(
     return payment
 
 
-@router.patch("/api/payments/{payment_id}/status", response_model=schemas.PaymentRead)
+@router.patch("/payments/{payment_id}/status", response_model=schemas.PaymentRead)
 async def update_payment_status(
     payment_id: int,
     status_update: schemas.PaymentStatusUpdate,
-    db: Session = Depends(get_session),
+    db: Session = Depends(get_db),
     current_admin: models.User = Depends(get_current_admin_user)
 ):
     """更新支付状态 - 管理员权限"""
@@ -189,10 +189,10 @@ async def update_payment_status(
     return payment
 
 
-@router.post("/api/payments/{payment_id}/cancel", response_model=schemas.PaymentRead)
+@router.post("/payments/{payment_id}/cancel", response_model=schemas.PaymentRead)
 async def cancel_payment(
     payment_id: int,
-    db: Session = Depends(get_session),
+    db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_active_user)
 ):
     """取消支付"""
@@ -219,10 +219,10 @@ async def cancel_payment(
 
 # ====== 退款模块路由 ======
 
-@router.post("/api/refunds", response_model=schemas.RefundRead, status_code=status.HTTP_201_CREATED)
+@router.post("/refunds", response_model=schemas.RefundRead, status_code=status.HTTP_201_CREATED)
 async def create_refund(
     refund_data: schemas.RefundCreate,
-    db: Session = Depends(get_session),
+    db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_active_user)
 ):
     """创建退款申请"""
@@ -265,12 +265,12 @@ async def create_refund(
     return refund
 
 
-@router.get("/api/refunds", response_model=List[schemas.RefundRead])
+@router.get("/refunds", response_model=List[schemas.RefundRead])
 async def list_refunds(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=500),
     status: Optional[str] = Query(None),
-    db: Session = Depends(get_session),
+    db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_active_user)
 ):
     """获取退款记录列表"""
@@ -289,10 +289,10 @@ async def list_refunds(
     return refunds
 
 
-@router.get("/api/refunds/{refund_id}", response_model=schemas.RefundRead)
+@router.get("/refunds/{refund_id}", response_model=schemas.RefundRead)
 async def get_refund(
     refund_id: int,
-    db: Session = Depends(get_session),
+    db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_active_user)
 ):
     """获取退款详情"""
@@ -308,11 +308,11 @@ async def get_refund(
     return refund
 
 
-@router.patch("/api/refunds/{refund_id}/status", response_model=schemas.RefundRead)
+@router.patch("/refunds/{refund_id}/status", response_model=schemas.RefundRead)
 async def update_refund_status(
     refund_id: int,
     status_data: schemas.RefundStatusUpdate,
-    db: Session = Depends(get_session),
+    db: Session = Depends(get_db),
     current_admin: models.User = Depends(get_current_admin_user)
 ):
     """更新退款状态 - 管理员权限"""
@@ -346,11 +346,11 @@ async def update_refund_status(
 
 # ====== 统计分析路由 ======
 
-@router.get("/api/payments/stats", response_model=schemas.PaymentStats)
+@router.get("/payments/stats", response_model=schemas.PaymentStats)
 async def get_payment_stats(
     start_date: Optional[str] = Query(None, description="开始日期 YYYY-MM-DD"),
     end_date: Optional[str] = Query(None, description="结束日期 YYYY-MM-DD"),
-    db: Session = Depends(get_session),
+    db: Session = Depends(get_db),
     current_admin: models.User = Depends(get_current_admin_user)
 ):
     """获取支付统计数据 - 管理员权限"""

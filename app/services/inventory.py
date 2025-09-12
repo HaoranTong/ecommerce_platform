@@ -17,8 +17,8 @@ from sqlalchemy import and_, or_, desc
 from fastapi import HTTPException, status
 import redis
 
-from app.models import Product
-from app.models import Inventory, InventoryTransaction, CartReservation, TransactionType, ReferenceType
+from app.data_models import Product
+from app.data_models import Inventory, InventoryTransaction, CartReservation, TransactionType, ReferenceType
 from app.schemas.inventory import (
     InventoryCreate, InventoryUpdate, ReservationItem, DeductItem,
     InventoryAdjustment, AdjustmentType, TransactionQuery
