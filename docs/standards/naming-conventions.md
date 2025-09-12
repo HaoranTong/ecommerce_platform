@@ -58,13 +58,20 @@ graph LR
 ### 文档目录命名规则
 ```
 docs/
-├── api/modules/{模块英文名}/           # API规范文档
+├── standards/                        # 开发标准（参考document-standards.md）
+│   ├── openapi.yaml                  # API契约定义
+│   └── ...                          # 其他标准文档
 ├── modules/{完整描述名}/              # 完整模块文档
+│   ├── api-spec.md                   # API规范文档
+│   ├── api-implementation.md         # API实施细节记录
+│   └── ...                          # 其他模块文档
 ```
 
 **示例**：
 ```
-docs/api/modules/cart/api-spec.md
+docs/standards/openapi.yaml              # 全局API契约
+docs/modules/shopping-cart/api-spec.md    # 模块接口规范
+docs/modules/shopping-cart/api-implementation.md # 模块实施记录
 docs/modules/shopping-cart/overview.md
 ```
 

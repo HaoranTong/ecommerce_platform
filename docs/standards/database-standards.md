@@ -56,9 +56,27 @@
 
 ### 命名规则
 - 主键：`PRIMARY`
-- 唯一索引：`uk_{字段名}`
-- 普通索引：`idx_{字段名}`
-- 外键索引：`fk_{表名}_{字段名}`
+- 唯一索引：`uk_{表名}_{字段名}` 
+- 普通索引：`idx_{表名}_{字段名}` 或 `idx_{表名}_{字段1}_{字段2}`
+- 外键索引：`fk_{表名}_{外键字段名}`
+- 复合索引：`idx_{表名}_{字段1}_{字段2}_{字段3}`
+
+### 索引命名示例
+```sql
+-- 唯一索引
+uk_users_email          -- users表的email唯一索引
+uk_products_sku         -- products表的sku唯一索引
+
+-- 普通索引  
+idx_orders_user_id      -- orders表的user_id索引
+idx_orders_status       -- orders表的status索引
+idx_orders_user_status  -- orders表的user_id+status复合索引
+idx_payments_status_created -- payments表的status+created_at复合索引
+
+-- 外键索引
+fk_orders_user_id       -- orders表指向users表的外键索引
+fk_order_items_product_id -- order_items表指向products表的外键索引
+```
 
 ### 创建原则
 - 外键字段必须有索引

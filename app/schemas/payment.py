@@ -21,7 +21,39 @@ from pydantic import BaseModel, Field, field_validator
 from typing import Optional, List, Dict, Any
 from datetime import datetime
 from decimal import Decimal
+from enum import Enum
 from app.schemas.base import BaseSchema, TimestampSchema
+
+
+# ============ 枚举定义 ============
+
+class PaymentStatus(str, Enum):
+    """支付状态枚举"""
+    PENDING = "pending"
+    PROCESSING = "processing"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    CANCELLED = "cancelled"
+    REFUNDED = "refunded"
+
+
+class RefundStatus(str, Enum):
+    """退款状态枚举"""
+    PENDING = "pending"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+    PROCESSING = "processing"
+    COMPLETED = "completed"
+    FAILED = "failed"
+
+
+class PaymentMethod(str, Enum):
+    """支付方式枚举"""
+    ALIPAY = "alipay"
+    WECHAT = "wechat"
+    BANK_CARD = "bank_card"
+    PAYPAL = "paypal"
+    CASH = "cash"
 
 
 # ============ 支付相关模式 ============
@@ -248,12 +280,12 @@ class PaymentAnalysis(BaseSchema):
 class PaymentBatch(BaseSchema):
     """支付批量操作模式"""
     payment_ids: List[int] = Field(..., min_items=1, description="支付ID列表")
-    action: str = Field(..., regex="^(export|cancel|retry)$", description="操作类型")
+    action: str = Field(..., pattern="^(export|cancel|retry)$", description="操作类型")
     params: Optional[Dict[str, Any]] = Field(None, description="操作参数")
 
 
 class RefundBatch(BaseSchema):
     """退款批量操作模式"""
     refund_ids: List[int] = Field(..., min_items=1, description="退款ID列表")
-    action: str = Field(..., regex="^(approve|reject|process)$", description="操作类型")
+    action: str = Field(..., pattern="^(approve|reject|process)$", description="操作类型")
     params: Optional[Dict[str, Any]] = Field(None, description="操作参数")

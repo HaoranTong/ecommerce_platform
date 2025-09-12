@@ -28,7 +28,8 @@ class UserService:
     
     @staticmethod
     def create_user(db: Session, username: str, email: str, password: str, 
-                   phone: Optional[str] = None, real_name: Optional[str] = None) -> User:
+                   phone: Optional[str] = None, real_name: Optional[str] = None,
+                   role: str = 'user', is_active: bool = True) -> User:
         """
         创建新用户
         
@@ -64,7 +65,9 @@ class UserService:
             email=email,
             password_hash=password_hash,
             phone=phone,
-            real_name=real_name
+            real_name=real_name,
+            role=role,
+            is_active=is_active
         )
         
         try:

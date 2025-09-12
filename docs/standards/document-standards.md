@@ -7,16 +7,17 @@
 ```
 docs/
 ├── standards/          # 开发规范文档
+│   ├── openapi.yaml    # API契约定义
+│   └── ...            # 其他标准文档
 ├── modules/           # 模块功能文档
-├── api/              # API接口文档  
-├── architecture/     # 系统架构文档
-├── development/      # 开发环境文档
-├── operations/       # 运维部署文档
-├── requirements/     # 需求分析文档
-├── status/          # 项目状态文档
-├── analysis/        # 分析报告文档
-├── templates/       # 文档模板
-└── _archive/        # 废弃文档备份
+├── architecture/      # 系统架构文档
+├── development/       # 开发环境文档
+├── operations/        # 运维部署文档
+├── requirements/      # 需求分析文档
+├── status/           # 项目状态文档
+├── analysis/         # 分析报告文档
+├── templates/        # 文档模板
+└── _archive/         # 废弃文档备份
 ```
 
 ## 文档功能定义
@@ -65,7 +66,7 @@ docs/
 | 文档类型 | 存放位置 | 功能定位 | 禁止内容 |
 |---------|---------|---------|---------|
 | **架构设计** | architecture/ | 系统设计决策、技术选型 | 实现代码、配置详情 |
-| **API文档** | api/ | 接口规范、参数说明 | 业务逻辑、实现细节 |  
+| **开发标准** | standards/ | 开发规范、API契约定义 | 具体实现、业务逻辑 |  
 | **开发指南** | development/ | 环境配置、工具使用 | 业务需求、架构设计 |
 | **运维文档** | operations/ | 部署配置、监控运维 | 开发细节、业务逻辑 |
 | **需求文档** | requirements/ | 业务需求、功能规格 | 技术实现、代码细节 |
@@ -126,8 +127,18 @@ IF 修改启动脚本 THEN 更新根目录README.md快速开始部分
 - 使用英文小写字母，单词间连字符分隔
 - README.md - 目录导航（每目录必有）
 - overview.md - 概述文档
-- api-spec.md - API规范
+- api-spec.md - API接口规范（详细的接口规范要求、参数传递规范）
+- api-implementation.md - API接口实施细节记录（具体实施过程、代码实现）
 - 文件名清晰表达内容用途
+
+#### API文档职责分工
+- **api-spec.md**：遵循 standards/openapi.yaml 契约，详细定义接口规范、参数传递、错误处理等技术要求
+- **api-implementation.md**：记录接口具体实施细节、开发过程、实现方案等开发记录
+
+#### 全局API契约管理
+- **standards/openapi.yaml**：项目API宪法，所有接口开发必须遵守的技术契约
+- **位置要求**：API契约文档必须存放在 standards/ 目录，与其他开发标准统一管理
+- **引用关系**：各模块 api-spec.md 必须引用并遵循全局契约定义
 
 ### 禁止行为
 - 不检查就创建文档

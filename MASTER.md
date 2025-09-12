@@ -21,23 +21,24 @@
 8. **禁止不确认数据库字段** - 必须检查docs/standards/database-standards.md
 9. **禁止不了解现有架构** - 必须读取模块overview.md全文
 10. **禁止不记录检查过程** - 必须记录验证结果和引用条款
+11. **禁止不使用自动检查脚本** - 必须执行scripts目录中的检查脚本
 
 ## 📋 检查点触发条件
 
 ### 主检查点 (必触发)
-- 接收新任务 → 任务相关文档阅读检查点
-- 开始编码 → 设计规范确认检查点  
-- 提交代码 → 代码文档同步检查点
+- 接收新任务 → 任务相关文档阅读检查点 + 执行 .\scripts\check_docs.ps1
+- 开始编码 → 设计规范确认检查点 + 执行 .\scripts\check_naming_compliance.ps1
+- 提交代码 → 代码文档同步检查点 + 执行 .\scripts\check_naming_compliance.ps1
 
 ### 辅助检查点 (条件触发)
-- create_file docs/* → 文档结构规范检查点
-- create_file *.py → 代码开发强制检查点
-- create_file *_routes.py → API设计标准检查点
+- create_file docs/* → 文档结构规范检查点 + 执行 .\scripts\check_docs.ps1
+- create_file *.py → 代码开发强制检查点 + 执行 .\scripts\check_naming_compliance.ps1 -CheckType code
+- create_file *_routes.py → API设计标准检查点 + 执行 .\scripts\check_naming_compliance.ps1 -CheckType api
 - create_file test_*.py → 测试规范检查点
-- 操作models.py → 数据库设计规范检查点
-- 任何命名操作 → 命名规范检查点
-- 创建类/函数/变量 → 代码开发检查清单
-- 设计数据库表/字段 → 数据库命名检查点
+- 操作models.py → 数据库设计规范检查点 + 执行 .\scripts\check_naming_compliance.ps1 -CheckType database
+- 任何命名操作 → 命名规范检查点 + 执行 .\scripts\check_naming_compliance.ps1
+- 创建类/函数/变量 → 代码开发检查清单 + 执行 .\scripts\check_naming_compliance.ps1 -CheckType code
+- 设计数据库表/字段 → 数据库命名检查点 + 执行 .\scripts\check_naming_compliance.ps1 -CheckType database
 
 ## 🔍 检查点执行格式
 🔍 检查点触发：[操作类型]
@@ -57,14 +58,15 @@
 
 ## ⚡ 条件分支执行
 IF 创建新模块 THEN 检查 docs/templates/module-template.md
-IF create_file *.py THEN 执行 docs/standards/code-development-checklist.md
-IF create_file *_routes.py THEN 检查 docs/standards/api-standards.md  
-IF 操作models.py THEN 确认 docs/standards/database-standards.md
+IF create_file *.py THEN 执行 docs/standards/code-development-checklist.md + .\scripts\check_naming_compliance.ps1 -CheckType code
+IF create_file *_routes.py THEN 检查 docs/standards/api-standards.md + .\scripts\check_naming_compliance.ps1 -CheckType api
+IF 操作models.py THEN 确认 docs/standards/database-standards.md + .\scripts\check_naming_compliance.ps1 -CheckType database
 IF create_file test_*.py THEN 检查 docs/standards/testing-standards.md
-IF 创建文档 THEN 检查 docs/standards/document-standards.md
-IF 命名实体 THEN 确认 docs/standards/naming-conventions.md
+IF 创建文档 THEN 检查 docs/standards/document-standards.md + .\scripts\check_docs.ps1
+IF 命名实体 THEN 确认 docs/standards/naming-conventions.md + .\scripts\check_naming_compliance.ps1
 IF 编写测试 THEN 检查 docs/standards/testing-standards.md
 IF 修改流程 THEN 检查 docs/standards/workflow-standards.md
+IF 开始工作会话 THEN 执行 .\scripts\check_naming_compliance.ps1 + .\scripts\check_docs.ps1
 
 ## 📄 README同步触发
 IF create_file app/modules/* THEN 更新对应模块README.md

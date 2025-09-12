@@ -45,8 +45,8 @@ def list_products(
     min_price: Optional[float] = Query(None, ge=0),
     max_price: Optional[float] = Query(None, ge=0),
     is_active: Optional[bool] = Query(None),
-    sort_by: Optional[str] = Query("created_at", regex="^(name|price|created_at|updated_at)$"),
-    sort_order: Optional[str] = Query("desc", regex="^(asc|desc)$"),
+    sort_by: Optional[str] = Query("created_at", pattern="^(name|price|created_at|updated_at)$"),
+    sort_order: Optional[str] = Query("desc", pattern="^(asc|desc)$"),
     db: Session = Depends(get_db)
 ):
     """

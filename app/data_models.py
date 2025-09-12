@@ -11,6 +11,26 @@ class User(Base):
     id = Column(BigInteger, primary_key=True, index=True)
     username = Column(String(50), unique=True, nullable=False)
     email = Column(String(200), unique=True, nullable=False)
+    # 微信认证相关字段
+    password_hash = Column(String(255), nullable=False)
+    is_active = Column(Boolean, default=True)
+    # 用户角色：user, admin, super_admin
+    role = Column(String(20), default='user', nullable=False)  # 'user', 'admin', 'super_admin'
+    # 微信小程序相关
+    wx_openid = Column(String(100), unique=True, nullable=True)
+    wx_unionid = Column(String(100), unique=True, nullable=True)
+    # 联系信息
+    phone = Column(String(20), nullable=True)
+    real_name = Column(String(100), nullable=True)
+    # 时间戳
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+    
+    # 关系定义
+    orders = relationship("Order", back_populates="user")
+    carts = relationship("Cart", back_populates="user")
+    username = Column(String(50), unique=True, nullable=False)
+    email = Column(String(200), unique=True, nullable=False)
     # 密码认证
     password_hash = Column(String(255), nullable=False)
     is_active = Column(Boolean, default=True)
@@ -82,8 +102,8 @@ class Product(Base):
     
     # 索引
     __table_args__ = (
-        Index('idx_category_status', 'category_id', 'status'),
-        Index('idx_status_created', 'status', 'created_at'),
+        Index('idx_products_category_status', 'category_id', 'status'),
+        Index('idx_products_status_created', 'status', 'created_at'),
     )
 
 
@@ -125,9 +145,9 @@ class Order(Base):
     
     # 索引
     __table_args__ = (
-        Index('idx_user_status', 'user_id', 'status'),
-        Index('idx_status_created', 'status', 'created_at'),
-        Index('idx_order_no', 'order_no'),
+        Index('idx_orders_user_status', 'user_id', 'status'),
+        Index('idx_orders_status_created', 'status', 'created_at'),
+        Index('idx_orders_order_no', 'order_no'),
     )
 
 
@@ -158,7 +178,7 @@ class OrderItem(Base):
     
     # 索引
     __table_args__ = (
-        Index('idx_order_product', 'order_id', 'product_id'),
+        Index('idx_order_items_order_product', 'order_id', 'product_id'),
     )
 
 
@@ -219,10 +239,10 @@ class Payment(Base):
     
     # 索引
     __table_args__ = (
-        Index('idx_payment_no', 'payment_no'),
-        Index('idx_order_user', 'order_id', 'user_id'),
-        Index('idx_status_created', 'status', 'created_at'),
-        Index('idx_external_payment', 'external_payment_id'),
+        Index('idx_payments_payment_no', 'payment_no'),
+        Index('idx_payments_order_user', 'order_id', 'user_id'),
+        Index('idx_payments_status_created', 'status', 'created_at'),
+        Index('idx_payments_external_payment', 'external_payment_id'),
     )
 
 
@@ -254,8 +274,8 @@ class Refund(Base):
     
     # 索引
     __table_args__ = (
-        Index('idx_payment_status', 'payment_id', 'status'),
-        Index('idx_gateway_refund', 'gateway_refund_id'),
+        Index('idx_refunds_payment_status', 'payment_id', 'status'),
+        Index('idx_refunds_gateway_refund', 'gateway_refund_id'),
     )
 
 
@@ -279,7 +299,7 @@ class Cart(Base):
     
     # 索引
     __table_args__ = (
-        Index('idx_user_status', 'user_id', 'status'),
+        Index('idx_cart_user_status', 'user_id', 'status'),
         Index('idx_cart_expires', 'expires_at'),
     )
 
@@ -305,7 +325,7 @@ class CartItem(Base):
     
     # 约束和索引
     __table_args__ = (
-        Index('idx_cart_product', 'cart_id', 'product_id'),
+        Index('idx_cart_items_cart_product', 'cart_id', 'product_id'),
         Index('idx_cart_items_cart', 'cart_id'),
         # 确保同一购物车中每个商品只有一条记录
         # UniqueConstraint('cart_id', 'product_id', name='uq_cart_product'),
@@ -360,8 +380,8 @@ class Inventory(Base):
 
     # 索引定义
     __table_args__ = (
-        Index('idx_available_quantity', 'available_quantity'),
-        Index('idx_warning_threshold', 'warning_threshold'),
+        Index('idx_inventory_available_quantity', 'available_quantity'),
+        Index('idx_inventory_warning_threshold', 'warning_threshold'),
     )
 
     @property
@@ -406,10 +426,10 @@ class InventoryTransaction(Base):
 
     # 索引定义
     __table_args__ = (
-        Index('idx_product_transaction', 'product_id', 'created_at'),
-        Index('idx_reference', 'reference_type', 'reference_id'),
-        Index('idx_created_at', 'created_at'),
-        Index('idx_transaction_type', 'transaction_type'),
+        Index('idx_inventory_transactions_product_created', 'product_id', 'created_at'),
+        Index('idx_inventory_transactions_reference', 'reference_type', 'reference_id'),
+        Index('idx_inventory_transactions_created_at', 'created_at'),
+        Index('idx_inventory_transactions_type', 'transaction_type'),
     )
 
 

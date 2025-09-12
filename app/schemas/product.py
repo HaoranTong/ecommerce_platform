@@ -78,9 +78,9 @@ class ProductCreate(BaseSchema):
     sku: str = Field(..., max_length=100, description="商品编号")
     description: Optional[str] = Field(None, description="商品描述")
     category_id: Optional[int] = Field(None, description="分类ID")
-    price: Decimal = Field(..., ge=0, decimal_places=2, description="商品价格")
+    price: Decimal = Field(..., ge=0, description="商品价格")
     stock_quantity: int = Field(..., ge=0, description="库存数量")
-    status: str = Field(default="active", regex="^(active|inactive|out_of_stock)$", description="商品状态")
+    status: str = Field(default="active", pattern="^(active|inactive|out_of_stock)$", description="商品状态")
     image_url: Optional[str] = Field(None, max_length=500, description="主图URL")
     attributes: Optional[Dict[str, Any]] = Field(None, description="商品属性")
     images: Optional[List[str]] = Field(None, description="商品图片列表")
@@ -99,9 +99,9 @@ class ProductUpdate(BaseSchema):
     sku: Optional[str] = Field(None, max_length=100, description="商品编号")
     description: Optional[str] = Field(None, description="商品描述")
     category_id: Optional[int] = Field(None, description="分类ID")
-    price: Optional[Decimal] = Field(None, ge=0, decimal_places=2, description="商品价格")
+    price: Optional[Decimal] = Field(None, ge=0, description="商品价格")
     stock_quantity: Optional[int] = Field(None, ge=0, description="库存数量")
-    status: Optional[str] = Field(None, regex="^(active|inactive|out_of_stock)$", description="商品状态")
+    status: Optional[str] = Field(None, pattern="^(active|inactive|out_of_stock)$", description="商品状态")
     image_url: Optional[str] = Field(None, max_length=500, description="主图URL")
     attributes: Optional[Dict[str, Any]] = Field(None, description="商品属性")
     images: Optional[List[str]] = Field(None, description="商品图片列表")
@@ -143,10 +143,10 @@ class ProductSearch(BaseSchema):
     category_id: Optional[int] = Field(None, description="分类筛选")
     min_price: Optional[Decimal] = Field(None, ge=0, description="最低价格")
     max_price: Optional[Decimal] = Field(None, ge=0, description="最高价格")
-    status: Optional[str] = Field(None, regex="^(active|inactive|out_of_stock)$", description="状态筛选")
+    status: Optional[str] = Field(None, pattern="^(active|inactive|out_of_stock)$", description="状态筛选")
     in_stock_only: Optional[bool] = Field(False, description="仅显示有库存商品")
     sort_by: Optional[str] = Field("created_at", description="排序字段")
-    sort_order: Optional[str] = Field("desc", regex="^(asc|desc)$", description="排序方向")
+    sort_order: Optional[str] = Field("desc", pattern="^(asc|desc)$", description="排序方向")
 
 
 class ProductStats(BaseSchema):
@@ -159,10 +159,23 @@ class ProductStats(BaseSchema):
     categories_count: int
 
 
+class ProductPublic(BaseSchema):
+    """商品公开信息模式（对外展示）"""
+    id: int
+    name: str
+    description: Optional[str] = None
+    price: Decimal
+    image_url: Optional[str] = None
+    category_name: Optional[str] = None
+    is_available: bool = True
+    rating: Optional[float] = None
+    review_count: int = 0
+
+
 class ProductBatch(BaseSchema):
     """商品批量操作模式"""
     product_ids: List[int] = Field(..., min_items=1, description="商品ID列表")
-    action: str = Field(..., regex="^(activate|deactivate|delete|update_category)$", description="操作类型")
+    action: str = Field(..., pattern="^(activate|deactivate|delete|update_category)$", description="操作类型")
     params: Optional[Dict[str, Any]] = Field(None, description="操作参数")
 
 
