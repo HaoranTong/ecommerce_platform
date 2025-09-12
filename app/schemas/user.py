@@ -104,7 +104,7 @@ class UserPublic(BaseSchema):
 class Token(BaseSchema):
     """认证令牌模式"""
     access_token: str
-    refresh_token: str
+    refresh_token: Optional[str] = None
     token_type: str = "bearer"
     expires_in: int  # seconds
 

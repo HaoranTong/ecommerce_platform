@@ -17,7 +17,7 @@ from sqlalchemy.orm import Session, joinedload
 from sqlalchemy.exc import IntegrityError
 from fastapi import HTTPException, status
 
-from app.data_models import Cart, Product, User
+from app.models import Cart, Product, User
 
 
 class CartService:

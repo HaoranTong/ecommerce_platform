@@ -16,7 +16,7 @@ from sqlalchemy.orm import Session, joinedload
 from sqlalchemy.exc import IntegrityError
 from fastapi import HTTPException, status
 
-from app.data_models import Category, Product
+from app.models import Category, Product
 
 
 class CategoryService:

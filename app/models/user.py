@@ -14,7 +14,7 @@
 - sqlalchemy: 数据库字段定义和关系映射
 """
 
-from sqlalchemy import Column, String, Boolean, ForeignKey
+from sqlalchemy import Column, String, Boolean, ForeignKey, BigInteger
 from sqlalchemy.orm import relationship
 from app.models.base import BaseModel, TimestampMixin
 
@@ -22,6 +22,9 @@ from app.models.base import BaseModel, TimestampMixin
 class User(BaseModel, TimestampMixin):
     """用户模型"""
     __tablename__ = 'users'
+    
+    # 主键
+    id = Column(BigInteger, primary_key=True, index=True)
     
     # 基础认证信息
     username = Column(String(50), unique=True, nullable=False, index=True)
@@ -40,12 +43,10 @@ class User(BaseModel, TimestampMixin):
     phone = Column(String(20), nullable=True)
     real_name = Column(String(100), nullable=True)
     
-    # 关系映射（延迟导入避免循环依赖）
-    def __init_relationships__(self):
-        """初始化关系映射"""
-        self.orders = relationship("Order", back_populates="user")
-        self.payments = relationship("Payment", back_populates="user")
-        self.carts = relationship("Cart", back_populates="user")
+    # 关系映射
+    # orders = relationship("Order", back_populates="user")
+    # payments = relationship("Payment", back_populates="user") 
+    # carts = relationship("Cart", back_populates="user")
     
     def __repr__(self):
         return f"<User(id={self.id}, username='{self.username}', email='{self.email}')>"
