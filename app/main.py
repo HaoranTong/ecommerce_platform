@@ -87,6 +87,13 @@ except Exception:
     pass
 
 try:
+    from app.api import inventory_routes
+    app.include_router(inventory_routes.router, prefix="/api/inventory", tags=["inventory"])
+except Exception:
+    # inventory routes may be missing on some branches; ignore if not present
+    pass
+
+try:
     from app.api import test_routes
     app.include_router(test_routes.router, prefix="/api/test", tags=["test"])
 except Exception:

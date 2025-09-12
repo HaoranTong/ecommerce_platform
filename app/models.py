@@ -78,6 +78,7 @@ class Product(Base):
     # 关系
     category = relationship("Category", back_populates="products")
     order_items = relationship("OrderItem", back_populates="product")
+    inventory = relationship("Inventory", back_populates="product", uselist=False)
     
     # 索引
     __table_args__ = (
@@ -309,3 +310,153 @@ class CartItem(Base):
         # 确保同一购物车中每个商品只有一条记录
         # UniqueConstraint('cart_id', 'product_id', name='uq_cart_product'),
     )
+
+
+# ============ 库存管理模块模型 ============
+
+from datetime import timedelta
+from enum import Enum
+from sqlalchemy.dialects.mysql import ENUM
+from sqlalchemy import UniqueConstraint
+
+
+class TransactionType(str, Enum):
+    """库存变动类型"""
+    IN = "IN"           # 入库
+    OUT = "OUT"         # 出库
+    RESERVE = "RESERVE" # 预占
+    RELEASE = "RELEASE" # 释放
+    ADJUST = "ADJUST"   # 调整
+
+
+class ReferenceType(str, Enum):
+    """变动关联类型"""
+    ORDER = "ORDER"     # 订单
+    CART = "CART"       # 购物车
+    MANUAL = "MANUAL"   # 手动操作
+    IMPORT = "IMPORT"   # 批量导入
+
+
+class Inventory(Base):
+    """库存主表"""
+    __tablename__ = "inventory"
+
+    id = Column(Integer, primary_key=True, index=True)
+    product_id = Column(
+        Integer, 
+        ForeignKey("products.id", ondelete="CASCADE"), 
+        nullable=False,
+        unique=True
+    )
+    available_quantity = Column(Integer, nullable=False, default=0)
+    reserved_quantity = Column(Integer, nullable=False, default=0)
+    total_quantity = Column(Integer, nullable=False, default=0)
+    warning_threshold = Column(Integer, nullable=False, default=10)
+    created_at = Column(DateTime, nullable=False, server_default=func.now())
+    updated_at = Column(DateTime, nullable=False, server_default=func.now(), onupdate=func.now())
+
+    # 关系定义
+    product = relationship("Product", back_populates="inventory")
+
+    # 索引定义
+    __table_args__ = (
+        Index('idx_available_quantity', 'available_quantity'),
+        Index('idx_warning_threshold', 'warning_threshold'),
+    )
+
+    @property
+    def is_low_stock(self) -> bool:
+        """是否低库存"""
+        return self.available_quantity <= self.warning_threshold
+
+    @property
+    def is_out_of_stock(self) -> bool:
+        """是否缺货"""
+        return self.available_quantity <= 0
+
+    def can_reserve(self, quantity: int) -> bool:
+        """检查是否可以预占指定数量"""
+        return self.available_quantity >= quantity
+
+    def update_quantities(self, available_delta: int = 0, reserved_delta: int = 0):
+        """更新库存数量"""
+        self.available_quantity += available_delta
+        self.reserved_quantity += reserved_delta
+        self.total_quantity = self.available_quantity + self.reserved_quantity
+
+
+class InventoryTransaction(Base):
+    """库存变动记录表"""
+    __tablename__ = "inventory_transactions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    product_id = Column(Integer, ForeignKey("products.id", ondelete="CASCADE"), nullable=False)
+    transaction_type = Column(ENUM(TransactionType), nullable=False)
+    quantity = Column(Integer, nullable=False)
+    reference_type = Column(ENUM(ReferenceType), nullable=True)
+    reference_id = Column(Integer, nullable=True)
+    reason = Column(String(500), nullable=True)
+    operator_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    before_quantity = Column(Integer, nullable=True)
+    after_quantity = Column(Integer, nullable=True)
+    created_at = Column(DateTime, nullable=False, server_default=func.now())
+
+    # 关系定义
+    operator = relationship("User")
+
+    # 索引定义
+    __table_args__ = (
+        Index('idx_product_transaction', 'product_id', 'created_at'),
+        Index('idx_reference', 'reference_type', 'reference_id'),
+        Index('idx_created_at', 'created_at'),
+        Index('idx_transaction_type', 'transaction_type'),
+    )
+
+
+class CartReservation(Base):
+    """购物车库存预占表"""
+    __tablename__ = "cart_reservations"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    product_id = Column(Integer, ForeignKey("products.id", ondelete="CASCADE"), nullable=False)
+    reserved_quantity = Column(Integer, nullable=False)
+    expires_at = Column(DateTime, nullable=False)
+    created_at = Column(DateTime, nullable=False, server_default=func.now())
+
+    # 关系定义
+    user = relationship("User")
+    product = relationship("Product")
+
+    # 唯一约束和索引
+    __table_args__ = (
+        UniqueConstraint('user_id', 'product_id', name='uk_user_product'),
+        Index('idx_expires_at', 'expires_at'),
+        Index('idx_user_id', 'user_id'),
+    )
+
+    @property
+    def is_expired(self) -> bool:
+        """是否已过期"""
+        from datetime import datetime
+        return datetime.utcnow() > self.expires_at
+
+    @property
+    def remaining_minutes(self) -> int:
+        """剩余分钟数"""
+        from datetime import datetime
+        if self.is_expired:
+            return 0
+        delta = self.expires_at - datetime.utcnow()
+        return max(0, int(delta.total_seconds() / 60))
+
+    @classmethod
+    def create_expiration_time(cls, minutes: int = 30):
+        """创建过期时间"""
+        from datetime import datetime, timedelta
+        return datetime.utcnow() + timedelta(minutes=minutes)
+
+    def extend_expiration(self, minutes: int = 30):
+        """延长过期时间"""
+        from datetime import datetime, timedelta
+        self.expires_at = datetime.utcnow() + timedelta(minutes=minutes)
