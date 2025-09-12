@@ -1,73 +1,25 @@
-# 该目录的定制化电商平台的文档中心
+# 项目文档中心
 
-项目的技术文档和开发指南。
+电商平台技术文档导航，包含架构设计、API规范、开发指南等核心文档。
 
-## � 文档结构
+## 📁 目录结构
 
-### 📋 需求文档
-- [业务需求](requirements/business.md) - 项目目标和业务逻辑
-- [功能需求](requirements/functional.md) - 具体功能说明
-- [非功能需求](requirements/non-functional.md) - 性能、安全要求
+| 目录 | 用途 | 重要文档 |
+|-----|------|---------|
+| **architecture/** | 系统架构设计 | [架构概览](architecture/overview.md) |
+| **api/** | API接口文档 | [API文档中心](api/README.md) |
+| **modules/** | 功能模块文档 | [模块导航](modules/README.md) |
+| **development/** | 开发环境指南 | [环境配置](development/README.md) |
+| **operations/** | 运维部署文档 | [部署指南](operations/README.md) |
+| **requirements/** | 需求分析文档 | [需求概览](requirements/README.md) |
+| **standards/** | 开发规范标准 | [文档管理规范](standards/document-standards.md) |
+| **status/** | 项目状态报告 | [状态概览](status/README.md) |
+| **templates/** | 文档模板 | [模板列表](templates/README.md) |
+| **analysis/** | 分析报告文档 | [分析报告](analysis/) |
 
-### 🏗️ 系统架构
-- [架构概览](architecture/overview.md) - 技术架构设计
-- [数据模型](architecture/data-models.md) - 数据库设计
-- [安全架构](architecture/security.md) - 安全设计
-- [事件驱动](architecture/event-driven.md) - 事件驱动架构
-- [集成架构](architecture/integration.md) - 系统集成设计
+## 🔗 快速链接
 
-### 📡 API接口
-- [API文档中心](api/README.md) - API文档导航
-- [API设计标准](api/api-design-standards.md) - 接口设计规范
-- [OpenAPI规范](api/openapi.yaml) - 完整API规范
-- [购物车API](api/modules/cart/api-spec.md) - 购物车接口
-
-### 🔧 功能模块
-- [用户认证](modules/user-auth/overview.md) - 登录注册功能
-- [购物车](modules/shopping-cart/overview.md) - 购物车功能
-- [商品管理](modules/product-catalog/overview.md) - 商品管理
-- [订单管理](modules/order-management/overview.md) - 订单处理
-- [支付系统](modules/payment-service/overview.md) - 支付集成
-
-### 🛠️ 开发指南
-- [编码标准](development/development-standards.md) - 代码规范
-- [测试指南](development/testing.md) - 测试方法
-- [开发工具](development/tools.md) - 工具配置
-
-### 🚀 运维部署
-- [部署指南](operations/deployment.md) - 部署流程
-- [环境配置](operations/environment.md) - 环境变量
-
-### 📊 项目状态
-- [里程碑](status/milestones.md) - 项目进度
-- [当前Sprint](status/current-sprint.md) - 当前工作
-- [问题跟踪](status/issues-tracking.md) - 问题管理
-
-## � 快速开始
-
-**开发人员**:
-1. 阅读 [架构概览](architecture/overview.md)
-2. 查看 [编码标准](development/development-standards.md)
-3. 了解相关的[功能模块](modules/)
-
-**运维人员**:
-1. 查看 [部署指南](operations/deployment.md)
-2. 配置 [环境变量](operations/environment.md)
-
-## 📈 项目状态
-
-- **进度**: 40% (核心功能开发中)
-- **当前工作**: 购物车和订单管理
-- **文档数量**: 60+ 个
-
-## 🔧 脚本工具
-
-```powershell
-# 检查文档状态
-.\scripts\check_docs.ps1
-
-# 设置环境
-.\scripts\sync_env.ps1 -Action create
-```
-
-更多脚本使用说明: [scripts/USAGE.md](../scripts/USAGE.md)
+- [系统架构图](architecture/overview.md) - 了解整体架构
+- [API快速开始](api/README.md) - API接口使用
+- [开发环境配置](development/README.md) - 搭建开发环境
+- [部署运维指南](operations/README.md) - 生产环境部署

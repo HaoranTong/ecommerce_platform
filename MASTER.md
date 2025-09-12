@@ -51,13 +51,23 @@
 - docs/standards/workflow-standards.md - 工作流程规范
 
 ## ⚡ 条件分支执行
-IF 创建新模块 THEN 检查 docs/templates/module-checklist.md
+IF 创建新模块 THEN 检查 docs/templates/module-template.md
 IF 修改API THEN 检查 docs/standards/api-standards.md  
 IF 操作数据库 THEN 确认 docs/standards/database-standards.md
 IF 创建文档 THEN 检查 docs/standards/document-standards.md
 IF 命名实体 THEN 确认 docs/standards/naming-conventions.md
 IF 编写测试 THEN 检查 docs/standards/testing-standards.md
 IF 修改流程 THEN 检查 docs/standards/workflow-standards.md
+
+## 📄 README同步触发
+IF create_file app/modules/* THEN 更新对应模块README.md
+IF 修改main.py THEN 检查根目录README.md快速开始部分
+IF create_file docs/* THEN 更新对应目录README.md
+IF 修改启动脚本 THEN 更新根目录README.md
+IF 添加新API THEN 更新相关模块README.md
+IF 创建新目录 THEN 创建该目录README.md并更新父目录README.md
+IF 删除目录 THEN 更新父目录README.md移除该目录说明
+IF 重命名目录 THEN 更新所有相关README.md中的目录引用
 
 ## 🚫 违规后果
 1. 立即停止当前操作
