@@ -12,7 +12,7 @@ from fastapi import HTTPException, status, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 
-from app.models import User
+from app.data_models import User
 from app.database import get_db
 
 # JWT配置

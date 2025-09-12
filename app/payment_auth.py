@@ -8,7 +8,7 @@ from fastapi import HTTPException, status, Depends
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import User, Order, Payment
+from app.data_models import User, Order, Payment
 from app.auth import get_current_active_user, get_current_admin_user, require_ownership
 
 

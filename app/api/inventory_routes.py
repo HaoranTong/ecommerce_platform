@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 
 from app.auth import get_current_active_user, get_current_admin_user
 from app.database import get_db
-from app.models import User
+from app.data_models import User
 from app.services.inventory import InventoryService
 from app.schemas.inventory import (
     InventoryRead, InventorySimple, BatchInventoryQuery,

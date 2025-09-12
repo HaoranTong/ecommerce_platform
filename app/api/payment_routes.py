@@ -17,7 +17,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import and_, or_, desc
 
 from app.database import get_db
-from app.models import Payment, Order, User
+from app.data_models import Payment, Order, User
 from app.auth import get_current_active_user, get_current_admin_user
 from app.payment_auth import (
     verify_payment_ownership,
@@ -47,7 +47,7 @@ def generate_payment_no() -> str:
     return payment_number_generator.generate_payment_no()
 
 
-@router.post("/api/payments", response_model=PaymentRead, status_code=status.HTTP_201_CREATED)
+@router.post("/payments", response_model=PaymentRead, status_code=status.HTTP_201_CREATED)
 async def create_payment(
     payment_data: PaymentCreate,
     db: Session = Depends(get_db),
@@ -131,7 +131,7 @@ async def create_payment(
     return result
 
 
-@router.get("/api/payments/{payment_id}", response_model=PaymentRead)
+@router.get("/payments/{payment_id}", response_model=PaymentRead)
 async def get_payment(
     payment_id: int,
     db: Session = Depends(get_db),
@@ -143,7 +143,7 @@ async def get_payment(
     return payment
 
 
-@router.get("/api/payments", response_model=List[PaymentRead])
+@router.get("/payments", response_model=List[PaymentRead])
 async def list_payments(
     order_id: Optional[int] = None,
     status_filter: Optional[str] = None,
@@ -176,7 +176,7 @@ async def list_payments(
     return payments
 
 
-@router.post("/api/payments/callback/wechat")
+@router.post("/payments/callback/wechat")
 async def wechat_payment_callback(
     callback_data: WechatPaymentCallback,
     request: Request,
@@ -241,7 +241,7 @@ async def wechat_payment_callback(
     return {"code": "SUCCESS", "message": "处理成功"}
 
 
-@router.get("/api/admin/payments", response_model=List[PaymentRead])
+@router.get("/admin/payments", response_model=List[PaymentRead])
 async def admin_list_all_payments(
     user_id: Optional[int] = None,
     status_filter: Optional[str] = None,
@@ -271,7 +271,7 @@ async def admin_list_all_payments(
     return payments
 
 
-@router.patch("/api/admin/payments/{payment_id}/status", response_model=PaymentRead)
+@router.patch("/admin/payments/{payment_id}/status", response_model=PaymentRead)
 async def admin_update_payment_status(
     payment_id: int,
     status_update: PaymentStatusUpdate,

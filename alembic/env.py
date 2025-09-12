@@ -40,7 +40,7 @@ except Exception:
     logging.basicConfig()
 
 # import your models' MetaData object here
-import app.models as models
+import app.data_models as models
 target_metadata = models.Base.metadata
 
 # set sqlalchemy.url from env if present

@@ -2,8 +2,8 @@ from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 from typing import List, Optional
 
-from app.db import get_session
-import app.models as models
+from app.database import get_db
+import app.data_models as models
 from app.api import schemas
 # V1.0 Mini-MVP: 导入认证依赖
 from app.auth import get_current_admin_user
@@ -11,10 +11,10 @@ from app.auth import get_current_admin_user
 router = APIRouter()
 
 
-@router.post("/api/products", response_model=schemas.ProductRead, status_code=status.HTTP_201_CREATED)
+@router.post("/products", response_model=schemas.ProductRead, status_code=status.HTTP_201_CREATED)
 def create_product(
     payload: schemas.ProductCreate, 
-    db: Session = Depends(get_session),
+    db: Session = Depends(get_db),
     current_admin: models.User = Depends(get_current_admin_user)  # V1.0: 管理员权限检查
 ):
     """创建新商品（需要管理员权限）"""
@@ -44,14 +44,14 @@ def create_product(
     return product
 
 
-@router.get("/api/products", response_model=List[schemas.ProductRead])
+@router.get("/products", response_model=List[schemas.ProductRead])
 def list_products(
     skip: int = Query(0, ge=0, description="跳过记录数"),
     limit: int = Query(100, ge=1, le=1000, description="返回记录数"),
     category_id: Optional[int] = Query(None, description="按分类筛选"),
     status: Optional[str] = Query(None, description="按状态筛选"),
     search: Optional[str] = Query(None, description="搜索商品名称或SKU"),
-    db: Session = Depends(get_session)
+    db: Session = Depends(get_db)
 ):
     """获取商品列表，支持分页和筛选"""
     query = db.query(models.Product)
@@ -73,8 +73,8 @@ def list_products(
     return products
 
 
-@router.get("/api/products/{product_id}", response_model=schemas.ProductRead)
-def get_product(product_id: int, db: Session = Depends(get_session)):
+@router.get("/products/{product_id}", response_model=schemas.ProductRead)
+def get_product(product_id: int, db: Session = Depends(get_db)):
     """获取单个商品详情"""
     product = db.query(models.Product).get(product_id)
     if not product:
@@ -85,11 +85,11 @@ def get_product(product_id: int, db: Session = Depends(get_session)):
     return product
 
 
-@router.put("/api/products/{product_id}", response_model=schemas.ProductRead)
+@router.put("/products/{product_id}", response_model=schemas.ProductRead)
 def update_product(
     product_id: int, 
     payload: schemas.ProductUpdate, 
-    db: Session = Depends(get_session),
+    db: Session = Depends(get_db),
     current_admin: models.User = Depends(get_current_admin_user)  # V1.0: 管理员权限检查
 ):
     """更新商品信息（需要管理员权限）"""
@@ -131,11 +131,11 @@ def update_product(
     return product
 
 
-@router.patch("/api/products/{product_id}/stock", response_model=schemas.ProductRead)
+@router.patch("/products/{product_id}/stock", response_model=schemas.ProductRead)
 def update_product_stock(
     product_id: int,
     stock_update: schemas.ProductStockUpdate,
-    db: Session = Depends(get_session),
+    db: Session = Depends(get_db),
     current_admin: models.User = Depends(get_current_admin_user)  # V1.0: 管理员权限检查
 ):
     """更新商品库存（需要管理员权限）"""
@@ -166,10 +166,10 @@ def update_product_stock(
     return product
 
 
-@router.delete("/api/products/{product_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/products/{product_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_product(
     product_id: int, 
-    db: Session = Depends(get_session),
+    db: Session = Depends(get_db),
     current_admin: models.User = Depends(get_current_admin_user)  # V1.0: 管理员权限检查
 ):
     """删除商品（需要管理员权限，软删除）"""

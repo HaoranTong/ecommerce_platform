@@ -1,5 +1,5 @@
 from sqlalchemy.orm import declarative_base
-from sqlalchemy import Column, Integer, String, Text, DECIMAL, DateTime, Boolean, ForeignKey, Index
+from sqlalchemy import Column, Integer, BigInteger, String, Text, DECIMAL, DateTime, Boolean, ForeignKey, Index
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 
@@ -8,7 +8,7 @@ Base = declarative_base()
 class User(Base):
     __tablename__ = 'users'
     
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(BigInteger, primary_key=True, index=True)
     username = Column(String(50), unique=True, nullable=False)
     email = Column(String(200), unique=True, nullable=False)
     # 密码认证
@@ -35,7 +35,7 @@ class User(Base):
 class Category(Base):
     __tablename__ = 'categories'
     
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(BigInteger, primary_key=True, index=True)
     name = Column(String(100), nullable=False)
     parent_id = Column(Integer, ForeignKey('categories.id'), nullable=True)
     sort_order = Column(Integer, default=0)
@@ -49,7 +49,7 @@ class Category(Base):
 class Product(Base):
     __tablename__ = 'products'
     
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(BigInteger, primary_key=True, index=True)
     name = Column(String(200), nullable=False)
     sku = Column(String(100), unique=True, nullable=False)
     description = Column(Text, nullable=True)
@@ -90,7 +90,7 @@ class Product(Base):
 class Order(Base):
     __tablename__ = 'orders'
     
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(BigInteger, primary_key=True, index=True)
     order_no = Column(String(32), unique=True, nullable=False)  # 订单号
     
     # 用户关联
@@ -134,7 +134,7 @@ class Order(Base):
 class OrderItem(Base):
     __tablename__ = 'order_items'
     
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(BigInteger, primary_key=True, index=True)
     
     # 关联
     order_id = Column(Integer, ForeignKey('orders.id'), nullable=False)
@@ -165,7 +165,7 @@ class OrderItem(Base):
 # 保留现有的 Certificate 模型（暂时保留，后续可能重构为质量认证系统的一部分）
 class Certificate(Base):
     __tablename__ = 'certificates'
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(BigInteger, primary_key=True, index=True)
     name = Column(String(200), nullable=False)
     issuer = Column(String(200), nullable=True)
     serial = Column(String(200), unique=True, nullable=False)
@@ -175,7 +175,7 @@ class Payment(Base):
     """支付单模型 - V1.0 Mini-MVP"""
     __tablename__ = 'payments'
     
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(BigInteger, primary_key=True, index=True)
     order_id = Column(Integer, ForeignKey('orders.id'), nullable=False)
     user_id = Column(Integer, ForeignKey('users.id'), nullable=False)  # 所有权字段
     
@@ -230,7 +230,7 @@ class Refund(Base):
     """退款单模型 - V1.0 Mini-MVP"""
     __tablename__ = 'refunds'
     
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(BigInteger, primary_key=True, index=True)
     payment_id = Column(Integer, ForeignKey('payments.id'), nullable=False)
     
     # 退款信息
@@ -263,7 +263,7 @@ class Cart(Base):
     """购物车模型"""
     __tablename__ = 'carts'
     
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(BigInteger, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
     status = Column(String(20), default='active', nullable=False)  # active, inactive, converted
     total_amount = Column(DECIMAL(10, 2), default=0.00)
@@ -288,7 +288,7 @@ class CartItem(Base):
     """购物车项目模型"""
     __tablename__ = 'cart_items'
     
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(BigInteger, primary_key=True, index=True)
     cart_id = Column(Integer, ForeignKey('carts.id'), nullable=False)
     product_id = Column(Integer, ForeignKey('products.id'), nullable=False)
     quantity = Column(Integer, nullable=False)
@@ -341,7 +341,7 @@ class Inventory(Base):
     """库存主表"""
     __tablename__ = "inventory"
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(BigInteger, primary_key=True, index=True)
     product_id = Column(
         Integer, 
         ForeignKey("products.id", ondelete="CASCADE"), 
@@ -389,7 +389,7 @@ class InventoryTransaction(Base):
     """库存变动记录表"""
     __tablename__ = "inventory_transactions"
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(BigInteger, primary_key=True, index=True)
     product_id = Column(Integer, ForeignKey("products.id", ondelete="CASCADE"), nullable=False)
     transaction_type = Column(ENUM(TransactionType), nullable=False)
     quantity = Column(Integer, nullable=False)
@@ -417,7 +417,7 @@ class CartReservation(Base):
     """购物车库存预占表"""
     __tablename__ = "cart_reservations"
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(BigInteger, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     product_id = Column(Integer, ForeignKey("products.id", ondelete="CASCADE"), nullable=False)
     reserved_quantity = Column(Integer, nullable=False)

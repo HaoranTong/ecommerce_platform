@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from app.models import Base, User, Product, Category, Inventory, InventoryTransaction, CartReservation
+from app.data_models import Base, User, Product, Category, Inventory, InventoryTransaction, CartReservation
 from app.services.inventory import InventoryService
 from app.schemas.inventory import ReservationItem, DeductItem, InventoryAdjustment, AdjustmentType
 

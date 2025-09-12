@@ -40,11 +40,11 @@ def get_db():
 
 def create_tables():
     """创建所有表"""
-    from app.models import Base
+    from app.data_models import Base
     Base.metadata.create_all(bind=engine)
 
 
 def drop_tables():
     """删除所有表（仅用于开发测试）"""
-    from app.models import Base
+    from app.data_models import Base
     Base.metadata.drop_all(bind=engine)

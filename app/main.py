@@ -35,67 +35,67 @@ async def health():
     return {"status": "ok", "message": "服务运行正常"}
 
 # 注册路由
-from app.api import routes as api_routes
-app.include_router(api_routes.router, prefix="/api", tags=["api"])
+from app.api import api_routes
+app.include_router(api_routes.router, prefix="/api/v1", tags=["api"])
 
 try:
     from app.api import product_routes
-    app.include_router(product_routes.router, prefix="/api", tags=["products"])
+    app.include_router(product_routes.router, prefix="/api/v1", tags=["products"])
 except Exception:
     # product routes may be missing on some branches; ignore if not present
     pass
 
 try:
     from app.api import category_routes
-    app.include_router(category_routes.router, prefix="/api", tags=["categories"])
+    app.include_router(category_routes.router, prefix="/api/v1", tags=["categories"])
 except Exception:
     # category routes may be missing on some branches; ignore if not present
     pass
 
 try:
     from app.api import certificate_routes
-    app.include_router(certificate_routes.router, prefix="/api", tags=["certificates"])
+    app.include_router(certificate_routes.router, prefix="/api/v1", tags=["certificates"])
 except Exception:
     pass
 
 try:
     from app.api import user_routes
-    app.include_router(user_routes.router, prefix="/api", tags=["users"])
+    app.include_router(user_routes.router, prefix="/api/v1", tags=["users"])
 except Exception:
     # user routes may be missing on some branches; ignore if not present
     pass
 
 try:
     from app.api import order_routes
-    app.include_router(order_routes.router, prefix="/api/orders", tags=["orders"])
+    app.include_router(order_routes.router, prefix="/api/v1", tags=["orders"])
 except Exception:
     # order routes may be missing on some branches; ignore if not present
     pass
 
 try:
     from app.api import cart_routes
-    app.include_router(cart_routes.router, prefix="/api", tags=["shopping-cart"])
+    app.include_router(cart_routes.router, prefix="/api/v1", tags=["shopping-cart"])
 except Exception:
     # cart routes may be missing on some branches; ignore if not present
     pass
 
 try:
     from app.api import payment_routes
-    app.include_router(payment_routes.router, prefix="/api", tags=["payments"])
+    app.include_router(payment_routes.router, prefix="/api/v1", tags=["payments"])
 except Exception:
     # payment routes may be missing on some branches; ignore if not present
     pass
 
 try:
     from app.api import inventory_routes
-    app.include_router(inventory_routes.router, prefix="/api/inventory", tags=["inventory"])
+    app.include_router(inventory_routes.router, prefix="/api/v1", tags=["inventory"])
 except Exception:
     # inventory routes may be missing on some branches; ignore if not present
     pass
 
 try:
     from app.api import test_routes
-    app.include_router(test_routes.router, prefix="/api/test", tags=["test"])
+    app.include_router(test_routes.router, prefix="/api/v1", tags=["test"])
 except Exception:
     # test routes may be missing on some branches; ignore if not present
     pass
