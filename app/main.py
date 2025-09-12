@@ -1,3 +1,21 @@
+"""
+文件名：main.py
+文件路径：app/main.py
+功能描述：FastAPI应用程序主入口，配置和启动电商平台后端服务
+主要功能：
+- 初始化FastAPI应用程序
+- 配置应用生命周期管理
+- 注册模块化API路由
+- 配置中间件和错误处理
+使用说明：
+- 运行命令：uvicorn app.main:app --reload
+- 访问文档：http://localhost:8000/docs
+- 健康检查：http://localhost:8000/api/health
+依赖模块：
+- app.api.main_routes: 主路由入口
+- app.redis_client: Redis连接管理
+"""
+
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
 import os
@@ -9,93 +27,45 @@ from app.redis_client import close_redis_connection
 async def lifespan(app: FastAPI):
     """应用生命周期管理"""
     # 启动时的初始化代码
+    print("🚀 电商平台服务启动中...")
     yield
     # 关闭时的清理代码
+    print("🛑 电商平台服务关闭中...")
     await close_redis_connection()
 
-# In development, allow auto-creating tables at startup to avoid missing-table errors.
-# Set AUTO_CREATE_TABLES=1 in your environment when running locally if you want this behavior.
+# 开发环境自动创建表设置
 _auto_create_flag = os.environ.get("AUTO_CREATE_TABLES", "0") == "1"
-# Detect common CI environment variables to avoid auto-creating tables in CI runners
 _is_ci = os.environ.get("CI", "").lower() in ("1", "true", "yes") or os.environ.get("GITHUB_ACTIONS", "").lower() == "true"
 AUTO_CREATE = _auto_create_flag and not _is_ci
 
+# 创建FastAPI应用实例
 app = FastAPI(
-    title="定制化电商平台 - Sprint0", 
-    version="0.1.0",
+    title="电商平台后端服务", 
+    version="1.0.0",
+    description="基于FastAPI的模块化电商平台后端API",
+    docs_url="/docs",
+    redoc_url="/redoc",
     lifespan=lifespan
 )
 
 @app.get("/")
 async def root():
-    return {"message": "定制化电商平台 Sprint0 - FastAPI"}
+    """根路径接口"""
+    return {
+        "message": "电商平台后端服务",
+        "version": "1.0.0",
+        "docs": "/docs",
+        "health": "/api/health"
+    }
 
 @app.get("/api/health")
 async def health():
+    """健康检查接口"""
     return {"status": "ok", "message": "服务运行正常"}
 
-# 注册路由
-from app.api import api_routes
-app.include_router(api_routes.router, prefix="/api/v1", tags=["api"])
+# 注册模块化路由
+from app.api.main_routes import router as main_router
+app.include_router(main_router)
 
-try:
-    from app.api import product_routes
-    app.include_router(product_routes.router, prefix="/api/v1", tags=["products"])
-except Exception:
-    # product routes may be missing on some branches; ignore if not present
-    pass
-
-try:
-    from app.api import category_routes
-    app.include_router(category_routes.router, prefix="/api/v1", tags=["categories"])
-except Exception:
-    # category routes may be missing on some branches; ignore if not present
-    pass
-
-try:
-    from app.api import certificate_routes
-    app.include_router(certificate_routes.router, prefix="/api/v1", tags=["certificates"])
-except Exception:
-    pass
-
-try:
-    from app.api import user_routes
-    app.include_router(user_routes.router, prefix="/api/v1", tags=["users"])
-except Exception:
-    # user routes may be missing on some branches; ignore if not present
-    pass
-
-try:
-    from app.api import order_routes
-    app.include_router(order_routes.router, prefix="/api/v1", tags=["orders"])
-except Exception:
-    # order routes may be missing on some branches; ignore if not present
-    pass
-
-try:
-    from app.api import cart_routes
-    app.include_router(cart_routes.router, prefix="/api/v1", tags=["shopping-cart"])
-except Exception:
-    # cart routes may be missing on some branches; ignore if not present
-    pass
-
-try:
-    from app.api import payment_routes
-    app.include_router(payment_routes.router, prefix="/api/v1", tags=["payments"])
-except Exception:
-    # payment routes may be missing on some branches; ignore if not present
-    pass
-
-try:
-    from app.api import inventory_routes
-    app.include_router(inventory_routes.router, prefix="/api/v1", tags=["inventory"])
-except Exception:
-    # inventory routes may be missing on some branches; ignore if not present
-    pass
-
-try:
-    from app.api import test_routes
-    app.include_router(test_routes.router, prefix="/api/v1", tags=["test"])
-except Exception:
-    # test routes may be missing on some branches; ignore if not present
-    pass
+# 如果需要保持与旧版本的兼容性，可以保留部分原有路由
+# 但推荐完全迁移到新的模块化架构

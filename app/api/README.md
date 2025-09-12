@@ -6,7 +6,7 @@ FastAPI路由定义，包含所有API端点的路由配置和处理逻辑。
 
 ```
 api/
-├── routes.py              # 主路由配置和汇总
+├── api_routes.py          # 主路由配置和汇总
 ├── cart_routes.py         # 购物车相关API
 ├── category_routes.py     # 商品分类API
 ├── certificate_routes.py  # 证书管理API
