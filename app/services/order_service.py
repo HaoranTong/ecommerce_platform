@@ -19,7 +19,7 @@ from sqlalchemy.orm import Session, joinedload
 from sqlalchemy.exc import IntegrityError
 from fastapi import HTTPException, status
 
-from app.data_models import Order, OrderItem, Product, User
+from app.models import Order, OrderItem, Product, User
 
 
 class OrderService:

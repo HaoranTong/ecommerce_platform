@@ -17,7 +17,7 @@ from sqlalchemy.exc import IntegrityError
 from fastapi import HTTPException, status
 from passlib.context import CryptContext
 
-from app.data_models import User
+from app.models import User
 from app.auth import create_access_token, create_refresh_token, verify_password, get_password_hash
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -193,13 +193,12 @@ class UserService:
             user: 用户对象
             
         Returns:
-            dict: 包含access_token和refresh_token的字典
+            dict: 包含access_token的字典
         """
         access_token = create_access_token(data={"sub": user.username, "user_id": user.id})
-        refresh_token = create_refresh_token(data={"sub": user.username, "user_id": user.id})
         
         return {
             "access_token": access_token,
-            "refresh_token": refresh_token,
+            "refresh_token": None,  # 暂时不实现refresh_token
             "token_type": "bearer"
         }
