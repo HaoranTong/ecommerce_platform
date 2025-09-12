@@ -7,7 +7,115 @@
 
 # AI开发控制文档 (MASTER)
 
-此文档专为AI开发人员设计，用于确保开发过程严格遵循规范
+此文档专为AI开发人员设计，用于确保开发过程严格遵循规范。
+
+## 🚨 前10条强制规则 (90%违规预防)
+
+1. **禁止不读文档就操作**
+   - 任何create_file、replace_string_in_file前必须先read_file相关规范
+   - 必须明确说明依据的规范条款
+
+2. **禁止随意命名**  
+   - 任何命名前必须检查：docs/standards/naming-conventions.md
+   - 必须确认是否已有同类实体的标准命名
+
+3. **禁止重复创建文档**
+   - 创建文档前必须搜索：grep_search "关键词" docs/
+   - 发现类似文档必须更新现有文档，不可新建
+
+4. **禁止不一致的API设计**
+   - 操作API相关代码前必须检查：docs/standards/api-standards.md
+   - 必须与现有模块保持完全一致的设计模式
+
+5. **禁止代码与文档不同步**
+   - 修改代码必须同时更新对应文档
+   - 每次代码变更后必须确认文档准确性
+
+6. **禁止违反文档结构规范**
+   - 操作docs目录前必须检查：docs/standards/document-standards.md
+   - 文档必须放在正确位置
+
+7. **禁止跳过检查点**
+   - 触发检查点条件时必须执行验证流程
+   - 不可直接执行操作
+
+8. **禁止不确认数据库字段就使用**
+   - 操作数据库相关代码前必须检查：docs/standards/database-standards.md
+   - 必须确认字段名称和类型的一致性
+
+9. **禁止不了解现有架构就开发**
+   - 开始新功能前必须读取模块overview.md全文
+   - 必须确认与现有架构的集成方式
+
+10. **禁止不记录检查过程**
+    - 每次检查点执行后必须记录验证结果
+    - 说明引用了哪个文档的哪个条款
+
+## 📋 检查点触发条件
+
+### 主检查点 (必触发)
+- **接收新任务** → 触发：任务相关文档阅读检查点
+- **开始编码** → 触发：设计规范确认检查点  
+- **提交代码** → 触发：代码文档同步检查点
+
+### 辅助检查点 (条件触发)
+- **create_file (docs/*)** → 触发：文档结构规范检查点
+- **操作API代码** → 触发：API设计标准检查点
+- **操作数据库代码** → 触发：数据库设计规范检查点
+- **任何命名操作** → 触发：命名规范检查点
+
+## 🔍 检查点执行格式
+
+```
+🔍 检查点触发：[操作类型]
+📋 必须验证：read_file [文档路径] [起始行] [结束行]
+✅ 验证确认：[具体规则内容]
+🚫 执行操作：[具体操作描述]
+```
+
+示例：
+```
+🔍 检查点触发：创建API路由文件
+📋 必须验证：read_file docs/standards/api-standards.md 1 50
+✅ 验证确认：API路由必须使用/api前缀，遵循RESTful设计原则
+🚫 执行操作：创建app/api/new_module_routes.py
+```
+
+## 📁 标准规范文档引用
+
+所有具体规范在以下文档中定义：
+
+- **docs/standards/naming-conventions.md** - 所有命名规则
+- **docs/standards/api-standards.md** - API设计规范  
+- **docs/standards/document-standards.md** - 文档结构规范
+- **docs/standards/database-standards.md** - 数据库设计规范
+- **docs/standards/code-standards.md** - 代码组织规范
+
+## ⚡ 条件分支执行
+
+```
+IF 创建新模块 THEN 必须先执行 docs/templates/module-checklist.md
+IF 修改API THEN 必须先检查 docs/standards/api-standards.md  
+IF 操作数据库 THEN 必须先确认 docs/standards/database-standards.md
+IF 创建文档 THEN 必须先检查 docs/standards/document-standards.md
+IF 命名任何实体 THEN 必须先确认 docs/standards/naming-conventions.md
+```
+
+## 🚫 违规后果
+
+违反任何强制规则：
+1. 立即停止当前操作
+2. 报告违规的具体规则
+3. 执行对应的检查点流程
+4. 重新开始操作
+
+## 📝 检查点执行记录
+
+每次执行检查点后必须记录：
+- 触发的检查点类型
+- 引用的文档和具体条款
+- 验证结果和确认内容
+- 执行的具体操作
 
 ## 🌟 文档驱动开发理念
 
