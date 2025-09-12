@@ -56,7 +56,22 @@ my_test.py                   # 个人化命名
 - **需要保留**：移至scripts/目录并规范化
 - **提交前**：必须在README.md中说明临时脚本的用途
 
-### 测试目录结构标准
+### 测试文件命名规范
+| 测试类型 | 命名规则 | 示例 |
+|---------|---------|------|
+| **单元测试** | `test_{module}.py` | `test_users.py`, `test_products.py` |
+| **集成测试** | `test_{module}_integration.py` | `test_cart_integration.py` |
+| **端到端测试** | `test_{scenario}_e2e.py` | `test_order_flow_e2e.py` |
+| **系统测试脚本** | `test_{system}.ps1` | `test_cart_system.ps1` |
+
+### 测试函数命名规范
+```python
+# 命名模式: test_{功能}_{场景}[_{预期结果}]
+def test_create_user_success()           # 成功创建用户
+def test_create_user_duplicate_email()   # 重复邮箱创建用户
+def test_login_invalid_password()        # 无效密码登录
+def test_add_to_cart_out_of_stock()     # 添加无库存商品到购物车
+```
 ```
 tests/
 ├── unit/                    # 单元测试

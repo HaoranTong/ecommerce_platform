@@ -9,22 +9,23 @@
 app/
 ├── main.py              # 应用入口
 ├── database.py          # 数据库连接
+├── db.py               # 数据库会话管理
 ├── auth.py             # 认证相关
+├── models.py           # SQLAlchemy数据模型 (单文件)
 ├── redis_client.py     # Redis连接
+├── payment_auth.py     # 支付认证服务
+├── payment_service.py  # 支付业务逻辑
 ├── api/                # API路由
 │   ├── __init__.py
 │   ├── routes.py       # 主路由
 │   └── {module}_routes.py
-├── models/             # 数据模型
-│   ├── __init__.py
-│   └── {model}.py
 ├── schemas/            # Pydantic模式
 │   ├── __init__.py
 │   └── {schema}.py
 ├── services/           # 业务逻辑
 │   ├── __init__.py
 │   └── {service}.py
-└── utils/              # 工具函数
+└── utils/              # 工具函数 (如需要)
     ├── __init__.py
     └── {util}.py
 ```
@@ -38,7 +39,7 @@ app/
 
 ### 模块文件命名
 - 路由文件：`{module}_routes.py`
-- 数据模型：`{model}.py` (单数形式)
+- 数据模型：在 `models.py` 中定义类 (单数形式)
 - Pydantic模式：`{schema}.py`
 - 服务类：`{service}.py`
 
