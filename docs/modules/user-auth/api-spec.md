@@ -20,7 +20,7 @@
 基于[API设计标准](../../standards/api-standards.md)，遵循RESTful设计风格。
 
 ### 基础路径
-- **Base URL**: `/api/v1/users`
+- **Base URL**: `/api/v1/user-auth`
 - **认证方式**: Bearer JWT Token
 - **内容类型**: application/json
 
@@ -28,7 +28,7 @@
 
 ### 1. 用户注册
 
-#### POST /api/v1/users/register
+#### POST /api/v1/user-auth/register
 用户注册接口
 
 **请求参数**:
