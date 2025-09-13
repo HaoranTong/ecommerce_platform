@@ -35,25 +35,48 @@ graph LR
 
 ## 📚 模块命名规范
 
-### 模块核心名称定义
-| 模块英文名 | 完整描述名 | 中文名称 | 代码文件前缀 |
-|------------|------------|----------|-------------|
-| `user` | `user-auth` | 用户认证模块 | `user_` |
-| `cart` | `shopping-cart` | 购物车模块 | `cart_` |
-| `product` | `product-catalog` | 商品管理模块 | `product_` |
-| `order` | `order-management` | 订单管理模块 | `order_` |
-| `category` | `category-management` | 分类管理模块 | `category_` |
-| `payment` | `payment-service` | 支付服务模块 | `payment_` |
-| `inventory` | `inventory-management` | 库存管理模块 | `inventory_` |
-| `notification` | `notification-service` | 通知服务模块 | `notification_` |
-| `distributor` | `distributor-management` | 分销商管理模块 | `distributor_` |
-| `recommendation` | `recommendation-system` | 推荐系统模块 | `recommendation_` |
-| `batch` | `batch-traceability` | 批次溯源模块 | `batch_` |
-| `app` | `application-core` | 应用核心模块 | `app_` |
-| `db` | `database-core` | 数据库核心模块 | `db_` |
-| `utils` | `database-utils` | 数据库工具模块 | `utils_` |
-| `model` | `data-models` | 数据模型模块 | `model_` |
-| `cache` | `redis-cache` | Redis缓存模块 | `cache_` |
+### 🎯 统一命名规范（最终版）
+
+#### 原则说明
+```
+业务概念层（连字符）: user-auth, shopping-cart, product-catalog
+├── 文档目录: docs/modules/user-auth/
+├── API路由: /api/user-auth/login
+└── 配置文件: user-auth.yaml
+
+技术实现层（下划线）: user_auth, shopping_cart, product_catalog  
+├── 代码目录: app/modules/user_auth/
+├── 文件名: user_auth_router.py, user_auth_service.py
+├── 函数名: authenticate_user(), register_user()
+└── 类名: UserAuthService, UserAuthRouter
+```
+
+#### 模块核心名称定义
+| 业务概念名 | 技术实现名 | 中文名称 | API路径前缀 | 代码目录 |
+|------------|------------|----------|-------------|----------|
+| `user-auth` | `user_auth` | 用户认证模块 | `/api/user-auth/` | `app/modules/user_auth/` |
+| `shopping-cart` | `shopping_cart` | 购物车模块 | `/api/shopping-cart/` | `app/modules/shopping_cart/` |
+| `product-catalog` | `product_catalog` | 商品管理模块 | `/api/product-catalog/` | `app/modules/product_catalog/` |
+| `order-management` | `order_management` | 订单管理模块 | `/api/order-management/` | `app/modules/order_management/` |
+| `payment-service` | `payment_service` | 支付服务模块 | `/api/payment-service/` | `app/modules/payment_service/` |
+| `batch-traceability` | `batch_traceability` | 批次溯源模块 | `/api/batch-traceability/` | `app/modules/batch_traceability/` |
+| `logistics-management` | `logistics_management` | 物流管理模块 | `/api/logistics-management/` | `app/modules/logistics_management/` |
+| `member-system` | `member_system` | 会员系统模块 | `/api/member-system/` | `app/modules/member_system/` |
+| `distributor-management` | `distributor_management` | 分销商管理模块 | `/api/distributor-management/` | `app/modules/distributor_management/` |
+| `marketing-campaigns` | `marketing_campaigns` | 营销活动模块 | `/api/marketing-campaigns/` | `app/modules/marketing_campaigns/` |
+| `social-features` | `social_features` | 社交功能模块 | `/api/social-features/` | `app/modules/social_features/` |
+| `inventory-management` | `inventory_management` | 库存管理模块 | `/api/inventory-management/` | `app/modules/inventory_management/` |
+| `notification-service` | `notification_service` | 通知服务模块 | `/api/notification-service/` | `app/modules/notification_service/` |
+| `supplier-management` | `supplier_management` | 供应商管理模块 | `/api/supplier-management/` | `app/modules/supplier_management/` |
+| `recommendation-system` | `recommendation_system` | 推荐系统模块 | `/api/recommendation-system/` | `app/modules/recommendation_system/` |
+| `customer-service-system` | `customer_service_system` | 客服系统模块 | `/api/customer-service-system/` | `app/modules/customer_service_system/` |
+| `risk-control-system` | `risk_control_system` | 风控系统模块 | `/api/risk-control-system/` | `app/modules/risk_control_system/` |
+| `data-analytics-platform` | `data_analytics_platform` | 数据分析模块 | `/api/data-analytics-platform/` | `app/modules/data_analytics_platform/` |
+| `application-core` | `application_core` | 应用核心模块 | - | `app/core/` |
+| `database-core` | `database_core` | 数据库核心模块 | - | `app/core/database/` |
+| `data-models` | `data_models` | 数据模型模块 | - | `app/shared/models/` |
+| `redis-cache` | `redis_cache` | Redis缓存模块 | - | `app/core/cache/` |
+| `database-utils` | `database_utils` | 数据库工具模块 | - | `app/core/utils/` |
 
 ### 文档目录命名规则
 ```
