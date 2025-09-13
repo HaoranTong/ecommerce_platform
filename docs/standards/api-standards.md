@@ -33,6 +33,35 @@
 https://api.example.com/v1/products?category=rice&page=1
 ```
 
+### 模块化路由架构
+平台采用模块化单体架构，API路由设计遵循以下规范：
+
+#### 路由注册模式
+```python
+# main.py中的模块路由注册
+app.include_router(
+    module_router,
+    prefix="/api/v1/{module-name}",  # 全局前缀 + 模块前缀
+    tags=["{模块中文名}"]
+)
+```
+
+#### 路径组成结构
+```
+完整API路径 = 全局前缀 + 模块前缀 + 端点路径
+/api/v1/user-auth/login = /api/v1 + /user-auth + /login
+```
+
+#### 模块内路由定义
+```python
+# 模块内router.py只定义端点路径
+@router.post("/register")     # 注册端点
+@router.post("/login")        # 登录端点  
+@router.get("/me")           # 获取当前用户
+@router.put("/me")           # 更新当前用户
+@router.post("/logout")      # 登出端点
+```
+
 ### 命名规范
 - **资源名称**: 使用复数名词 (`products`, `orders`, `users`)
 - **URL路径**: 小写字母 + 连字符 (`product-categories`)
