@@ -154,6 +154,7 @@ app/
 │   ├── shopping_cart/          # 购物车模块
 │   ├── order_management/       # 订单管理模块
 │   ├── payment_service/        # 支付服务模块
+│   ├── quality_control/        # 质量控制模块（证书管理）
 │   ├── batch_traceability/     # 批次溯源模块（待开发）
 │   ├── logistics_management/   # 物流管理模块（待开发）
 │   ├── member_system/          # 会员系统模块（待开发）
