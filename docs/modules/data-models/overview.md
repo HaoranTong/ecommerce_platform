@@ -2,33 +2,33 @@
 
 ## 模块概述
 
-数据模型模块 (`app/models/`) 提供**技术基础设施层**的ORM基础类、通用模型混入和数据访问工具，为各业务模块的模型定义提供技术支撑。本模块遵循**分布式模块化架构**原则，各业务模块在自己的目录内定义具体的业务数据模型。
+数据模型模块提供**技术基础设施层**的ORM基础类、通用模型混入和数据访问工具，为各业务模块的模型定义提供技术支撑。本模块遵循**分布式模块化架构**原则，各业务模块在自己的目录内定义具体的业务数据模型。技术基础设施分布在 `app/core/` 和 `app/shared/` 中。
 
 ### 主要功能
 
 1. **ORM基础设施**
-   - SQLAlchemy Base类定义
-   - 通用字段混入 (id, created_at, updated_at)
-   - 模型基类和混入类
+   - SQLAlchemy Base类定义 (位于 app/core/database.py)
+   - 通用字段混入 (位于 app/shared/models.py)
+   - 模型基类和混入类 (位于 app/shared/)
    - 数据验证基础工具
 
 2. **模块化支撑**
-   - 为各模块提供统一的ORM基础
+   - 为各模块提供统一的ORM基础 (Base类从 app/core/database 导入)
    - 跨模块数据关系支撑
-   - 数据库迁移工具支撑
+   - 数据库迁移工具支撑 (Alembic)
    - 模型注册和发现机制
 
 3. **技术组件模型**
-   - 系统级配置模型
-   - 审计日志模型  
-   - 缓存管理模型
+   - 系统级配置模型 (存储在 app/shared/)
+   - 审计日志模型 (通过 TimestampMixin 实现)  
+   - 缓存管理模型 (集成 Redis)
    - 公共枚举和常量
 
 4. **架构支撑功能**
-   - 模块间数据契约定义
-   - 数据完整性约束
-   - 性能监控钩子
-   - 统一的查询接口
+   - 模块间数据契约定义 (通过标准化导入路径)
+   - 数据完整性约束 (外键约束)
+   - 性能监控钩子 (SQLAlchemy事件)
+   - 统一的查询接口 (通过 get_db 依赖注入)
 
 ### 分布式模块化设计
 
@@ -36,12 +36,14 @@
 
 ```
 app/
-├── models/                    # 数据模型基础设施（本模块）
-│   ├── __init__.py           # SQLAlchemy Base和基础导入
-│   ├── base.py               # BaseModel基类
-│   ├── mixins.py             # 通用字段混入
-│   ├── types.py              # 自定义数据类型
-│   └── utils.py              # 模型工具函数
+├── core/                      # 技术基础设施层（数据库连接和Base类）
+│   ├── database.py           # SQLAlchemy Base类、Engine、Session配置
+│   ├── redis_client.py       # Redis缓存客户端
+│   └── auth.py               # 认证中间件
+├── shared/                    # 共享组件层（通用模型和工具）
+│   ├── models.py             # 通用模型混入和跨模块共享模型
+│   ├── base_models.py        # 基础模型类
+│   └── api_schemas.py        # API响应模式
 ├── modules/                   # 业务模块（各自定义自己的数据模型）
 │   ├── user_auth/
 │   │   └── models.py         # 用户、角色等模型
@@ -109,17 +111,24 @@ graph TB
 ### 技术实现架构
 
 ```python
-# app/models/__init__.py - 基础设施入口
+# app/core/database.py - 技术基础设施入口
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from .base import BaseModel
+
+# 统一的Base类定义
+Base = declarative_base()
+
+# 数据库配置
+engine = create_engine(DATABASE_URL)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+# app/shared/models.py - 共享组件
+from app.core.database import Base
 from .mixins import TimestampMixin, SoftDeleteMixin
-from .types import JSONType, EnumType
-from .utils import ModelRegistry
 
 # 导出基础设施组件
-__all__ = ['BaseModel', 'TimestampMixin', 'SoftDeleteMixin', 'JSONType', 'EnumType', 'ModelRegistry']
+__all__ = ['Base', 'TimestampMixin', 'SoftDeleteMixin']
 
 # 业务模块数据模型由各自模块定义和导入
 # from ..modules.user_auth.models import User, Role
@@ -131,14 +140,16 @@ __all__ = ['BaseModel', 'TimestampMixin', 'SoftDeleteMixin', 'JSONType', 'EnumTy
 
 ```
 app/
-├── models/                           # 数据模型基础设施 (本模块)
-│   ├── __init__.py                  # 基础设施导出
-│   ├── base.py                      # BaseModel基类
-│   ├── mixins.py                    # 通用字段混入
-│   ├── types.py                     # 自定义数据类型
-│   ├── utils.py                     # 模型工具函数
-│   └── config.py                    # 数据库配置
-├── modules/                          # 业务模块 (各自定义数据模型)
+├── core/                             # 技术基础设施层
+│   ├── database.py                  # Base类定义和数据库配置
+│   ├── redis_client.py              # Redis缓存客户端
+│   └── auth.py                      # 认证中间件
+├── shared/                           # 共享组件层
+│   ├── models.py                    # 通用模型混入和跨模块共享模型
+│   ├── base_models.py               # 基础模型类
+│   ├── api_schemas.py               # API响应模式
+│   └── base_schemas.py              # 基础Pydantic模式
+├── modules/                          # 业务模块
 │   ├── user_auth/
 │   │   ├── __init__.py
 │   │   ├── models.py                # User, Role, Permission等
@@ -168,17 +179,28 @@ app/
 提供所有业务模型的共同基础：
 
 ```python
-# app/models/base.py
+# app/core/database.py
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy import Column, Integer
-from .mixins import TimestampMixin
+from sqlalchemy import Column, BigInteger, DateTime, func
 
-BaseModel = declarative_base()
+Base = declarative_base()
 
-class BaseModel(BaseModel, TimestampMixin):
+# app/shared/models.py
+from app.core.database import Base
+from sqlalchemy import Column, BigInteger, DateTime, func
+
+class TimestampMixin:
+    """时间戳混入"""
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
+
+class BaseModel(Base):
+    """基础模型类"""
     __abstract__ = True
     
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(BigInteger, primary_key=True, index=True)
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
     
     def to_dict(self):
         """转换为字典格式"""
@@ -192,24 +214,24 @@ class BaseModel(BaseModel, TimestampMixin):
 ### 2. 通用混入类
 
 ```python
-# app/models/mixins.py
+# app/shared/models.py
 from sqlalchemy import Column, DateTime, Boolean, func
 
 class TimestampMixin:
     """时间戳混入"""
-    created_at = Column(DateTime, server_default=func.now())
-    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
 
 class SoftDeleteMixin:
     """软删除混入"""
-    is_deleted = Column(Boolean, default=False)
+    is_deleted = Column(Boolean, default=False, nullable=False)
     deleted_at = Column(DateTime, nullable=True)
 ```
 
 ### 3. 自定义数据类型
 
 ```python
-# app/models/types.py
+# app/shared/models.py (扩展)
 from sqlalchemy.types import TypeDecorator, TEXT
 import json
 
@@ -231,7 +253,7 @@ class JSONType(TypeDecorator):
 ### 4. 模型注册工具
 
 ```python
-# app/models/utils.py
+# app/shared/models.py (扩展)
 class ModelRegistry:
     """模型注册表"""
     _models = {}
@@ -258,32 +280,45 @@ class ModelRegistry:
 
 ```python
 # app/modules/user_auth/models.py
-from app.models import BaseModel, SoftDeleteMixin
-from sqlalchemy import Column, String, Boolean
+from app.core.database import Base
+from app.shared.models import TimestampMixin, SoftDeleteMixin
+from sqlalchemy import Column, String, Boolean, BigInteger, DateTime
 
-class User(BaseModel, SoftDeleteMixin):
+class User(Base, TimestampMixin, SoftDeleteMixin):
     __tablename__ = 'users'
     
+    id = Column(BigInteger, primary_key=True, index=True)
     username = Column(String(50), unique=True, nullable=False)
     email = Column(String(200), unique=True, nullable=False)
     password_hash = Column(String(255), nullable=False)
     is_active = Column(Boolean, default=True)
+    wx_openid = Column(String(100), unique=True, nullable=True)
+    wx_unionid = Column(String(100), unique=True, nullable=True)
+    phone = Column(String(20), nullable=True)
+    real_name = Column(String(100), nullable=True)
+    is_deleted = Column(Boolean, default=False, nullable=False)
+    deleted_at = Column(DateTime, nullable=True)
     
-    # 业务特定字段...
+    # 关系定义
+    orders = relationship("Order", back_populates="user")
 ```
 
 ### 数据库迁移支撑
 
 ```python
-# app/models/config.py
+# app/core/database.py
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.ext.declarative import declarative_base
 import os
 
-DATABASE_URL = os.getenv('DATABASE_URL', 'sqlite:///./ecommerce.db')
+DATABASE_URL = os.getenv('DATABASE_URL', 'mysql+pymysql://root:rootpass@localhost:3307/ecommerce_platform')
 
 engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+# 声明基类
+Base = declarative_base()
 
 def get_db():
     """获取数据库会话"""
@@ -345,43 +380,57 @@ graph TB
     BaseModel --> ValidationUtils
     ModelRegistry --> BaseModel
 ```
+
+## 数据模型关系图
+
+```erDiagram
+    User {
+        bigint id PK
+        string username UK
+        string email UK
+        string password_hash
+        boolean is_active
         string wx_openid UK
         string wx_unionid UK
         string phone
         string real_name
+        boolean is_deleted
+        datetime deleted_at
         datetime created_at
         datetime updated_at
     }
     
     Category {
-        int id PK
+        bigint id PK
         string name
-        int parent_id FK
+        bigint parent_id FK
         int sort_order
         boolean is_active
         datetime created_at
     }
     
     Product {
-        int id PK
+        bigint id PK
         string name
         string sku UK
         text description
-        int category_id FK
+        bigint category_id FK
         decimal price
         int stock_quantity
         string status
         string image_url
         text attributes
         text images
+        boolean is_deleted
+        datetime deleted_at
         datetime created_at
         datetime updated_at
     }
     
     Order {
-        int id PK
+        bigint id PK
         string order_no UK
-        int user_id FK
+        bigint user_id FK
         string status
         decimal subtotal
         decimal shipping_fee
@@ -397,9 +446,9 @@ graph TB
     }
     
     OrderItem {
-        int id PK
-        int order_id FK
-        int product_id FK
+        bigint id PK
+        bigint order_id FK
+        bigint product_id FK
         string product_name
         string product_sku
         int quantity
@@ -409,12 +458,19 @@ graph TB
     }
     
     Certificate {
-        int id PK
+        bigint id PK
         string name
         string issuer
         string serial UK
         string description
     }
+    
+    User ||--o{ Order : "user_id"
+    Category ||--o{ Product : "category_id"
+    Category ||--o{ Category : "parent_id (self-reference)"
+    Product ||--o{ OrderItem : "product_id"
+    Order ||--o{ OrderItem : "order_id"
+```
 ```
 
 ### 继承层次结构
@@ -442,7 +498,7 @@ graph TB
 
 | 字段名 | 类型 | 约束 | 描述 | 示例 |
 |--------|------|------|------|------|
-| `id` | Integer | PK, Index | 用户唯一标识 | `1001` |
+| `id` | BigInteger | PK, Index | 用户唯一标识 | `1001` |
 | `username` | String(50) | UK, Not Null | 用户名 | `"john_doe"` |
 | `email` | String(200) | UK, Not Null | 邮箱地址 | `"john@example.com"` |
 | `password_hash` | String(255) | Not Null | 密码哈希值 | `"$2b$12$..."` |
@@ -451,6 +507,8 @@ graph TB
 | `wx_unionid` | String(100) | UK, Nullable | 微信UnionID | `"u9876543210"` |
 | `phone` | String(20) | Nullable | 手机号码 | `"13800138000"` |
 | `real_name` | String(100) | Nullable | 真实姓名 | `"张三"` |
+| `is_deleted` | Boolean | Default False | 软删除标记 | `false` |
+| `deleted_at` | DateTime | Nullable | 删除时间 | `null` |
 | `created_at` | DateTime | Server Default | 创建时间 | `2025-09-11 10:00:00` |
 | `updated_at` | DateTime | Auto Update | 更新时间 | `2025-09-11 10:30:00` |
 
@@ -465,7 +523,8 @@ orders = relationship("Order", back_populates="user")
 
 - **唯一性约束**: username, email, wx_openid, wx_unionid
 - **微信集成**: 预留微信小程序对接字段
-- **软删除支持**: 通过is_active字段实现
+- **软删除支持**: 通过is_deleted和deleted_at字段实现数据保护
+- **状态管理**: is_active字段控制用户激活状态
 - **时间戳**: 自动维护创建和更新时间
 
 ### 2. Category (分类模型)
@@ -477,9 +536,9 @@ orders = relationship("Order", back_populates="user")
 
 | 字段名 | 类型 | 约束 | 描述 | 示例 |
 |--------|------|------|------|------|
-| `id` | Integer | PK, Index | 分类唯一标识 | `101` |
+| `id` | BigInteger | PK, Index | 分类唯一标识 | `101` |
 | `name` | String(100) | Not Null | 分类名称 | `"电子产品"` |
-| `parent_id` | Integer | FK, Nullable | 父分类ID | `100` |
+| `parent_id` | BigInteger | FK, Nullable | 父分类ID | `100` |
 | `sort_order` | Integer | Default 0 | 排序权重 | `10` |
 | `is_active` | Boolean | Default True | 分类激活状态 | `true` |
 | `created_at` | DateTime | Server Default | 创建时间 | `2025-09-11 10:00:00` |
@@ -507,17 +566,19 @@ products = relationship("Product", back_populates="category")
 
 | 字段名 | 类型 | 约束 | 描述 | 示例 |
 |--------|------|------|------|------|
-| `id` | Integer | PK, Index | 商品唯一标识 | `2001` |
+| `id` | BigInteger | PK, Index | 商品唯一标识 | `2001` |
 | `name` | String(200) | Not Null | 商品名称 | `"iPhone 15 Pro"` |
 | `sku` | String(100) | UK, Not Null | 商品编码 | `"IPH15P-128G-TIT"` |
 | `description` | Text | Nullable | 商品描述 | `"最新款苹果手机..."` |
-| `category_id` | Integer | FK, Nullable | 分类ID | `101` |
+| `category_id` | BigInteger | FK, Nullable | 分类ID | `101` |
 | `price` | DECIMAL(10,2) | Not Null, Default 0.00 | 商品价格 | `9999.00` |
 | `stock_quantity` | Integer | Not Null, Default 0 | 库存数量 | `50` |
 | `status` | String(20) | Not Null, Default 'active' | 商品状态 | `"active"` |
 | `image_url` | String(500) | Nullable | 主图URL | `"https://..."` |
 | `attributes` | Text | Nullable | 商品属性(JSON) | `'{"color":"钛原色","storage":"128GB"}'` |
 | `images` | Text | Nullable | 商品图片列表(JSON) | `'["url1","url2","url3"]'` |
+| `is_deleted` | Boolean | Default False | 软删除标记 | `false` |
+| `deleted_at` | DateTime | Nullable | 删除时间 | `null` |
 | `created_at` | DateTime | Server Default | 创建时间 | `2025-09-11 10:00:00` |
 | `updated_at` | DateTime | Auto Update | 更新时间 | `2025-09-11 10:30:00` |
 
@@ -542,8 +603,8 @@ order_items = relationship("OrderItem", back_populates="product")
 
 ```python
 __table_args__ = (
-    Index('idx_category_status', 'category_id', 'status'),  # 分类状态复合索引
-    Index('idx_status_created', 'status', 'created_at'),    # 状态时间复合索引
+    Index('idx_products_category_status', 'category_id', 'status'),  # 分类状态复合索引
+    Index('idx_products_status_created', 'status', 'created_at'),    # 状态时间复合索引
 )
 ```
 
@@ -553,6 +614,7 @@ __table_args__ = (
 - **灵活属性**: JSON字段存储可变属性
 - **多图支持**: JSON数组存储多张商品图片
 - **状态管理**: 支持商品生命周期状态控制
+- **软删除保护**: 通过is_deleted和deleted_at实现数据保护
 - **性能优化**: 关键查询字段建立复合索引
 
 ### 4. Order (订单模型)
@@ -564,9 +626,9 @@ __table_args__ = (
 
 | 字段名 | 类型 | 约束 | 描述 | 示例 |
 |--------|------|------|------|------|
-| `id` | Integer | PK, Index | 订单唯一标识 | `3001` |
+| `id` | BigInteger | PK, Index | 订单唯一标识 | `3001` |
 | `order_no` | String(32) | UK, Not Null | 订单编号 | `"ORD20250911100001"` |
-| `user_id` | Integer | FK, Not Null | 用户ID | `1001` |
+| `user_id` | BigInteger | FK, Not Null | 用户ID | `1001` |
 | `status` | String(20) | Not Null, Default 'pending' | 订单状态 | `"paid"` |
 | `subtotal` | DECIMAL(10,2) | Not Null, Default 0.00 | 商品小计 | `9999.00` |
 | `shipping_fee` | DECIMAL(10,2) | Not Null, Default 0.00 | 运费 | `15.00` |
@@ -617,9 +679,9 @@ order_items = relationship("OrderItem", back_populates="order")
 
 ```python
 __table_args__ = (
-    Index('idx_user_status', 'user_id', 'status'),      # 用户状态复合索引
-    Index('idx_status_created', 'status', 'created_at'), # 状态时间复合索引
-    Index('idx_order_no', 'order_no'),                  # 订单号索引
+    Index('idx_orders_user_status', 'user_id', 'status'),      # 用户状态复合索引
+    Index('idx_orders_status_created', 'status', 'created_at'), # 状态时间复合索引
+    Index('idx_orders_order_no', 'order_no'),                  # 订单号索引
 )
 ```
 
@@ -632,9 +694,9 @@ __table_args__ = (
 
 | 字段名 | 类型 | 约束 | 描述 | 示例 |
 |--------|------|------|------|------|
-| `id` | Integer | PK, Index | 订单项唯一标识 | `4001` |
-| `order_id` | Integer | FK, Not Null | 订单ID | `3001` |
-| `product_id` | Integer | FK, Not Null | 商品ID | `2001` |
+| `id` | BigInteger | PK, Index | 订单项唯一标识 | `4001` |
+| `order_id` | BigInteger | FK, Not Null | 订单ID | `3001` |
+| `product_id` | BigInteger | FK, Not Null | 商品ID | `2001` |
 | `product_name` | String(200) | Not Null | 商品名称快照 | `"iPhone 15 Pro"` |
 | `product_sku` | String(100) | Not Null | 商品SKU快照 | `"IPH15P-128G-TIT"` |
 | `quantity` | Integer | Not Null | 购买数量 | `1` |
@@ -655,7 +717,7 @@ product = relationship("Product", back_populates="order_items")
 
 ```python
 __table_args__ = (
-    Index('idx_order_product', 'order_id', 'product_id'),  # 订单商品复合索引
+    Index('idx_order_items_order_product', 'order_id', 'product_id'),  # 订单商品复合索引
 )
 ```
 
@@ -674,7 +736,7 @@ __table_args__ = (
 
 | 字段名 | 类型 | 约束 | 描述 | 示例 |
 |--------|------|------|------|------|
-| `id` | Integer | PK, Index | 证书唯一标识 | `5001` |
+| `id` | BigInteger | PK, Index | 证书唯一标识 | `5001` |
 | `name` | String(200) | Not Null | 证书名称 | `"ISO 9001质量管理体系认证"` |
 | `issuer` | String(200) | Nullable | 颁发机构 | `"中国质量认证中心"` |
 | `serial` | String(200) | UK, Not Null | 证书编号 | `"CQC20250911001"` |
@@ -693,11 +755,11 @@ __table_args__ = (
 - **表名**: 使用复数形式，小写+下划线 (`users`, `order_items`)
 - **字段名**: 小写+下划线 (`created_at`, `user_id`)
 - **外键**: `{表名}_id` 格式 (`user_id`, `category_id`)
-- **索引**: `idx_{字段名}` 格式 (`idx_user_status`)
+- **索引**: `idx_{表名}_{字段名}` 格式 (`idx_orders_user_status`)
 
 ### 2. 数据类型选择
 
-- **主键**: Integer，自增
+- **主键**: BigInteger，自增
 - **字符串**: String(length)，根据实际需求设置长度
 - **文本**: Text，大文本内容
 - **价格**: DECIMAL(10,2)，确保精度
