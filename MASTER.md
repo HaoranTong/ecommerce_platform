@@ -34,11 +34,12 @@
 - create_file docs/* → 文档结构规范检查点 + 执行 .\scripts\check_docs.ps1
 - create_file *.py → 代码开发强制检查点 + 执行 .\scripts\check_naming_compliance.ps1 -CheckType code
 - create_file *_routes.py → API设计标准检查点 + 执行 .\scripts\check_naming_compliance.ps1 -CheckType api
-- create_file test_*.py → 测试规范检查点
+- create_file test_*.py → 测试规范检查点 + 自动选择测试策略
 - 操作models.py → 数据库设计规范检查点 + 执行 .\scripts\check_naming_compliance.ps1 -CheckType database
 - 任何命名操作 → 命名规范检查点 + 执行 .\scripts\check_naming_compliance.ps1
 - 创建类/函数/变量 → 代码开发检查清单 + 执行 .\scripts\check_naming_compliance.ps1 -CheckType code
 - 设计数据库表/字段 → 数据库命名检查点 + 执行 .\scripts\check_naming_compliance.ps1 -CheckType database
+- 开始测试会话 → 环境检查点 + 自动选择测试类型 + 验证测试环境
 
 ## 🔍 检查点执行格式
 🔍 检查点触发：[操作类型]
@@ -61,12 +62,16 @@ IF 创建新模块 THEN 检查 docs/templates/module-template.md
 IF create_file *.py THEN 执行 docs/standards/code-development-checklist.md + .\scripts\check_naming_compliance.ps1 -CheckType code
 IF create_file *_routes.py THEN 检查 docs/standards/api-standards.md + .\scripts\check_naming_compliance.ps1 -CheckType api
 IF 操作models.py THEN 确认 docs/standards/database-standards.md + .\scripts\check_naming_compliance.ps1 -CheckType database
-IF create_file test_*.py THEN 检查 docs/standards/testing-standards.md
+IF create_file test_*.py THEN 检查 docs/standards/testing-standards.md + 自动选择测试类型
 IF 创建文档 THEN 检查 docs/standards/document-standards.md + .\scripts\check_docs.ps1
 IF 命名实体 THEN 确认 docs/standards/naming-conventions.md + .\scripts\check_naming_compliance.ps1
-IF 编写测试 THEN 检查 docs/standards/testing-standards.md
+IF 编写测试 THEN 检查 docs/standards/testing-standards.md + 验证测试环境配置
 IF 修改流程 THEN 检查 docs/standards/workflow-standards.md
 IF 开始工作会话 THEN 执行 .\scripts\check_naming_compliance.ps1 + .\scripts\check_docs.ps1
+IF 开始测试会话 THEN 环境检查 + 自动选择测试策略:
+   - 单元测试 → 使用 pytest tests/unit/ (SQLite内存)
+   - 烟雾测试 → 使用 .\scripts\smoke_test.ps1 (SQLite文件)
+   - 集成测试 → 使用 .\scripts\integration_test.ps1 (MySQL Docker)
 
 ## 📄 README同步触发
 IF create_file app/modules/* THEN 更新对应模块README.md

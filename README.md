@@ -3,51 +3,49 @@
 > 基于FastAPI构建的模块化电商平台后端服务，采用文档驱动开发和标准化架构
 
 ## 🎯 核心特性
-- 🏗️ **模块化架构**：Controller→Service→Model三层架构模式
+- 🏗️ **模块化单体架构**：垂直切片模块化设计，每个模块包含完整的API-Service-Model-Schema
+- 🔗 **业务领域驱动**：按业务领域组织代码，模块边界清晰
 - 🛒 **高性能购物车**：基于Redis的购物车存储系统
-- 👤 **用户管理**：JWT认证与权限控制
+- 👤 **用户认证**：JWT认证与基于角色的权限控制
 - 📦 **商品管理**：商品CRUD、分类管理、库存控制
 - 🛍️ **订单系统**：订单创建、状态管理、流程控制
 - 💰 **支付系统**：多种支付方式、退款处理
-- � **数据统计**：业务指标统计和报表
-- �🔄 **标准化工具链**：开发、测试、部署自动化
+- 🌾 **农产品溯源**：批次管理、质量认证、区块链存证
+- 🔄 **标准化工具链**：开发、测试、部署自动化
 
-## 🚀 快速开始
+## � 项目架构
 
-### 环境准备
-```powershell
-# 启动开发环境
-.\dev_env.ps1
-```
-
-### 启动服务
-```powershell
-# 启动API服务
-.\dev_tools.ps1 start-api
-
-# 或直接运行
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-```
-
-### 访问服务
-- **API文档**: http://localhost:8000/docs
-- **ReDoc文档**: http://localhost:8000/redoc  
-- **健康检查**: http://localhost:8000/api/health
-
-## 📁 项目结构
-
+### 模块化单体架构
 ```
 ecommerce_platform/
-├── 📱 app/                      # 应用程序核心代码
-│   ├── api/                     # API路由和接口
-│   │   ├── routes/              # 模块化路由定义
-│   │   │   ├── user.py          # 用户管理路由
-│   │   │   ├── product.py       # 商品管理路由
-│   │   │   ├── order.py         # 订单管理路由
-│   │   │   ├── payment.py       # 支付管理路由
-│   │   │   └── __init__.py      # 路由统一导出
-│   │   ├── main_routes.py       # 主路由入口
-│   │   ├── schemas.py           # API数据模式
+├── 📱 app/                           # 应用程序核心代码
+│   ├── 🔧 core/                      # 核心基础设施
+│   │   ├── database.py               # 数据库连接管理
+│   │   ├── redis_client.py           # Redis缓存客户端
+│   │   ├── auth.py                   # 认证中间件
+│   │   └── __init__.py               # 核心组件导出
+│   ├── 🔄 shared/                    # 共享组件
+│   │   ├── models.py                 # 共享数据模型
+│   │   ├── utils/                    # 工具函数
+│   │   └── __init__.py               # 共享组件导出
+│   ├── � adapters/                  # 第三方适配器
+│   │   ├── payment/                  # 支付适配器
+│   │   ├── blockchain/               # 区块链适配器
+│   │   └── ai/                       # AI服务适配器
+│   ├── 🏢 modules/                   # 业务模块
+│   │   ├── user_auth/                # 用户认证模块
+│   │   │   ├── router.py             # API路由
+│   │   │   ├── service.py            # 业务逻辑
+│   │   │   ├── models.py             # 数据模型
+│   │   │   ├── schemas.py            # 请求/响应模型
+│   │   │   └── dependencies.py       # 模块依赖
+│   │   ├── product_catalog/          # 商品管理模块
+│   │   ├── shopping_cart/            # 购物车模块
+│   │   ├── order_management/         # 订单管理模块
+│   │   ├── payment_service/          # 支付服务模块
+│   │   ├── batch_traceability/       # 批次溯源模块
+│   │   └── ... (18个其他模块)        # 其他业务模块
+│   └── main.py                       # FastAPI应用入口
 │   │   └── __init__.py          # API包初始化
 │   ├── models/                  # 数据模型（SQLAlchemy）
 │   │   ├── base.py              # 基础模型类

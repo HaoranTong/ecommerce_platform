@@ -107,40 +107,170 @@ pytest-alembic      # 数据库迁移测试
 sqlalchemy-utils    # 数据库测试工具
 ```
 
-### 测试环境配置
+## 测试数据库配置策略
+
+### 🎯 数据库分离策略
+根据测试复杂度和环境需求，采用不同的数据库配置：
+
+| 测试类型 | 数据库类型 | 配置方式 | 优势 | 使用场景 |
+|----------|-----------|----------|------|----------|
+| **单元测试** | SQLite内存 | `:memory:` | 速度极快，隔离性好 | 模型、服务逻辑测试 |
+| **烟雾测试** | SQLite文件 | `test.db` | 快速，无外部依赖 | 基础功能验证 |
+| **集成测试** | MySQL测试库 | Docker容器 | 真实环境，完整功能 | API、数据库交互测试 |
+| **E2E测试** | MySQL测试库 | Docker容器 | 生产环境模拟 | 完整业务流程测试 |
+
+### 🔧 测试环境配置
+
+#### 单元测试 - SQLite内存数据库
 ```python
-# conftest.py 示例
+# tests/conftest.py
 import pytest
-from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+from app.core.database import Base, get_db
 from app.main import app
-from app.core.database import get_db
 
-# 测试数据库配置
-SQLALCHEMY_TEST_DATABASE_URL = "sqlite:///./test.db"
-engine = create_engine(SQLALCHEMY_TEST_DATABASE_URL, connect_args={"check_same_thread": False})
-TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+# 单元测试：SQLite内存数据库
+UNIT_TEST_DATABASE_URL = "sqlite:///:memory:"
 
-@pytest.fixture
-def db():
-    """测试数据库会话"""
+@pytest.fixture(scope="function")
+def unit_test_engine():
+    """单元测试数据库引擎（内存）"""
+    engine = create_engine(
+        UNIT_TEST_DATABASE_URL, 
+        connect_args={"check_same_thread": False}
+    )
+    Base.metadata.create_all(bind=engine)
+    yield engine
+    engine.dispose()
+
+@pytest.fixture(scope="function")
+def unit_test_db(unit_test_engine):
+    """单元测试数据库会话"""
+    TestingSessionLocal = sessionmaker(
+        autocommit=False, 
+        autoflush=False, 
+        bind=unit_test_engine
+    )
     database = TestingSessionLocal()
     try:
         yield database
     finally:
         database.close()
+```
 
-@pytest.fixture
-def client(db):
-    """测试客户端"""
-    def override_get_db():
-        yield db
+#### 烟雾测试 - SQLite文件数据库
+```python
+# 烟雾测试：SQLite文件数据库
+SMOKE_TEST_DATABASE_URL = "sqlite:///./tests/smoke_test.db"
+
+@pytest.fixture(scope="module")
+def smoke_test_engine():
+    """烟雾测试数据库引擎（文件）"""
+    engine = create_engine(
+        SMOKE_TEST_DATABASE_URL,
+        connect_args={"check_same_thread": False}
+    )
+    Base.metadata.create_all(bind=engine)
+    yield engine
+    # 清理测试数据但保留结构
+    Base.metadata.drop_all(bind=engine)
+    engine.dispose()
+
+@pytest.fixture(scope="function")
+def smoke_test_db(smoke_test_engine):
+    """烟雾测试数据库会话"""
+    TestingSessionLocal = sessionmaker(
+        autocommit=False,
+        autoflush=False, 
+        bind=smoke_test_engine
+    )
+    database = TestingSessionLocal()
+    try:
+        yield database
+    finally:
+        database.rollback()  # 回滚事务，保持数据清洁
+        database.close()
+```
+
+#### 集成测试 - MySQL Docker容器
+```python
+# 集成测试：MySQL Docker数据库
+INTEGRATION_TEST_DATABASE_URL = "mysql+pymysql://test_user:test_pass@localhost:3307/test_ecommerce"
+
+@pytest.fixture(scope="session")
+def integration_test_engine():
+    """集成测试数据库引擎（MySQL）"""
+    # 确保Docker容器已启动
+    import subprocess
+    subprocess.run([
+        "docker", "run", "-d", "--name", "mysql_test",
+        "-e", "MYSQL_ROOT_PASSWORD=test_root_pass",
+        "-e", "MYSQL_DATABASE=test_ecommerce", 
+        "-e", "MYSQL_USER=test_user",
+        "-e", "MYSQL_PASSWORD=test_pass",
+        "-p", "3307:3306",
+        "mysql:8.0"
+    ], check=False)
     
-    app.dependency_overrides[get_db] = override_get_db
-    with TestClient(app) as test_client:
-        yield test_client
-    app.dependency_overrides.clear()
+    # 等待数据库启动
+    import time
+    time.sleep(10)
+    
+    engine = create_engine(INTEGRATION_TEST_DATABASE_URL)
+    Base.metadata.create_all(bind=engine)
+    yield engine
+    
+    # 清理Docker容器
+    subprocess.run(["docker", "stop", "mysql_test"], check=False)
+    subprocess.run(["docker", "rm", "mysql_test"], check=False)
+```
+
+### 🚀 测试执行命令
+
+#### 单元测试（快速，无外部依赖）
+```bash
+# 运行所有单元测试
+pytest tests/unit/ -v
+
+# 运行特定模块单元测试
+pytest tests/unit/test_services/ -v
+
+# 单元测试覆盖率
+pytest tests/unit/ --cov=app/modules --cov-report=html
+```
+
+#### 烟雾测试（快速验证）
+```bash
+# 运行烟雾测试
+pytest tests/smoke/ -v
+
+# 或使用专用脚本
+.\scripts\smoke_test.ps1
+```
+
+#### 集成测试（需要Docker）
+```bash
+# 启动Docker服务，然后运行集成测试
+docker-compose up -d mysql
+pytest tests/integration/ -v
+
+# 或使用专用脚本（自动管理Docker）
+.\scripts\integration_test.ps1
+```
+
+### 🎯 测试策略决策树
+
+```
+开始测试
+├── 测试单个函数/类？
+│   └── Yes → 使用单元测试 + SQLite内存
+├── 验证基础功能？
+│   └── Yes → 使用烟雾测试 + SQLite文件
+├── 测试模块集成？
+│   └── Yes → 使用集成测试 + MySQL Docker
+└── 测试完整流程？
+    └── Yes → 使用E2E测试 + MySQL Docker
 ```
 
 ## 单元测试指南

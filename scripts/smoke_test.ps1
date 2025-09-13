@@ -28,24 +28,26 @@ try {
         Write-Output "No venv activate script found at $venvActivate"
     }
 
-    # ensure DB/Redis env vars for app startup (non-destructive defaults)
+    # 🔍 检查点触发：烟雾测试环境检查
+    Write-Output "🔍 检查点：验证烟雾测试环境配置..."
+
+    # 烟雾测试使用SQLite，无需外部数据库
     if (-not $env:DATABASE_URL -or $env:DATABASE_URL -eq '') {
-        # docker-compose maps host 3307 -> container 3306 by default to avoid conflicts with host MySQL
-        # Default to the project-specific database so migrations run against ecommerce_platform
-        $env:DATABASE_URL = 'mysql+pymysql://root:rootpass@127.0.0.1:3307/ecommerce_platform'
-        # Also set ALEMBIC_DSN explicitly so alembic.env.py picks the correct target
-        $env:ALEMBIC_DSN = $env:DATABASE_URL
-        Write-Output "DATABASE_URL not set — defaulting to $env:DATABASE_URL (local docker-compose mapping 3307:3306)"
+        # 烟雾测试使用SQLite文件数据库，无需Docker
+        $env:DATABASE_URL = 'sqlite:///./tests/smoke_test.db'
+        Write-Output "✅ 烟雾测试使用SQLite数据库: $env:DATABASE_URL"
     }
     else {
-        Write-Output "Using DATABASE_URL from environment."
+        Write-Output "⚠️  检测到外部DATABASE_URL，烟雾测试将使用: $env:DATABASE_URL"
     }
+    
+    # Redis对于烟雾测试是可选的，如果没有则跳过相关功能
     if (-not $env:REDIS_URL -or $env:REDIS_URL -eq '') {
         $env:REDIS_URL = 'redis://127.0.0.1:6379/0'
-        Write-Output "REDIS_URL not set — defaulting to $env:REDIS_URL"
+        Write-Output "⚠️  REDIS_URL未设置，某些缓存功能可能无法测试: $env:REDIS_URL"
     }
     else {
-        Write-Output "Using REDIS_URL from environment."
+        Write-Output "✅ 使用Redis配置: $env:REDIS_URL"
     }
 
     $baseUrl = 'http://127.0.0.1:8000'
