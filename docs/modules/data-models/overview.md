@@ -2,51 +2,349 @@
 
 ## 模块概述
 
-数据模型模块 (`app/models.py`) 定义了电商平台的核心数据结构，使用SQLAlchemy ORM实现数据库表映射、字段约束、索引优化和关系管理，是整个应用的数据层基础。
+数据模型模块 (`app/models/`) 提供**技术基础设施层**的ORM基础类、通用模型混入和数据访问工具，为各业务模块的模型定义提供技术支撑。本模块遵循**分布式模块化架构**原则，各业务模块在自己的目录内定义具体的业务数据模型。
 
 ### 主要功能
 
-1. **用户管理模型**
-   - 用户基础信息存储
-   - 微信小程序对接支持
-   - 用户认证字段管理
-   - 用户状态控制
+1. **ORM基础设施**
+   - SQLAlchemy Base类定义
+   - 通用字段混入 (id, created_at, updated_at)
+   - 模型基类和混入类
+   - 数据验证基础工具
 
-2. **商品管理模型**
-   - 商品信息存储
-   - 分类层次结构
-   - 库存数量管理
-   - 商品状态控制
+2. **模块化支撑**
+   - 为各模块提供统一的ORM基础
+   - 跨模块数据关系支撑
+   - 数据库迁移工具支撑
+   - 模型注册和发现机制
 
-3. **订单管理模型**
-   - 订单生命周期管理
-   - 订单项详细记录
-   - 价格计算结构
-   - 时间节点追踪
+3. **技术组件模型**
+   - 系统级配置模型
+   - 审计日志模型  
+   - 缓存管理模型
+   - 公共枚举和常量
 
-4. **系统扩展模型**
-   - 证书管理模型
-   - 为未来功能预留结构
-   - 灵活的扩展机制
+4. **架构支撑功能**
+   - 模块间数据契约定义
+   - 数据完整性约束
+   - 性能监控钩子
+   - 统一的查询接口
+
+### 分布式模块化设计
+
+本模块**不**定义具体的业务数据模型，而是为各业务模块提供基础设施：
+
+```
+app/
+├── models/                    # 数据模型基础设施（本模块）
+│   ├── __init__.py           # SQLAlchemy Base和基础导入
+│   ├── base.py               # BaseModel基类
+│   ├── mixins.py             # 通用字段混入
+│   ├── types.py              # 自定义数据类型
+│   └── utils.py              # 模型工具函数
+├── modules/                   # 业务模块（各自定义自己的数据模型）
+│   ├── user_auth/
+│   │   └── models.py         # 用户、角色等模型
+│   ├── product_catalog/
+│   │   └── models.py         # 商品、分类等模型
+│   ├── order_management/
+│   │   └── models.py         # 订单、订单项等模型
+│   └── payment_service/
+│       └── models.py         # 支付记录等模型
+```
+
+### 架构优势
+
+- **服务独立性**: 各业务模块数据模型相互独立，支持未来微服务拆分
+- **技术一致性**: 统一的ORM基础确保所有模块技术栈一致
+- **维护简化**: 基础设施集中管理，业务逻辑分散独立
+- **扩展灵活性**: 新增业务模块无需修改基础设施
 
 ## 技术架构
 
-### 数据模型关系图
+### 基础设施层设计
 
 ```mermaid
-erDiagram
-    User ||--o{ Order : "has many"
-    Order ||--o{ OrderItem : "contains"
-    Product ||--o{ OrderItem : "appears in"
-    Category ||--o{ Product : "contains"
-    Category ||--o{ Category : "parent-child"
+graph TB
+    subgraph "业务模块数据层"
+        subgraph "用户认证模块"
+            UserModels[User Models]
+        end
+        
+        subgraph "商品管理模块"
+            ProductModels[Product Models]
+        end
+        
+        subgraph "订单管理模块"
+            OrderModels[Order Models]
+        end
+        
+        subgraph "其他业务模块"
+            OtherModels[Other Models]
+        end
+    end
     
-    User {
-        int id PK
-        string username UK
-        string email UK
-        string password_hash
-        boolean is_active
+    subgraph "数据模型基础设施 (本模块)"
+        BaseModel[BaseModel]
+        TimestampMixin[TimestampMixin]
+        SoftDeleteMixin[SoftDeleteMixin]
+        ModelRegistry[ModelRegistry]
+        ValidationUtils[ValidationUtils]
+        DatabaseConfig[Database Config]
+        MigrationTools[Migration Tools]
+    end
+    
+    UserModels --> BaseModel
+    ProductModels --> BaseModel
+    OrderModels --> BaseModel
+    OtherModels --> BaseModel
+    
+    BaseModel --> TimestampMixin
+    BaseModel --> SoftDeleteMixin
+    BaseModel --> ValidationUtils
+    BaseModel --> DatabaseConfig
+    ModelRegistry --> BaseModel
+```
+
+### 技术实现架构
+
+```python
+# app/models/__init__.py - 基础设施入口
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from .base import BaseModel
+from .mixins import TimestampMixin, SoftDeleteMixin
+from .types import JSONType, EnumType
+from .utils import ModelRegistry
+
+# 导出基础设施组件
+__all__ = ['BaseModel', 'TimestampMixin', 'SoftDeleteMixin', 'JSONType', 'EnumType', 'ModelRegistry']
+
+# 业务模块数据模型由各自模块定义和导入
+# from ..modules.user_auth.models import User, Role
+# from ..modules.product_catalog.models import Product, Category
+# from ..modules.order_management.models import Order, OrderItem
+```
+
+### 模块数据模型组织
+
+```
+app/
+├── models/                           # 数据模型基础设施 (本模块)
+│   ├── __init__.py                  # 基础设施导出
+│   ├── base.py                      # BaseModel基类
+│   ├── mixins.py                    # 通用字段混入
+│   ├── types.py                     # 自定义数据类型
+│   ├── utils.py                     # 模型工具函数
+│   └── config.py                    # 数据库配置
+├── modules/                          # 业务模块 (各自定义数据模型)
+│   ├── user_auth/
+│   │   ├── __init__.py
+│   │   ├── models.py                # User, Role, Permission等
+│   │   ├── services.py
+│   │   └── routes.py
+│   ├── product_catalog/
+│   │   ├── __init__.py
+│   │   ├── models.py                # Product, Category, Brand等
+│   │   ├── services.py
+│   │   └── routes.py
+│   ├── order_management/
+│   │   ├── __init__.py
+│   │   ├── models.py                # Order, OrderItem, ShippingAddress等
+│   │   ├── services.py
+│   │   └── routes.py
+│   └── payment_service/
+│       ├── __init__.py
+│       ├── models.py                # PaymentRecord, PaymentMethod等
+│       ├── services.py
+│       └── routes.py
+```
+
+## 基础设施组件详解
+
+### 1. BaseModel 基类
+
+提供所有业务模型的共同基础：
+
+```python
+# app/models/base.py
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy import Column, Integer
+from .mixins import TimestampMixin
+
+BaseModel = declarative_base()
+
+class BaseModel(BaseModel, TimestampMixin):
+    __abstract__ = True
+    
+    id = Column(Integer, primary_key=True, index=True)
+    
+    def to_dict(self):
+        """转换为字典格式"""
+        pass
+    
+    def from_dict(self, data):
+        """从字典创建实例"""
+        pass
+```
+
+### 2. 通用混入类
+
+```python
+# app/models/mixins.py
+from sqlalchemy import Column, DateTime, Boolean, func
+
+class TimestampMixin:
+    """时间戳混入"""
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+class SoftDeleteMixin:
+    """软删除混入"""
+    is_deleted = Column(Boolean, default=False)
+    deleted_at = Column(DateTime, nullable=True)
+```
+
+### 3. 自定义数据类型
+
+```python
+# app/models/types.py
+from sqlalchemy.types import TypeDecorator, TEXT
+import json
+
+class JSONType(TypeDecorator):
+    """JSON数据类型"""
+    impl = TEXT
+    
+    def process_bind_param(self, value, dialect):
+        if value is not None:
+            return json.dumps(value)
+        return value
+    
+    def process_result_value(self, value, dialect):
+        if value is not None:
+            return json.loads(value)
+        return value
+```
+
+### 4. 模型注册工具
+
+```python
+# app/models/utils.py
+class ModelRegistry:
+    """模型注册表"""
+    _models = {}
+    
+    @classmethod
+    def register(cls, model_class):
+        """注册模型"""
+        cls._models[model_class.__name__] = model_class
+    
+    @classmethod
+    def get_model(cls, name):
+        """获取模型"""
+        return cls._models.get(name)
+    
+    @classmethod
+    def get_all_models(cls):
+        """获取所有模型"""
+        return cls._models.values()
+```
+
+## 使用指南
+
+### 业务模块集成示例
+
+```python
+# app/modules/user_auth/models.py
+from app.models import BaseModel, SoftDeleteMixin
+from sqlalchemy import Column, String, Boolean
+
+class User(BaseModel, SoftDeleteMixin):
+    __tablename__ = 'users'
+    
+    username = Column(String(50), unique=True, nullable=False)
+    email = Column(String(200), unique=True, nullable=False)
+    password_hash = Column(String(255), nullable=False)
+    is_active = Column(Boolean, default=True)
+    
+    # 业务特定字段...
+```
+
+### 数据库迁移支撑
+
+```python
+# app/models/config.py
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+import os
+
+DATABASE_URL = os.getenv('DATABASE_URL', 'sqlite:///./ecommerce.db')
+
+engine = create_engine(DATABASE_URL)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+def get_db():
+    """获取数据库会话"""
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+```
+
+## 版本历史
+
+| 版本 | 日期 | 变更说明 |
+|------|------|----------|
+
+### 模块化数据架构
+
+```mermaid
+graph TB
+    subgraph "业务模块数据"
+        subgraph "用户认证模块"
+            UserModel[User Model]
+            RoleModel[Role Model]
+        end
+        
+        subgraph "商品管理模块"
+            ProductModel[Product Model]
+            CategoryModel[Category Model]
+        end
+        
+        subgraph "订单管理模块"
+            OrderModel[Order Model]
+            OrderItemModel[OrderItem Model]
+        end
+        
+        subgraph "其他业务模块"
+            OtherModels[...]
+        end
+    end
+    
+    subgraph "数据模型基础设施"
+        BaseModel[BaseModel]
+        TimestampMixin[TimestampMixin]
+        SoftDeleteMixin[SoftDeleteMixin]
+        ModelRegistry[ModelRegistry]
+        ValidationUtils[ValidationUtils]
+    end
+    
+    UserModel --> BaseModel
+    RoleModel --> BaseModel
+    ProductModel --> BaseModel
+    CategoryModel --> BaseModel
+    OrderModel --> BaseModel
+    OrderItemModel --> BaseModel
+    OtherModels --> BaseModel
+    
+    BaseModel --> TimestampMixin
+    BaseModel --> SoftDeleteMixin
+    BaseModel --> ValidationUtils
+    ModelRegistry --> BaseModel
+```
         string wx_openid UK
         string wx_unionid UK
         string phone

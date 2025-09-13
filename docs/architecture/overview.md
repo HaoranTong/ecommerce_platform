@@ -180,6 +180,14 @@ app/
 - `iot-service` - IoT设备集成
 - `ledger-service` - 财务和对账
 
+**技术基础设施模块**:
+- `application-core` - FastAPI应用入口和路由注册
+- `database-core` - SQLAlchemy连接池和会话管理
+- `data-models` - 所有业务实体的ORM模型定义
+- `redis-cache` - Redis连接管理和缓存策略
+- `database-utils` - 数据库工具脚本和测试辅助
+- `recommendation-system` - 商品推荐算法和实时推荐
+
 ### 数据架构
 - **主数据库**: MySQL - 事务性数据存储
 - **缓存层**: Redis - 会话、购物车、热点数据、分布式锁
