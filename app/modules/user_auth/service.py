@@ -17,8 +17,8 @@ from sqlalchemy.exc import IntegrityError
 from fastapi import HTTPException, status
 from passlib.context import CryptContext
 
-from app.models import User
-from app.auth import create_access_token, create_refresh_token, verify_password, get_password_hash
+from app.modules.user_auth.models import User
+from app.core.auth import create_access_token, create_refresh_token, verify_password, get_password_hash
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 

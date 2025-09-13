@@ -1,58 +1,400 @@
-from sqlalchemy.orm import declarative_base
+"""
+共享数据模型和基础组件
+
+提供跨模块共享的基础模型类和通用数据结构
+"""
+
 from sqlalchemy import Column, Integer, BigInteger, String, Text, DECIMAL, DateTime, Boolean, ForeignKey, Index
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 
-Base = declarative_base()
+# 从技术基础设施层导入统一的Base类
+from app.core.database import Base
 
-class User(Base):
-    __tablename__ = 'users'
+
+class TimestampMixin:
+    """时间戳混合类 - 提供统一的时间戳字段"""
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
+
+
+class BaseModel(Base):
+    """基础模型类 - 提供通用字段和方法"""
+    __abstract__ = True
     
     id = Column(BigInteger, primary_key=True, index=True)
-    username = Column(String(50), unique=True, nullable=False)
-    email = Column(String(200), unique=True, nullable=False)
-    # 微信认证相关字段
-    password_hash = Column(String(255), nullable=False)
-    is_active = Column(Boolean, default=True)
-    # 用户角色：user, admin, super_admin
-    role = Column(String(20), default='user', nullable=False)  # 'user', 'admin', 'super_admin'
-    # 微信小程序相关
-    wx_openid = Column(String(100), unique=True, nullable=True)
-    wx_unionid = Column(String(100), unique=True, nullable=True)
-    # 联系信息
-    phone = Column(String(20), nullable=True)
-    real_name = Column(String(100), nullable=True)
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
+
+
+# ===== 业务通用模型（真正跨模块共享的数据） =====
+
+class Category(Base):
+    """商品分类表 - 跨产品和库存模块共享"""
+    __tablename__ = 'categories'
+    
+    id = Column(BigInteger, primary_key=True, index=True)
+    name = Column(String(100), nullable=False)
+
+    parent_id = Column(Integer, ForeignKey('categories.id'), nullable=True)    description = Column(Text, nullable=True)
+
+    sort_order = Column(Integer, default=0)    parent_id = Column(BigInteger, ForeignKey('categories.id'), nullable=True)
+
+    is_active = Column(Boolean, default=True)    level = Column(Integer, default=1, nullable=False)
+
+    created_at = Column(DateTime, server_default=func.now())    sort_order = Column(Integer, default=0, nullable=False)
+
+        is_active = Column(Boolean, default=True, nullable=False)
+
+    # 关系    
+
+    products = relationship("Product", back_populates="category")    # 时间戳
+
+    created_at = Column(DateTime, server_default=func.now())
+
+class Product(Base):    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    """商品表 - 核心商品信息"""    
+
+    __tablename__ = 'products'    # 自引用关系
+
+        parent = relationship("Category", remote_side=[id], back_populates="children")
+
+    id = Column(BigInteger, primary_key=True, index=True)    children = relationship("Category", back_populates="parent")
+
+    name = Column(String(200), nullable=False)    
+
+    sku = Column(String(100), unique=True, nullable=False)    # 跨模块关系
+
+    description = Column(Text, nullable=True)    products = relationship("Product", back_populates="category")
+
+    
+
+    # 分类关联
+
+    category_id = Column(Integer, ForeignKey('categories.id'), nullable=True)class Product(Base):
+
+        """商品表 - 跨多个模块共享的核心商品信息"""
+
+    # 价格和库存    __tablename__ = 'products'
+
+    price = Column(DECIMAL(10, 2), nullable=False, default=0.00)    
+
+    stock_quantity = Column(Integer, nullable=False, default=0)    id = Column(BigInteger, primary_key=True, index=True)
+
+        name = Column(String(255), nullable=False)
+
+    # 商品状态    description = Column(Text, nullable=True)
+
+    status = Column(String(20), nullable=False, default='active')  # active, inactive, out_of_stock    sku = Column(String(100), unique=True, nullable=False, index=True)
+
+        price = Column(DECIMAL(10, 2), nullable=False)
+
+    # 商品图片    cost_price = Column(DECIMAL(10, 2), nullable=True)
+
+    image_url = Column(String(500), nullable=True)  # 主图URL    weight = Column(DECIMAL(8, 3), nullable=True)  # 重量(kg)
+
+        
+
+    # 商品属性（JSON 存储，为后续扩展预留）    # 分类关联
+
+    attributes = Column(Text, nullable=True)  # JSON string    category_id = Column(BigInteger, ForeignKey('categories.id'), nullable=True)
+
+    images = Column(Text, nullable=True)      # JSON string of image URLs    
+
+        # 状态字段
+
+    # 时间字段    status = Column(String(20), default='active', nullable=False)
+
+    created_at = Column(DateTime, server_default=func.now())    is_active = Column(Boolean, default=True, nullable=False)
+
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())    
+
+        # 库存字段
+
+    # 关系    stock_quantity = Column(Integer, default=0, nullable=False)
+
+    category = relationship("Category", back_populates="products")    min_stock_level = Column(Integer, default=0, nullable=False)
+
+    order_items = relationship("OrderItem", back_populates="product")    max_stock_level = Column(Integer, nullable=True)
+
+    cart_items = relationship("CartItem", back_populates="product")    
+
+        # 销售信息
+
+    # 索引    sales_count = Column(Integer, default=0, nullable=False)
+
+    __table_args__ = (    view_count = Column(Integer, default=0, nullable=False)
+
+        Index('idx_products_category_status', 'category_id', 'status'),    
+
+        Index('idx_products_status_created', 'status', 'created_at'),    # 时间戳
+
+    )    created_at = Column(DateTime, server_default=func.now())
+
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+class Order(Base):    
+
+    """订单表 - 核心订单信息"""    # 关系定义
+
+    __tablename__ = 'orders'    category = relationship("Category", back_populates="products")
+
+        order_items = relationship("OrderItem", back_populates="product")
+
+    id = Column(BigInteger, primary_key=True, index=True)    cart_items = relationship("CartItem", back_populates="product")
+
+    order_number = Column(String(50), unique=True, nullable=False, index=True)    payments = relationship("Payment", back_populates="product")
+
+    user_id = Column(BigInteger, ForeignKey('users.id'), nullable=False)    
+
+        # 索引
+
+    # 订单状态    __table_args__ = (
+
+    status = Column(String(20), default='pending', nullable=False)        Index('idx_products_category_status', 'category_id', 'status'),
+
+    payment_status = Column(String(20), default='unpaid', nullable=False)        Index('idx_products_sku', 'sku'),
+
+        )
+
+    # 金额信息
+
+    total_amount = Column(DECIMAL(10, 2), nullable=False)
+
+    payment_amount = Column(DECIMAL(10, 2), default=0, nullable=False)class Order(Base):
+
+    discount_amount = Column(DECIMAL(10, 2), default=0, nullable=False)    """订单表 - 跨订单管理和支付模块共享"""
+
+        __tablename__ = 'orders'
+
+    # 地址信息    
+
+    shipping_address = Column(Text, nullable=True)    id = Column(BigInteger, primary_key=True, index=True)
+
+    contact_phone = Column(String(20), nullable=True)    order_number = Column(String(50), unique=True, nullable=False, index=True)
+
+    contact_name = Column(String(100), nullable=True)    user_id = Column(BigInteger, ForeignKey('users.id'), nullable=False)
+
+        
+
+    # 备注    # 订单状态
+
+    remark = Column(Text, nullable=True)    status = Column(String(20), default='pending', nullable=False)
+
+        payment_status = Column(String(20), default='unpaid', nullable=False)
+
+    # 时间戳    
+
+    created_at = Column(DateTime, server_default=func.now())    # 金额信息
+
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())    total_amount = Column(DECIMAL(10, 2), nullable=False)
+
+        payment_amount = Column(DECIMAL(10, 2), default=0, nullable=False)
+
+    # 关系定义    discount_amount = Column(DECIMAL(10, 2), default=0, nullable=False)
+
+    order_items = relationship("OrderItem", back_populates="order")    
+
+    payments = relationship("Payment", back_populates="order")    # 地址信息
+
+    shipping_address = Column(Text, nullable=True)
+
+class OrderItem(Base):    contact_phone = Column(String(20), nullable=True)
+
+    """订单商品明细表"""    contact_name = Column(String(100), nullable=True)
+
+    __tablename__ = 'order_items'    
+
+        # 备注
+
+    id = Column(BigInteger, primary_key=True, index=True)    remark = Column(Text, nullable=True)
+
+    order_id = Column(BigInteger, ForeignKey('orders.id'), nullable=False)    
+
+    product_id = Column(BigInteger, ForeignKey('products.id'), nullable=False)    # 时间戳
+
+        created_at = Column(DateTime, server_default=func.now())
+
+    quantity = Column(Integer, nullable=False)    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    unit_price = Column(DECIMAL(10, 2), nullable=False)    
+
+    total_price = Column(DECIMAL(10, 2), nullable=False)    # 关系定义
+
+        order_items = relationship("OrderItem", back_populates="order")
+
+    # 时间戳    payments = relationship("Payment", back_populates="order")
+
+    created_at = Column(DateTime, server_default=func.now())    carts = relationship("Cart", back_populates="order")
+
+    
+
+    # 关系定义
+
+    order = relationship("Order", back_populates="order_items")class OrderItem(Base):
+
+    product = relationship("Product", back_populates="order_items")    """订单商品明细表"""
+
+    __tablename__ = 'order_items'
+
+class Payment(Base):    
+
+    """支付记录表 - 跨支付和订单模块共享"""    id = Column(BigInteger, primary_key=True, index=True)
+
+    __tablename__ = 'payments'    order_id = Column(BigInteger, ForeignKey('orders.id'), nullable=False)
+
+        product_id = Column(BigInteger, ForeignKey('products.id'), nullable=False)
+
+    id = Column(BigInteger, primary_key=True, index=True)    
+
+    payment_number = Column(String(50), unique=True, nullable=False, index=True)    quantity = Column(Integer, nullable=False)
+
+    order_id = Column(BigInteger, ForeignKey('orders.id'), nullable=False)    unit_price = Column(DECIMAL(10, 2), nullable=False)
+
+    user_id = Column(BigInteger, ForeignKey('users.id'), nullable=False)    total_price = Column(DECIMAL(10, 2), nullable=False)
+
+        
+
+    # 支付信息    # 时间戳
+
+    amount = Column(DECIMAL(10, 2), nullable=False)    created_at = Column(DateTime, server_default=func.now())
+
+    payment_method = Column(String(20), nullable=False)    
+
+    payment_status = Column(String(20), default='pending', nullable=False)    # 关系定义
+
+        order = relationship("Order", back_populates="order_items")
+
+    # 第三方支付信息    product = relationship("Product", back_populates="order_items")
+
+    third_party_payment_id = Column(String(100), nullable=True)
+
+    payment_gateway = Column(String(50), nullable=True)
+
+    class Payment(Base):
+
+    # 时间戳    """支付记录表 - 跨支付和订单模块共享"""
+
+    created_at = Column(DateTime, server_default=func.now())    __tablename__ = 'payments'
+
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())    
+
+        id = Column(BigInteger, primary_key=True, index=True)
+
+    # 关系定义    payment_number = Column(String(50), unique=True, nullable=False, index=True)
+
+    order = relationship("Order", back_populates="payments")    order_id = Column(BigInteger, ForeignKey('orders.id'), nullable=False)
+
+    product_id = Column(BigInteger, ForeignKey('products.id'), nullable=True)
+
+class Cart(Base):    user_id = Column(BigInteger, ForeignKey('users.id'), nullable=False)
+
+    """购物车表"""    
+
+    __tablename__ = 'carts'    # 支付信息
+
+        amount = Column(DECIMAL(10, 2), nullable=False)
+
+    id = Column(BigInteger, primary_key=True, index=True)    payment_method = Column(String(20), nullable=False)
+
+    user_id = Column(BigInteger, ForeignKey('users.id'), nullable=False)    payment_status = Column(String(20), default='pending', nullable=False)
+
+        
+
+    # 购物车状态    # 第三方支付信息
+
+    status = Column(String(20), default='active', nullable=False)    third_party_payment_id = Column(String(100), nullable=True)
+
+    total_amount = Column(DECIMAL(10, 2), default=0, nullable=False)    payment_gateway = Column(String(50), nullable=True)
+
+        
+
+    # 时间戳    # 时间戳
+
+    created_at = Column(DateTime, server_default=func.now())    created_at = Column(DateTime, server_default=func.now())
+
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+        
+
+    # 关系定义    # 关系定义
+
+    cart_items = relationship("CartItem", back_populates="cart")    order = relationship("Order", back_populates="payments")
+
+    product = relationship("Product", back_populates="payments")
+
+class CartItem(Base):
+
+    """购物车商品明细表"""
+
+    __tablename__ = 'cart_items'class Cart(Base):
+
+        """购物车表"""
+
+    id = Column(BigInteger, primary_key=True, index=True)    __tablename__ = 'carts'
+
+    cart_id = Column(BigInteger, ForeignKey('carts.id'), nullable=False)    
+
+    product_id = Column(BigInteger, ForeignKey('products.id'), nullable=False)    id = Column(BigInteger, primary_key=True, index=True)
+
+        user_id = Column(BigInteger, ForeignKey('users.id'), nullable=False)
+
+    quantity = Column(Integer, nullable=False)    order_id = Column(BigInteger, ForeignKey('orders.id'), nullable=True)
+
+    unit_price = Column(DECIMAL(10, 2), nullable=False)    
+
+    total_price = Column(DECIMAL(10, 2), nullable=False)    # 购物车状态
+
+        status = Column(String(20), default='active', nullable=False)
+
+    # 时间戳    total_amount = Column(DECIMAL(10, 2), default=0, nullable=False)
+
+    created_at = Column(DateTime, server_default=func.now())    
+
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())    # 时间戳
+
+        created_at = Column(DateTime, server_default=func.now())
+
+    # 关系定义    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    cart = relationship("Cart", back_populates="cart_items")    
+
+    product = relationship("Product", back_populates="cart_items")    # 关系定义
+
+    cart_items = relationship("CartItem", back_populates="cart")
+
+# ===== 质量控制模块模型 =====    order = relationship("Order", back_populates="carts")
+
+
+
+class Certificate(Base):
+
+    """质量认证证书表"""class CartItem(Base):
+
+    __tablename__ = 'certificates'    """购物车商品明细表"""
+
+        __tablename__ = 'cart_items'
+
+    id = Column(BigInteger, primary_key=True, index=True)    
+
+    name = Column(String(200), nullable=False)    id = Column(BigInteger, primary_key=True, index=True)
+
+    issuer = Column(String(200), nullable=True)    cart_id = Column(BigInteger, ForeignKey('carts.id'), nullable=False)
+
+    serial = Column(String(200), unique=True, nullable=False)    product_id = Column(BigInteger, ForeignKey('products.id'), nullable=False)
+    
+    quantity = Column(Integer, nullable=False)
+    unit_price = Column(DECIMAL(10, 2), nullable=False)
+    total_price = Column(DECIMAL(10, 2), nullable=False)
+    
     # 时间戳
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
     
     # 关系定义
-    orders = relationship("Order", back_populates="user")
-    carts = relationship("Cart", back_populates="user")
-    username = Column(String(50), unique=True, nullable=False)
-    email = Column(String(200), unique=True, nullable=False)
-    # 密码认证
-    password_hash = Column(String(255), nullable=False)
-    is_active = Column(Boolean, default=True)
-    # 用户角色权限 (V1.0 Mini-MVP)
-    role = Column(String(20), default='user', nullable=False)  # 'user', 'admin', 'super_admin'
-    # 微信相关字段（为小程序对接预留）
-    wx_openid = Column(String(100), unique=True, nullable=True)
-    wx_unionid = Column(String(100), unique=True, nullable=True)
-    # 基础用户信息
-    phone = Column(String(20), nullable=True)
-    real_name = Column(String(100), nullable=True)
-    # 时间字段
-    created_at = Column(DateTime, server_default=func.now())
-    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
-    
-    # 关系
-    orders = relationship("Order", back_populates="user")
-    payments = relationship("Payment", back_populates="user")
-    carts = relationship("Cart", back_populates="user")
-
-
-class Category(Base):
+    cart = relationship("Cart", back_populates="cart_items")
+    product = relationship("Product", back_populates="cart_items")
     __tablename__ = 'categories'
     
     id = Column(BigInteger, primary_key=True, index=True)

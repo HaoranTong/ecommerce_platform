@@ -12,8 +12,8 @@ from fastapi import HTTPException, status, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 
-from app.models import User
-from app.database import get_db
+from app.modules.user_auth.models import User
+from app.core.database import get_db
 
 # JWT配置
 SECRET_KEY = os.getenv("JWT_SECRET_KEY", "your-secret-key-here-change-in-production")
@@ -82,19 +82,95 @@ def decode_token(token: str) -> dict:
 
 
 def authenticate_user(db: Session, username: str, password: str) -> Optional[User]:
-    """验证用户凭据"""
+    """验证用户凭据，包含账户锁定逻辑"""
     user = db.query(User).filter(
         (User.username == username) | (User.email == username)
     ).first()
     
     if not user:
         return None
-    if not verify_password(password, user.password_hash):
-        return None
+    
+    # 检查账户是否被锁定
+    if is_account_locked(user):
+        raise AuthenticationError("Account is locked due to too many failed login attempts")
+    
+    # 检查账户是否激活
     if not user.is_active:
+        raise AuthenticationError("Account is disabled")
+    
+    # 验证密码
+    if not verify_password(password, user.password_hash):
+        # 密码错误，增加失败次数
+        increment_failed_attempts(db, user)
         return None
     
+    # 登录成功，重置失败次数并更新最后登录时间
+    reset_failed_attempts(db, user)
+    user.last_login_at = datetime.utcnow()
+    db.commit()
+    
     return user
+
+
+def is_account_locked(user: User) -> bool:
+    """检查账户是否被锁定"""
+    if user.locked_until is None:
+        return False
+    
+    # 检查锁定时间是否已过期
+    if user.locked_until <= datetime.utcnow():
+        # 锁定时间已过，应该解锁账户（但不在这里操作数据库）
+        return False
+    
+    return True
+
+
+def increment_failed_attempts(db: Session, user: User) -> None:
+    """增加登录失败次数，必要时锁定账户"""
+    MAX_FAILED_ATTEMPTS = 5  # 最大失败次数
+    LOCK_DURATION_MINUTES = 30  # 锁定时长（分钟）
+    
+    user.failed_login_attempts += 1
+    
+    # 达到最大失败次数，锁定账户
+    if user.failed_login_attempts >= MAX_FAILED_ATTEMPTS:
+        user.locked_until = datetime.utcnow() + timedelta(minutes=LOCK_DURATION_MINUTES)
+        user.status = 'locked'
+        
+        # 记录安全事件
+        from app.core.security_logger import log_security_event
+        log_security_event(
+            event_type="account_locked",
+            message=f"Account locked due to excessive failed login attempts",
+            user_data={
+                "user_id": user.id,
+                "username": user.username,
+                "failed_attempts": user.failed_login_attempts,
+                "locked_until": user.locked_until.isoformat()
+            }
+        )
+    
+    db.commit()
+
+
+def reset_failed_attempts(db: Session, user: User) -> None:
+    """重置登录失败次数"""
+    if user.failed_login_attempts > 0 or user.locked_until is not None:
+        user.failed_login_attempts = 0
+        user.locked_until = None
+        if user.status == 'locked':
+            user.status = 'active'
+        
+        # 记录安全事件
+        from app.core.security_logger import log_security_event
+        log_security_event(
+            event_type="login_success",
+            message=f"Account login successful, failed attempts reset",
+            user_data={
+                "user_id": user.id,
+                "username": user.username
+            }
+        )
 
 
 async def get_current_user(
