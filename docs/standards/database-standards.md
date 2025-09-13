@@ -1,6 +1,23 @@
 # 数据库设计规范
 
-此文档定义数据库表、字段、关系的命名和设计标准。
+本文档定义数据库表、字段、关系的命名和设计标准。
+
+## 架构引用说明
+
+本文档基于架构设计原则制定具体的技术实施标准：
+- **架构设计原则**: 参见 [数据模型架构设计](../architecture/data-models.md) - 获取ORM架构、业务设计原则
+- **技术实施标准**: 本文档定义具体的命名约定、编码规范、SQL标准
+
+## 文档层次关系
+```
+架构设计层: data-models.md (设计原则)
+     ↓ 指导
+技术标准层: database-standards.md (本文档 - 实施规范)
+     ↓ 指导  
+具体实现层: modules/data-models/overview.md (技术实现)
+```
+
+---
 
 ## 表命名规范
 
@@ -83,16 +100,129 @@ fk_order_items_product_id -- order_items表指向products表的外键索引
 - 经常查询的字段添加索引
 - 联合索引按选择性排序
 
-## 关系设计
+## SQLAlchemy ORM 编写规范
 
-### 外键约束
-- 使用 `ON DELETE CASCADE` 或 `ON DELETE SET NULL`
-- 根据业务需求选择删除策略
+### Base类导入规范
+```python
+# ✅ 正确的导入方式 - 统一从技术基础设施层导入
+from app.core.database import Base
 
-### 关系类型
-- 一对一：使用外键关联
-- 一对多：在"多"的一方添加外键
-- 多对多：使用中间表
+# ❌ 禁止的导入方式
+from app.shared.models import Base  # 禁止
+from sqlalchemy.ext.declarative import declarative_base
+Base = declarative_base()  # 禁止重复定义
+```
+
+### 模型定义规范
+```python
+# 标准模型定义模板
+from sqlalchemy import Column, String, Boolean, BigInteger, DateTime, func
+from app.core.database import Base
+
+class User(Base):
+    __tablename__ = 'users'  # 必须定义表名
+    
+    # 主键字段 (使用BigInteger)
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    
+    # 业务字段
+    username = Column(String(50), unique=True, nullable=False, index=True)
+    email = Column(String(255), unique=True, nullable=False, index=True)
+    is_active = Column(Boolean, default=True, nullable=False)
+    
+    # 时间戳字段 (必须包含)
+    created_at = Column(DateTime, default=func.now(), nullable=False)
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now(), nullable=False)
+```
+
+### 关系定义规范
+```python
+# 外键关系定义
+from sqlalchemy import ForeignKey
+from sqlalchemy.orm import relationship
+
+class Order(Base):
+    __tablename__ = 'orders'
+    
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    user_id = Column(BigInteger, ForeignKey('users.id'), nullable=False, index=True)
+    
+    # 关系定义
+    user = relationship("User", back_populates="orders")
+```
+
+### 模块化项目数据库组织规范
+
+#### 文件组织结构
+```
+app/
+├── core/
+│   └── database.py          # 统一Base类定义和数据库配置
+├── modules/
+│   ├── user_auth/
+│   │   └── models.py        # 用户认证相关模型
+│   ├── product_catalog/
+│   │   └── models.py        # 商品管理相关模型
+│   └── order_management/
+│       └── models.py        # 订单管理相关模型
+```
+
+#### 跨模块引用规范
+```python
+# 当需要引用其他模块的模型时
+# app/modules/order_management/models.py
+from app.modules.user_auth.models import User
+from app.modules.product_catalog.models import Product
+
+class Order(Base):
+    __tablename__ = 'orders'
+    user_id = Column(BigInteger, ForeignKey('users.id'))
+    # 关系定义中直接使用字符串引用
+    user = relationship("User")  # 字符串引用，避免循环导入
+```
+
+## Session管理规范
+
+### 依赖注入方式 (推荐)
+```python
+# 在API端点中使用
+from fastapi import Depends
+from sqlalchemy.orm import Session
+from app.core.database import get_db
+
+def create_user(user_data: dict, db: Session = Depends(get_db)):
+    user = User(**user_data)
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return user
+```
+
+### 事务处理规范
+```python
+# 简单事务
+def transfer_operation(db: Session):
+    try:
+        # 多个数据库操作
+        db.add(object1)
+        db.add(object2)
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+
+# 复杂事务使用上下文管理器
+from contextlib import contextmanager
+
+@contextmanager
+def db_transaction(db: Session):
+    try:
+        yield db
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+```
 
 ## 迁移文件规范
 

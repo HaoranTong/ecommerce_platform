@@ -226,18 +226,62 @@ def integration_test_engine():
     subprocess.run(["docker", "rm", "mysql_test"], check=False)
 ```
 
-### 🚀 测试执行命令
+### 🚀 测试执行流程
+
+## 单元测试标准执行步骤
+
+### 环境准备要求
+在执行单元测试前，必须满足以下环境条件：
+
+1. **虚拟环境激活**：使用项目专用虚拟环境
+2. **依赖包安装**：确保测试框架和相关依赖已安装
+3. **无外部依赖**：单元测试使用SQLite内存数据库，无需Docker或外部服务
+
+### 标准执行步骤
+```powershell
+# 第一步：激活虚拟环境
+.venv\Scripts\Activate.ps1
+
+# 第二步：验证环境
+python -c "import sys; print('Python环境:', sys.executable)"
+# 输出应为: E:\ecommerce_platform\.venv\Scripts\python.exe
+
+# 第三步：确认依赖包
+pip list | findstr pytest
+# 应显示: pytest, pytest-asyncio, pytest-cov 等
+
+# 第四步：执行单元测试
+pytest tests/test_user_auth.py -v
+```
+
+### 测试环境验证清单
+在运行测试前，使用以下清单确认环境：
+
+- [ ] ✅ 虚拟环境已激活 (`.venv\Scripts\python.exe`)
+- [ ] ✅ pytest已安装 (`pytest --version`)
+- [ ] ✅ 测试文件存在 (`tests/test_*.py`)
+- [ ] ❌ 无需Docker容器运行
+- [ ] ❌ 无需数据库服务启动
+- [ ] ❌ 无需应用服务运行
+
+### 测试执行命令
 
 #### 单元测试（快速，无外部依赖）
 ```bash
 # 运行所有单元测试
-pytest tests/unit/ -v
+pytest tests/ -v
 
-# 运行特定模块单元测试
-pytest tests/unit/test_services/ -v
+# 运行特定测试文件
+pytest tests/test_user_auth.py -v
+
+# 运行特定测试类
+pytest tests/test_user_auth.py::TestAccountLocking -v
+
+# 运行特定测试方法
+pytest tests/test_user_auth.py::TestAccountLocking::test_account_locked_after_max_attempts -v
 
 # 单元测试覆盖率
-pytest tests/unit/ --cov=app/modules --cov-report=html
+pytest tests/ --cov=app --cov-report=html --cov-report=term
 ```
 
 #### 烟雾测试（快速验证）
