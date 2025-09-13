@@ -21,6 +21,7 @@ $NamingConfig = @{
         "payment-service" = "payment_service"
         "batch-traceability" = "batch_traceability"
         "logistics-management" = "logistics_management"
+        "quality-control" = "quality_control"
         "member-system" = "member_system"
         "distributor-management" = "distributor_management"
         "marketing-campaigns" = "marketing_campaigns"
@@ -207,7 +208,6 @@ function Check-DatabaseNaming {
                 }
             }
         }
-    }
         
         # 检查字段名
         $fields = $content | Select-String -Pattern "^\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*Column"
@@ -218,7 +218,7 @@ function Check-DatabaseNaming {
             if ($fieldName -notmatch $NamingConfig.DatabasePatterns.FieldName) {
                 $violations += @{
                     Type = "数据库字段名"
-                    File = "models.py"
+                    File = "shared/models.py"
                     Issue = "字段名不符合规范: $fieldName"
                     Line = $field.LineNumber
                     Suggestion = "使用snake_case格式"
@@ -241,22 +241,26 @@ function Check-DocumentationNaming {
     foreach ($dir in $modulesDirs) {
         $dirName = $dir.Name
         
-        # 检查是否使用了完整描述名
+        # 文档目录应该使用业务概念名（kebab-case）
+        # 检查是否在模块映射表的键中（业务概念名）
         $isValidModuleName = $false
-        foreach ($mapping in $NamingConfig.ModuleMappings.GetEnumerator()) {
-            if ($dirName -eq $mapping.Value) {
-                $isValidModuleName = $true
-                break
-            }
+        if ($NamingConfig.ModuleMappings.ContainsKey($dirName)) {
+            $isValidModuleName = $true
         }
         
-        if (-not $isValidModuleName -and $dirName -ne "api") {
+        # 特殊目录名称也是合法的
+        $specialDirs = @("api", "README.md")
+        if ($dirName -in $specialDirs) {
+            $isValidModuleName = $true
+        }
+        
+        if (-not $isValidModuleName) {
             $violations += @{
                 Type = "文档目录命名"
                 File = "docs/modules/$dirName"
                 Issue = "模块目录名称不符合规范: $dirName"
                 Line = 0
-                Suggestion = "使用完整描述名称，参考模块映射表"
+                Suggestion = "使用kebab-case格式的业务概念名，参考模块映射表的键名"
             }
         }
     }
