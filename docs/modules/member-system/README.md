@@ -29,15 +29,13 @@
 
 ### 核心组件
 ```
-member/
-├── controllers/        # 控制层
-│   ├── member_level_controller.py
-│   ├── points_controller.py
-│   └── member_benefits_controller.py
-├── services/          # 业务逻辑层
-│   ├── member_service.py
-│   ├── points_service.py
-│   └── benefits_service.py
+member_system/
+├── router.py           # API路由定义
+├── service.py          # 会员业务逻辑
+├── models.py           # 会员数据模型(Member, MemberLevel, Points)
+├── schemas.py          # 请求/响应数据模型
+├── dependencies.py     # 模块依赖注入
+└── utils.py            # 会员工具函数(等级计算、积分管理、权益分配)
 ├── models/           # 数据模型层
 │   ├── member_level.py
 │   ├── points_record.py

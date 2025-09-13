@@ -29,8 +29,13 @@
 
 ### 核心组件
 ```
-marketing/
-├── controllers/        # 控制层
+marketing_campaigns/
+├── router.py           # API路由定义
+├── service.py          # 营销业务逻辑
+├── models.py           # 营销数据模型(Campaign, Coupon, Promotion)
+├── schemas.py          # 请求/响应数据模型
+├── dependencies.py     # 模块依赖注入
+└── utils.py            # 营销工具函数(优惠计算、活动规则、统计分析)
 │   ├── coupon_controller.py
 │   ├── promotion_controller.py
 │   └── campaign_controller.py

@@ -10,9 +10,11 @@
 - **[认证详情](authentication-details.md)** - 认证机制和安全设计
 
 ### 🔧 实现代码
-- **用户路由**: `app/api/user_routes.py` - 用户管理API端点
-- **认证逻辑**: `app/auth.py` - JWT认证和权限控制
-- **数据模型**: `app/data_models.py` - User相关数据模型
+- **API路由**: `app/modules/user_auth/router.py` - 用户管理API端点
+- **业务逻辑**: `app/modules/user_auth/service.py` - 用户认证业务逻辑
+- **数据模型**: `app/modules/user_auth/models.py` - User相关数据模型
+- **请求响应模型**: `app/modules/user_auth/schemas.py` - API数据传输对象
+- **认证中间件**: `app/core/auth.py` - JWT认证和权限控制
 
 ### 🧪 测试用例
 - **单元测试**: `tests/test_users.py` - 用户功能测试

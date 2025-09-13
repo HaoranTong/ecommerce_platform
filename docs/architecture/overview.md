@@ -125,29 +125,84 @@
 3. **接口标准** - 统一的 API 设计和通信规范
 4. **故障隔离** - 服务间故障不相互影响
 
-### 核心服务模块（基于DDD边界设计）
+### 核心服务模块（模块化单体架构）
 ```
 app/
-├── api/                    # API 路由层
-│   ├── user_routes.py      # 用户认证服务 (user-service)
-│   ├── product_routes.py   # 商品管理服务 (product-service)
-│   ├── cart_routes.py      # 购物车服务 (独立Redis存储)
-│   ├── order_routes.py     # 订单管理服务 (order-service)
-│   ├── payment_routes.py   # 支付服务 (checkout-service)
-│   ├── category_routes.py  # 分类管理 (product-service的一部分)
-│   ├── member_routes.py    # 会员系统路由 (待创建)
-│   ├── distributor_routes.py # 分销商管理路由 (待创建)
-│   ├── batch_routes.py     # 批次溯源路由 (待创建)
-│   ├── marketing_routes.py # 营销活动路由 (待创建)
-│   └── social_routes.py    # 社交功能路由 (待创建)
-├── models/                 # 数据模型层
-├── services/               # 业务逻辑层
-├── adapters/               # 第三方适配器层
-│   ├── payment/           # 支付适配器
-│   ├── blockchain/        # 区块链适配器
-│   ├── ai/               # AI服务适配器
-│   └── iot/              # IoT设备适配器
-└── core/                   # 核心组件层
+├── core/                       # 核心基础设施
+│   ├── database.py             # 数据库连接管理
+│   ├── redis_client.py         # Redis缓存客户端
+│   ├── auth.py                 # 认证中间件
+│   └── __init__.py             # 核心组件导出
+├── shared/                     # 共享组件
+│   ├── models.py               # 共享数据模型
+│   └── __init__.py             # 共享组件导出
+├── adapters/                   # 第三方适配器
+│   ├── payment/                # 支付适配器
+│   │   ├── wechat_adapter.py   # 微信支付适配器
+│   │   ├── alipay_adapter.py   # 支付宝适配器
+│   │   └── config.py           # 支付配置
+│   ├── blockchain/             # 区块链适配器（待开发）
+│   └── ai/                     # AI服务适配器（待开发）
+├── modules/                    # 业务模块（垂直切片）
+│   ├── user_auth/              # 用户认证模块
+│   │   ├── router.py           # API路由
+│   │   ├── service.py          # 业务逻辑
+│   │   ├── models.py           # 数据模型
+│   │   ├── schemas.py          # 请求/响应模型
+│   │   └── dependencies.py     # 模块依赖
+│   ├── product_catalog/        # 商品管理模块
+│   ├── shopping_cart/          # 购物车模块
+│   ├── order_management/       # 订单管理模块
+│   ├── payment_service/        # 支付服务模块
+│   ├── batch_traceability/     # 批次溯源模块（待开发）
+│   ├── logistics_management/   # 物流管理模块（待开发）
+│   ├── member_system/          # 会员系统模块（待开发）
+│   ├── distributor_management/ # 分销商管理模块（待开发）
+│   ├── marketing_campaigns/    # 营销活动模块（待开发）
+│   ├── social_features/        # 社交功能模块（待开发）
+│   ├── inventory_management/   # 库存管理模块（待开发）
+│   ├── notification_service/   # 通知服务模块（待开发）
+│   ├── supplier_management/    # 供应商管理模块（待开发）
+│   ├── recommendation_system/  # 推荐系统模块（待开发）
+│   ├── customer_service_system/ # 客服系统模块（待开发）
+│   ├── risk_control_system/    # 风控系统模块（待开发）
+│   └── data_analytics_platform/ # 数据分析模块（待开发）
+└── main.py                     # FastAPI应用入口点
+```
+
+### 架构层次说明
+
+#### 🔧 核心基础设施层 (core/)
+负责应用程序的基础服务：数据库连接、缓存管理、认证中间件等跨模块的核心功能。
+
+#### 🔄 共享组件层 (shared/)
+提供跨模块共享的数据模型和工具函数，避免模块间的重复代码。
+
+#### 🔌 适配器层 (adapters/)
+封装第三方服务集成，提供统一的接口，支持可替换的实现策略。
+
+#### 🏢 业务模块层 (modules/)
+采用垂直切片架构，每个模块包含完整的业务功能：
+- **router.py** - API路由定义
+- **service.py** - 业务逻辑处理  
+- **models.py** - 数据模型定义
+- **schemas.py** - 请求/响应模型
+- **dependencies.py** - 模块依赖注入
+
+### 模块化单体架构优势
+
+1. **开发效率高** - 单一代码库，统一部署
+2. **业务内聚强** - 按业务域垂直切分，边界清晰
+3. **扩展性好** - 模块可独立开发和测试
+4. **维护成本低** - 避免微服务的分布式复杂性
+5. **性能优越** - 模块间直接调用，无网络开销
+
+### 演进路径
+
+模块化单体架构为后续演进提供清晰路径：
+- **阶段1**: 当前模块化单体架构
+- **阶段2**: 按需提取高频模块为独立服务
+- **阶段3**: 完整微服务架构（如需要）
 ```
 
 ### DDD微服务边界映射

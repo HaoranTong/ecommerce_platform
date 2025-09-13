@@ -2,7 +2,17 @@
 
 ## 模块概述
 
-用户API路由模块 (`app/api/user_routes.py`) 是电商平台用户管理的REST API接口层，提供用户注册、登录、信息管理、密码管理等完整的用户生命周期管理功能，集成JWT认证和权限控制。
+用户API路由模块 (`app/modules/user_auth/router.py`) 是电商平台用户管理的REST API接口层，采用模块化单体架构提供用户注册、登录、信息管理、密码管理等完整的用户生命周期管理功能，集成JWT认证和权限控制。
+
+### 模块架构结构
+```
+app/modules/user_auth/
+├── router.py           # API路由定义（本文档重点）
+├── service.py          # 业务逻辑处理
+├── schemas.py          # API数据传输对象
+├── dependencies.py     # 依赖注入配置
+└── models.py           # 用户数据模型
+```
 
 ### 主要功能
 
