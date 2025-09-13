@@ -44,23 +44,34 @@
 ### 核心组件
 ```
 {模块名}/
-├── controllers/        # 控制层
-│   ├── {entity}_controller.py
-│   └── ...
-├── services/          # 业务逻辑层
-│   ├── {entity}_service.py
-│   └── ...
-├── models/           # 数据模型层
-│   ├── {entity}.py
-│   └── ...
-├── repositories/     # 数据访问层
-│   ├── {entity}_repository.py
-│   └── ...
-├── schemas/         # 数据验证层
-│   ├── {entity}_schema.py
-│   └── ...
-└── utils/          # 工具函数
-    └── ...
+├── router.py           # API路由定义
+├── service.py          # 业务逻辑处理
+├── models.py           # 数据模型定义
+├── schemas.py          # 请求/响应模型
+├── dependencies.py     # 模块依赖注入
+└── utils.py            # 工具函数
+```
+
+### 模块化单体架构
+- **架构模式**: 模块化单体架构 (Modular Monolith)
+- **垂直切片**: 每个模块包含完整的业务功能
+- **依赖原则**: 依赖注入和接口抽象
+
+### 核心基础设施
+```
+app/core/               # 核心基础设施
+├── database.py         # 数据库连接管理
+├── redis_client.py     # Redis缓存客户端  
+├── auth.py             # 认证中间件
+└── __init__.py         # 核心组件导出
+```
+
+### 适配器集成
+```
+app/adapters/           # 第三方服务适配器
+├── {service_type}/     # 服务类型目录
+│   ├── {provider}_adapter.py
+│   └── config.py
 ```
 
 ### 技术栈

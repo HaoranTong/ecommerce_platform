@@ -29,24 +29,21 @@
 ### 核心组件
 
 ```
-user-auth/
-├── controllers/
-│   ├── auth_controller.py      # 认证控制器
-│   ├── user_controller.py      # 用户管理控制器
-│   └── permission_controller.py # 权限控制器
-├── services/
-│   ├── auth_service.py         # 认证业务逻辑
-│   ├── jwt_service.py          # JWT服务
-│   ├── mfa_service.py          # 多因素认证服务
-│   └── rbac_service.py         # 权限管理服务
-├── models/
-│   ├── user.py                 # 用户模型
-│   ├── role.py                 # 角色模型
-│   ├── permission.py           # 权限模型
-│   └── session.py              # 会话模型
-└── middleware/
-    ├── auth_middleware.py      # 认证中间件
-    └── permission_middleware.py # 权限中间件
+user_auth/
+├── router.py           # API路由定义
+├── service.py          # 认证业务逻辑
+├── models.py           # 用户数据模型(User, Role, Permission)
+├── schemas.py          # 请求/响应数据模型
+├── dependencies.py     # 模块依赖注入
+└── utils.py            # 认证工具函数(JWT, 密码加密)
+```
+
+### 核心基础设施
+```
+app/core/
+├── auth.py             # 认证中间件和JWT服务
+├── database.py         # 数据库连接管理
+└── redis_client.py     # 会话存储和缓存
 ```
 
 ### 数据库设计

@@ -2,7 +2,23 @@
 
 ## 模块概述
 
-用户认证模块 (`app/auth.py`) 是电商平台的安全核心组件，负责用户身份验证、JWT令牌管理、密码加密存储和API访问控制，确保系统安全性和用户数据保护。
+用户认证模块 (`app/modules/user_auth/`) 是电商平台的安全核心组件，采用模块化单体架构实现用户身份验证、JWT令牌管理、密码加密存储和API访问控制，确保系统安全性和用户数据保护。
+
+### 模块架构
+```
+app/modules/user_auth/
+├── router.py           # API路由定义
+├── service.py          # 认证业务逻辑
+├── models.py           # 用户数据模型
+├── schemas.py          # 请求/响应模型
+├── dependencies.py     # 模块依赖注入
+└── utils.py            # 认证工具函数
+```
+
+### 核心基础设施集成
+- **认证中间件**: `app/core/auth.py` - JWT认证和权限控制
+- **数据库连接**: `app/core/database.py` - 用户数据持久化
+- **缓存服务**: `app/core/redis_client.py` - 会话状态管理
 
 ### 主要功能
 
