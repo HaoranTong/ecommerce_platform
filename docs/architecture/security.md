@@ -319,7 +319,7 @@ class PasswordSecurity:
 class User(Base):
     __tablename__ = 'users'
     
-    id = Column(BigInteger, primary_key=True)
+    id = Column(Integer, primary_key=True)
     username = Column(String(50), nullable=False)
     email = Column(String(100), nullable=False)
     phone_encrypted = Column(Text)  # 加密存储的手机号
@@ -473,8 +473,8 @@ class PaymentRiskControl:
 class AuditLog(Base):
     __tablename__ = 'audit_logs'
     
-    id = Column(BigInteger, primary_key=True)
-    user_id = Column(BigInteger, nullable=True)
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, nullable=True)
     action = Column(String(50), nullable=False)
     resource_type = Column(String(50), nullable=False)
     resource_id = Column(String(100), nullable=True)

@@ -1,22 +1,21 @@
 """
-文件名：order.py
-文件路径：app/models/order.py
-功能描述：订单管理相关的数据模型定义
-主要功能：
-- Order订单模型：订单基础信息、状态管理、金额计算
-- OrderItem订单项模型：订单商品明细、价格快照
-- Cart购物车模型：购物车商品管理
-使用说明：
-- 导入：from app.models.order import Order, OrderItem, Cart
-- 关系：Order与OrderItem的一对多关系，User与Order/Cart的一对多关系
-依赖模块：
-- app.models.base: 基础模型类和时间戳混合类
-- sqlalchemy: 数据库字段定义和关系映射
+订单管理模块数据模型
+
+根据 docs/modules/data-models/overview.md 文档规范实现
+符合数据库设计原则和字段命名标准
+
+主要模型:
+- Order: 订单生命周期和状态变更管理
+- OrderItem: 订单商品明细和价格快照记录
 """
 
-from sqlalchemy import Column, String, Text, DECIMAL, Integer, ForeignKey, Index, DateTime
+from sqlalchemy import Column, BigInteger, String, Text, DECIMAL, Integer, DateTime, ForeignKey, Index, func
 from sqlalchemy.orm import relationship
-from app.models.base import BaseModel, TimestampMixin
+
+# 从技术基础设施层导入统一的Base类
+from app.core.database import Base
+# 从共享组件层导入混入类
+from app.shared.models import JSONType, ModelRegistry
 
 
 class Order(BaseModel, TimestampMixin):

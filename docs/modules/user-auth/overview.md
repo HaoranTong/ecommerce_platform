@@ -51,7 +51,7 @@ app/core/
 ```sql
 -- 用户表
 CREATE TABLE users (
-    id UUID PRIMARY KEY,
+    id INTEGER AUTO_INCREMENT PRIMARY KEY,
     email VARCHAR(255) UNIQUE NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
     phone VARCHAR(20) UNIQUE,
@@ -68,7 +68,7 @@ CREATE TABLE users (
 
 -- 角色表
 CREATE TABLE roles (
-    id UUID PRIMARY KEY,
+    id INTEGER AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(100) UNIQUE NOT NULL,
     description TEXT,
     level INTEGER NOT NULL,
@@ -78,7 +78,7 @@ CREATE TABLE roles (
 
 -- 权限表
 CREATE TABLE permissions (
-    id UUID PRIMARY KEY,
+    id INTEGER AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(100) UNIQUE NOT NULL,
     resource VARCHAR(100) NOT NULL,
     action VARCHAR(50) NOT NULL,
@@ -88,26 +88,26 @@ CREATE TABLE permissions (
 
 -- 用户角色关联表
 CREATE TABLE user_roles (
-    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
-    role_id UUID REFERENCES roles(id) ON DELETE CASCADE,
+    user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+    role_id INTEGER REFERENCES roles(id) ON DELETE CASCADE,
     assigned_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    assigned_by UUID REFERENCES users(id),
+    assigned_by INTEGER REFERENCES users(id),
     PRIMARY KEY (user_id, role_id)
 );
 
 -- 角色权限关联表
 CREATE TABLE role_permissions (
-    role_id UUID REFERENCES roles(id) ON DELETE CASCADE,
-    permission_id UUID REFERENCES permissions(id) ON DELETE CASCADE,
+    role_id INTEGER REFERENCES roles(id) ON DELETE CASCADE,
+    permission_id INTEGER REFERENCES permissions(id) ON DELETE CASCADE,
     granted_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    granted_by UUID REFERENCES users(id),
+    granted_by INTEGER REFERENCES users(id),
     PRIMARY KEY (role_id, permission_id)
 );
 
 -- 会话表
 CREATE TABLE sessions (
-    id UUID PRIMARY KEY,
-    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    id INTEGER AUTO_INCREMENT PRIMARY KEY,
+    user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
     token_hash VARCHAR(255) NOT NULL,
     expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
