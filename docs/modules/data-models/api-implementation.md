@@ -20,47 +20,72 @@
 ### 文件结构
 ```
 app/
-├── models/
-│   ├── __init__.py
-│   ├── user.py          # 用户模型
-│   ├── product.py       # 商品模型
-│   ├── order.py         # 订单模型
-│   └── base.py          # 基础模型类
-├── schemas/
-│   ├── __init__.py
-│   ├── user.py          # 用户Schema
-│   ├── product.py       # 商品Schema
-│   └── order.py         # 订单Schema
+├── core/
+│   ├── database.py      # Base类和数据库配置
+│   ├── redis_client.py  # Redis缓存客户端
+│   └── auth.py          # 认证中间件
+├── shared/
+│   ├── models.py        # 通用模型混入
+│   ├── api_schemas.py   # API响应模式
+│   └── base_schemas.py  # 基础Pydantic模式
+├── modules/
+│   ├── user_auth/
+│   │   ├── models.py    # 用户模型
+│   │   └── schemas.py   # 用户Schema
+│   ├── product_catalog/
+│   │   ├── models.py    # 商品模型
+│   │   └── schemas.py   # 商品Schema
+│   └── order_management/
+│       ├── models.py    # 订单模型
+│       └── schemas.py   # 订单Schema
 ```
 
 ## 核心模型实现
 
 ### 基础模型类
 ```python
-# app/models/base.py
-from sqlalchemy import Column, Integer, DateTime
+# app/core/database.py
+from sqlalchemy import Column, BigInteger, DateTime, create_engine
 from sqlalchemy.ext.declarative import declarative_base
-from datetime import datetime
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.sql import func
+import os
 
 Base = declarative_base()
+
+DATABASE_URL = os.getenv('DATABASE_URL', 'mysql+pymysql://root:rootpass@localhost:3307/ecommerce_platform')
+engine = create_engine(DATABASE_URL)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+# app/shared/models.py
+from app.core.database import Base
+from sqlalchemy import Column, BigInteger, DateTime, func
 
 class BaseModel(Base):
     __abstract__ = True
     
-    id = Column(Integer, primary_key=True, index=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    id = Column(BigInteger, primary_key=True, index=True)
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
 ```
 
 ### 用户模型实现
 ```python
-# app/models/user.py
-from sqlalchemy import Column, String, Boolean
-from .base import BaseModel
+# app/modules/user_auth/models.py
+from sqlalchemy import Column, String, Boolean, BigInteger
+from app.core.database import Base
 
-class User(BaseModel):
+class User(Base):
     __tablename__ = "users"
     
+    id = Column(BigInteger, primary_key=True, index=True)
     username = Column(String(50), unique=True, index=True, nullable=False)
     email = Column(String(100), unique=True, index=True, nullable=False)
     hashed_password = Column(String(100), nullable=False)
@@ -70,19 +95,20 @@ class User(BaseModel):
 
 ### 商品模型实现
 ```python
-# app/models/product.py
-from sqlalchemy import Column, String, Text, DECIMAL, Integer, ForeignKey
+# app/modules/product_catalog/models.py
+from sqlalchemy import Column, String, Text, DECIMAL, Integer, BigInteger, ForeignKey
 from sqlalchemy.orm import relationship
-from .base import BaseModel
+from app.core.database import Base
 
-class Product(BaseModel):
+class Product(Base):
     __tablename__ = "products"
     
+    id = Column(BigInteger, primary_key=True, index=True)
     name = Column(String(200), nullable=False, index=True)
     description = Column(Text)
     price = Column(DECIMAL(10, 2), nullable=False)
     stock_quantity = Column(Integer, default=0)
-    category_id = Column(Integer, ForeignKey("categories.id"))
+    category_id = Column(BigInteger, ForeignKey("categories.id"))
     
     # 关联关系
     category = relationship("Category", back_populates="products")
