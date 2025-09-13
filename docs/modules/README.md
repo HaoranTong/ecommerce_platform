@@ -1,213 +1,71 @@
-# 功能模块文档
+# 功能模块导航
 
-本目录包含电商平台各功能模块的设计文档和接口规范索引。
+📝 **文档类型**: 模块导航  
+📍 **作用**: 提供电商平台各功能模块的概括描述、结构导航和清晰索引  
+🔗 **使用方法**: 快速找到目标模块，查看模块概览和文档入口
 
-## 📋 核心业务模块
+## 📂 模块目录结构
 
-| 模块 | 状态 | 文档链接 | 核心功能 |
-|------|------|----------|----------|
-| **用户认证** | ✅ 完成 | [user-auth/](./user-auth/) | 登录注册、权限管理 |
-| **购物车** | ✅ 完成 | [shopping-cart/](./shopping-cart/) | 购物车管理、价格计算 |
-| **订单管理** | ✅ 完成 | [order-management/](./order-management/) | 订单处理、状态流转 |
-| **商品管理** | ✅ 完成 | [product-catalog/](./product-catalog/) | 商品信息、分类管理 |
-| **库存管理** | ✅ 完成 | [inventory-management/](./inventory-management/) | 库存跟踪、预占机制 |
-| **支付服务** | ✅ 完成 | [payment-service/](./payment-service/) | 支付渠道、风控安全 |
-| **通知服务** | 🔄 待实现 | [notification-service/](./notification-service/) | 多渠道通知、模板管理 |
-| **推荐系统** | 🔄 待实现 | [recommendation-system/](./recommendation-system/) | 个性化推荐、智能搜索 |
-| **批次溯源** | 🔄 待实现 | [batch-traceability/](./batch-traceability/) | 农产品溯源、批次管理 |
-| **分销商管理** | 🔄 待实现 | [distributor-management/](./distributor-management/) | 多级分销、佣金管理 |
-
-## 📋 技术支撑模块
+### 核心交易模块 (5个)
 
 | 模块 | 状态 | 文档链接 | 核心功能 |
 |------|------|----------|----------|
-| **应用核心** | ✅ 完成 | [application-core/](./application-core/) | FastAPI应用入口、路由注册 |
-| **数据库核心** | ✅ 完成 | [database-core/](./database-core/) | SQLAlchemy引擎、连接池 |
-| **数据模型** | ✅ 完成 | [data-models/](./data-models/) | ORM模型定义、关系映射 |
-| **Redis缓存** | ✅ 完成 | [redis-cache/](./redis-cache/) | Redis连接、缓存管理 |
-| **数据库工具** | ✅ 完成 | [database-utils/](./database-utils/) | 数据库工具函数、脚本支持 |
+| **用户认证** | ✅ 完成 | [user-auth/](./user-auth/) | 登录注册、权限管理、JWT认证 |
+| **商品管理** | ✅ 完成 | [product-catalog/](./product-catalog/) | 商品信息、分类管理、规格管理 |
+| **购物车** | ✅ 完成 | [shopping-cart/](./shopping-cart/) | 购物车管理、价格计算、实时同步 |
+| **订单管理** | ✅ 完成 | [order-management/](./order-management/) | 订单处理、状态流转、履约管理 |
+| **支付服务** | ✅ 完成 | [payment-service/](./payment-service/) | 支付渠道、风控安全、退款处理 |
 
-## � 核心模块
+### 农产品特色模块 (2个)
 
 | 模块 | 状态 | 文档链接 | 核心功能 |
 |------|------|----------|----------|
-| **用户认证** | ✅ 完成 | [user-auth/](./user-auth/) | 登录注册、权限管理 |
-| **购物车** | ✅ 完成 | [shopping-cart/](./shopping-cart/) | 购物车管理、价格计算 |
-| **订单管理** | ✅ 完成 | [order-management/](./order-management/) | 订单处理、状态流转 |
-| **商品管理** | ✅ 完成 | [product-catalog/](./product-catalog/) | 商品信息、分类管理 |
-| **库存管理** | ✅ 完成 | [inventory-management/](./inventory-management/) | 库存跟踪、预占机制 |
-| **支付服务** | ✅ 完成 | [payment-service/](./payment-service/) | 支付渠道、风控安全 |
-| **通知服务** | ✅ 完成 | [notification-service/](./notification-service/) | 多渠道通知、模板管理 |
-| **推荐系统** | ✅ 完成 | [recommendation-system/](./recommendation-system/) | 个性化推荐、智能搜索 |
+| **批次溯源** | 🔄 开发中 | [batch-traceability/](./batch-traceability/) | 农产品溯源、批次管理、质量认证 |
+| **物流管理** | 🔄 开发中 | [logistics-management/](./logistics-management/) | 冷链配送、物流跟踪、配送优化 |
 
-## 🔗 快速导航
+### 营销会员模块 (4个)
 
-- **新模块开发** → 参考 [模板文档](../templates/module-template.md)
-- **API接口规范** → 查看各模块的 `api-spec.md`
-- **数据库设计** → 查看各模块的 `data-model.md`
-| 应用入口模块 | ✅ 已完成 | [application-core/overview.md](./application-core/overview.md) | FastAPI应用入口、路由注册、生命周期管理 |
-| 数据库连接模块 | ✅ 已完成 | [database-core/overview.md](./database-core/overview.md) | SQLAlchemy引擎、连接池、会话管理 |
-| 数据模型模块 | ✅ 已完成 | [data-models/overview.md](./data-models/overview.md) | ORM模型定义、关系映射、索引优化 |
-| Redis客户端模块 | ✅ 已完成 | [redis-cache/overview.md](./redis-cache/overview.md) | Redis连接、购物车存储、缓存管理 |
-| 数据库工具模块 | ✅ 已完成 | [database-utils/overview.md](./database-utils/overview.md) | 数据库工具函数、脚本支持、测试辅助 |
+| 模块 | 状态 | 文档链接 | 核心功能 |
+|------|------|----------|----------|
+| **会员系统** | 🔄 开发中 | [member-system/](./member-system/) | 会员等级、积分体系、权益管理 |
+| **分销商管理** | 🔄 开发中 | [distributor-management/](./distributor-management/) | 多级分销、佣金管理、团队管理 |
+| **营销活动** | 🔄 开发中 | [marketing-campaigns/](./marketing-campaigns/) | 优惠券、促销活动、营销工具 |
+| **社交功能** | 🔄 开发中 | [social-features/](./social-features/) | 社交分享、拼团功能、社群营销 |
 
-### 支撑服务模块
+### 基础服务模块 (7个)
 
-| 模块 | 状态 | 描述 |
-|------|------|------|
-| 文件存储服务 | 📝 规划中 | 图片、视频等静态文件存储管理 |
-| 搜索服务 | 📝 规划中 | Elasticsearch全文搜索引擎 |
-| 数据分析服务 | 📝 规划中 | 用户行为分析、业务数据统计 |
-| 风控服务 | 📝 规划中 | 反欺诈、风险评估、安全防护 |
-| 营销服务 | 📝 规划中 | 优惠券、促销活动、会员营销 |
+| 模块 | 状态 | 文档链接 | 核心功能 |
+|------|------|----------|----------|
+| **库存管理** | 📋 规划中 | [inventory-management/](./inventory-management/) | 库存跟踪、预占机制、补货管理 |
+| **通知服务** | 📋 规划中 | [notification-service/](./notification-service/) | 多渠道通知、模板管理、智能发送 |
+| **供应商管理** | 📋 规划中 | [supplier-management/](./supplier-management/) | 供应商入驻、协作管理、绩效评估 |
+| **推荐系统** | 📋 规划中 | [recommendation-system/](./recommendation-system/) | 个性化推荐、智能算法、用户画像 |
+| **客服系统** | 📋 规划中 | [customer-service-system/](./customer-service-system/) | 在线客服、工单管理、知识库 |
+| **风控系统** | 📋 规划中 | [risk-control-system/](./risk-control-system/) | 反欺诈、风险评估、安全防护 |
+| **数据分析** | 📋 规划中 | [data-analytics-platform/](./data-analytics-platform/) | 数据报表、业务分析、决策支持 |
 
-## 🏗️ 架构设计
+### 技术基础设施模块 (5个)
 
-### 模块间依赖关系
+| 模块 | 状态 | 文档链接 | 核心功能 |
+|------|------|----------|----------|
+| **应用核心** | ✅ 完成 | [application-core/](./application-core/) | 应用框架、配置管理、启动逻辑 |
+| **数据库核心** | ✅ 完成 | [database-core/](./database-core/) | 数据库连接、事务管理、连接池 |
+| **数据模型** | ✅ 完成 | [data-models/](./data-models/) | ORM基础类、模型混入、数据类型 |
+| **Redis缓存** | ✅ 完成 | [redis-cache/](./redis-cache/) | 缓存策略、会话存储、分布式锁 |
+| **数据库工具** | ✅ 完成 | [database-utils/](./database-utils/) | 数据库工具、迁移脚本、维护命令 |
 
-```mermaid
-graph TB
-    User[用户认证模块] --> Cart[购物车模块]
-    User --> Order[订单管理模块]
-    User --> Notification[通知服务模块]
-    
-    Product[商品管理模块] --> Cart
-    Product --> Order
-    Product --> Recommendation[推荐系统模块]
-    
-    Inventory[库存管理模块] --> Cart
-    Inventory --> Order
-    
-    Cart --> Order
-    Order --> Payment[支付服务模块]
-    Order --> Notification
-    
-    Payment --> Notification
-    
-    User --> Recommendation
-    Cart --> Recommendation
-    Order --> Recommendation
-```
+## 📋 文档导航
 
-### 技术栈分布
+### 架构文档
+- [模块架构设计](../architecture/modules/) - 详细的模块分类矩阵和依赖关系
+- [技术架构规范](../architecture/technical/) - 技术栈选择和架构决策
+- [数据架构设计](../architecture/data/) - 数据模型设计和存储架构
 
-| 技术组件 | 使用模块 | 说明 |
-|----------|----------|------|
-| **PostgreSQL** | 用户认证、订单管理、商品管理、库存管理、支付服务 | 主要事务性数据存储 |
-| **Redis** | 购物车、库存管理、通知服务、推荐系统 | 缓存和会话存储 |
-| **Elasticsearch** | 商品管理、推荐系统 | 全文搜索和商品发现 |
-| **Message Queue** | 所有模块 | 事件驱动架构支撑 |
-| **FastAPI** | 所有模块 | 统一API框架 |
+### 开发文档
+- [模块开发指南](../development/modules/) - 模块开发规范和最佳实践
+- [API文档规范](../api/README.md) - 接口设计和文档标准
+- [测试文档标准](../development/testing/) - 测试策略和用例设计
 
-## 📊 模块成熟度
-
-### 开发状态
-
-- ✅ **已完成** (8个模块): 核心业务功能完整，包含详细设计文档
-- 📝 **规划中** (5个模块): 已规划功能范围，待详细设计
-- 🚧 **开发中** (0个模块): 正在开发实现中
-- ⚠️ **需优化** (0个模块): 需要重构或性能优化
-
-### 文档完整度
-
-| 文档类型 | 完成度 | 说明 |
-|----------|--------|------|
-| **技术架构** | 100% | 所有已完成模块包含完整架构设计 |
-| **API接口** | 100% | 详细的OpenAPI规范和示例 |
-| **数据库设计** | 100% | 完整的表结构和索引设计 |
-| **业务逻辑** | 100% | 核心业务流程和算法实现 |
-| **部署配置** | 100% | 环境变量和依赖服务配置 |
-| **监控指标** | 100% | 业务和技术监控指标定义 |
-
-## 🔄 模块集成
-
-### 事件驱动架构
-
-所有模块通过统一的事件总线进行解耦通信：
-
-```python
-# 事件发布示例
-await event_publisher.publish('order.created', {
-    'order_id': order.id,
-    'user_id': order.user_id,
-    'total_amount': order.total_amount
-})
-
-# 事件订阅示例
-@event_handler('order.created')
-async def handle_order_created(event_data):
-    # 库存扣减
-    await inventory_service.reduce_inventory(event_data)
-    # 发送通知
-    await notification_service.send_order_confirmation(event_data)
-    # 更新推荐
-    await recommendation_service.update_user_behavior(event_data)
-```
-
-### API网关集成
-
-```yaml
-# API路由配置
-/api/v1/auth/*     -> 用户认证模块
-/api/v1/products/* -> 商品管理模块
-/api/v1/cart/*     -> 购物车模块
-/api/v1/orders/*   -> 订单管理模块
-/api/v1/payments/* -> 支付服务模块
-/api/v1/notifications/* -> 通知服务模块
-/api/v1/recommendations/* -> 推荐系统模块
-```
-
-## 📈 性能指标
-
-### 核心性能要求
-
-| 模块 | 响应时间要求 | 并发要求 | 可用性要求 |
-|------|-------------|----------|------------|
-| 用户认证 | < 200ms | 1000 QPS | 99.9% |
-| 购物车 | < 100ms | 2000 QPS | 99.9% |
-| 商品搜索 | < 300ms | 1500 QPS | 99.5% |
-| 订单处理 | < 500ms | 500 QPS | 99.99% |
-| 支付处理 | < 1000ms | 200 QPS | 99.99% |
-| 推荐系统 | < 200ms | 1000 QPS | 99.0% |
-
-### 扩展性设计
-
-- **水平扩展**: 所有模块支持多实例部署
-- **数据分片**: 大数据量表支持分库分表
-- **缓存策略**: 多级缓存提升性能
-- **异步处理**: 耗时操作异步化
-
-## 🛠️ 开发指南
-
-### 新增模块
-
-1. **创建模块目录**: `docs/modules/{module-name}/`
-2. **编写概览文档**: 参考现有模块的 `overview.md` 结构
-3. **定义API接口**: 使用OpenAPI规范
-4. **设计数据模型**: 包含完整的SQL DDL
-5. **实现业务逻辑**: 核心服务类和算法
-6. **配置监控**: 定义关键指标
-7. **更新本文档**: 添加到模块索引
-
-### 文档规范
-
-- **统一结构**: 遵循现有模块的文档结构
-- **代码示例**: 提供完整可运行的代码示例
-- **架构图**: 使用Mermaid绘制架构图
-- **API文档**: 使用OpenAPI YAML格式
-- **中英文**: 重要概念提供中英文对照
-
-### 版本管理
-
-- **向后兼容**: API变更保持向后兼容
-- **版本标记**: 使用语义化版本号
-- **变更记录**: 维护详细的变更日志
-- **迁移指南**: 提供升级迁移文档
-
-## 📚 相关文档
-
-- [架构设计总览](../architecture/overview.md)
-- [事件驱动架构](../architecture/event-driven.md)
-- [API设计规范](../architecture/api-standards.md)
-- [数据库设计规范](../architecture/data-models.md)
-- [部署运维指南](../operations/deployment.md)
+### 运维文档
+- [部署配置指南](../operations/deployment/) - 环境配置和部署流程
+- [监控运维手册](../operations/monitoring/) - 系统监控和故障处理
