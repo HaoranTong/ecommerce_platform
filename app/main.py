@@ -74,7 +74,6 @@ app.include_router(
     tags=["用户认证"]
 )
 
-# 注册质量控制模块路由
 app.include_router(
     quality_control_router,
     prefix="/api/v1/quality-control",

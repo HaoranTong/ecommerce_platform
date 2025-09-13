@@ -1,213 +1,123 @@
 """
-文件名：product.py
-文件路径：app/models/product.py
-功能描述：商品和分类管理相关的数据模型定义
-主要功能：
-- Category分类模型：商品分类层级管理
-- Product商品模型：商品基础信息、价格、库存管理
-- Inventory库存模型：详细库存管理、预占机制
-- InventoryTransaction库存交易记录模型：库存变更日志
-- CartReservation购物车预占模型：临时库存锁定
-使用说明：
-- 导入：from app.models.product import Product, Category, Inventory, InventoryTransaction, CartReservation
-- 关系：Category与Product的一对多关系，Product与Inventory的一对一关系
-依赖模块：
-- app.models.base: 基础模型类和时间戳混合类
-- sqlalchemy: 数据库字段定义和关系映射
+商品目录模块数据模型
+
+根据 docs/modules/data-models/overview.md 文档规范实现
+符合数据库设计原则和字段命名标准
+
+主要模型:
+- Category: 商品分类层次结构管理
+- Product: 商品信息、库存和状态管理
 """
 
-from sqlalchemy import Column, String, Text, DECIMAL, Integer, Boolean, ForeignKey, Index, DateTime, Enum
+from sqlalchemy import Column, BigInteger, String, Text, DECIMAL, Integer, Boolean, DateTime, ForeignKey, Index, func
 from sqlalchemy.orm import relationship
-from app.models.base import BaseModel, TimestampMixin
-import enum
+
+# 从技术基础设施层导入统一的Base类
+from app.core.database import Base
+# 从共享组件层导入混入类
+from app.shared.models import TimestampMixin, SoftDeleteMixin, JSONType, ModelRegistry
 
 
-# 枚举定义
-class TransactionType(enum.Enum):
-    """库存交易类型枚举"""
-    IN = "in"           # 入库
-    OUT = "out"         # 出库
-    RESERVE = "reserve" # 预占
-    RELEASE = "release" # 释放
-    ADJUST = "adjust"   # 调整
-
-
-class ReferenceType(enum.Enum):
-    """关联类型枚举"""
-    PURCHASE = "purchase"     # 采购入库
-    SALE = "sale"            # 销售出库
-    CART = "cart"            # 购物车预占
-    ORDER = "order"          # 订单锁定
-    MANUAL = "manual"        # 手工调整
-    SYSTEM = "system"        # 系统调整
-
-
-class Category(BaseModel, TimestampMixin):
-    """商品分类模型"""
+@ModelRegistry.register
+class Category(Base):
+    """分类模型 - 管理商品分类层次结构
+    
+    根据数据模型文档规范实现，包含：
+    - BigInteger主键
+    - 层次结构支持（parent_id自引用）
+    - 排序支持（sort_order）
+    - 状态控制（is_active）
+    """
     __tablename__ = 'categories'
     
+    # 主键 - 使用BigInteger
+    id = Column(BigInteger, primary_key=True, index=True)
+    
+    # 分类基础信息
     name = Column(String(100), nullable=False)
-    parent_id = Column(Integer, ForeignKey('categories.id'), nullable=True)
+    
+    # 层次结构 - 自引用外键
+    parent_id = Column(BigInteger, ForeignKey('categories.id'), nullable=True)
+    
+    # 排序和状态
     sort_order = Column(Integer, default=0, nullable=False)
     is_active = Column(Boolean, default=True, nullable=False)
     
-    # 分类层级关系（暂时注释掉，避免循环引用问题）
-    # children = relationship("Category", backref="parent", remote_side=[id])
+    # 时间戳 - 仅创建时间（根据文档字段定义）
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
     
-    # 关系映射
+    # 关系定义
+    # 一对多：分类可以包含多个商品
     products = relationship("Product", back_populates="category")
     
+    # 自引用关系：父子分类
+    children = relationship("Category", backref="parent", remote_side=[id])
+    
     def __repr__(self):
-        return f"<Category(id={self.id}, name='{self.name}')>"
+        return f"<Category(id={self.id}, name='{self.name}', parent_id={self.parent_id})>"
 
 
-class Product(BaseModel, TimestampMixin):
-    """商品模型"""
+@ModelRegistry.register  
+class Product(Base, SoftDeleteMixin):
+    """商品模型 - 管理商品信息、库存和状态
+    
+    根据数据模型文档规范实现，包含：
+    - BigInteger主键
+    - SKU唯一性约束
+    - 灵活属性（JSON存储）
+    - 软删除支持
+    - 状态管理和索引优化
+    """
     __tablename__ = 'products'
     
-    # 基础信息
+    # 主键 - 使用BigInteger
+    id = Column(BigInteger, primary_key=True, index=True)
+    
+    # 商品基础信息
     name = Column(String(200), nullable=False)
-    sku = Column(String(100), unique=True, nullable=False, index=True)
+    sku = Column(String(100), unique=True, nullable=False)
     description = Column(Text, nullable=True)
     
     # 分类关联
-    category_id = Column(Integer, ForeignKey('categories.id'), nullable=True)
+    category_id = Column(BigInteger, ForeignKey('categories.id'), nullable=True)
     
     # 价格和库存
     price = Column(DECIMAL(10, 2), nullable=False, default=0.00)
     stock_quantity = Column(Integer, nullable=False, default=0)
     
-    # 商品状态
-    status = Column(String(20), nullable=False, default='active')  # active, inactive, out_of_stock
+    # 商品状态 - 枚举值: active, inactive, out_of_stock
+    status = Column(String(20), nullable=False, default='active')
     
     # 商品图片
-    image_url = Column(String(500), nullable=True)  # 主图URL
+    image_url = Column(String(500), nullable=True)
     
-    # 商品属性（JSON 存储，为后续扩展预留）
-    attributes = Column(Text, nullable=True)  # JSON string
-    images = Column(Text, nullable=True)      # JSON string of image URLs
+    # 商品属性 - 使用JSONType存储灵活属性
+    attributes = Column(JSONType, nullable=True)  # JSON格式: {"color":"钛原色","storage":"128GB"}
+    images = Column(JSONType, nullable=True)      # JSON格式: ["url1","url2","url3"]
     
-    # 关系映射
+    # 软删除字段由SoftDeleteMixin提供：
+    # - is_deleted: Boolean, default=False, nullable=False  
+    # - deleted_at: DateTime, nullable=True
+    
+    # 时间戳
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
+    
+    # 关系定义
+    # 多对一：商品属于一个分类
     category = relationship("Category", back_populates="products")
-    order_items = relationship("OrderItem", back_populates="product") 
-    cart_items = relationship("Cart", back_populates="product")
-    inventory = relationship("Inventory", back_populates="product", uselist=False)
+    # 一对多：商品可以出现在多个订单项中
+    order_items = relationship("OrderItem", back_populates="product")
     
-    # 索引优化
+    # 索引优化 - 根据文档规范使用 idx_{表名}_{字段名} 格式
     __table_args__ = (
-        Index('idx_category_status', 'category_id', 'status'),
-        Index('idx_status_created', 'status', 'created_at'),
-        Index('idx_sku', 'sku'),
+        Index('idx_products_category_status', 'category_id', 'status'),  # 分类状态复合索引
+        Index('idx_products_status_created', 'status', 'created_at'),    # 状态时间复合索引  
     )
     
     def __repr__(self):
-        return f"<Product(id={self.id}, name='{self.name}', sku='{self.sku}')>"
+        return f"<Product(id={self.id}, name='{self.name}', sku='{self.sku}', status='{self.status}')>"
 
 
-class Inventory(BaseModel, TimestampMixin):
-    """库存模型"""
-    __tablename__ = 'inventory'
-    
-    # 商品关联
-    product_id = Column(Integer, ForeignKey('products.id'), unique=True, nullable=False)
-    
-    # 库存数量
-    total_quantity = Column(Integer, nullable=False, default=0)        # 总库存
-    available_quantity = Column(Integer, nullable=False, default=0)    # 可用库存
-    reserved_quantity = Column(Integer, nullable=False, default=0)     # 预占库存
-    
-    # 预警设置
-    warning_threshold = Column(Integer, nullable=False, default=10)    # 低库存预警阈值
-    
-    # 关系定义
-    product = relationship("Product", back_populates="inventory")
-    
-    # 索引定义
-    __table_args__ = (
-        Index('idx_inventory_available_quantity', 'available_quantity'),
-        Index('idx_inventory_warning_threshold', 'warning_threshold'),
-    )
-    
-    @property
-    def is_low_stock(self):
-        """判断是否为低库存"""
-        return self.available_quantity <= self.warning_threshold
-    
-    @property
-    def is_out_of_stock(self):
-        """判断是否缺货"""
-        return self.available_quantity <= 0
-    
-    def __repr__(self):
-        return f"<Inventory(id={self.id}, product_id={self.product_id}, available={self.available_quantity})>"
-
-
-class InventoryTransaction(BaseModel, TimestampMixin):
-    """库存交易记录模型"""
-    __tablename__ = 'inventory_transactions'
-    
-    # 商品关联
-    product_id = Column(Integer, ForeignKey('products.id'), nullable=False)
-    
-    # 交易信息
-    transaction_type = Column(Enum(TransactionType), nullable=False)   # 交易类型
-    quantity = Column(Integer, nullable=False)                         # 变更数量(正数为增加，负数为减少)
-    
-    # 库存快照
-    before_quantity = Column(Integer, nullable=True)                   # 变更前数量
-    after_quantity = Column(Integer, nullable=True)                    # 变更后数量
-    
-    # 关联信息
-    reference_type = Column(Enum(ReferenceType), nullable=False)       # 关联类型
-    reference_id = Column(Integer, nullable=True)                      # 关联ID(订单ID、购物车ID等)
-    
-    # 操作信息
-    operator_id = Column(Integer, ForeignKey('users.id'), nullable=True)  # 操作员ID
-    remark = Column(Text, nullable=True)                               # 备注
-    
-    # 关系定义
-    product = relationship("Product")
-    operator = relationship("User")
-    
-    # 索引定义
-    __table_args__ = (
-        Index('idx_inventory_transactions_product_created', 'product_id', 'created_at'),
-        Index('idx_inventory_transactions_reference', 'reference_type', 'reference_id'),
-        Index('idx_inventory_transactions_created_at', 'created_at'),
-        Index('idx_inventory_transactions_type', 'transaction_type'),
-    )
-    
-    def __repr__(self):
-        return f"<InventoryTransaction(id={self.id}, product_id={self.product_id}, type={self.transaction_type})>"
-
-
-class CartReservation(BaseModel, TimestampMixin):
-    """购物车库存预占模型"""
-    __tablename__ = 'cart_reservations'
-    
-    # 用户和商品关联
-    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
-    product_id = Column(Integer, ForeignKey('products.id'), nullable=False)
-    
-    # 预占信息
-    quantity = Column(Integer, nullable=False)                         # 预占数量
-    expires_at = Column(DateTime, nullable=False)                      # 过期时间
-    status = Column(String(20), nullable=False, default='active')      # 状态: active, expired, consumed
-    
-    # 关联信息
-    cart_id = Column(Integer, nullable=True)                           # 购物车ID(可选)
-    order_id = Column(Integer, nullable=True)                          # 订单ID(转换为订单时填入)
-    
-    # 关系定义
-    user = relationship("User")
-    product = relationship("Product")
-    
-    # 索引定义
-    __table_args__ = (
-        Index('idx_cart_reservations_user_product', 'user_id', 'product_id'),
-        Index('idx_cart_reservations_expires', 'expires_at'),
-        Index('idx_cart_reservations_status', 'status'),
-    )
-    
-    def __repr__(self):
-        return f"<CartReservation(id={self.id}, user_id={self.user_id}, product_id={self.product_id})>"
+# 导出模型
+__all__ = ['Category', 'Product']

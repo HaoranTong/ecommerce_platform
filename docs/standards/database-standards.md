@@ -33,8 +33,10 @@
 ## 字段命名规范
 
 ### 主键字段
-- 统一使用：`id` (BIGINT AUTO_INCREMENT)
-- 类型：BIGINT，支持大数据量
+- **统一标准**：`id` (INTEGER AUTO_INCREMENT)
+- **类型说明**：INTEGER，支持21亿记录，满足大多数业务场景需求
+- **兼容性考虑**：确保在SQLite、PostgreSQL、MySQL等数据库中的一致性行为
+- **扩展策略**：超大规模数据采用分库分表，而非单表大主键策略
 
 ### 外键字段  
 - 格式：`{表名}_id`
@@ -60,9 +62,10 @@
 - 固定长度：`CHAR(n)`
 
 ### 数值类型  
-- 整数：`INT`, `BIGINT`
-- 金额：`DECIMAL(10,2)`
-- 百分比：`DECIMAL(5,2)`
+- **整数**：`INT`, `INTEGER` (主键使用INTEGER确保跨数据库兼容性)
+- **大整数**：`BIGINT` (仅在确需超过21亿记录的特殊场景使用)
+- **金额**：`DECIMAL(10,2)`
+- **百分比**：`DECIMAL(5,2)`
 
 ### 时间类型
 - 时间戳：`TIMESTAMP` (默认值 CURRENT_TIMESTAMP)

@@ -3,7 +3,7 @@
 """
 import os
 from datetime import datetime, timedelta
-from typing import Optional, Union
+from typing import Optional, Union, TYPE_CHECKING
 
 import jwt
 from jwt.exceptions import InvalidTokenError
@@ -12,8 +12,11 @@ from fastapi import HTTPException, status, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 
-from app.modules.user_auth.models import User
 from app.core.database import get_db
+
+# 使用TYPE_CHECKING避免循环导入
+if TYPE_CHECKING:
+    from app.modules.user_auth.models import User
 
 # JWT配置
 SECRET_KEY = os.getenv("JWT_SECRET_KEY", "your-secret-key-here-change-in-production")
@@ -81,8 +84,11 @@ def decode_token(token: str) -> dict:
         raise AuthenticationError("Invalid token")
 
 
-def authenticate_user(db: Session, username: str, password: str) -> Optional[User]:
+def authenticate_user(db: Session, username: str, password: str) -> Optional["User"]:
     """验证用户凭据，包含账户锁定逻辑"""
+    # 延迟导入避免循环导入
+    from app.modules.user_auth.models import User
+    
     user = db.query(User).filter(
         (User.username == username) | (User.email == username)
     ).first()
@@ -112,7 +118,7 @@ def authenticate_user(db: Session, username: str, password: str) -> Optional[Use
     return user
 
 
-def is_account_locked(user: User) -> bool:
+def is_account_locked(user: "User") -> bool:
     """检查账户是否被锁定"""
     if user.locked_until is None:
         return False
@@ -125,7 +131,7 @@ def is_account_locked(user: User) -> bool:
     return True
 
 
-def increment_failed_attempts(db: Session, user: User) -> None:
+def increment_failed_attempts(db: Session, user: "User") -> None:
     """增加登录失败次数，必要时锁定账户"""
     MAX_FAILED_ATTEMPTS = 5  # 最大失败次数
     LOCK_DURATION_MINUTES = 30  # 锁定时长（分钟）
@@ -153,7 +159,7 @@ def increment_failed_attempts(db: Session, user: User) -> None:
     db.commit()
 
 
-def reset_failed_attempts(db: Session, user: User) -> None:
+def reset_failed_attempts(db: Session, user: "User") -> None:
     """重置登录失败次数"""
     if user.failed_login_attempts > 0 or user.locked_until is not None:
         user.failed_login_attempts = 0
@@ -176,8 +182,11 @@ def reset_failed_attempts(db: Session, user: User) -> None:
 async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security),
     db: Session = Depends(get_db)
-) -> User:
+) -> "User":
     """获取当前用户（依赖注入）"""
+    # 延迟导入避免循环导入
+    from app.modules.user_auth.models import User
+    
     try:
         payload = decode_token(credentials.credentials)
         
@@ -209,14 +218,14 @@ async def get_current_user(
         raise AuthenticationError("Authentication failed")
 
 
-async def get_current_active_user(current_user: User = Depends(get_current_user)) -> User:
+async def get_current_active_user(current_user: "User" = Depends(get_current_user)) -> "User":
     """获取当前激活用户"""
     if not current_user.is_active:
         raise AuthenticationError("User account is disabled")
     return current_user
 
 
-async def get_current_admin_user(current_user: User = Depends(get_current_active_user)) -> User:
+async def get_current_admin_user(current_user: "User" = Depends(get_current_active_user)) -> "User":
     """获取当前管理员用户（权限检查）"""
     if current_user.role not in ['admin', 'super_admin']:
         raise HTTPException(
@@ -226,7 +235,7 @@ async def get_current_admin_user(current_user: User = Depends(get_current_active
     return current_user
 
 
-async def get_current_super_admin_user(current_user: User = Depends(get_current_active_user)) -> User:
+async def get_current_super_admin_user(current_user: "User" = Depends(get_current_active_user)) -> "User":
     """获取当前超级管理员用户（最高权限检查）"""
     if current_user.role != 'super_admin':
         raise HTTPException(
@@ -239,7 +248,7 @@ async def get_current_super_admin_user(current_user: User = Depends(get_current_
 def get_optional_current_user(
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
     db: Session = Depends(get_db)
-) -> Optional[User]:
+) -> Optional["User"]:
     """获取可选的当前用户（用于可选认证的端点）"""
     if not credentials:
         return None
@@ -250,7 +259,7 @@ def get_optional_current_user(
         return None
 
 
-def require_ownership(resource_user_id: int, current_user: User) -> bool:
+def require_ownership(resource_user_id: int, current_user: "User") -> bool:
     """检查资源所有权（用户只能操作自己的资源）"""
     if current_user.role in ['admin', 'super_admin']:
         return True  # 管理员可以操作所有资源
@@ -258,7 +267,7 @@ def require_ownership(resource_user_id: int, current_user: User) -> bool:
     return resource_user_id == current_user.id
 
 
-def check_resource_ownership(resource_user_id: int, current_user: User = Depends(get_current_active_user)):
+def check_resource_ownership(resource_user_id: int, current_user: "User" = Depends(get_current_active_user)):
     """资源所有权检查依赖"""
     if not require_ownership(resource_user_id, current_user):
         raise HTTPException(

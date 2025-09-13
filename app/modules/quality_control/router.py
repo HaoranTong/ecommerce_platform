@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 from typing import List
 
 from app.core.database import get_db
-from app.shared.models import Certificate
+from .models import Certificate
 from .schemas import CertificateRead, CertificateCreate
 
 router = APIRouter()
