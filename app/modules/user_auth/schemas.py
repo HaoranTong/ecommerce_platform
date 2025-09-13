@@ -18,7 +18,7 @@
 from pydantic import BaseModel, Field, field_validator
 from typing import Optional
 from datetime import datetime
-from app.schemas.base import BaseSchema, TimestampSchema
+from app.shared.base_schemas import BaseSchema, TimestampSchema
 
 
 class UserRegister(BaseSchema):
@@ -27,6 +27,7 @@ class UserRegister(BaseSchema):
     email: str = Field(..., pattern=r'^[^\s@]+@[^\s@]+\.[^\s@]+$', description="邮箱地址")
     password: str = Field(..., min_length=6, max_length=128, description="密码")
     phone: Optional[str] = Field(None, pattern=r'^1[3-9]\d{9}$', description="手机号")
+    verification_code: str = Field(..., min_length=6, max_length=6, description="验证码")
     real_name: Optional[str] = Field(None, max_length=100, description="真实姓名")
     
     @field_validator('username')
@@ -82,9 +83,14 @@ class UserRead(TimestampSchema):
     phone: Optional[str] = None
     real_name: Optional[str] = None
     role: str
+    status: str  # 新增status字段
     is_active: bool
+    email_verified: bool = False  # 新增邮箱验证状态
+    phone_verified: bool = False  # 新增手机验证状态
+    two_factor_enabled: bool = False  # 新增MFA状态
     wx_openid: Optional[str] = None
     wx_unionid: Optional[str] = None
+    last_login_at: Optional[datetime] = None  # 新增最后登录时间
 
 
 class UserProfile(UserRead):

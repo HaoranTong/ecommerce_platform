@@ -21,7 +21,7 @@ from contextlib import asynccontextmanager
 import os
 
 # Redis连接管理
-from app.redis_client import close_redis_connection
+from app.core.redis_client import close_redis_connection
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -63,9 +63,24 @@ async def health():
     """健康检查接口"""
     return {"status": "ok", "message": "服务运行正常"}
 
-# 注册模块化路由
-from app.api.main_routes import router as main_router
-app.include_router(main_router)
+# 注册模块化路由 - 按照模块化单体架构直接注册各模块路由
+from app.modules.user_auth.router import router as user_auth_router
+from app.modules.quality_control.router import router as quality_control_router
 
-# 如果需要保持与旧版本的兼容性，可以保留部分原有路由
-# 但推荐完全迁移到新的模块化架构
+# 注册用户认证模块路由，使用正确的API路径标准
+app.include_router(
+    user_auth_router, 
+    prefix="/api/v1/user-auth", 
+    tags=["用户认证"]
+)
+
+# 注册质量控制模块路由
+app.include_router(
+    quality_control_router,
+    prefix="/api/v1/quality-control",
+    tags=["质量控制"]
+)
+
+# TODO: 其他模块路由按需添加
+# from app.modules.product_catalog.router import router as product_router
+# app.include_router(product_router, prefix="/api/v1/product-catalog", tags=["商品管理"])

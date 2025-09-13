@@ -8,9 +8,9 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 
-from app.database import get_db
-from app.data_models import User
-from app.auth import (
+from app.core.database import get_db
+from app.modules.user_auth.models import User
+from app.core.auth import (
     authenticate_user, 
     create_access_token, 
     create_refresh_token,
@@ -21,7 +21,7 @@ from app.auth import (
     AuthenticationError,
     ACCESS_TOKEN_EXPIRE_MINUTES
 )
-from app.api.schemas import (
+from app.modules.user_auth.schemas import (
     UserRegister,
     UserLogin, 
     UserRead,
@@ -34,7 +34,7 @@ from app.api.schemas import (
 router = APIRouter()
 
 
-@router.post("/auth/register", response_model=UserRead, status_code=status.HTTP_201_CREATED)
+@router.post("/register", response_model=UserRead, status_code=status.HTTP_201_CREATED)
 async def register_user(
     user_data: UserRegister,
     db: Session = Depends(get_db)
@@ -85,20 +85,66 @@ async def register_user(
         )
 
 
-@router.post("/auth/login", response_model=Token)
+@router.post("/login", response_model=Token)
 async def login_user(
     user_credentials: UserLogin,
     db: Session = Depends(get_db)
 ):
     """用户登录"""
-    user = authenticate_user(db, user_credentials.username, user_credentials.password)
-    
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username or password",
-            headers={"WWW-Authenticate": "Bearer"},
+    try:
+        user = authenticate_user(db, user_credentials.username, user_credentials.password)
+        
+        if not user:
+            # 记录登录失败事件（用户名不存在或密码错误）
+            from app.core.security_logger import log_security_event
+            log_security_event(
+                event_type="login_failed",
+                message="Login failed - invalid credentials",
+                user_data={
+                    "username": user_credentials.username,
+                    "reason": "invalid_credentials"
+                }
+            )
+            
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Incorrect username or password",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        
+        # 创建访问令牌和刷新令牌
+        access_token = create_access_token(data={"sub": str(user.id)})
+        refresh_token = create_refresh_token(data={"sub": str(user.id)})
+        
+        return {
+            "access_token": access_token,
+            "refresh_token": refresh_token,
+            "token_type": "bearer",
+            "expires_in": ACCESS_TOKEN_EXPIRE_MINUTES * 60
+        }
+        
+    except AuthenticationError as e:
+        # 处理账户锁定等认证错误
+        from app.core.security_logger import log_security_event
+        log_security_event(
+            event_type="login_failed",
+            message=f"Login failed - {str(e)}",
+            user_data={
+                "username": user_credentials.username,
+                "reason": "authentication_error"
+            }
         )
+        
+        if "locked" in str(e).lower():
+            raise HTTPException(
+                status_code=status.HTTP_423_LOCKED,
+                detail=str(e)
+            )
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail=str(e)
+            )
     
     # 创建访问令牌和刷新令牌
     access_token = create_access_token(data={"sub": str(user.id)})
@@ -112,7 +158,7 @@ async def login_user(
     }
 
 
-@router.post("/auth/refresh", response_model=Token)
+@router.post("/refresh", response_model=Token)
 async def refresh_token(
     token_data: TokenRefresh,
     db: Session = Depends(get_db)
@@ -153,7 +199,7 @@ async def refresh_token(
         )
 
 
-@router.get("/auth/me", response_model=UserRead)
+@router.get("/me", response_model=UserRead)
 async def get_current_user_info(
     current_user: User = Depends(get_current_active_user)
 ):
@@ -161,7 +207,7 @@ async def get_current_user_info(
     return current_user
 
 
-@router.put("/auth/me", response_model=UserRead)
+@router.put("/me", response_model=UserRead)
 async def update_current_user(
     user_update: UserUpdate,
     current_user: User = Depends(get_current_active_user),
@@ -198,7 +244,7 @@ async def update_current_user(
         )
 
 
-@router.put("/users/password")
+@router.put("/password")
 async def change_password(
     password_data: UserChangePassword,
     current_user: User = Depends(get_current_active_user),
@@ -206,7 +252,7 @@ async def change_password(
 ):
     """修改密码"""
     # 验证旧密码
-    from app.auth import verify_password
+    from app.core.auth import verify_password
     if not verify_password(password_data.old_password, current_user.password_hash):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -227,7 +273,7 @@ async def change_password(
         )
 
 
-@router.post("/auth/logout")
+@router.post("/logout")
 async def logout_user(
     current_user: User = Depends(get_current_active_user)
 ):
@@ -238,7 +284,7 @@ async def logout_user(
 
 
 # 管理员相关路由（可选）
-@router.get("/auth/users", response_model=list[UserRead])
+@router.get("/users", response_model=list[UserRead])
 async def list_users(
     skip: int = 0,
     limit: int = 100,
@@ -252,7 +298,7 @@ async def list_users(
     return users
 
 
-@router.get("/auth/users/{user_id}", response_model=UserRead)
+@router.get("/users/{user_id}", response_model=UserRead)
 async def get_user_by_id(
     user_id: int,
     current_user: User = Depends(get_current_active_user),
