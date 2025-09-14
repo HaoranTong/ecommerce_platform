@@ -140,15 +140,49 @@
       "properties": {
         "product_id": {"type": "integer"},
         "name": {"type": "string", "maxLength": 200},
-        "sku": {"type": "string", "maxLength": 100},
+        "description": {"type": "string"},
+        "brand_id": {"type": "integer"},
         "category_id": {"type": "integer"},
-        "price": {"type": "number", "minimum": 0},
-        "stock_quantity": {"type": "integer", "minimum": 0},
-        "status": {"type": "string", "enum": ["active", "inactive"]},
+        "status": {"type": "string", "enum": ["draft", "published", "archived"]},
         "created_by": {"type": "integer"},
         "created_at": {"type": "string", "format": "date-time"}
       },
-      "required": ["product_id", "name", "sku", "category_id", "price", "stock_quantity", "status", "created_by", "created_at"]
+      "required": ["product_id", "name", "category_id", "status", "created_by", "created_at"]
+    }
+  },
+  "required": ["event_id", "event_type", "version", "timestamp", "correlation_id", "data"]
+}
+```
+
+#### SKU.Created.v1
+```json
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "title": "SKU创建事件",
+  "properties": {
+    "event_id": {"type": "string", "format": "uuid"},
+    "event_type": {"type": "string", "const": "SKU.Created"},
+    "version": {"type": "string", "const": "1"},
+    "timestamp": {"type": "string", "format": "date-time"},
+    "correlation_id": {"type": "string", "format": "uuid"},
+    "data": {
+      "type": "object",
+      "properties": {
+        "sku_id": {"type": "integer"},
+        "product_id": {"type": "integer"},
+        "sku_code": {"type": "string", "maxLength": 100},
+        "name": {"type": "string", "maxLength": 200},
+        "price": {"type": "number", "minimum": 0},
+        "cost_price": {"type": "number", "minimum": 0},
+        "market_price": {"type": "number", "minimum": 0},
+        "weight": {"type": "number", "minimum": 0},
+        "volume": {"type": "number", "minimum": 0},
+        "is_active": {"type": "boolean"},
+        "created_by": {"type": "integer"},
+        "created_at": {"type": "string", "format": "date-time"}
+      },
+      "required": ["sku_id", "product_id", "sku_code", "name", "price", "is_active", "created_by", "created_at"]
     }
   },
   "required": ["event_id", "event_type", "version", "timestamp", "correlation_id", "data"]
@@ -183,11 +217,15 @@
             "type": "object",
             "properties": {
               "product_id": {"type": "integer"},
+              "sku_id": {"type": "integer"},
+              "sku_code": {"type": "string"},
+              "product_name": {"type": "string"},
+              "sku_name": {"type": "string"},
               "quantity": {"type": "integer", "minimum": 1},
               "unit_price": {"type": "number", "minimum": 0},
               "subtotal": {"type": "number", "minimum": 0}
             },
-            "required": ["product_id", "quantity", "unit_price", "subtotal"]
+            "required": ["product_id", "sku_id", "sku_code", "product_name", "sku_name", "quantity", "unit_price", "subtotal"]
           }
         },
         "shipping_address": {

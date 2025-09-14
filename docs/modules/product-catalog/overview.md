@@ -78,11 +78,11 @@ app/adapters/
 ```sql
 -- 商品表
 CREATE TABLE products (
-    id UUID PRIMARY KEY,
+    id INTEGER PRIMARY KEY AUTO_INCREMENT,
     name VARCHAR(200) NOT NULL,
     description TEXT,
-    brand_id UUID REFERENCES brands(id),
-    category_id UUID REFERENCES categories(id),
+    brand_id INTEGER REFERENCES brands(id),
+    category_id INTEGER REFERENCES categories(id),
     status VARCHAR(20) NOT NULL DEFAULT 'draft',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
@@ -97,11 +97,11 @@ CREATE TABLE products (
 
 -- 分类表
 CREATE TABLE categories (
-    id UUID PRIMARY KEY,
+    id INTEGER PRIMARY KEY AUTO_INCREMENT,
     name VARCHAR(100) NOT NULL,
     slug VARCHAR(100) UNIQUE NOT NULL,
     description TEXT,
-    parent_id UUID REFERENCES categories(id),
+    parent_id INTEGER REFERENCES categories(id),
     level INTEGER NOT NULL DEFAULT 1,
     path VARCHAR(500) NOT NULL, -- 层级路径 /1/2/3
     sort_order INTEGER DEFAULT 0,
@@ -112,8 +112,8 @@ CREATE TABLE categories (
 
 -- SKU表
 CREATE TABLE skus (
-    id UUID PRIMARY KEY,
-    product_id UUID REFERENCES products(id) ON DELETE CASCADE,
+    id INTEGER PRIMARY KEY AUTO_INCREMENT,
+    product_id INTEGER REFERENCES products(id) ON DELETE CASCADE,
     sku_code VARCHAR(100) UNIQUE NOT NULL,
     name VARCHAR(200),
     price DECIMAL(10,2) NOT NULL,
@@ -128,7 +128,7 @@ CREATE TABLE skus (
 
 -- 品牌表
 CREATE TABLE brands (
-    id UUID PRIMARY KEY,
+    id INTEGER PRIMARY KEY AUTO_INCREMENT,
     name VARCHAR(100) UNIQUE NOT NULL,
     slug VARCHAR(100) UNIQUE NOT NULL,
     description TEXT,
@@ -140,8 +140,8 @@ CREATE TABLE brands (
 
 -- 商品属性表
 CREATE TABLE product_attributes (
-    id UUID PRIMARY KEY,
-    product_id UUID REFERENCES products(id) ON DELETE CASCADE,
+    id INTEGER PRIMARY KEY AUTO_INCREMENT,
+    product_id INTEGER REFERENCES products(id) ON DELETE CASCADE,
     attribute_name VARCHAR(100) NOT NULL,
     attribute_value VARCHAR(500) NOT NULL,
     attribute_type VARCHAR(20) NOT NULL, -- 'text', 'number', 'boolean', 'select'
@@ -151,8 +151,8 @@ CREATE TABLE product_attributes (
 
 -- SKU属性表 (颜色、尺寸等)
 CREATE TABLE sku_attributes (
-    id UUID PRIMARY KEY,
-    sku_id UUID REFERENCES skus(id) ON DELETE CASCADE,
+    id INTEGER PRIMARY KEY AUTO_INCREMENT,
+    sku_id INTEGER REFERENCES skus(id) ON DELETE CASCADE,
     attribute_name VARCHAR(100) NOT NULL,
     attribute_value VARCHAR(200) NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
@@ -162,9 +162,9 @@ CREATE TABLE sku_attributes (
 
 -- 商品图片表
 CREATE TABLE product_images (
-    id UUID PRIMARY KEY,
-    product_id UUID REFERENCES products(id) ON DELETE CASCADE,
-    sku_id UUID REFERENCES skus(id) ON DELETE CASCADE,
+    id INTEGER PRIMARY KEY AUTO_INCREMENT,
+    product_id INTEGER REFERENCES products(id) ON DELETE CASCADE,
+    sku_id INTEGER REFERENCES skus(id) ON DELETE CASCADE,
     image_url VARCHAR(500) NOT NULL,
     alt_text VARCHAR(200),
     sort_order INTEGER DEFAULT 0,
@@ -174,8 +174,8 @@ CREATE TABLE product_images (
 
 -- 商品标签表
 CREATE TABLE product_tags (
-    id UUID PRIMARY KEY,
-    product_id UUID REFERENCES products(id) ON DELETE CASCADE,
+    id INTEGER PRIMARY KEY AUTO_INCREMENT,
+    product_id INTEGER REFERENCES products(id) ON DELETE CASCADE,
     tag_name VARCHAR(50) NOT NULL,
     tag_type VARCHAR(20) DEFAULT 'general', -- 'general', 'promotion', 'feature'
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
