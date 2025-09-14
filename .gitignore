@@ -42,6 +42,13 @@ var/
 
 # MySQL / DB
 *.sqlite3
+*.sqlite
+# 测试数据库文件
+tests/smoke_test.db
+tests/**/*.db
+tests/**/*.sqlite3
+**/test.db
+smoke_test.db
 
 # env files
 .env
