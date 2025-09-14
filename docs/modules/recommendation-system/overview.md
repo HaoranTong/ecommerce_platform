@@ -35,14 +35,23 @@
 ### 核心组件
 
 ```
-recommendation/
-├── controllers/
-│   ├── recommendation_controller.py  # 推荐控制器
-│   ├── search_controller.py          # 搜索控制器
-│   ├── analytics_controller.py       # 分析控制器
-│   └── experiment_controller.py      # 实验控制器
-├── services/
-│   ├── recommendation_service.py     # 推荐业务逻辑
+recommendation_system/
+├── router.py           # API路由定义
+├── service.py          # 推荐业务逻辑
+├── models.py           # 推荐数据模型(UserProfile, Recommendation)
+├── schemas.py          # 请求/响应数据模型
+├── dependencies.py     # 模块依赖注入
+└── utils.py            # 推荐工具函数(算法、实验、分析)
+```
+
+### 集成的适配器
+```
+app/adapters/
+├── ai/                 # AI服务适配器
+│   ├── recommendation_adapter.py
+│   └── vector_db_adapter.py
+└── analytics/          # 数据分析适配器
+    └── behavior_tracker.py
 │   ├── ranking_service.py            # 排序服务
 │   ├── feature_service.py            # 特征服务
 │   ├── model_service.py              # 模型服务

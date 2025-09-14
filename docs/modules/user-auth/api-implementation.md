@@ -2,7 +2,17 @@
 
 ## 模块概述
 
-用户API路由模块 (`app/api/user_routes.py`) 是电商平台用户管理的REST API接口层，提供用户注册、登录、信息管理、密码管理等完整的用户生命周期管理功能，集成JWT认证和权限控制。
+用户API路由模块 (`app/modules/user_auth/router.py`) 是电商平台用户管理的REST API接口层，采用模块化单体架构提供用户注册、登录、信息管理、密码管理等完整的用户生命周期管理功能，集成JWT认证和权限控制。
+
+### 模块架构结构
+```
+app/modules/user_auth/
+├── router.py           # API路由定义（本文档重点）
+├── service.py          # 业务逻辑处理
+├── schemas.py          # API数据传输对象
+├── dependencies.py     # 依赖注入配置
+└── models.py           # 用户数据模型
+```
 
 ### 主要功能
 
@@ -46,13 +56,13 @@ graph TB
     S --> V[Data Validation]
     D --> M[User Model]
     
-    R --> E1[/auth/register]
-    R --> E2[/auth/login]
-    R --> E3[/auth/refresh]
-    R --> E4[/auth/me]
-    R --> E5[/auth/logout]
-    R --> E6[/auth/change-password]
-    R --> E7[/auth/users]
+    R --> E1[/api/auth/register]
+    R --> E2[/api/auth/login]
+    R --> E3[/api/auth/refresh]
+    R --> E4[/api/auth/me]
+    R --> E5[/api/auth/logout]
+    R --> E6[/api/auth/change-password]
+    R --> E7[/api/auth/users]
 ```
 
 ### 认证流程
@@ -65,14 +75,14 @@ sequenceDiagram
     participant D as Database
     
     Note over C,D: 用户注册流程
-    C->>R: POST /auth/register
+    C->>R: POST /api/auth/register
     R->>D: 检查用户名/邮箱
     R->>A: 密码哈希
     R->>D: 创建用户
     R-->>C: 返回用户信息
     
     Note over C,D: 用户登录流程
-    C->>R: POST /auth/login
+    C->>R: POST /api/auth/login
     R->>A: 验证用户凭据
     A->>D: 查询用户
     A->>A: 验证密码
@@ -80,7 +90,7 @@ sequenceDiagram
     R-->>C: 返回令牌
     
     Note over C,D: 访问保护资源
-    C->>R: GET /auth/me (with JWT)
+    C->>R: GET /api/auth/me (with JWT)
     R->>A: 验证令牌
     A->>D: 查询用户
     R-->>C: 返回用户信息
@@ -104,18 +114,18 @@ app/api/user_routes.py
 ### 路由分组
 
 #### 1. 认证相关路由
-- `/auth/register` - 用户注册
-- `/auth/login` - 用户登录
-- `/auth/refresh` - 令牌刷新
-- `/auth/logout` - 用户登出
+- `/api/auth/register` - 用户注册
+- `/api/auth/login` - 用户登录
+- `/api/auth/refresh` - 令牌刷新
+- `/api/auth/logout` - 用户登出
 
 #### 2. 用户资料路由
-- `/auth/me` - 获取/更新当前用户信息
-- `/auth/change-password` - 修改密码
+- `/api/auth/me` - 获取/更新当前用户信息
+- `/api/auth/change-password` - 修改密码
 
 #### 3. 管理员路由
-- `/auth/users` - 用户列表
-- `/auth/users/{user_id}` - 用户详情
+- `/api/auth/users` - 用户列表
+- `/api/auth/users/{user_id}` - 用户详情
 
 ## API接口文档
 
@@ -143,6 +153,7 @@ app/api/user_routes.py
   "real_name": "John Doe",
   "phone": "13800138000",
   "is_active": true,
+  "role": "user",
   "created_at": "2025-09-11T10:00:00",
   "updated_at": "2025-09-11T10:00:00"
 }
@@ -228,6 +239,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
   "real_name": "John Doe",
   "phone": "13800138000",
   "is_active": true,
+  "role": "user",
   "created_at": "2025-09-11T10:00:00",
   "updated_at": "2025-09-11T10:00:00"
 }
@@ -263,6 +275,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
   "real_name": "John Smith",
   "phone": "13900139000",
   "is_active": true,
+  "role": "user",
   "created_at": "2025-09-11T10:00:00",
   "updated_at": "2025-09-11T10:30:00"
 }
@@ -346,6 +359,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
     "email": "john@example.com",
     "real_name": "John Doe",
     "is_active": true,
+    "role": "user",
     "created_at": "2025-09-11T10:00:00"
   },
   {
@@ -354,6 +368,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
     "email": "jane@example.com",
     "real_name": "Jane Smith",
     "is_active": true,
+    "role": "admin",
     "created_at": "2025-09-11T11:00:00"
   }
 ]
@@ -385,6 +400,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
   "real_name": "John Doe",
   "phone": "13800138000",
   "is_active": true,
+  "role": "user",
   "wx_openid": null,
   "wx_unionid": null,
   "created_at": "2025-09-11T10:00:00",
@@ -397,6 +413,108 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 - `401`: 未认证
 - `403`: 权限不足
 - `404`: 用户不存在
+
+## 权限体系实现
+
+### 角色定义
+
+本模块实现基于角色的权限控制（RBAC），通过User模型的`role`字段定义用户权限级别：
+
+#### 角色类型
+- **`user`** - 普通用户 (默认)
+  - 只能访问和操作自己的数据
+  - 可以查看和修改个人信息
+  - 可以创建和管理自己的订单、购物车等
+
+- **`admin`** - 管理员
+  - 拥有所有普通用户权限
+  - 可以查看和管理所有用户的订单
+  - 可以管理商品目录（增删改查）
+  - 可以查看用户列表和详情
+
+- **`super_admin`** - 超级管理员
+  - 拥有所有管理员权限  
+  - 可以管理用户角色（提升/降级权限）
+  - 可以访问系统级管理功能
+  - 拥有最高权限
+
+### 权限检查机制
+
+#### 认证依赖函数
+
+```python
+# 基础用户认证 - 验证token有效性
+def get_current_active_user(token: str = Depends(oauth2_scheme)):
+    """验证并返回当前活跃用户，适用于需要用户登录的操作"""
+    
+# 管理员权限认证 - 验证管理员角色
+def get_current_admin_user(current_user: User = Depends(get_current_active_user)):
+    """验证当前用户是否为管理员，用于管理功能"""
+    if current_user.role not in ['admin', 'super_admin']:
+        raise HTTPException(403, "需要管理员权限")
+    return current_user
+
+# 所有权验证 - 检查资源所有权
+def require_ownership(resource_user_id: int, current_user: User) -> bool:
+    """检查用户是否有权访问特定资源"""
+    # 管理员可以访问所有资源
+    if current_user.role in ['admin', 'super_admin']:
+        return True
+    # 普通用户只能访问自己的资源
+    return resource_user_id == current_user.id
+```
+
+#### 权限验证流程
+
+```mermaid
+graph TD
+    A[API请求] --> B[Token验证]
+    B --> C{Token有效?}
+    C -->|否| D[返回401]
+    C -->|是| E[获取用户信息]
+    E --> F{需要管理员权限?}
+    F -->|是| G{用户是管理员?}
+    F -->|否| H[检查资源所有权]
+    G -->|否| I[返回403]
+    G -->|是| J[允许访问]
+    H --> K{拥有资源?}
+    K -->|否| I
+    K -->|是| J
+```
+
+### 数据模型中的角色字段
+
+在User模型中，role字段的实现细节：
+
+```python
+class User(SQLAlchemyBase):
+    # ... 其他字段
+    role: Mapped[str] = mapped_column(
+        String(20), 
+        default="user",  # 默认为普通用户
+        nullable=False
+    )
+    
+    # 角色验证约束
+    __table_args__ = (
+        CheckConstraint(
+            "role IN ('user', 'admin', 'super_admin')",
+            name='valid_role_check'
+        ),
+    )
+```
+
+### API端点权限矩阵
+
+| API端点 | 匿名用户 | 普通用户 | 管理员 | 超级管理员 | 说明 |
+|---------|---------|---------|--------|------------|------|
+| `POST /api/auth/register` | ✅ | ✅ | ✅ | ✅ | 用户注册 |
+| `POST /api/auth/login` | ✅ | ✅ | ✅ | ✅ | 用户登录 |
+| `GET /api/auth/me` | ❌ | ✅ | ✅ | ✅ | 获取个人信息 |
+| `PUT /api/auth/me` | ❌ | ✅ | ✅ | ✅ | 更新个人信息 |
+| `POST /api/auth/change-password` | ❌ | ✅ | ✅ | ✅ | 修改密码 |
+| `GET /api/auth/users` | ❌ | ❌ | ✅ | ✅ | 用户列表 |
+| `GET /api/auth/users/{id}` | ❌ | ❌ | ✅ | ✅ | 用户详情 |
 
 ## 数据模型
 
@@ -444,6 +562,7 @@ class UserRead(BaseModel):
     real_name: Optional[str]
     phone: Optional[str]
     is_active: bool
+    role: str  # 用户角色：'user', 'admin', 'super_admin'
     created_at: datetime
     updated_at: datetime
     
@@ -693,7 +812,7 @@ def validate_password_strength(password: str) -> bool:
     return sum([has_upper, has_lower, has_digit, has_special]) >= 3
 
 # 密码策略中间件
-@router.post("/auth/register")
+@router.post("/api/auth/register")
 async def register_user(user_data: UserRegister, db: Session = Depends(get_db)):
     if not validate_password_strength(user_data.password):
         raise HTTPException(
@@ -731,7 +850,7 @@ def check_rate_limit(identifier: str, max_attempts: int = 5, window_minutes: int
     login_attempts[identifier].append(now)
     return True
 
-@router.post("/auth/login")
+@router.post("/api/auth/login")
 async def login_user(user_data: UserLogin, db: Session = Depends(get_db)):
     # 检查频率限制
     if not check_rate_limit(user_data.username):
@@ -778,7 +897,7 @@ class UserRegister(BaseModel):
 
 ```python
 # 优化用户查询
-@router.get("/auth/users")
+@router.get("/api/auth/users")
 async def list_users(
     skip: int = 0,
     limit: int = 100,
@@ -833,7 +952,7 @@ async def cache_user_info(user: User, ttl: int = 300):
         json.dumps(user_data)
     )
 
-@router.get("/auth/me")
+@router.get("/api/auth/me")
 async def get_current_user_info(current_user: User = Depends(get_current_user)):
     # 尝试从缓存获取
     cached_user = await get_user_from_cache(current_user.id)
@@ -872,7 +991,7 @@ async def user_api_exception_handler(request, exc: UserAPIException):
     )
 
 # 使用示例
-@router.post("/auth/register")
+@router.post("/api/auth/register")
 async def register_user(user_data: UserRegister, db: Session = Depends(get_db)):
     try:
         # 检查用户名是否已存在
@@ -1050,5 +1169,5 @@ def test_complete_user_flow():
 
 - [用户认证模块](../authentication/overview.md)
 - [API数据模型Schema](../schemas/overview.md)
-- [JWT认证文档](../../api/standards.md#认证机制)
+- [JWT认证文档](../../api/api-design-standards.md#认证机制)
 - [FastAPI路由文档](https://fastapi.tiangolo.com/tutorial/bigger-applications/)

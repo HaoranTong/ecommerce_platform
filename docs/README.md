@@ -1,73 +1,86 @@
-# 该目录的定制化电商平台的文档中心
+# 项目文档中心
 
-项目的技术文档和开发指南。
+电商平台技术文档导航，包含架构设计、API规范、开发指南等核心文档。
 
-## � 文档结构
+## 📁 目录结构
 
-### 📋 需求文档
-- [业务需求](requirements/business.md) - 项目目标和业务逻辑
-- [功能需求](requirements/functional.md) - 具体功能说明
-- [非功能需求](requirements/non-functional.md) - 性能、安全要求
+```
+docs/
+├── 📐 architecture/         # 系统架构设计
+│   ├── overview.md          # 架构总览和设计原则
+│   ├── data-models.md       # 数据库设计规范
+│   ├── security.md          # 安全架构设计
+│   ├── event-driven.md      # 事件驱动架构
+│   └── integration.md       # 第三方集成方案
 
-### 🏗️ 系统架构
-- [架构概览](architecture/overview.md) - 技术架构设计
-- [数据模型](architecture/data-models.md) - 数据库设计
-- [安全架构](architecture/security.md) - 安全设计
-- [事件驱动](architecture/event-driven.md) - 事件驱动架构
-- [集成架构](architecture/integration.md) - 系统集成设计
-
-### 📡 API接口
-- [API文档中心](api/README.md) - API文档导航
-- [API设计标准](api/standards.md) - 接口设计规范
-- [OpenAPI规范](api/openapi.yaml) - 完整API规范
-- [购物车API](api/modules/cart/api-spec.md) - 购物车接口
-
-### 🔧 功能模块
-- [用户认证](modules/user-auth/overview.md) - 登录注册功能
-- [购物车](modules/shopping-cart/overview.md) - 购物车功能
-- [商品管理](modules/product-catalog/overview.md) - 商品管理
-- [订单管理](modules/order-management/overview.md) - 订单处理
-- [支付系统](modules/payment-service/overview.md) - 支付集成
-
-### 🛠️ 开发指南
-- [编码标准](development/standards.md) - 代码规范
-- [测试指南](development/testing.md) - 测试方法
-- [开发工具](development/tools.md) - 工具配置
-
-### 🚀 运维部署
-- [部署指南](operations/deployment.md) - 部署流程
-- [环境配置](operations/environment.md) - 环境变量
-
-### 📊 项目状态
-- [里程碑](status/milestones.md) - 项目进度
-- [当前Sprint](status/current-sprint.md) - 当前工作
-- [问题跟踪](status/issues-tracking.md) - 问题管理
-
-## � 快速开始
-
-**开发人员**:
-1. 阅读 [架构概览](architecture/overview.md)
-2. 查看 [编码标准](development/standards.md)
-3. 了解相关的[功能模块](modules/)
-
-**运维人员**:
-1. 查看 [部署指南](operations/deployment.md)
-2. 配置 [环境变量](operations/environment.md)
-
-## 📈 项目状态
-
-- **进度**: 40% (核心功能开发中)
-- **当前工作**: 购物车和订单管理
-- **文档数量**: 60+ 个
-
-## 🔧 脚本工具
-
-```powershell
-# 检查文档状态
-.\scripts\check_docs.ps1
-
-# 设置环境
-.\scripts\sync_env.ps1 -Action create
+├── 📦 modules/              # 功能模块文档
+│   ├── README.md            # 模块总览索引
+│   ├── user-auth/           # 用户认证模块
+│   ├── product-catalog/     # 商品管理模块
+│   ├── shopping-cart/       # 购物车模块
+│   ├── order-management/    # 订单管理模块
+│   ├── payment-service/     # 支付服务模块
+│   ├── quality-control/     # 质量控制模块
+│   ├── batch-traceability/  # 批次溯源模块
+│   ├── logistics-management/ # 物流管理模块
+│   ├── member-system/       # 会员系统模块
+│   ├── distributor-management/ # 分销商管理模块
+│   ├── marketing-campaigns/ # 营销活动模块
+│   ├── social-features/     # 社交功能模块
+│   ├── inventory-management/ # 库存管理模块
+│   ├── notification-service/ # 通知服务模块
+│   ├── supplier-management/ # 供应商管理模块
+│   ├── recommendation-system/ # 推荐系统模块
+│   ├── customer-service-system/ # 客服系统模块
+│   ├── risk-control-system/ # 风控系统模块
+│   ├── data-analytics-platform/ # 数据分析模块
+│   ├── application-core/    # 应用核心模块
+│   ├── database-core/       # 数据库核心模块
+│   ├── base-models/         # 基础模型模块
+│   ├── redis-cache/         # Redis缓存模块
+│   └── database-utils/      # 数据库工具模块
+├── 💻 development/          # 开发环境指南
+│   ├── README.md            # 开发指南导航
+│   └── tools.md             # 开发工具配置
+├── 🚀 operations/           # 运维部署文档
+│   ├── README.md            # 运维指南
+│   ├── deployment.md        # 部署指南
+│   └── environment.md       # 环境配置
+├── 📋 requirements/         # 需求分析文档
+│   ├── README.md            # 需求概览
+│   ├── business.md          # 业务需求规格
+│   ├── functional.md        # 功能需求说明
+│   └── non-functional.md    # 非功能需求
+├── 📏 standards/            # 开发规范标准
+│   ├── README.md            # 规范标准导航
+│   ├── api-standards.md     # API设计规范
+│   ├── openapi.yaml         # API契约定义
+│   ├── code-standards.md    # 代码组织规范
+│   ├── database-standards.md # 数据库设计规范
+│   ├── document-standards.md # 文档管理规范
+│   ├── naming-conventions.md # 命名规范
+│   ├── testing-standards.md # 测试规范
+│   └── workflow-standards.md # 工作流程规范
+├── 📊 status/               # 项目状态报告
+│   ├── README.md            # 状态概览
+│   ├── status.md            # 项目状态总览
+│   ├── current-sprint.md    # 当前冲刺状态
+│   ├── daily-log.md         # 每日工作日志
+│   ├── issues-tracking.md   # 问题跟踪记录
+│   └── milestones.md        # 里程碑进展
+├── 📝 templates/            # 文档模板
+│   ├── README.md            # 模板列表
+│   └── module-template.md   # 模块文档标准模板
+├── 📊 analysis/             # 分析报告文档
+│   └── README.md            # 分析报告导航
+└── 🗂️ _archive/             # 已归档文档
+    ├── README.md            # 归档文档说明
+    └── README_root_old.md   # 原根目录README备份
 ```
 
-更多脚本使用说明: [scripts/USAGE.md](../scripts/USAGE.md)
+## 🔗 快速链接
+
+- [系统架构图](architecture/overview.md) - 了解整体架构
+- [API快速开始](api/README.md) - API接口使用
+- [开发环境配置](development/README.md) - 搭建开发环境
+- [部署运维指南](operations/README.md) - 生产环境部署

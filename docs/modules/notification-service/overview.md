@@ -35,14 +35,24 @@
 ### 核心组件
 
 ```
-notification/
-├── controllers/
-│   ├── notification_controller.py  # 通知控制器
-│   ├── template_controller.py      # 模板控制器
-│   ├── preference_controller.py    # 偏好控制器
-│   └── analytics_controller.py     # 分析控制器
-├── services/
-│   ├── notification_service.py     # 通知业务逻辑
+notification_service/
+├── router.py           # API路由定义
+├── service.py          # 通知业务逻辑
+├── models.py           # 通知数据模型(Template, Message, Channel)
+├── schemas.py          # 请求/响应数据模型
+├── dependencies.py     # 模块依赖注入
+└── utils.py            # 通知工具函数(多渠道发送、模板渲染)
+```
+
+### 集成的适配器
+```
+app/adapters/
+├── sms/                # 短信适配器
+│   └── tencent_sms_adapter.py
+├── email/              # 邮件适配器
+│   └── smtp_adapter.py
+└── push/               # 推送适配器
+    └── wechat_push_adapter.py
 │   ├── template_service.py         # 模板服务
 │   ├── delivery_service.py         # 投递服务
 │   ├── preference_service.py       # 偏好服务

@@ -29,25 +29,28 @@
 ### 核心组件
 
 ```
-shopping-cart/
-├── controllers/
-│   ├── cart_controller.py      # 购物车控制器
-│   ├── item_controller.py      # 商品项控制器
-│   └── checkout_controller.py  # 结算控制器
-├── services/
-│   ├── cart_service.py         # 购物车业务逻辑
-│   ├── pricing_service.py      # 价格计算服务
-│   ├── inventory_service.py    # 库存检查服务
-│   └── recommendation_service.py # 推荐服务
-├── models/
-│   ├── cart.py                 # 购物车模型
-│   ├── cart_item.py            # 购物车项模型
-│   └── pricing_rule.py         # 价格规则模型
-├── events/
-│   ├── cart_events.py          # 购物车事件
-│   └── inventory_events.py     # 库存事件
-└── utils/
-    ├── cache_utils.py          # 缓存工具
+shopping_cart/
+├── router.py           # API路由定义
+├── service.py          # 购物车业务逻辑
+├── models.py           # 购物车数据模型(Cart, CartItem)
+├── schemas.py          # 请求/响应数据模型  
+├── dependencies.py     # 模块依赖注入
+└── utils.py            # 购物车工具函数(价格计算、库存检查)
+```
+
+### 依赖的核心服务
+```
+app/core/
+├── redis_client.py     # Redis缓存客户端
+├── database.py         # 数据库连接管理
+└── auth.py             # 用户认证中间件
+```
+
+### 集成的适配器
+```
+app/adapters/
+└── inventory/          # 库存管理适配器(待开发)
+    └── stock_adapter.py # 实时库存检查
     └── sync_utils.py           # 同步工具
 ```
 

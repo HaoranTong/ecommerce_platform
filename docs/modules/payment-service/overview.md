@@ -35,19 +35,23 @@
 ### 核心组件
 
 ```
-payment/
-├── controllers/
-│   ├── payment_controller.py      # 支付控制器
-│   ├── refund_controller.py       # 退款控制器
-│   ├── webhook_controller.py      # 回调控制器
-│   └── reconciliation_controller.py # 对账控制器
-├── services/
-│   ├── payment_service.py         # 支付业务逻辑
-│   ├── gateway_service.py         # 网关服务
-│   ├── risk_service.py            # 风控服务
-│   ├── refund_service.py          # 退款服务
-│   └── reconciliation_service.py  # 对账服务
-├── gateways/
+payment_service/
+├── router.py                   # 支付API路由
+├── service.py                  # 支付业务逻辑服务
+├── models.py                   # 支付相关数据模型
+├── schemas.py                  # API请求/响应模型
+├── dependencies.py             # 模块依赖注入
+└── utils.py                    # 支付工具函数
+```
+
+### 第三方适配器集成
+```
+adapters/payment/
+├── wechat_adapter.py           # 微信支付适配器
+├── alipay_adapter.py           # 支付宝适配器
+├── unionpay_adapter.py         # 银联支付适配器
+├── paypal_adapter.py           # PayPal适配器
+└── config.py                   # 支付渠道配置
 │   ├── base_gateway.py            # 网关基类
 │   ├── alipay_gateway.py          # 支付宝网关
 │   ├── wechat_gateway.py          # 微信支付网关

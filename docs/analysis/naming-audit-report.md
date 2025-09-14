@@ -1,12 +1,19 @@
-# 现有代码命名规范审计报告
+# 现有代码命名规范审计报告 (历史文档)
+
+> ⚠️ **注意**：此文档反映的是2025-09-11时的项目状态，当时采用的是app/api/*_routes.py架构。
+> 项目现已迁移到模块化单体架构(app/modules/*/router.py)，此报告仅作为历史记录保存。
+> 当前架构请参考：[架构总览](../architecture/overview.md)
 
 ## 📋 审计概述
 
 **审计日期**: 2025-09-11  
-**审计范围**: 全代码仓库命名规范符合性  
-**审计标准**: [命名规范总纲](../standards/naming-conventions.md)
+**审计范围**: 全代码仓库命名规范符合性 (历史状态)  
+**审计标准**: [命名规范总纲](../standards/naming-conventions.md)  
+**架构状态**: app/api/ 路由架构 (已废弃)
 
-## 🗄️ 数据库层命名审计
+## 🗄️ 数据库层命名审计 (历史架构)
+
+> 以下审计结果基于2025-09-11的项目状态，当前数据库架构已迁移到app/shared/models.py统一管理。
 
 ### ✅ 符合规范的命名
 
@@ -127,15 +134,17 @@ app/
 
 #### 文档目录命名冲突
 ```
-❌ 重复和冲突的目录结构:
-docs/api/modules/          # API规范文档目录 (正确位置)
-docs/modules/api/          # API路由文档目录 (错误位置)
+❌ 重复和冲突的目录结构 (历史状态，已解决):
+docs/api/modules/          # API规范文档目录 (已废弃)
+docs/modules/api/          # API路由文档目录 (已废弃)
 
-❌ 模块命名不一致:
-docs/modules/shopping-cart/     vs    app/api/cart_routes.py
-docs/modules/user-auth/         vs    app/api/user_routes.py
-docs/modules/product-catalog/   vs    app/api/product_routes.py
-docs/modules/order-management/  vs    app/api/order_routes.py
+❌ 模块命名不一致 (历史状态，已解决):
+docs/modules/shopping-cart/     vs    app/modules/shopping_cart/
+docs/modules/user-auth/         vs    app/modules/user_auth/
+docs/modules/product-catalog/   vs    app/modules/product_catalog/
+docs/modules/order-management/  vs    app/modules/order_management/
+
+✅ 当前架构已统一为模块化单体架构，详见: [架构总览](../architecture/overview.md)
 ```
 
 #### 文档内容重复  

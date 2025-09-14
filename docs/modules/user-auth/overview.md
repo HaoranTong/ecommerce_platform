@@ -29,24 +29,21 @@
 ### 核心组件
 
 ```
-user-auth/
-├── controllers/
-│   ├── auth_controller.py      # 认证控制器
-│   ├── user_controller.py      # 用户管理控制器
-│   └── permission_controller.py # 权限控制器
-├── services/
-│   ├── auth_service.py         # 认证业务逻辑
-│   ├── jwt_service.py          # JWT服务
-│   ├── mfa_service.py          # 多因素认证服务
-│   └── rbac_service.py         # 权限管理服务
-├── models/
-│   ├── user.py                 # 用户模型
-│   ├── role.py                 # 角色模型
-│   ├── permission.py           # 权限模型
-│   └── session.py              # 会话模型
-└── middleware/
-    ├── auth_middleware.py      # 认证中间件
-    └── permission_middleware.py # 权限中间件
+user_auth/
+├── router.py           # API路由定义
+├── service.py          # 认证业务逻辑
+├── models.py           # 用户数据模型(User, Role, Permission)
+├── schemas.py          # 请求/响应数据模型
+├── dependencies.py     # 模块依赖注入
+└── utils.py            # 认证工具函数(JWT, 密码加密)
+```
+
+### 核心基础设施
+```
+app/core/
+├── auth.py             # 认证中间件和JWT服务
+├── database.py         # 数据库连接管理
+└── redis_client.py     # 会话存储和缓存
 ```
 
 ### 数据库设计
@@ -54,7 +51,7 @@ user-auth/
 ```sql
 -- 用户表
 CREATE TABLE users (
-    id UUID PRIMARY KEY,
+    id INTEGER AUTO_INCREMENT PRIMARY KEY,
     email VARCHAR(255) UNIQUE NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
     phone VARCHAR(20) UNIQUE,
@@ -71,7 +68,7 @@ CREATE TABLE users (
 
 -- 角色表
 CREATE TABLE roles (
-    id UUID PRIMARY KEY,
+    id INTEGER AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(100) UNIQUE NOT NULL,
     description TEXT,
     level INTEGER NOT NULL,
@@ -81,7 +78,7 @@ CREATE TABLE roles (
 
 -- 权限表
 CREATE TABLE permissions (
-    id UUID PRIMARY KEY,
+    id INTEGER AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(100) UNIQUE NOT NULL,
     resource VARCHAR(100) NOT NULL,
     action VARCHAR(50) NOT NULL,
@@ -91,26 +88,26 @@ CREATE TABLE permissions (
 
 -- 用户角色关联表
 CREATE TABLE user_roles (
-    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
-    role_id UUID REFERENCES roles(id) ON DELETE CASCADE,
+    user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+    role_id INTEGER REFERENCES roles(id) ON DELETE CASCADE,
     assigned_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    assigned_by UUID REFERENCES users(id),
+    assigned_by INTEGER REFERENCES users(id),
     PRIMARY KEY (user_id, role_id)
 );
 
 -- 角色权限关联表
 CREATE TABLE role_permissions (
-    role_id UUID REFERENCES roles(id) ON DELETE CASCADE,
-    permission_id UUID REFERENCES permissions(id) ON DELETE CASCADE,
+    role_id INTEGER REFERENCES roles(id) ON DELETE CASCADE,
+    permission_id INTEGER REFERENCES permissions(id) ON DELETE CASCADE,
     granted_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    granted_by UUID REFERENCES users(id),
+    granted_by INTEGER REFERENCES users(id),
     PRIMARY KEY (role_id, permission_id)
 );
 
 -- 会话表
 CREATE TABLE sessions (
-    id UUID PRIMARY KEY,
-    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    id INTEGER AUTO_INCREMENT PRIMARY KEY,
+    user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
     token_hash VARCHAR(255) NOT NULL,
     expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
