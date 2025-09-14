@@ -69,5 +69,5 @@ app/
 ## 🔗 相关文档
 
 - [API接口文档](api/README.md) - API路由详细说明
-- [数据模型文档](../docs/modules/data-models/) - 数据库设计
+- [基础模型文档](../docs/modules/base-models/) - 数据库设计
 - [业务服务文档](services/README.md) - 服务层架构

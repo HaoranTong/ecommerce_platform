@@ -3,7 +3,8 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 
 from app.core.database import get_db
-from app.shared.models import User, Product, Category, OrderItem
+from app.modules.user_auth.models import User
+from .models import Product, Category
 from .schemas import ProductRead, ProductCreate, ProductUpdate, CategoryRead, CategoryCreate, CategoryUpdate
 # V1.0 Mini-MVP: 导入认证依赖
 from app.core.auth import get_current_admin_user

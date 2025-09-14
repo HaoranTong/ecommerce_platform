@@ -28,6 +28,17 @@ async def lifespan(app: FastAPI):
     """应用生命周期管理"""
     # 启动时的初始化代码
     print("🚀 电商平台服务启动中...")
+    
+    # 开发环境自动创建表
+    if AUTO_CREATE:
+        print("📋 自动创建数据库表...")
+        from app.core.database import engine
+        from app.shared.base_models import Base
+        # 导入所有模型以确保表定义被注册
+        from app.modules.user_auth.models import User
+        Base.metadata.create_all(bind=engine)
+        print("✅ 数据库表创建完成")
+    
     yield
     # 关闭时的清理代码
     print("🛑 电商平台服务关闭中...")

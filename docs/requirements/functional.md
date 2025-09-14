@@ -228,7 +228,7 @@
 - **索引优化** - 数据库查询性能优化
 - **模型验证** - 数据模型完整性验证
 
-*详见: [数据模型模块](../modules/data-models/overview.md)*
+*详见: [基础模型模块](../modules/base-models/overview.md)*
 
 ### 22. Redis缓存模块
 - **连接管理** - Redis连接池和配置管理

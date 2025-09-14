@@ -27,7 +27,7 @@ app/
 ├── shared/
 │   ├── models.py        # 通用模型混入
 │   ├── api_schemas.py   # API响应模式
-│   └── base_schemas.py  # 基础Pydantic模式
+# 注意：不再包含base_schemas.py，各模块独立管理API schemas
 ├── modules/
 │   ├── user_auth/
 │   │   ├── models.py    # 用户模型

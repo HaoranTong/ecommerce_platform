@@ -74,7 +74,7 @@ graph LR
 | `data-analytics-platform` | `data_analytics_platform` | 数据分析模块 | `/api/v1/data-analytics-platform/` | `app/modules/data_analytics_platform/` |
 | `application-core` | `application_core` | 应用核心模块 | - | `app/core/` |
 | `database-core` | `database_core` | 数据库核心模块 | - | `app/core/database/` |
-| `data-models` | `data_models` | 数据模型模块 | - | `app/shared/models/` |
+| `base-models` | `base_models` | 基础模型模块 | - | `app/shared/base_models.py` |
 | `redis-cache` | `redis_cache` | Redis缓存模块 | - | `app/core/cache/` |
 | `database-utils` | `database_utils` | 数据库工具模块 | - | `app/core/utils/` |
 
