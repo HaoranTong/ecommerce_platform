@@ -410,17 +410,34 @@ graph TB
     Product {
         bigint id PK
         string name
-        string sku UK
         text description
+        bigint brand_id FK
         bigint category_id FK
-        decimal price
-        int stock_quantity
         string status
-        string image_url
-        text attributes
-        text images
+        datetime published_at
+        string seo_title
+        text seo_description
+        string seo_keywords
+        int sort_order
+        int view_count
+        int sale_count
         boolean is_deleted
         datetime deleted_at
+        datetime created_at
+        datetime updated_at
+    }
+    
+    SKU {
+        bigint id PK
+        bigint product_id FK
+        string sku_code UK
+        string name
+        decimal price
+        decimal cost_price
+        decimal market_price
+        decimal weight
+        decimal volume
+        boolean is_active
         datetime created_at
         datetime updated_at
     }
@@ -466,7 +483,9 @@ graph TB
     User ||--o{ Order : "user_id"
     Category ||--o{ Product : "category_id"
     Category ||--o{ Category : "parent_id (self-reference)"
+    Product ||--o{ SKU : "product_id"
     Product ||--o{ OrderItem : "product_id"
+    SKU ||--o{ OrderItem : "sku_id"
     Order ||--o{ OrderItem : "order_id"
 ```
 ```
@@ -695,8 +714,10 @@ __table_args__ = (
 | `id` | BigInteger | PK, Index | 订单项唯一标识 | `4001` |
 | `order_id` | BigInteger | FK, Not Null | 订单ID | `3001` |
 | `product_id` | BigInteger | FK, Not Null | 商品ID | `2001` |
+| `sku_id` | BigInteger | FK, Not Null | SKU ID | `5001` |
 | `product_name` | String(200) | Not Null | 商品名称快照 | `"iPhone 15 Pro"` |
-| `product_sku` | String(100) | Not Null | 商品SKU快照 | `"IPH15P-128G-TIT"` |
+| `sku_code` | String(100) | Not Null | SKU代码快照 | `"IPH15P-128G-TIT"` |
+| `sku_name` | String(200) | Not Null | SKU名称快照 | `"iPhone 15 Pro 128GB 钛金色"` |
 | `quantity` | Integer | Not Null | 购买数量 | `1` |
 | `unit_price` | DECIMAL(10,2) | Not Null | 单价快照 | `9999.00` |
 | `total_price` | DECIMAL(10,2) | Not Null | 小计金额 | `9999.00` |
@@ -708,7 +729,9 @@ __table_args__ = (
 # 多对一：订单项属于一个订单
 order = relationship("Order", back_populates="order_items")
 # 多对一：订单项关联一个商品
-product = relationship("Product", back_populates="order_items")
+product = relationship("Product", back_populates="order_items")  
+# 多对一：订单项关联一个SKU
+sku = relationship("SKU", back_populates="order_items")
 ```
 
 #### 索引优化
