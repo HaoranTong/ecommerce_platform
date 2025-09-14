@@ -35,19 +35,31 @@
 ### 核心组件
 
 ```
-order-management/
-├── controllers/
-│   ├── order_controller.py      # 订单控制器
-│   ├── payment_controller.py    # 支付控制器
-│   └── fulfillment_controller.py # 履约控制器
-├── services/
-│   ├── order_service.py         # 订单业务逻辑
-│   ├── payment_service.py       # 支付集成服务
-│   ├── fulfillment_service.py   # 履约服务
-│   └── aftersales_service.py    # 售后服务
-├── models/
-│   ├── order.py                 # 订单模型
-│   ├── order_item.py            # 订单项模型
+order_management/
+├── router.py           # API路由定义
+├── service.py          # 订单业务逻辑
+├── models.py           # 订单数据模型(Order, OrderItem, OrderStatus)
+├── schemas.py          # 请求/响应数据模型
+├── dependencies.py     # 模块依赖注入
+└── utils.py            # 订单工具函数(状态机、履约处理)
+```
+
+### 依赖的核心服务
+```
+app/core/
+├── database.py         # 数据库连接管理
+├── redis_client.py     # 订单缓存服务
+└── auth.py             # 用户认证中间件
+```
+
+### 集成的适配器
+```
+app/adapters/
+├── payment/            # 支付适配器
+│   ├── wechat_adapter.py
+│   └── alipay_adapter.py
+└── logistics/          # 物流适配器(待开发)
+    └── express_adapter.py
 │   ├── payment.py               # 支付模型
 │   ├── shipment.py              # 发货模型
 │   └── aftersales.py            # 售后模型

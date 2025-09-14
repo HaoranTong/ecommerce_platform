@@ -342,5 +342,5 @@ GET /api/health
 
 - [数据库连接模块文档](../database/overview.md)
 - [Redis客户端模块文档](../redis/overview.md)
-- [API路由规范](../../api/standards.md)
+- [API路由规范](../../api/api-design-standards.md)
 - [部署运维指南](../../operations/deployment.md)

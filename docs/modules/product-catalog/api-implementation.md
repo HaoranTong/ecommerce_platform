@@ -2,7 +2,7 @@
 
 ## 模块概述
 
-商品API模块 (`app/api/product_routes.py`) 是电商平台商品管理的核心API组件，提供完整的商品生命周期管理接口，包括商品创建、查询、更新、删除等CRUD操作，支持商品状态管理、库存控制和价格管理。
+商品API模块 (`app/modules/product_catalog/router.py`) 是电商平台商品管理的核心API组件，采用模块化单体架构提供完整的商品生命周期管理接口，包括商品创建、查询、更新、删除等CRUD操作，支持商品状态管理、库存控制和价格管理。
 
 ### 主要功能
 
@@ -53,11 +53,11 @@ graph TB
     J --> M[Stock Management]
     
     subgraph "API Endpoints"
-        N[POST /products]
-        O[GET /products]
-        P[GET /products/{id}]
-        Q[PUT /products/{id}]
-        R[DELETE /products/{id}]
+        N[POST /api/products]
+        O[GET /api/products]
+        P[GET /api/products/{id}]
+        Q[PUT /api/products/{id}]
+        R[DELETE /api/products/{id}]
     end
 ```
 
@@ -73,7 +73,7 @@ sequenceDiagram
     participant Stock as Inventory
     
     Note over C,Stock: 创建商品流程
-    C->>A: POST /products
+    C->>A: POST /api/products
     A->>Auth: 验证管理员权限
     Auth-->>A: 权限确认
     A->>Cat: 验证分类存在性
@@ -85,14 +85,14 @@ sequenceDiagram
     A-->>C: 返回创建结果
     
     Note over C,Stock: 查询商品流程
-    C->>A: GET /products
+    C->>A: GET /api/products
     A->>DB: 查询商品列表
     DB-->>A: 返回商品数据
     A->>A: 数据过滤和分页
     A-->>C: 返回商品列表
     
     Note over C,Stock: 更新商品流程
-    C->>A: PUT /products/{id}
+    C->>A: PUT /api/products/{id}
     A->>Auth: 验证管理员权限
     Auth-->>A: 权限确认
     A->>DB: 查询现有商品
@@ -102,13 +102,61 @@ sequenceDiagram
     A-->>C: 返回更新结果
 ```
 
+## 认证集成实现
+
+### 权限体系
+
+本模块基于用户角色实现权限控制，所有管理性操作需要管理员权限：
+
+- **普通用户** (`role: "user"`)：只能查看商品信息
+- **管理员** (`role: "admin"` 或 `"super_admin"`)：拥有完整的商品管理权限
+
+### 认证依赖
+
+```python
+from app.auth import get_current_admin_user
+
+# 管理员权限认证
+async def admin_required(
+    current_admin: User = Depends(get_current_admin_user)
+) -> User:
+    """验证当前用户是否为管理员"""
+    return current_admin
+```
+
+### 权限矩阵
+
+| API端点 | 匿名用户 | 普通用户 | 管理员 | 说明 |
+|---------|---------|---------|--------|------|
+| `GET /api/products` | ✅ | ✅ | ✅ | 商品列表查询 |
+| `GET /api/products/{id}` | ✅ | ✅ | ✅ | 商品详情查询 |
+| `POST /api/products` | ❌ | ❌ | ✅ | 创建商品 |
+| `PUT /api/products/{id}` | ❌ | ❌ | ✅ | 更新商品 |
+| `DELETE /api/products/{id}` | ❌ | ❌ | ✅ | 删除商品 |
+| `PATCH /api/products/{id}/inventory` | ❌ | ❌ | ✅ | 库存管理 |
+
+### 实际实现
+
+所有需要管理员权限的端点都使用 `get_current_admin_user` 依赖：
+
+```python
+# 示例：创建商品端点
+@router.post("/api/products", response_model=ProductRead)
+async def create_product(
+    product_data: ProductCreate,
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(get_current_admin_user)  # 管理员认证
+):
+    """创建新商品 - 需要管理员权限"""
+```
+
 ## API接口详解
 
 ### 商品管理接口
 
 #### 1. 创建商品
 
-**端点**: `POST /products`  
+**端点**: `POST /api/products`  
 **功能**: 创建新的商品记录  
 **认证**: 需要管理员权限  
 
@@ -160,7 +208,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
 
 #### 2. 获取商品列表
 
-**端点**: `GET /products`  
+**端点**: `GET /api/products`  
 **功能**: 获取商品列表，支持分页和筛选  
 **认证**: 无需认证（公开接口）  
 
@@ -175,7 +223,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
 
 **请求示例**:
 ```
-GET /products?category_id=101&status=active&skip=0&limit=20&min_price=1000&max_price=10000
+GET /api/products?category_id=101&status=active&skip=0&limit=20&min_price=1000&max_price=10000
 ```
 
 **响应**:
@@ -212,7 +260,7 @@ GET /products?category_id=101&status=active&skip=0&limit=20&min_price=1000&max_p
 
 #### 3. 获取商品详情
 
-**端点**: `GET /products/{product_id}`  
+**端点**: `GET /api/products/{product_id}`  
 **功能**: 获取指定商品的详细信息  
 **认证**: 无需认证（公开接口）  
 
@@ -226,7 +274,7 @@ GET /products?category_id=101&status=active&skip=0&limit=20&min_price=1000&max_p
 
 #### 4. 更新商品信息
 
-**端点**: `PUT /products/{product_id}`  
+**端点**: `PUT /api/products/{product_id}`  
 **功能**: 更新指定商品的信息  
 **认证**: 需要管理员权限  
 
@@ -254,7 +302,7 @@ GET /products?category_id=101&status=active&skip=0&limit=20&min_price=1000&max_p
 
 #### 5. 删除商品
 
-**端点**: `DELETE /products/{product_id}`  
+**端点**: `DELETE /api/products/{product_id}`  
 **功能**: 删除指定商品（软删除，标记为不可用）  
 **认证**: 需要管理员权限  
 

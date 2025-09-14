@@ -35,19 +35,30 @@
 ### 核心组件
 
 ```
-product-catalog/
-├── controllers/
-│   ├── product_controller.py     # 商品控制器
-│   ├── category_controller.py    # 分类控制器
-│   ├── sku_controller.py         # SKU控制器
-│   └── search_controller.py      # 搜索控制器
-├── services/
-│   ├── product_service.py        # 商品业务逻辑
-│   ├── category_service.py       # 分类服务
-│   ├── pricing_service.py        # 定价服务
-│   ├── inventory_sync_service.py # 库存同步服务
-│   └── search_service.py         # 搜索服务
-├── models/
+product_catalog/
+├── router.py           # API路由定义
+├── service.py          # 商品业务逻辑
+├── models.py           # 商品数据模型(Product, Category, SKU)
+├── schemas.py          # 请求/响应数据模型
+├── dependencies.py     # 模块依赖注入
+└── utils.py            # 商品工具函数(搜索、定价、库存同步)
+```
+
+### 依赖的核心服务
+```
+app/core/
+├── database.py         # 数据库连接管理
+├── redis_client.py     # 商品缓存服务
+└── auth.py             # 权限认证中间件
+```
+
+### 集成的适配器
+```
+app/adapters/
+├── search/             # 搜索引擎适配器(待开发)
+│   └── elasticsearch_adapter.py
+└── image/              # 图片处理适配器(待开发)
+    └── oss_adapter.py  # 对象存储适配器
 │   ├── product.py               # 商品模型
 │   ├── category.py              # 分类模型
 │   ├── sku.py                   # SKU模型

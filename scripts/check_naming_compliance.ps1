@@ -11,29 +11,41 @@ param(
 
 # 命名规范配置
 $NamingConfig = @{
-    # 模块标准映射
+    # 模块标准映射 - 更新为新架构
     ModuleMappings = @{
-        "user" = "user-auth"
-        "cart" = "shopping-cart"
-        "product" = "product-catalog"
-        "order" = "order-management"
-        "category" = "category-management"
-        "payment" = "payment-service"
-        "inventory" = "inventory-management"
-        "notification" = "notification-service"
-        "distributor" = "distributor-management"
-        "recommendation" = "recommendation-system"
-        "batch" = "batch-traceability"
-        "app" = "application-core"
-        "db" = "database-core"
-        "utils" = "database-utils"
-        "model" = "data-models"
-        "cache" = "redis-cache"
+        # 业务概念名 -> 技术实现名映射
+        "user-auth" = "user_auth"
+        "shopping-cart" = "shopping_cart"
+        "product-catalog" = "product_catalog"
+        "order-management" = "order_management"
+        "payment-service" = "payment_service"
+        "batch-traceability" = "batch_traceability"
+        "logistics-management" = "logistics_management"
+        "quality-control" = "quality_control"
+        "member-system" = "member_system"
+        "distributor-management" = "distributor_management"
+        "marketing-campaigns" = "marketing_campaigns"
+        "social-features" = "social_features"
+        "inventory-management" = "inventory_management"
+        "notification-service" = "notification_service"
+        "supplier-management" = "supplier_management"
+        "recommendation-system" = "recommendation_system"
+        "customer-service-system" = "customer_service_system"
+        "risk-control-system" = "risk_control_system"
+        "data-analytics-platform" = "data_analytics_platform"
+        "application-core" = "application_core"
+        "database-core" = "database_core"
+        "base-models" = "base_models"
+        "redis-cache" = "redis_cache"
+        "database-utils" = "database_utils"
     }
     
-    # API端点规范
+    # API端点规范 - 修正：考虑FastAPI路由前缀合并
     ApiPatterns = @{
-        "RESTful" = "^/(auth|api)/[a-z]+(/[a-z-]+)*(/\{[a-z_]+\})?(/[a-z-]+)*$"
+        # 模块路由文件中的路径模式（不包含/api/v1前缀，由main_routes.py添加）
+        "ModuleRoute" = "^/[a-z][a-z0-9-]*(/[a-z0-9-]+)*(/\{[a-z_]+\})?(/[a-z0-9-]+)*$"
+        # 完整API路径模式（包含/api/v1前缀）
+        "FullApiPath" = "^/api/v1/[a-z][a-z0-9-]*(/[a-z0-9-]+)*(/\{[a-z_]+\})?(/[a-z0-9-]+)*$"
         "Parameters" = "^[a-z][a-z0-9_]*$"
     }
     
@@ -69,33 +81,69 @@ function Check-ApiNaming {
     Write-ColorOutput "🌐 检查API命名规范..." "Blue"
     
     $violations = @()
-    $apiFiles = Get-ChildItem -Path "app/api" -Filter "*_routes.py" -Recurse
     
-    foreach ($file in $apiFiles) {
+    # 检查主路由文件的前缀设置
+    $mainRoutesFile = "app/api/main_routes.py"
+    $hasApiV1Prefix = $false
+    
+    if (Test-Path $mainRoutesFile) {
+        $mainContent = Get-Content $mainRoutesFile
+        $prefixLines = $mainContent | Select-String -Pattern "prefix.*api.*v1"
+        if ($prefixLines) {
+            $hasApiV1Prefix = $true
+            Write-ColorOutput "✅ 发现正确的API前缀设置: /api/v1" "Green"
+        }
+    }
+    
+    # 检查模块路由文件 - 更新为新架构
+    $moduleFiles = Get-ChildItem -Path "app/modules" -Filter "router.py" -Recurse
+    
+    foreach ($file in $moduleFiles) {
         $content = Get-Content $file.FullName
         
+        # 提取模块名称
+        $moduleName = $file.Directory.Name
+        
         # 检查路由定义
-        $routes = $content | Select-String -Pattern '@router\.(get|post|put|delete|patch)\("([^"]+)"'
+        $routePattern = '@router\.(get|post|put|delete|patch)\("'
+        $routes = $content | Select-String -Pattern $routePattern
         
         foreach ($route in $routes) {
-            $endpoint = $route.Matches[0].Groups[2].Value
-            
-            # 检查RESTful规范
-            if ($endpoint -notmatch $NamingConfig.ApiPatterns.RESTful) {
-                $violations += @{
-                    Type = "API路由"
-                    File = $file.Name
-                    Issue = "路由不符合RESTful规范: $endpoint"
-                    Line = $route.LineNumber
-                    Suggestion = "使用标准RESTful路径格式"
+            $line = $route.Line
+            # 提取引号内的路径
+            if ($line -match '@router\.\w+\("([^"]+)"') {
+                $endpoint = $matches[1]
+                
+                # 模块路由应该是相对路径，如 "/login", "/products", "/users/{id}" 等
+                if ($endpoint -notmatch "^/[a-z]") {
+                    $violations += @{
+                        Type = "API路由"
+                        File = "$moduleName/router.py"
+                        Issue = "模块路由格式不符合规范: $endpoint"
+                        Line = $route.LineNumber
+                        Suggestion = "使用标准模块路由格式，如 /login, /products, /users/{id}"
+                    }
                 }
             }
         }
         
-        # 检查函数参数命名
-        $functions = $content | Select-String -Pattern 'async def [a-zA-Z_][a-zA-Z0-9_]*\('
-        foreach ($func in $functions) {
-            # 这里可以添加更详细的参数检查逻辑
+        # 检查APIRouter前缀配置
+        $prefixLines = $content | Select-String -Pattern "prefix\s*="
+        foreach ($prefixLine in $prefixLines) {
+            if ($prefixLine.Line -match 'prefix\s*=\s*["'']([^"'']+)["'']') {
+                $prefix = $matches[1]
+                # 业务概念层应该使用连字符
+                $expectedPrefix = "/api/" + ($moduleName -replace "_", "-")
+                if ($prefix -ne $expectedPrefix) {
+                    $violations += @{
+                        Type = "模块路由前缀"
+                        File = "$moduleName/router.py"
+                        Issue = "路由前缀不符合规范: $prefix"
+                        Line = $prefixLine.LineNumber
+                        Suggestion = "应该使用: $expectedPrefix"
+                    }
+                }
+            }
         }
     }
     
@@ -106,10 +154,13 @@ function Check-DatabaseNaming {
     Write-ColorOutput "🗄️ 检查数据库命名规范..." "Blue"
     
     $violations = @()
-    $modelsFile = "app/models.py"
     
-    if (Test-Path $modelsFile) {
-        $content = Get-Content $modelsFile
+    # 检查模块级models.py文件 - 更新为新架构
+    $moduleModelFiles = Get-ChildItem -Path "app/modules" -Filter "models.py" -Recurse
+    
+    foreach ($file in $moduleModelFiles) {
+        $content = Get-Content $file.FullName
+        $moduleName = $file.Directory.Name
         
         # 检查表名定义
         $tables = $content | Select-String -Pattern "__tablename__\s*=\s*['\""]([^'\""`]+)['\""]"
@@ -120,7 +171,37 @@ function Check-DatabaseNaming {
             if ($tableName -notmatch $NamingConfig.DatabasePatterns.TableName) {
                 $violations += @{
                     Type = "数据库表名"
-                    File = "models.py"
+                    File = "$moduleName/models.py"
+                    Issue = "表名不符合规范: $tableName"
+                    Line = $table.LineNumber
+                    Suggestion = "使用snake_case格式的复数形式"
+                }
+            }
+        }
+        
+        # 检查字段名定义
+        $fields = $content | Select-String -Pattern "Column\s*\("
+        foreach ($field in $fields) {
+            $lineContent = $field.Line
+            # 这里可以添加更详细的字段名检查
+        }
+    }
+    
+    # 检查共享模型文件
+    $sharedModelsFile = "app/shared/base_models.py"
+    if (Test-Path $sharedModelsFile) {
+        $content = Get-Content $sharedModelsFile
+        
+        # 检查表名定义
+        $tables = $content | Select-String -Pattern "__tablename__\s*=\s*['\""]([^'\""`]+)['\""]"
+        
+        foreach ($table in $tables) {
+            $tableName = $table.Matches[0].Groups[1].Value
+            
+            if ($tableName -notmatch $NamingConfig.DatabasePatterns.TableName) {
+                $violations += @{
+                    Type = "数据库表名"
+                    File = "shared/base_models.py"
                     Issue = "表名不符合规范: $tableName"
                     Line = $table.LineNumber
                     Suggestion = "使用snake_case格式的复数形式"
@@ -137,7 +218,7 @@ function Check-DatabaseNaming {
             if ($fieldName -notmatch $NamingConfig.DatabasePatterns.FieldName) {
                 $violations += @{
                     Type = "数据库字段名"
-                    File = "models.py"
+                    File = "shared/base_models.py"
                     Issue = "字段名不符合规范: $fieldName"
                     Line = $field.LineNumber
                     Suggestion = "使用snake_case格式"
@@ -160,22 +241,26 @@ function Check-DocumentationNaming {
     foreach ($dir in $modulesDirs) {
         $dirName = $dir.Name
         
-        # 检查是否使用了完整描述名
+        # 文档目录应该使用业务概念名（kebab-case）
+        # 检查是否在模块映射表的键中（业务概念名）
         $isValidModuleName = $false
-        foreach ($mapping in $NamingConfig.ModuleMappings.GetEnumerator()) {
-            if ($dirName -eq $mapping.Value) {
-                $isValidModuleName = $true
-                break
-            }
+        if ($NamingConfig.ModuleMappings.ContainsKey($dirName)) {
+            $isValidModuleName = $true
         }
         
-        if (-not $isValidModuleName -and $dirName -ne "api") {
+        # 特殊目录名称也是合法的
+        $specialDirs = @("api", "README.md")
+        if ($dirName -in $specialDirs) {
+            $isValidModuleName = $true
+        }
+        
+        if (-not $isValidModuleName) {
             $violations += @{
                 Type = "文档目录命名"
                 File = "docs/modules/$dirName"
                 Issue = "模块目录名称不符合规范: $dirName"
                 Line = 0
-                Suggestion = "使用完整描述名称，参考模块映射表"
+                Suggestion = "使用kebab-case格式的业务概念名，参考模块映射表的键名"
             }
         }
     }

@@ -5,7 +5,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.main import app
-import app.models as models
+import app.data_models as models
 from app.db import get_session, Base
 
 # use in-memory sqlite for fast tests
