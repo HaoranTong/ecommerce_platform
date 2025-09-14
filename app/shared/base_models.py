@@ -24,6 +24,16 @@ class SoftDeleteMixin:
     """软删除混入"""
     is_deleted = Column(Boolean, default=False, nullable=False)
     deleted_at = Column(DateTime, nullable=True)
+    
+    def soft_delete(self):
+        """执行软删除"""
+        self.is_deleted = True
+        self.deleted_at = func.now()
+        
+    def restore(self):
+        """恢复已软删除的记录"""
+        self.is_deleted = False
+        self.deleted_at = None
 
 
 class BaseModel(Base):

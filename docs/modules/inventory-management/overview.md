@@ -53,16 +53,16 @@ inventory/
 #### 1. 库存主表 (inventory)
 ```sql
 CREATE TABLE inventory (
-    id BIGINT PRIMARY KEY AUTO_INCREMENT,
-    product_id BIGINT NOT NULL COMMENT '商品ID',
-    available_quantity INT NOT NULL DEFAULT 0 COMMENT '可用库存数量',
-    reserved_quantity INT NOT NULL DEFAULT 0 COMMENT '预占库存数量', 
-    total_quantity INT NOT NULL DEFAULT 0 COMMENT '总库存数量',
-    warning_threshold INT NOT NULL DEFAULT 10 COMMENT '预警阈值',
+    id INTEGER PRIMARY KEY AUTO_INCREMENT,
+    sku_id INTEGER NOT NULL COMMENT 'SKU ID',
+    available_quantity INTEGER NOT NULL DEFAULT 0 COMMENT '可用库存数量',
+    reserved_quantity INTEGER NOT NULL DEFAULT 0 COMMENT '预占库存数量', 
+    total_quantity INTEGER NOT NULL DEFAULT 0 COMMENT '总库存数量',
+    warning_threshold INTEGER NOT NULL DEFAULT 10 COMMENT '预警阈值',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE,
-    UNIQUE KEY uk_product_id (product_id),
+    FOREIGN KEY (sku_id) REFERENCES skus(id) ON DELETE CASCADE,
+    UNIQUE KEY uk_sku_id (sku_id),
     INDEX idx_available_quantity (available_quantity),
     INDEX idx_total_quantity (total_quantity)
 );
@@ -71,14 +71,15 @@ CREATE TABLE inventory (
 #### 2. 库存交易记录表 (inventory_transactions)
 ```sql
 CREATE TABLE inventory_transactions (
-    id BIGINT PRIMARY KEY AUTO_INCREMENT,
-    product_id BIGINT NOT NULL COMMENT '商品ID',
+    id INTEGER PRIMARY KEY AUTO_INCREMENT,
+    sku_id INTEGER NOT NULL COMMENT 'SKU ID',
     transaction_type ENUM('purchase', 'sale', 'adjustment', 'reserve', 'release', 'deduct') NOT NULL COMMENT '交易类型',
-    quantity INT NOT NULL COMMENT '数量变化',
+    quantity_change INTEGER NOT NULL COMMENT '数量变化',
     reference_id VARCHAR(100) COMMENT '关联业务ID',
+    reference_type VARCHAR(50) COMMENT '关联业务类型',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE,
-    INDEX idx_product_id (product_id),
+    FOREIGN KEY (sku_id) REFERENCES skus(id) ON DELETE CASCADE,
+    INDEX idx_sku_id (sku_id),
     INDEX idx_transaction_type (transaction_type),
     INDEX idx_created_at (created_at),
     INDEX idx_reference_id (reference_id)
@@ -88,16 +89,16 @@ CREATE TABLE inventory_transactions (
 #### 3. 购物车预占表 (cart_reservations)
 ```sql
 CREATE TABLE cart_reservations (
-    id BIGINT PRIMARY KEY AUTO_INCREMENT,
-    user_id BIGINT NOT NULL COMMENT '用户ID',
-    product_id BIGINT NOT NULL COMMENT '商品ID',
-    reserved_quantity INT NOT NULL COMMENT '预占数量',
+    id INTEGER PRIMARY KEY AUTO_INCREMENT,
+    user_id INTEGER NOT NULL COMMENT '用户ID',
+    sku_id INTEGER NOT NULL COMMENT 'SKU ID',
+    reserved_quantity INTEGER NOT NULL COMMENT '预占数量',
     expires_at TIMESTAMP NOT NULL COMMENT '过期时间',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-    FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE,
+    FOREIGN KEY (sku_id) REFERENCES skus(id) ON DELETE CASCADE,
     INDEX idx_user_id (user_id),
-    INDEX idx_product_id (product_id),
+    INDEX idx_sku_id (sku_id),
     INDEX idx_expires_at (expires_at)
 );
 ```

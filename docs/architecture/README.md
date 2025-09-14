@@ -7,6 +7,8 @@
 | 文档 | 用途 | 适用人员 |
 |-----|------|---------|
 | [架构总览](overview.md) | 整体架构和设计原则 | 全体开发人员 |
+| [表-模块分配](table-module-mapping.md) | 统一的表分配架构设计 | 后端开发、DBA |
+| [模块架构](module-architecture.md) | 模块划分和依赖关系 | 架构师、开发人员 |
 | [数据模型](data-models.md) | 数据库设计规范 | 后端开发、DBA |
 | [安全架构](security.md) | 安全设计方案 | 安全工程师 |
 | [事件驱动](event-driven.md) | 事件架构设计 | 后端开发 |
@@ -15,6 +17,8 @@
 ## 🔗 快速导航
 
 - **新人入门** → [架构总览](overview.md)
+- **表分配设计** → [表-模块分配](table-module-mapping.md)
+- **模块设计** → [模块架构](module-architecture.md)  
 - **数据库设计** → [数据模型](data-models.md)  
 - **安全开发** → [安全架构](security.md)
 - **系统集成** → [集成架构](integration.md)
