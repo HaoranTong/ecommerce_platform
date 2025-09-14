@@ -36,6 +36,7 @@ async def lifespan(app: FastAPI):
         from app.shared.base_models import Base
         # 导入所有模型以确保表定义被注册
         from app.modules.user_auth.models import User
+        from app.modules.product_catalog.models import Category, Brand, Product, SKU, ProductAttribute, SKUAttribute, ProductImage, ProductTag
         Base.metadata.create_all(bind=engine)
         print("✅ 数据库表创建完成")
     
@@ -91,6 +92,8 @@ app.include_router(
     tags=["质量控制"]
 )
 
+# 注册产品目录模块路由
+from app.modules.product_catalog.router import router as product_router
+app.include_router(product_router, prefix="/api/v1/product-catalog", tags=["商品管理"])
+
 # TODO: 其他模块路由按需添加
-# from app.modules.product_catalog.router import router as product_router
-# app.include_router(product_router, prefix="/api/v1/product-catalog", tags=["商品管理"])

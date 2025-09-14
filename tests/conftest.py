@@ -13,22 +13,42 @@ if str(ROOT) not in sys.path:
 from app.main import app
 from app.core.database import Base, get_db
 
+# 导入模型以确保表被创建
+# 产品目录模块模型
+from app.modules.product_catalog.models import (
+    Category, Brand, Product, SKU, ProductAttribute, 
+    SKUAttribute, ProductImage, ProductTag
+)
+# 用户认证模块模型（API路由需要User模型）
+from app.modules.user_auth.models import User, Role, Permission, UserRole, RolePermission, Session
+
 # 测试数据库配置
-UNIT_TEST_DATABASE_URL = "sqlite:///:memory:"
+import tempfile
+import os
+# Create a temporary file for the test database to ensure shared connection
+_temp_db_fd, _temp_db_path = tempfile.mkstemp(suffix='.db')
+os.close(_temp_db_fd)  # Close the file descriptor but keep the path
+UNIT_TEST_DATABASE_URL = f"sqlite:///{_temp_db_path}"
 SMOKE_TEST_DATABASE_URL = "sqlite:///./tests/smoke_test.db"
 INTEGRATION_TEST_DATABASE_URL = "mysql+pymysql://test_user:test_pass@localhost:3307/test_ecommerce"
 
 # ========== 单元测试配置 ==========
 @pytest.fixture(scope="function")
 def unit_test_engine():
-    """单元测试数据库引擎（内存）"""
+    """单元测试数据库引擎（临时文件）"""
     engine = create_engine(
         UNIT_TEST_DATABASE_URL, 
-        connect_args={"check_same_thread": False}
+        connect_args={"check_same_thread": False},
+        poolclass=None  # Disable connection pooling for test
     )
     Base.metadata.create_all(bind=engine)
     yield engine
     engine.dispose()
+    # Clean up the temporary database file
+    try:
+        os.unlink(_temp_db_path)
+    except:
+        pass
 
 @pytest.fixture(scope="function")
 def unit_test_db(unit_test_engine):
@@ -45,15 +65,46 @@ def unit_test_db(unit_test_engine):
         database.close()
 
 @pytest.fixture(scope="function")
-def unit_test_client(unit_test_db):
+def unit_test_client(unit_test_engine, mock_admin_user):
     """单元测试客户端"""
-    def override_get_db():
-        yield unit_test_db
+    # 导入认证函数
+    from app.core.auth import get_current_user, get_current_active_user, get_current_admin_user
     
-    app.dependency_overrides[get_db] = override_get_db
-    with TestClient(app) as test_client:
-        yield test_client
+    def override_get_db():
+        TestingSessionLocal = sessionmaker(
+            autocommit=False, 
+            autoflush=False, 
+            bind=unit_test_engine
+        )
+        database = TestingSessionLocal()
+        try:
+            yield database
+        finally:
+            database.close()
+        
+    async def override_get_current_user():
+        return mock_admin_user
+        
+    async def override_get_current_active_user():
+        return mock_admin_user
+        
+    async def override_get_current_admin_user():
+        return mock_admin_user
+    
+    # 清除现有依赖覆盖
     app.dependency_overrides.clear()
+    
+    # 设置依赖覆盖 - 覆盖整个认证链条
+    app.dependency_overrides[get_db] = override_get_db
+    app.dependency_overrides[get_current_user] = override_get_current_user
+    app.dependency_overrides[get_current_active_user] = override_get_current_active_user
+    app.dependency_overrides[get_current_admin_user] = override_get_current_admin_user
+    
+    try:
+        with TestClient(app) as test_client:
+            yield test_client
+    finally:
+        app.dependency_overrides.clear()
 
 # ========== 烟雾测试配置 ==========
 @pytest.fixture(scope="module")
@@ -85,15 +136,37 @@ def smoke_test_db(smoke_test_engine):
         database.close()
 
 @pytest.fixture(scope="function")
-def smoke_test_client(smoke_test_db):
+def smoke_test_client(smoke_test_db, mock_admin_user):
     """烟雾测试客户端"""
+    # 导入认证函数
+    from app.core.auth import get_current_user, get_current_active_user, get_current_admin_user
+    
     def override_get_db():
         yield smoke_test_db
+        
+    async def override_get_current_user():
+        return mock_admin_user
+        
+    async def override_get_current_active_user():
+        return mock_admin_user
+        
+    async def override_get_current_admin_user():
+        return mock_admin_user
     
-    app.dependency_overrides[get_db] = override_get_db
-    with TestClient(app) as test_client:
-        yield test_client
+    # 清除现有依赖覆盖
     app.dependency_overrides.clear()
+    
+    # 设置依赖覆盖 - 覆盖整个认证链条
+    app.dependency_overrides[get_db] = override_get_db
+    app.dependency_overrides[get_current_user] = override_get_current_user
+    app.dependency_overrides[get_current_active_user] = override_get_current_active_user
+    app.dependency_overrides[get_current_admin_user] = override_get_current_admin_user
+    
+    try:
+        with TestClient(app) as test_client:
+            yield test_client
+    finally:
+        app.dependency_overrides.clear()
 
 # ========== 集成测试配置 ==========
 @pytest.fixture(scope="session")
@@ -124,17 +197,58 @@ def integration_test_db(integration_test_engine):
         database.close()
 
 @pytest.fixture(scope="function")
-def integration_test_client(integration_test_db):
+def integration_test_client(integration_test_db, mock_admin_user):
     """集成测试客户端"""
+    # 导入认证函数
+    from app.core.auth import get_current_user, get_current_active_user, get_current_admin_user
+    
     def override_get_db():
         yield integration_test_db
+        
+    async def override_get_current_user():
+        return mock_admin_user
+        
+    async def override_get_current_active_user():
+        return mock_admin_user
+        
+    async def override_get_current_admin_user():
+        return mock_admin_user
     
-    app.dependency_overrides[get_db] = override_get_db
-    with TestClient(app) as test_client:
-        yield test_client
+    # 清除现有依赖覆盖
     app.dependency_overrides.clear()
+    
+    # 设置依赖覆盖 - 覆盖整个认证链条
+    app.dependency_overrides[get_db] = override_get_db
+    app.dependency_overrides[get_current_user] = override_get_current_user
+    app.dependency_overrides[get_current_active_user] = override_get_current_active_user
+    app.dependency_overrides[get_current_admin_user] = override_get_current_admin_user
+    
+    try:
+        with TestClient(app) as test_client:
+            yield test_client
+    finally:
+        app.dependency_overrides.clear()
+
+# ========== 通用测试配置 ==========
+@pytest.fixture
+def test_client(unit_test_client):
+    """通用测试客户端（默认使用单元测试配置）"""
+    return unit_test_client
 
 # ========== 通用测试工具 ==========
+@pytest.fixture
+def mock_admin_user():
+    """模拟管理员用户"""
+    from app.modules.user_auth.models import User
+    mock_user = User(
+        id=1,
+        username="admin",
+        email="admin@test.com",
+        role="admin",
+        is_active=True
+    )
+    return mock_user
+
 @pytest.fixture
 def sample_user_data():
     """示例用户数据"""

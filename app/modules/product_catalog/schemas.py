@@ -1,19 +1,16 @@
 """
-文件名：product.py
-文件路径：app/schemas/product.py
-功能描述：商品和分类管理相关的Pydantic模式定义
+商品目录模块Pydantic模式定义
+
+根据docs/modules/product-catalog/overview.md文档规范实现
+严格符合API设计标准和数据验证要求
+
 主要功能：
 - 商品分类的创建、更新、展示模式
-- 商品信息的创建、更新、展示模式
-- 商品库存管理和搜索筛选模式
-使用说明：
-- 导入：from app.schemas.product import ProductCreate, ProductRead, CategoryCreate
-- 验证：product_data = ProductCreate(**input_data)
-- 序列化：product_response = ProductRead.model_validate(product_obj)
-依赖模块：
-- app.schemas.base: 基础模式类
-- pydantic: 数据验证和字段定义
-- decimal: 金额字段类型
+- 商品信息的创建、更新、展示模式  
+- 品牌管理的相关模式
+- SKU规格管理的相关模式
+- 商品属性、图片、标签管理模式
+- 统一API响应格式
 """
 
 from pydantic import BaseModel, Field, field_validator
@@ -32,6 +29,56 @@ class TimestampSchema(BaseSchema):
     """包含时间戳的基础模式"""
     created_at: datetime
     updated_at: datetime
+
+
+# ============ 统一API响应格式 ============
+
+class ApiResponse(BaseSchema):
+    """统一API响应格式"""
+    success: bool = True
+    message: str = "操作成功"
+    data: Optional[Any] = None
+    
+class PaginatedResponse(BaseSchema):
+    """分页响应格式"""
+    success: bool = True
+    message: str = "查询成功"
+    data: Dict[str, Any]
+    total: int
+    page: int = 1
+    limit: int = 20
+    total_pages: int
+
+
+# ============ 品牌管理模式 ============
+
+class BrandBase(BaseSchema):
+    """品牌基础模式"""
+    name: str = Field(..., min_length=1, max_length=100, description="品牌名称")
+    slug: str = Field(..., min_length=1, max_length=100, description="SEO友好的URL标识")
+    description: Optional[str] = Field(None, description="品牌描述")
+    logo_url: Optional[str] = Field(None, max_length=500, description="品牌Logo URL")
+    website_url: Optional[str] = Field(None, max_length=500, description="品牌官网URL")
+    is_active: bool = Field(True, description="是否活跃")
+
+class BrandCreate(BrandBase):
+    """创建品牌模式"""
+    pass
+
+class BrandUpdate(BaseSchema):
+    """更新品牌模式"""
+    name: Optional[str] = Field(None, min_length=1, max_length=100)
+    slug: Optional[str] = Field(None, min_length=1, max_length=100)
+    description: Optional[str] = None
+    logo_url: Optional[str] = Field(None, max_length=500)
+    website_url: Optional[str] = Field(None, max_length=500)
+    is_active: Optional[bool] = None
+
+class BrandRead(BrandBase, TimestampSchema):
+    """品牌展示模式"""
+    id: int
+    page: int
+    size: int
 
 
 # ============ 分类相关模式 ============
@@ -86,76 +133,63 @@ class CategoryStats(BaseSchema):
 class ProductCreate(BaseSchema):
     """商品创建模式"""
     name: str = Field(..., max_length=200, description="商品名称")
-    sku: str = Field(..., max_length=100, description="商品编号")
     description: Optional[str] = Field(None, description="商品描述")
+    brand_id: Optional[int] = Field(None, description="品牌ID")
     category_id: Optional[int] = Field(None, description="分类ID")
-    price: Decimal = Field(..., ge=0, description="商品价格")
-    stock_quantity: int = Field(..., ge=0, description="库存数量")
-    status: str = Field(default="active", pattern="^(active|inactive|out_of_stock)$", description="商品状态")
-    image_url: Optional[str] = Field(None, max_length=500, description="主图URL")
-    attributes: Optional[Dict[str, Any]] = Field(None, description="商品属性")
-    images: Optional[List[str]] = Field(None, description="商品图片列表")
-    
-    @field_validator('sku')
-    @classmethod
-    def validate_sku(cls, v):
-        if not v.isalnum():
-            raise ValueError('SKU只能包含字母和数字')
-        return v.upper()
+    status: str = Field("draft", pattern="^(draft|published|archived)$", description="商品状态")
+    seo_title: Optional[str] = Field(None, max_length=200, description="SEO标题")
+    seo_description: Optional[str] = Field(None, description="SEO描述")
+    seo_keywords: Optional[str] = Field(None, max_length=500, description="SEO关键词")
+    sort_order: int = Field(0, description="排序序号")
 
 
 class ProductUpdate(BaseSchema):
     """商品更新模式"""
     name: Optional[str] = Field(None, max_length=200, description="商品名称")
-    sku: Optional[str] = Field(None, max_length=100, description="商品编号")
     description: Optional[str] = Field(None, description="商品描述")
+    brand_id: Optional[int] = Field(None, description="品牌ID")
     category_id: Optional[int] = Field(None, description="分类ID")
-    price: Optional[Decimal] = Field(None, ge=0, description="商品价格")
-    stock_quantity: Optional[int] = Field(None, ge=0, description="库存数量")
-    status: Optional[str] = Field(None, pattern="^(active|inactive|out_of_stock)$", description="商品状态")
-    image_url: Optional[str] = Field(None, max_length=500, description="主图URL")
-    attributes: Optional[Dict[str, Any]] = Field(None, description="商品属性")
-    images: Optional[List[str]] = Field(None, description="商品图片列表")
+    status: Optional[str] = Field(None, pattern="^(draft|published|archived)$", description="商品状态")
+    seo_title: Optional[str] = Field(None, max_length=200, description="SEO标题")
+    seo_description: Optional[str] = Field(None, description="SEO描述")
+    seo_keywords: Optional[str] = Field(None, max_length=500, description="SEO关键词")
+    sort_order: Optional[int] = Field(None, description="排序序号")
 
 
-class ProductStockUpdate(BaseSchema):
-    """商品库存更新模式"""
-    quantity_change: int = Field(..., description="库存变更量，正数为增加，负数为减少")
-    reason: Optional[str] = Field(None, max_length=200, description="变更原因")
-    operator_id: Optional[int] = Field(None, description="操作员ID")
+class ProductPublish(BaseSchema):
+    """商品发布模式"""
+    status: str = Field("published", pattern="^(draft|published|archived)$", description="发布状态")
 
 
 class ProductRead(TimestampSchema):
     """商品展示模式"""
     id: int
     name: str
-    sku: str
     description: Optional[str] = None
+    brand_id: Optional[int] = None
     category_id: Optional[int] = None
-    category_name: Optional[str] = None  # 关联分类名称
-    price: Decimal
-    stock_quantity: int
     status: str
-    image_url: Optional[str] = None
-    attributes: Optional[Dict[str, Any]] = None
-    images: Optional[List[str]] = None
+    published_at: Optional[datetime] = None
+    seo_title: Optional[str] = None
+    seo_description: Optional[str] = None
+    seo_keywords: Optional[str] = None
+    sort_order: int
+    view_count: int
+    sale_count: int
 
 
 class ProductDetail(ProductRead):
     """商品详情模式（包含更多信息）"""
+    brand: Optional[BrandRead] = None
     category: Optional[CategoryRead] = None
-    is_available: bool = True  # 是否可购买
-    stock_status: str = "in_stock"  # 库存状态
 
 
 class ProductSearch(BaseSchema):
     """商品搜索模式"""
     keyword: Optional[str] = Field(None, description="搜索关键词")
+    brand_id: Optional[int] = Field(None, description="品牌筛选")
     category_id: Optional[int] = Field(None, description="分类筛选")
-    min_price: Optional[Decimal] = Field(None, ge=0, description="最低价格")
-    max_price: Optional[Decimal] = Field(None, ge=0, description="最高价格")
-    status: Optional[str] = Field(None, pattern="^(active|inactive|out_of_stock)$", description="状态筛选")
-    in_stock_only: Optional[bool] = Field(False, description="仅显示有库存商品")
+    status: Optional[str] = Field(None, pattern="^(draft|published|archived)$", description="状态筛选")
     sort_by: Optional[str] = Field("created_at", description="排序字段")
     sort_order: Optional[str] = Field("desc", pattern="^(asc|desc)$", description="排序方向")
 
@@ -163,11 +197,142 @@ class ProductSearch(BaseSchema):
 class ProductStats(BaseSchema):
     """商品统计模式"""
     total_products: int
-    active_products: int
-    out_of_stock_products: int
-    low_stock_products: int
-    total_value: Decimal
+    draft_products: int
+    published_products: int
+    archived_products: int
+    total_views: int
+    total_sales: int
+    brands_count: int
     categories_count: int
+
+
+# ============ SKU管理模式 ============
+
+class SKUAttributeBase(BaseSchema):
+    """SKU属性基础模式"""
+    attribute_name: str = Field(..., min_length=1, max_length=100)
+    attribute_value: str = Field(..., min_length=1, max_length=200)
+
+class SKUAttributeCreate(SKUAttributeBase):
+    """创建SKU属性模式"""
+    pass
+
+class SKUAttributeRead(SKUAttributeBase, TimestampSchema):
+    """SKU属性展示模式"""
+    id: int
+    sku_id: int
+
+class SKUBase(BaseSchema):
+    """SKU基础模式"""
+    sku_code: str = Field(..., min_length=1, max_length=100, description="SKU编码")
+    name: Optional[str] = Field(None, max_length=200, description="SKU名称")
+    price: Decimal = Field(..., ge=0, description="SKU价格")
+    cost_price: Optional[Decimal] = Field(None, ge=0, description="成本价格")
+    market_price: Optional[Decimal] = Field(None, ge=0, description="市场价格")
+    weight: Optional[Decimal] = Field(None, ge=0, description="重量（千克）")
+    volume: Optional[Decimal] = Field(None, ge=0, description="体积（立方米）")
+    is_active: bool = Field(True, description="是否活跃")
+
+class SKUCreate(SKUBase):
+    """创建SKU模式"""
+    product_id: int = Field(..., description="所属商品ID")
+    attributes: Optional[List[SKUAttributeCreate]] = Field(None, description="SKU属性列表")
+
+class SKUUpdate(BaseSchema):
+    """更新SKU模式"""
+    name: Optional[str] = Field(None, max_length=200)
+    price: Optional[Decimal] = Field(None, ge=0)
+    cost_price: Optional[Decimal] = Field(None, ge=0)
+    market_price: Optional[Decimal] = Field(None, ge=0)
+    weight: Optional[Decimal] = Field(None, ge=0)
+    volume: Optional[Decimal] = Field(None, ge=0)
+    is_active: Optional[bool] = None
+
+class SKURead(SKUBase, TimestampSchema):
+    """SKU展示模式"""
+    id: int
+    product_id: int
+    attributes_rel: Optional[List[SKUAttributeRead]] = None
+
+
+# ============ 商品属性管理模式 ============
+
+class ProductAttributeBase(BaseSchema):
+    """商品属性基础模式"""
+    attribute_name: str = Field(..., min_length=1, max_length=100)
+    attribute_value: str = Field(..., min_length=1, max_length=500)
+    attribute_type: str = Field(..., pattern="^(text|number|boolean|select)$")
+    is_searchable: bool = Field(False, description="是否可搜索")
+
+class ProductAttributeCreate(ProductAttributeBase):
+    """创建商品属性模式"""
+    pass
+
+class ProductAttributeUpdate(BaseSchema):
+    """更新商品属性模式"""
+    attribute_value: Optional[str] = Field(None, min_length=1, max_length=500)
+    is_searchable: Optional[bool] = None
+
+class ProductAttributeRead(ProductAttributeBase, TimestampSchema):
+    """商品属性展示模式"""
+    id: int
+    product_id: int
+
+
+# ============ 商品图片管理模式 ============
+
+class ProductImageBase(BaseSchema):
+    """商品图片基础模式"""
+    image_url: str = Field(..., max_length=500, description="图片URL")
+    alt_text: Optional[str] = Field(None, max_length=200, description="图片描述")
+    sort_order: int = Field(0, description="排序序号")
+    is_primary: bool = Field(False, description="是否主图")
+
+class ProductImageCreate(ProductImageBase):
+    """创建商品图片模式"""
+    product_id: Optional[int] = Field(None, description="商品ID")
+    sku_id: Optional[int] = Field(None, description="SKU ID")
+
+class ProductImageUpdate(BaseSchema):
+    """更新商品图片模式"""
+    alt_text: Optional[str] = Field(None, max_length=200)
+    sort_order: Optional[int] = None
+    is_primary: Optional[bool] = None
+
+class ProductImageRead(ProductImageBase, TimestampSchema):
+    """商品图片展示模式"""
+    id: int
+    product_id: Optional[int]
+    sku_id: Optional[int]
+
+
+# ============ 商品标签管理模式 ============
+
+class ProductTagBase(BaseSchema):
+    """商品标签基础模式"""
+    tag_name: str = Field(..., min_length=1, max_length=50, description="标签名称")
+    tag_type: str = Field("general", pattern="^(general|promotion|feature)$", description="标签类型")
+
+class ProductTagCreate(ProductTagBase):
+    """创建商品标签模式"""
+    pass
+
+class ProductTagRead(ProductTagBase, TimestampSchema):
+    """商品标签展示模式"""
+    id: int
+    product_id: int
+
+
+# ============ 扩展的商品模式（包含完整信息）============
+
+class ProductComplete(ProductRead):
+    """完整商品信息模式"""
+    brand: Optional[BrandRead] = None
+    category: Optional[CategoryRead] = None
+    skus: Optional[List[SKURead]] = None
+    attributes_rel: Optional[List[ProductAttributeRead]] = None
+    images_rel: Optional[List[ProductImageRead]] = None
+    tags_rel: Optional[List[ProductTagRead]] = None
 
 
 class ProductPublic(BaseSchema):
