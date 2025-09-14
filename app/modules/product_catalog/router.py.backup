@@ -1,0 +1,587 @@
+from fastapi import APIRouter, Depends, HTTPException, status, Query
+from sqlalchemy.orm import Session
+from sqlalchemy import func
+from typing import List, Optional
+
+from app.core.database import get_db
+from app.modules.user_auth.models import User
+from .models import Product, Category, Brand, SKU, ProductAttribute, ProductImage, ProductTag
+from .schemas import (
+    ProductRead, ProductCreate, ProductUpdate, ProductPublish,
+    CategoryRead, CategoryCreate, CategoryUpdate,
+    BrandRead, BrandCreate, BrandUpdate,
+    SKURead, SKUCreate, SKUUpdate,
+    ProductAttributeRead, ProductAttributeCreate, ProductAttributeUpdate,
+    ProductImageRead, ProductImageCreate, ProductImageUpdate,
+    ProductTagRead, ProductTagCreate,
+    ProductComplete, ProductDetail, ProductSearch
+)
+# V1.0 Mini-MVP: 导入认证依赖
+from app.core.auth import get_current_admin_user
+
+router = APIRouter()
+
+
+@router.post("/products", response_model=ProductRead, status_code=status.HTTP_201_CREATED)
+def create_product(
+    payload: ProductCreate, 
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(get_current_admin_user)  # V1.0: 管理员权限检查
+):
+    """创建新商品（需要管理员权限）"""
+    # 检查分类是否存在
+    if payload.category_id:
+        category = db.query(Category).get(payload.category_id)
+        if not category:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"分类ID {payload.category_id} 不存在"
+            )
+    
+    # 检查品牌是否存在
+    if payload.brand_id:
+        brand = db.query(Brand).get(payload.brand_id)
+        if not brand:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"品牌ID {payload.brand_id} 不存在"
+            )
+    
+    # 创建商品 - 使用事务管理
+    try:
+        product_data = payload.dict()
+        product = Product(**product_data)
+        db.add(product)
+        db.commit()
+        db.refresh(product)
+        return product
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"商品创建失败: {str(e)}"
+        )
+
+
+@router.get("/products", response_model=List[ProductRead])
+def list_products(
+    skip: int = Query(0, ge=0, description="跳过记录数"),
+    limit: int = Query(100, ge=1, le=1000, description="返回记录数"),
+    category_id: Optional[int] = Query(None, description="按分类筛选"),
+    status: Optional[str] = Query(None, description="按状态筛选"),
+    search: Optional[str] = Query(None, description="搜索商品名称或SKU"),
+    db: Session = Depends(get_db)
+):
+    """获取商品列表，支持分页和筛选"""
+    query = db.query(Product)
+    
+    # 筛选条件
+    if category_id:
+        query = query.filter(Product.category_id == category_id)
+    if status:
+        query = query.filter(Product.status == status)
+    if search:
+        search_term = f"%{search}%"
+        query = query.filter(
+            (Product.name.like(search_term)) | 
+            (Product.sku.like(search_term))
+        )
+    
+    # 分页
+    products = query.offset(skip).limit(limit).all()
+    return products
+
+
+@router.get("/products/{product_id}", response_model=ProductRead)
+def get_product(product_id: int, db: Session = Depends(get_db)):
+    """获取单个商品详情"""
+    product = db.query(Product).get(product_id)
+    if not product:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, 
+            detail=f"商品ID {product_id} 不存在"
+        )
+    return product
+
+
+@router.put("/products/{product_id}", response_model=ProductRead)
+def update_product(
+    product_id: int, 
+    payload: ProductUpdate, 
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(get_current_admin_user)  # V1.0: 管理员权限检查
+):
+    """更新商品信息（需要管理员权限）"""
+    product = db.query(Product).get(product_id)
+    if not product:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"商品ID {product_id} 不存在"
+        )
+    
+    # 检查SKU冲突（如果更新了SKU）
+    update_data = payload.dict(exclude_unset=True)
+    if 'sku' in update_data and update_data['sku'] != product.sku:
+        existing = db.query(Product).filter(
+            Product.sku == update_data['sku'],
+            Product.id != product_id
+        ).first()
+        if existing:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"商品SKU '{update_data['sku']}' 已存在"
+            )
+    
+    # 检查分类存在性
+    if 'category_id' in update_data and update_data['category_id']:
+        category = db.query(Category).get(update_data['category_id'])
+        if not category:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"分类ID {update_data['category_id']} 不存在"
+            )
+    
+    # 更新字段 - 使用事务管理
+    try:
+        for field, value in update_data.items():
+            setattr(product, field, value)
+        
+        db.commit()
+        db.refresh(product)
+        return product
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"商品更新失败: {str(e)}"
+        )
+
+
+@router.put("/products/{product_id}/publish", response_model=ProductRead)
+def publish_product(
+    product_id: int,
+    publish_data: ProductPublish,
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(get_current_admin_user)  # V1.0: 管理员权限检查
+):
+    """发布商品（需要管理员权限）"""
+    product = db.query(Product).get(product_id)
+    if not product:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"商品ID {product_id} 不存在"
+        )
+    
+    # 更新发布状态 - 使用事务管理
+    try:
+        product.status = publish_data.status
+        if publish_data.status == "published":
+            from datetime import datetime
+            product.published_at = datetime.now()
+        
+        db.commit()
+        db.refresh(product)
+        return product
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"发布状态更新失败: {str(e)}"
+        )
+
+
+@router.delete("/products/{product_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_product(
+    product_id: int, 
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(get_current_admin_user)  # V1.0: 管理员权限检查
+):
+    """删除商品（需要管理员权限，软删除）"""
+    product = db.query(Product).get(product_id)
+    if not product:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"商品ID {product_id} 不存在"
+        )
+    
+    # 暂时跳过OrderItem检查，等order_management模块创建后再添加
+    # order_items = db.query(OrderItem).filter(OrderItem.product_id == product_id).first()
+    
+    # 软删除：设置is_deleted标志 - 使用事务管理
+    try:
+        product.is_deleted = True
+        product.deleted_at = func.now()
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"商品删除失败: {str(e)}"
+        )
+    
+    return None
+
+
+# ============ 分类管理路由 ============
+
+@router.post("/categories", response_model=CategoryRead, status_code=status.HTTP_201_CREATED)
+def create_category(
+    payload: CategoryCreate,
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(get_current_admin_user)  # V1.0: 管理员权限检查
+):
+    """创建新分类（需要管理员权限）"""
+    # 检查父分类是否存在
+    if payload.parent_id:
+        parent = db.query(Category).get(payload.parent_id)
+        if not parent:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"父分类ID {payload.parent_id} 不存在"
+            )
+    
+    # 创建分类 - 使用事务管理
+    try:
+        category_data = payload.dict()
+        category = Category(**category_data)
+        db.add(category)
+        db.commit()
+        db.refresh(category)
+        return category
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"分类创建失败: {str(e)}"
+        )
+
+
+@router.get("/categories", response_model=List[CategoryRead])
+def list_categories(
+    parent_id: Optional[int] = Query(None, description="按父分类筛选"),
+    is_active: Optional[bool] = Query(None, description="按状态筛选"),
+    skip: int = Query(0, ge=0, description="跳过记录数"),
+    limit: int = Query(100, ge=1, le=1000, description="返回记录数"),
+    db: Session = Depends(get_db)
+):
+    """获取分类列表，支持分页和筛选"""
+    query = db.query(Category)
+    
+    # 筛选条件
+    if parent_id is not None:
+        query = query.filter(Category.parent_id == parent_id)
+    if is_active is not None:
+        query = query.filter(Category.is_active == is_active)
+    
+    # 分页
+    categories = query.offset(skip).limit(limit).all()
+    return categories
+
+
+@router.get("/categories/{category_id}", response_model=CategoryRead)
+def get_category(category_id: int, db: Session = Depends(get_db)):
+    """获取单个分类详情"""
+    category = db.query(Category).get(category_id)
+    if not category:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"分类ID {category_id} 不存在"
+        )
+    return category
+
+
+@router.put("/categories/{category_id}", response_model=CategoryRead)
+def update_category(
+    category_id: int,
+    payload: CategoryUpdate,
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(get_current_admin_user)  # V1.0: 管理员权限检查
+):
+    """更新分类信息（需要管理员权限）"""
+    category = db.query(Category).get(category_id)
+    if not category:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"分类ID {category_id} 不存在"
+        )
+    
+    # 检查父分类存在性（如果更新了父分类）
+    update_data = payload.dict(exclude_unset=True)
+    if 'parent_id' in update_data and update_data['parent_id']:
+        parent = db.query(Category).get(update_data['parent_id'])
+        if not parent:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"父分类ID {update_data['parent_id']} 不存在"
+            )
+        # 防止循环引用
+        if update_data['parent_id'] == category_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="分类不能设置自己为父分类"
+            )
+    
+    # 更新字段 - 使用事务管理
+    try:
+        for field, value in update_data.items():
+            setattr(category, field, value)
+        
+        db.commit()
+        db.refresh(category)
+        return category
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"分类更新失败: {str(e)}"
+        )
+
+
+@router.delete("/categories/{category_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_category(
+    category_id: int,
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(get_current_admin_user)  # V1.0: 管理员权限检查
+):
+    """删除分类（需要管理员权限，软删除）"""
+    category = db.query(Category).get(category_id)
+    if not category:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"分类ID {category_id} 不存在"
+        )
+    
+    # 检查是否有子分类
+    children = db.query(Category).filter(Category.parent_id == category_id).first()
+    if children:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="该分类下有子分类，无法删除"
+        )
+    
+    # 检查是否有关联商品
+    products = db.query(Product).filter(Product.category_id == category_id).first()
+    if products:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="该分类下有商品，无法删除"
+        )
+    
+    # 软删除：设置is_deleted标志 - 使用事务管理
+    try:
+        category.is_deleted = True
+        category.deleted_at = func.now()
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"分类删除失败: {str(e)}"
+        )
+    
+    return None
+
+
+# ============ 分类管理API ============
+
+@router.post("/categories", response_model=CategoryRead, status_code=status.HTTP_201_CREATED)
+def create_category(
+    payload: CategoryCreate, 
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(get_current_admin_user)
+):
+    """创建新分类（需要管理员权限）"""
+    # 检查父分类是否存在
+    if payload.parent_id:
+        parent = db.query(Category).get(payload.parent_id)
+        if not parent:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"父分类ID {payload.parent_id} 不存在"
+            )
+    
+    # 检查同级分类名称是否重复
+    existing = db.query(Category).filter(
+        Category.name == payload.name,
+        Category.parent_id == payload.parent_id
+    ).first()
+    
+    if existing:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"同级分类'{payload.name}'已存在"
+        )
+    
+    category_data = payload.dict()
+    category = Category(**category_data)
+    db.add(category)
+    db.commit()
+    db.refresh(category)
+    return category
+
+
+@router.get("/categories", response_model=List[CategoryRead])
+def list_categories(
+    parent_id: Optional[int] = Query(None, description="父分类ID，不传则返回顶级分类"),
+    include_inactive: bool = Query(False, description="是否包含已停用的分类"),
+    db: Session = Depends(get_db)
+):
+    """获取分类列表"""
+    query = db.query(Category)
+    
+    # 筛选父分类
+    if parent_id is not None:
+        query = query.filter(Category.parent_id == parent_id)
+    else:
+        # 默认只返回顶级分类
+        query = query.filter(Category.parent_id.is_(None))
+    
+    # 是否包含已停用的分类
+    if not include_inactive:
+        query = query.filter(Category.is_active == True)
+    
+    # 按排序字段和创建时间排序
+    categories = query.order_by(Category.sort_order, Category.created_at).all()
+    return categories
+
+
+@router.get("/categories/tree")
+def get_category_tree(
+    include_inactive: bool = Query(False, description="是否包含已停用的分类"),
+    db: Session = Depends(get_db)
+):
+    """获取分类树结构"""
+    # 获取所有分类
+    query = db.query(Category)
+    if not include_inactive:
+        query = query.filter(Category.is_active == True)
+    
+    all_categories = query.order_by(Category.sort_order, Category.created_at).all()
+    
+    # 构建树结构
+    def build_tree(parent_id=None):
+        children = []
+        for cat in all_categories:
+            if cat.parent_id == parent_id:
+                # 构建分类数据
+                cat_data = {
+                    "id": cat.id,
+                    "name": cat.name,
+                    "parent_id": cat.parent_id,
+                    "sort_order": cat.sort_order,
+                    "is_active": cat.is_active,
+                    "created_at": cat.created_at,
+                    "children": build_tree(cat.id)
+                }
+                children.append(cat_data)
+        return children
+    
+    return build_tree()
+
+
+@router.get("/categories/{category_id}", response_model=CategoryRead)
+def get_category(category_id: int, db: Session = Depends(get_db)):
+    """获取指定分类信息"""
+    category = db.query(Category).get(category_id)
+    if not category:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"分类ID {category_id} 不存在"
+        )
+    return category
+
+
+@router.put("/categories/{category_id}", response_model=CategoryRead)
+def update_category(
+    category_id: int,
+    payload: CategoryUpdate, 
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(get_current_admin_user)
+):
+    """更新分类信息（需要管理员权限）"""
+    category = db.query(Category).get(category_id)
+    if not category:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"分类ID {category_id} 不存在"
+        )
+    
+    # 检查父分类是否存在（如果有变更）
+    if hasattr(payload, 'parent_id') and payload.parent_id:
+        parent = db.query(Category).get(payload.parent_id)
+        if not parent:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"父分类ID {payload.parent_id} 不存在"
+            )
+        
+        # 防止将分类设为自己的子分类
+        if payload.parent_id == category_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="不能将分类设为自己的子分类"
+            )
+    
+    # 检查同级分类名称是否重复（如果有名称变更）
+    if hasattr(payload, 'name') and payload.name != category.name:
+        existing = db.query(Category).filter(
+            Category.name == payload.name,
+            Category.parent_id == getattr(payload, 'parent_id', category.parent_id),
+            Category.id != category_id
+        ).first()
+        
+        if existing:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"同级分类'{payload.name}'已存在"
+            )
+    
+    # 更新分类
+    for field, value in payload.dict(exclude_unset=True).items():
+        setattr(category, field, value)
+    
+    db.commit()
+    db.refresh(category)
+    return category
+
+
+@router.delete("/categories/{category_id}")
+def delete_category(
+    category_id: int, 
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(get_current_admin_user)
+):
+    """删除分类（需要管理员权限）"""
+    category = db.query(Category).get(category_id)
+    if not category:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"分类ID {category_id} 不存在"
+        )
+    
+    # 检查是否有子分类
+    children = db.query(Category).filter(
+        Category.parent_id == category_id
+    ).first()
+    
+    if children:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="不能删除含有子分类的分类，请先删除或移动子分类"
+        )
+    
+    # 检查是否有关联的商品
+    products = db.query(models.Product).filter(
+        models.Product.category_id == category_id
+    ).first()
+    
+    if products:
+        # 软删除：设置状态为inactive而不是真正删除
+        category.is_active = False
+        db.commit()
+    else:
+        # 硬删除：没有关联数据时可以直接删除
+        db.delete(category)
+        db.commit()
+    
+    return None

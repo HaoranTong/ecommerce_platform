@@ -1,232 +1,299 @@
 import pytest
-from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import StaticPool
-
-from app.main import app
-import app.data_models as models
-from app.db import get_session, Base
-
-# use in-memory sqlite for fast tests
-SQLITE_URL = "sqlite+pysqlite:///:memory:"
-engine = create_engine(
-    SQLITE_URL,
-    connect_args={"check_same_thread": False},
-    poolclass=StaticPool,
-    future=True,
-)
-TestingSessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)
 
 
-def setup_module(module):
-    # create tables
-    Base.metadata.create_all(bind=engine)
-
-
-def override_get_session():
-    db = TestingSessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-
-
-# create tables before TestClient instantiation (avoid race with TestClient server)
-Base.metadata.create_all(bind=engine)
-
-app.dependency_overrides[get_session] = override_get_session
-client = TestClient(app)
-
-
-def test_create_product():
+def test_create_product(unit_test_client):
     """测试创建商品"""
-    response = client.post('/api/products', json={
+    response = unit_test_client.post('/api/v1/product-catalog/products', json={
         'name': '测试商品',
-        'sku': 'TEST-001',
         'description': '这是一个测试商品',
-        'price': '99.99',
-        'stock_quantity': 100,
-        'status': 'active'
+        'status': 'published',
+        'sort_order': 1
     })
     assert response.status_code == 201
     data = response.json()
     assert data['name'] == '测试商品'
-    assert data['sku'] == 'TEST-001'
-    assert float(data['price']) == 99.99
-    assert data['stock_quantity'] == 100
+    assert data['description'] == '这是一个测试商品'
+    assert data['status'] == 'published'
+    assert data['sort_order'] == 1
 
 
-def test_create_product_with_category():
+def test_create_product_with_category(unit_test_client):
     """测试创建带分类的商品"""
     # 先创建分类
-    category_response = client.post('/api/categories', json={
+    category_response = unit_test_client.post('/api/v1/product-catalog/categories', json={
         'name': '商品分类',
+        'parent_id': None,
         'sort_order': 1
     })
-    category_id = category_response.json()['id']
+    # 检查分类创建是否成功
+    assert category_response.status_code == 201, f"分类创建失败: {category_response.text}"
+    category_data = category_response.json()
+    category_id = category_data['id']
     
-    # 创建商品
-    response = client.post('/api/products', json={
+    # 创建商品（只包含基础信息）
+    response = unit_test_client.post('/api/v1/product-catalog/products', json={
         'name': '分类商品',
-        'sku': 'CAT-001',
         'description': '带分类的商品',
         'category_id': category_id,
-        'price': '199.99',
-        'stock_quantity': 50
+        'status': 'published'
     })
     assert response.status_code == 201
     data = response.json()
     assert data['category_id'] == category_id
+    
+    # Note: SKU creation endpoints are not yet implemented
+    # This test focuses on the Product-Category relationship which now works correctly
 
 
-def test_list_products():
+def test_list_products(unit_test_client):
     """测试商品列表"""
-    response = client.get('/api/products')
+    # 先创建几个测试商品
+    unit_test_client.post('/api/v1/product-catalog/products', json={
+        'name': '列表测试商品1',
+        'description': '测试商品描述1',
+        'status': 'published'
+    })
+    unit_test_client.post('/api/v1/product-catalog/products', json={
+        'name': '列表测试商品2', 
+        'description': '测试商品描述2',
+        'status': 'published'
+    })
+    
+    # 测试商品列表
+    response = unit_test_client.get('/api/v1/product-catalog/products')
     assert response.status_code == 200
     products = response.json()
-    assert len(products) > 0
+    assert len(products) >= 2
+    assert any(product['name'] == '列表测试商品1' for product in products)
+    assert any(product['name'] == '列表测试商品2' for product in products)
 
 
-def test_get_product():
+def test_get_product(unit_test_client):
     """测试获取单个商品"""
     # 先创建商品
-    create_response = client.post('/api/products', json={
+    product_response = unit_test_client.post('/api/v1/product-catalog/products', json={
         'name': '单品测试',
-        'sku': 'SINGLE-001',
-        'price': '50.00',
-        'stock_quantity': 10
+        'description': '单品测试商品',
+        'brand': '测试品牌',
+        'category': '测试分类'
     })
-    product_id = create_response.json()['id']
+    product_id = product_response.json()['id']
+    
+    # 创建SKU
+    sku_response = unit_test_client.post(f'/api/v1/product-catalog/products/{product_id}/skus', json={
+        'sku_code': 'SINGLE-001',
+        'price': '50.00',
+        'stock_quantity': 10,
+        'attributes': {'color': 'red', 'size': 'M'}
+    })
     
     # 获取商品
-    response = client.get(f'/api/products/{product_id}')
+    response = unit_test_client.get(f'/api/v1/product-catalog/products/{product_id}')
     assert response.status_code == 200
     data = response.json()
     assert data['name'] == '单品测试'
 
 
-def test_update_product():
+def test_update_product(unit_test_client):
     """测试更新商品"""
-    # 先创建商品
-    create_response = client.post('/api/products', json={
+    # 先创建商品（只包含基础信息）
+    product_response = unit_test_client.post('/api/v1/product-catalog/products', json={
         'name': '待更新商品',
-        'sku': 'UPDATE-001',
-        'price': '100.00',
-        'stock_quantity': 20
+        'description': '待更新的测试商品',
+        'status': 'draft'
     })
-    product_id = create_response.json()['id']
+    assert product_response.status_code == 201
+    product_id = product_response.json()['id']
     
-    # 更新商品
-    response = client.put(f'/api/products/{product_id}', json={
+    # 创建SKU（包含价格信息）
+    sku_response = unit_test_client.post(f'/api/v1/product-catalog/products/{product_id}/skus', json={
+        'sku_code': 'UPDATE-001',
+        'price': 100.00,
+        'weight': 1.0,
+        'is_active': True
+    })
+    assert sku_response.status_code == 201
+    sku_id = sku_response.json()['id']
+    
+    # 更新商品基本信息
+    response = unit_test_client.put(f'/api/v1/product-catalog/products/{product_id}', json={
         'name': '已更新商品',
-        'price': '150.00',
-        'stock_quantity': 30
+        'description': '已更新的测试商品',
+        'status': 'published'
     })
     assert response.status_code == 200
     data = response.json()
     assert data['name'] == '已更新商品'
-    assert float(data['price']) == 150.00
-    assert data['stock_quantity'] == 30
+    assert data['status'] == 'published'
+    
+    # 更新SKU价格
+    sku_update_response = unit_test_client.put(f'/api/v1/product-catalog/skus/{sku_id}', json={
+        'price': 150.00,
+        'weight': 1.5
+    })
+    assert sku_update_response.status_code == 200
+    sku_data = sku_update_response.json()
+    assert float(sku_data['price']) == 150.00
+    assert float(sku_data['weight']) == 1.5
 
 
-def test_update_product_stock():
-    """测试更新商品库存"""
+def test_update_product_stock(unit_test_client):
+    """测试SKU状态管理（简化版 - 库存管理属于inventory模块）"""
     # 先创建商品
-    create_response = client.post('/api/products', json={
+    product_response = unit_test_client.post('/api/v1/product-catalog/products', json={
         'name': '库存测试商品',
-        'sku': 'STOCK-001',
-        'price': '75.00',
-        'stock_quantity': 100
+        'description': '库存测试商品',
+        'status': 'published'
     })
-    product_id = create_response.json()['id']
+    assert product_response.status_code == 201
+    product_id = product_response.json()['id']
     
-    # 增加库存
-    response = client.patch(f'/api/products/{product_id}/stock', json={
-        'quantity_change': 50,
-        'reason': '补货'
+    # 创建SKU
+    sku_response = unit_test_client.post(f'/api/v1/product-catalog/products/{product_id}/skus', json={
+        'sku_code': 'STOCK-001',
+        'price': 75.00,
+        'weight': 2.0,
+        'is_active': True
+    })
+    assert sku_response.status_code == 201
+    sku_id = sku_response.json()['id']
+    
+    # 测试SKU状态更新
+    response = unit_test_client.put(f'/api/v1/product-catalog/skus/{sku_id}', json={
+        'is_active': False
     })
     assert response.status_code == 200
     data = response.json()
-    assert data['stock_quantity'] == 150
+    assert data['is_active'] == False
     
-    # 减少库存
-    response = client.patch(f'/api/products/{product_id}/stock', json={
-        'quantity_change': -30,
-        'reason': '销售'
+    # 重新激活SKU
+    response = unit_test_client.put(f'/api/v1/product-catalog/skus/{sku_id}', json={
+        'is_active': True,
+        'price': 80.00
     })
     assert response.status_code == 200
     data = response.json()
-    assert data['stock_quantity'] == 120
+    assert data['is_active'] == True
+    assert float(data['price']) == 80.00
 
 
-def test_delete_product():
+def test_delete_product(unit_test_client):
     """测试删除商品"""
     # 创建商品
-    create_response = client.post('/api/products', json={
+    product_response = unit_test_client.post('/api/v1/product-catalog/products', json={
         'name': '待删除商品',
-        'sku': 'DELETE-001',
-        'price': '25.00',
-        'stock_quantity': 5
+        'description': '待删除的测试商品',
+        'status': 'published'
     })
-    product_id = create_response.json()['id']
+    assert product_response.status_code == 201
+    product_id = product_response.json()['id']
     
-    # 删除商品
-    response = client.delete(f'/api/products/{product_id}')
+    # 创建SKU
+    sku_response = unit_test_client.post(f'/api/v1/product-catalog/products/{product_id}/skus', json={
+        'sku_code': 'DELETE-001',
+        'price': 25.00,
+        'weight': 0.5,
+        'is_active': True
+    })
+    assert sku_response.status_code == 201
+    
+    # 删除商品（软删除）
+    response = unit_test_client.delete(f'/api/v1/product-catalog/products/{product_id}')
     assert response.status_code == 204
     
-    # 验证已删除
-    get_response = client.get(f'/api/products/{product_id}')
+    # 验证已被软删除（应该返回404）
+    get_response = unit_test_client.get(f'/api/v1/product-catalog/products/{product_id}')
     assert get_response.status_code == 404
 
 
-def test_create_duplicate_sku():
+def test_create_duplicate_sku(unit_test_client):
     """测试创建重复SKU"""
     # 创建第一个商品
-    client.post('/api/products', json={
+    product_response1 = unit_test_client.post('/api/v1/product-catalog/products', json={
         'name': '原始商品',
-        'sku': 'DUP-001',
-        'price': '50.00',
-        'stock_quantity': 10
+        'description': '原始商品描述',
+        'status': 'published'
     })
+    assert product_response1.status_code == 201
+    product_id1 = product_response1.json()['id']
     
-    # 尝试创建相同SKU的商品
-    response = client.post('/api/products', json={
+    # 创建第一个SKU
+    sku_response1 = unit_test_client.post(f'/api/v1/product-catalog/products/{product_id1}/skus', json={
+        'sku_code': 'DUP-001',
+        'price': 50.00,
+        'weight': 1.0,
+        'is_active': True
+    })
+    assert sku_response1.status_code == 201
+    
+    # 创建第二个商品
+    product_response2 = unit_test_client.post('/api/v1/product-catalog/products', json={
         'name': '重复商品',
-        'sku': 'DUP-001',
-        'price': '60.00',
-        'stock_quantity': 15
+        'description': '重复商品描述',
+        'status': 'published'
+    })
+    assert product_response2.status_code == 201
+    product_id2 = product_response2.json()['id']
+    
+    # 尝试创建相同SKU码的SKU（应该失败）
+    response = unit_test_client.post(f'/api/v1/product-catalog/products/{product_id2}/skus', json={
+        'sku_code': 'DUP-001',
+        'price': 60.00,
+        'weight': 1.2,
+        'is_active': True
     })
     assert response.status_code == 400
     assert '已存在' in response.json()['detail']
 
 
-def test_search_products():
+def test_search_products(unit_test_client):
     """测试商品搜索"""
-    # 创建测试商品
-    client.post('/api/products', json={
+    # 创建测试商品A
+    product_response_a = unit_test_client.post('/api/v1/product-catalog/products', json={
         'name': '搜索测试商品A',
-        'sku': 'SEARCH-A',
-        'price': '30.00',
-        'stock_quantity': 5
+        'description': '搜索测试商品A描述',
+        'status': 'published'
     })
+    assert product_response_a.status_code == 201
+    product_id_a = product_response_a.json()['id']
     
-    client.post('/api/products', json={
+    sku_response_a = unit_test_client.post(f'/api/v1/product-catalog/products/{product_id_a}/skus', json={
+        'sku_code': 'SEARCH-A',
+        'price': 30.00,
+        'weight': 1.0,
+        'is_active': True
+    })
+    assert sku_response_a.status_code == 201
+    
+    # 创建测试商品B
+    product_response_b = unit_test_client.post('/api/v1/product-catalog/products', json={
         'name': '搜索测试商品B',
-        'sku': 'SEARCH-B',
-        'price': '40.00',
-        'stock_quantity': 8
+        'description': '搜索测试商品B描述',
+        'status': 'published'
     })
+    assert product_response_b.status_code == 201
+    product_id_b = product_response_b.json()['id']
     
-    # 按名称搜索
-    response = client.get('/api/products?search=搜索测试')
+    sku_response_b = unit_test_client.post(f'/api/v1/product-catalog/products/{product_id_b}/skus', json={
+        'sku_code': 'SEARCH-B',
+        'price': 40.00,
+        'weight': 1.5,
+        'is_active': True
+    })
+    assert sku_response_b.status_code == 201
+    
+    # 按名称搜索产品
+    response = unit_test_client.get('/api/v1/product-catalog/products?search=搜索测试')
     assert response.status_code == 200
     products = response.json()
     assert len(products) >= 2
+    product_names = [p['name'] for p in products]
+    assert '搜索测试商品A' in product_names
+    assert '搜索测试商品B' in product_names
     
-    # 按SKU搜索
-    response = client.get('/api/products?search=SEARCH-A')
+    # 按SKU编码搜索
+    response = unit_test_client.get('/api/v1/product-catalog/skus?search=SEARCH-A')
     assert response.status_code == 200
-    products = response.json()
-    assert len(products) >= 1
-    assert any(p['sku'] == 'SEARCH-A' for p in products)
+    skus = response.json()
+    assert len(skus) >= 1
+    assert any(s['sku_code'] == 'SEARCH-A' for s in skus)
