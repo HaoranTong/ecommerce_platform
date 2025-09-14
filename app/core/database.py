@@ -40,11 +40,19 @@ def get_db():
 
 def create_tables():
     """创建所有表"""
-    from app.data_models import Base
+    # Import all model modules to register them with Base
+    from app.modules.user_auth import models as user_models
+    from app.modules.product_catalog import models as product_models
+    # Import other modules as they are implemented
+    
     Base.metadata.create_all(bind=engine)
 
 
 def drop_tables():
     """删除所有表（仅用于开发测试）"""
-    from app.data_models import Base
+    # Import all model modules to register them with Base
+    from app.modules.user_auth import models as user_models
+    from app.modules.product_catalog import models as product_models
+    # Import other modules as they are implemented
+    
     Base.metadata.drop_all(bind=engine)

@@ -17,7 +17,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy import and_, or_
 from fastapi import HTTPException, status
 
-from app.models import Product, Category
+from .models import Product, Category
 
 
 class ProductService:
