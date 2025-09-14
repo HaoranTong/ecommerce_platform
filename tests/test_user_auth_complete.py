@@ -18,7 +18,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 # 只导入必要的模型，避免循环导入
 from app.core.database import Base
-from app.shared.models import TimestampMixin, SoftDeleteMixin
+from app.shared.base_models import TimestampMixin, SoftDeleteMixin
 from app.modules.user_auth.models import User, Role, Permission, UserRole, RolePermission, Session
 
 # 单元测试数据库配置（SQLite内存）

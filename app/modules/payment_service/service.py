@@ -19,7 +19,9 @@ from sqlalchemy.orm import Session, joinedload
 from sqlalchemy.exc import IntegrityError
 from fastapi import HTTPException, status
 
-from app.shared.models import Payment, Order, User
+from app.modules.user_auth.models import User
+from app.modules.order_management.models import Order
+from .models import Payment
 from app.adapters.payment import WechatPayAdapter
 
 

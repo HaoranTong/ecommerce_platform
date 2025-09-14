@@ -14,7 +14,7 @@
      ↓ 指导
 技术标准层: database-standards.md (本文档 - 实施规范)
      ↓ 指导  
-具体实现层: modules/data-models/overview.md (技术实现)
+具体实现层: modules/base-models/overview.md (技术实现)
 ```
 
 ---

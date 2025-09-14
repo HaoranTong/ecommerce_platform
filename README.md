@@ -1,53 +1,27 @@
 # 电商平台后端服务
 
-> 基于FastAPI构建的模块化电商平台后端服务，采用文档驱动开发和标准化架构
+> 基于FastAPI构建的模块化农产品电商平台，采用文档驱动开发和标准化架构
 
 ## 🎯 核心特性
-- 🏗️ **模块化单体架构**：垂直切片模块化设计，每### 模块化单体架构
-```
-┌─────────────────┐
-│   Controller    │  ← API路由层（app/modules/*/router.py）
-│    (Routes)     │    处理HTTP请求和响应
-└─────────────────┘
-         │
-┌─────────────────┐
-│    Service      │  ← 业务逻辑层（app/modules/*/service.py）
-│   (Business)    │    核心业务逻辑处理
-└─────────────────┘-Service-Model-Schema
-- 🔗 **业务领域驱动**：按业务领域组织代码，模块边界清晰
-- 🛒 **高性能购物车**：基于Redis的购物车存储系统
-- 👤 **用户认证**：JWT认证与基于角色的权限控制
-- 📦 **商品管理**：商品CRUD、分类管理、库存控制
-- 🛍️ **订单系统**：订单创建、状态管理、流程控制
-- 💰 **支付系统**：多种支付方式、退款处理
-- 🌾 **农产品溯源**：批次管理、质量认证、区块链存证
-- 🔄 **标准化工具链**：开发、测试、部署自动化
+- 🏗️ **模块化单体架构** - 垂直切片模块化设计，清晰边界
+- 🌾 **农产品电商** - 专注农产品溯源、质量认证、冷链物流
+- 🔗 **业务领域驱动** - 按业务领域组织代码，模块边界清晰
+- � **JWT认证体系** - 完整的用户认证与权限管理
+- �🛒 **高性能购物车** - 基于Redis的分布式购物车系统
+- 📦 **商品管理系统** - 商品信息、分类管理、库存控制
+- � **多渠道支付** - 支持多种支付方式和退款处理
+- 🔄 **标准化工具链** - 自动化开发、测试、部署流程
 
-## � 项目架构
+## 📁 项目结构
 
-### 模块化单体架构
 ```
 ecommerce_platform/
-├── 📱 app/                           # 应用程序核心代码
-│   ├── 🔧 core/                      # 核心基础设施
-│   │   ├── database.py               # 数据库连接管理
-│   │   ├── redis_client.py           # Redis缓存客户端
-│   │   ├── auth.py                   # 认证中间件
-│   │   └── __init__.py               # 核心组件导出
-│   ├── 🔄 shared/                    # 共享组件
-│   │   ├── models.py                 # 共享数据模型
-│   │   ├── utils/                    # 工具函数
-│   │   └── __init__.py               # 共享组件导出
-│   ├── � adapters/                  # 第三方适配器
-│   │   ├── payment/                  # 支付适配器
-│   │   ├── blockchain/               # 区块链适配器
-│   │   └── ai/                       # AI服务适配器
-│   ├── 🏢 modules/                   # 业务模块
-│   │   ├── user_auth/                # 用户认证模块
-│   │   │   ├── router.py             # API路由
-│   │   │   ├── service.py            # 业务逻辑
-│   │   │   ├── models.py             # 数据模型
-│   │   │   ├── schemas.py            # 请求/响应模型
+├── app/                    # 应用程序源码
+├── docs/                   # 项目技术文档
+├── tests/                  # 测试代码
+├── scripts/                # 自动化脚本
+├── alembic/               # 数据库迁移
+└── requirements.txt       # 项目依赖
 │   │   │   └── dependencies.py       # 模块依赖
 │   │   ├── product_catalog/          # 商品管理模块
 │   │   ├── shopping_cart/            # 购物车模块
@@ -73,107 +47,47 @@ ecommerce_platform/
 │   │   └── __init__.py          # 模式统一导出
 │   ├── services/                # 业务逻辑服务
 │   │   ├── user_service.py      # 用户业务服务
-│   │   ├── product_service.py   # 商品业务服务
-│   │   ├── order_service.py     # 订单业务服务
-│   │   ├── payment_service.py   # 支付业务服务
-│   │   └── __init__.py          # 服务统一导出
-│   ├── main.py                  # FastAPI应用入口
-│   ├── database.py              # 数据库配置
-│   ├── auth.py                  # 用户认证
-│   └── __init__.py              # 应用包初始化
-├── 📚 docs/                     # 项目文档
-│   ├── architecture/            # 系统架构设计
-│   ├── api/                     # API接口文档  
-│   ├── modules/                 # 功能模块文档
-│   ├── development/             # 开发指南
-│   ├── operations/              # 运维部署
-│   ├── standards/               # 开发规范
-│   └── requirements/            # 需求分析
-├── 🧪 tests/                    # 测试代码
-│   ├── integration/             # 集成测试
-│   ├── conftest.py              # pytest配置
-│   └── test_*.py                # 单元测试
-├── 🛠️ scripts/                  # 自动化脚本
-│   ├── smoke_test.ps1           # 冒烟测试
-│   ├── feature_finish.ps1       # 功能完成流程
-│   └── release_to_main.ps1      # 发布脚本
-├── 🗄️ alembic/                  # 数据库迁移
-│   ├── versions/                # 迁移版本文件
-│   └── alembic.ini              # 迁移配置
-├── requirements.txt             # Python依赖包
-├── docker-compose.yml           # Docker编排配置
-└── README.md                    # 项目说明文档
 ```
 
-## 🏗️ 架构设计
+## 🚀 快速开始
 
-### 三层架构模式
+### 环境要求
+- Python 3.11+
+- MySQL 8.0+ 或 PostgreSQL 13+
+- Redis 7.0+
+
+### 安装启动
+```bash
+# 1. 克隆项目
+git clone <repository-url>
+cd ecommerce_platform
+
+# 2. 安装依赖
+pip install -r requirements.txt
+
+# 3. 配置环境变量
+cp .env.example .env
+# 编辑 .env 文件配置数据库等信息
+
+# 4. 数据库迁移
+alembic upgrade head
+
+# 5. 启动服务
+python -m app.main
+# 或使用脚本: .\start.ps1
 ```
-┌─────────────────┐
-│   Controller    │  ← API路由层（app/api/routes/）
-│    (Routes)     │    处理HTTP请求和响应
-└─────────────────┘
-         │
-┌─────────────────┐
-│    Service      │  ← 业务逻辑层（app/services/）
-│   (Business)    │    核心业务逻辑处理
-└─────────────────┘
-         │
-┌─────────────────┐
-│     Model       │  ← 数据访问层（app/models/）
-│   (Database)    │    数据库操作和模型定义
-└─────────────────┘
-```
 
-### 模块化设计
-- **用户模块**: 注册、登录、权限管理
-- **商品模块**: 商品CRUD、分类管理、库存控制
-- **订单模块**: 订单创建、状态管理、购物车
-- **支付模块**: 支付处理、退款管理、统计
-
-## 🛠️ 开发规范
-
-### 代码标准
-- 遵循PEP 8代码规范
-- 文件头注释包含功能描述和依赖说明
-- 统一的错误处理和响应格式
-- 完整的类型注解和文档字符串
-
-### API设计
-- RESTful API设计原则
-- 统一的响应格式和状态码
-- 完整的接口文档和示例
-- 请求验证和错误处理
-
-## 🧪 测试
-
-```powershell
-# 运行所有测试
+### 开发工具
+```bash
+# 运行测试
 pytest
 
-# 运行冒烟测试
+# 代码规范检查
+.\scripts\check_naming_compliance.ps1
+
+# 冒烟测试
 .\scripts\smoke_test.ps1
-
-# 生成测试报告
-pytest --cov=app --cov-report=html
 ```
-
-## 📖 API文档
-
-### 用户管理 `/api/v1/users`
-- `POST /register` - 用户注册
-- `POST /login` - 用户登录
-- `GET /me` - 获取当前用户信息
-- `PUT /me` - 更新用户信息
-
-### 商品管理 `/api/v1/products`
-- `GET /` - 获取商品列表
-- `POST /` - 创建商品（管理员）
-- `GET /{id}` - 获取商品详情
-- `PUT /{id}` - 更新商品（管理员）
-
-### 订单管理 `/api/v1/orders`
-- `GET /` - 获取订单列表
 - `POST /` - 创建订单
 - `GET /{id}` - 获取订单详情
 - `PUT /{id}/cancel` - 取消订单
@@ -233,37 +147,30 @@ gunicorn app.main:app -w 4 -k uvicorn.workers.UvicornWorker
 │   ├── versions/                # 迁移版本文件
 │   └── env.py                   # 迁移环境配置
 ├── 🔧 .github/                  # CI/CD工作流
-│   └── workflows/               # GitHub Actions
-├── ⚙️ 配置文件
-│   ├── docker-compose.yml       # 容器编排
-│   ├── requirements.txt         # Python依赖
-│   ├── alembic.ini              # 数据库迁移配置
-│   └── .env.example             # 环境变量模板
-├── 🚀 启动脚本
-│   ├── start.ps1                # 项目启动
-│   ├── dev_env.ps1              # 开发环境配置
-│   └── dev_tools.ps1            # 开发工具集
-└── 🧪 临时测试脚本 (开发期间)
-    ├── test_auth_integration.py # 认证功能集成测试
-    ├── test_inventory_api.py    # 库存API功能测试
-    └── test_inventory_integration.py # 库存集成测试
-```
+##  文档导航
 
-> **📝 说明**：根目录的`test_*.py`文件为开发调试期间的临时测试脚本，用于快速验证功能。功能开发完成后将移至`tests/`目录进行长期维护。
+- [📋 项目文档](docs/) - 完整技术文档中心
+- [🏗️ 系统架构](docs/architecture/) - 架构设计与技术选型
+- [📦 功能模块](docs/modules/) - 业务模块设计文档
+- [📡 API规范](docs/standards/api-standards.md) - 接口设计标准
+- [💻 开发指南](docs/development/) - 开发环境配置
+- [🚀 部署运维](docs/operations/) - 生产环境部署
+- [🛠️ 开发规范](docs/standards/) - 代码标准与流程
 
-## �📚 文档导航
+## 🎯 项目状态
 
-- [📋 项目文档](docs/) - 完整技术文档
-- [🏗️ 系统架构](docs/architecture/) - 架构设计与技术选型  
-- [📡 API接口](docs/api/) - 接口规范与使用说明
-- [💻 开发指南](docs/development/) - 开发环境与工具
-- [🚀 部署运维](docs/operations/) - 部署配置与运维
+当前版本：**开发阶段**  
+主要分支：`feature/add-user-auth`
 
-## 📞 支持
-
-- 📖 [完整文档](docs/)
-- 🐛 [问题反馈](../../issues)
-- 📧 技术支持：[联系方式]
+### 核心模块完成情况
+- ✅ 用户认证模块 - JWT认证、权限管理
+- ✅ 商品管理模块 - 商品CRUD、分类体系  
+- ✅ 购物车模块 - Redis存储、实时计算
+- ✅ 订单管理模块 - 订单流程、状态管理
+- ✅ 支付服务模块 - 多渠道支付集成
+- � 农产品溯源模块 - 开发中
+- � 物流管理模块 - 开发中
 
 ---
-⚡ 快速开始请查看 [开发指南](docs/development/README.md)
+
+**💡 提示：** 详细的开发文档和API规范请查看 [`docs/`](docs/) 目录

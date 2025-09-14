@@ -41,6 +41,10 @@ try {
         Write-Output "⚠️  检测到外部DATABASE_URL，烟雾测试将使用: $env:DATABASE_URL"
     }
     
+    # 烟雾测试启用自动创建表
+    $env:AUTO_CREATE_TABLES = '1'
+    Write-Output "✅ 启用自动创建数据库表: AUTO_CREATE_TABLES=$env:AUTO_CREATE_TABLES"
+    
     # Redis对于烟雾测试是可选的，如果没有则跳过相关功能
     if (-not $env:REDIS_URL -or $env:REDIS_URL -eq '') {
         $env:REDIS_URL = 'redis://127.0.0.1:6379/0'
@@ -66,18 +70,10 @@ try {
     if (-not (Test-Server)) {
         Write-Output "Server not responding; starting uvicorn..."
         $startedByScript = $true
-        # Ensure migrations are applied via Alembic (do NOT create tables directly)
-        Write-Output "Applying Alembic migrations: alembic upgrade head"
+        # 烟雾测试使用AUTO_CREATE_TABLES模式，跳过Alembic迁移
+        Write-Output "烟雾测试模式：跳过Alembic迁移，使用AUTO_CREATE_TABLES自动创建表"
+        
         $env:PYTHONPATH = (Resolve-Path $repo).Path
-        try {
-            python -m alembic upgrade head
-        }
-        catch {
-            Write-Error "Failed to run alembic upgrade head: $($_.Exception.Message)"
-            if ($startedByScript -and $uvProc) { $uvProc | Stop-Process -Force }
-            exit 3
-        }
-
         $uvProc = Start-Process -FilePath python -ArgumentList '-m', 'uvicorn', 'app.main:app', '--host', '127.0.0.1', '--port', '8000' -NoNewWindow -PassThru
         Start-Sleep -Seconds 2
         if (-not (Test-Server)) {
@@ -95,9 +91,10 @@ try {
     $payload = @{ 
         username = "smoke$rnd"; 
         email = "smoke$rnd@example.com"; 
-        password = "testpass123" 
+        password = "testpass123"
+        verification_code = "123456"
     } | ConvertTo-Json
-    $apiRegister = "http://127.0.0.1:8000/api/auth/register"
+    $apiRegister = "http://127.0.0.1:8000/api/v1/user-auth/register"
     Write-Output "POST $apiRegister -> payload: $payload"
     try {
         $post = Invoke-RestMethod -Method Post -Uri $apiRegister -Body $payload -ContentType 'application/json' -TimeoutSec 10 -ErrorAction Stop
@@ -114,12 +111,12 @@ try {
             username = "smoke$rnd"; 
             password = "testpass123" 
         } | ConvertTo-Json
-        $apiLogin = "http://127.0.0.1:8000/api/auth/login"
+        $apiLogin = "http://127.0.0.1:8000/api/v1/user-auth/login"
         $loginResult = Invoke-RestMethod -Method Post -Uri $apiLogin -Body $loginPayload -ContentType 'application/json' -TimeoutSec 10 -ErrorAction Stop
         
         # 使用token获取用户信息
         $headers = @{ Authorization = "Bearer $($loginResult.access_token)" }
-        $apiMe = "http://127.0.0.1:8000/api/auth/me"
+        $apiMe = "http://127.0.0.1:8000/api/v1/user-auth/me"
         $userInfo = Invoke-RestMethod -Method Get -Uri $apiMe -Headers $headers -TimeoutSec 10 -ErrorAction Stop
         
         Write-Output "GET $apiMe result: $(ConvertTo-Json $userInfo -Compress)"

@@ -19,11 +19,12 @@
 5. **按需代码** - 支持按需扩展功能
 
 ### API 设计原则
-- **一致性** - 统一的命名、结构、错误处理
+- **一致性** - 统一的命名、结构、错误处理（通过文档标准，非代码共享）
 - **简洁性** - 简单易懂的接口设计
 - **完整性** - 完整的输入验证和输出信息
 - **可扩展性** - 支持版本管理和向后兼容
 - **安全性** - 完善的认证授权和数据保护
+- **模块独立性** - 各模块独立管理API设计，避免跨模块共享schemas组件
 
 ## URL 设计规范
 
@@ -215,6 +216,36 @@ X-Client-Version: 1.0.0
   }
 }
 ```
+
+### 模块实现指导
+
+**重要原则**：以上响应格式通过**文档标准**确保一致性，各模块**独立实现**，禁止跨模块共享schemas组件。
+
+#### 各模块独立定义
+```python
+# 各模块在自己的schemas.py中独立定义
+class BaseSchema(BaseModel):
+    class Config:
+        from_attributes = True
+
+class ApiResponse(BaseModel):
+    success: bool = True
+    message: str = "操作成功"
+    data: Optional[Any] = None
+
+class PaginatedResponse(BaseModel):
+    success: bool = True
+    message: str = "查询成功"  
+    data: List[Any]
+    total: int
+    page: int
+    size: int
+```
+
+#### 避免跨模块依赖
+- ✅ **正确做法**：每个模块独立定义所需的响应格式
+- ❌ **禁止做法**：从shared或其他模块导入API相关组件
+- 🛠️ **重复避免**：通过代码模板、生成工具，而非运行时共享
 
 ## 状态码规范
 

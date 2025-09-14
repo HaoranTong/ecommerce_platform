@@ -35,7 +35,7 @@ $NamingConfig = @{
         "data-analytics-platform" = "data_analytics_platform"
         "application-core" = "application_core"
         "database-core" = "database_core"
-        "data-models" = "data_models"
+        "base-models" = "base_models"
         "redis-cache" = "redis_cache"
         "database-utils" = "database_utils"
     }
@@ -188,7 +188,7 @@ function Check-DatabaseNaming {
     }
     
     # 检查共享模型文件
-    $sharedModelsFile = "app/shared/models.py"
+    $sharedModelsFile = "app/shared/base_models.py"
     if (Test-Path $sharedModelsFile) {
         $content = Get-Content $sharedModelsFile
         
@@ -201,7 +201,7 @@ function Check-DatabaseNaming {
             if ($tableName -notmatch $NamingConfig.DatabasePatterns.TableName) {
                 $violations += @{
                     Type = "数据库表名"
-                    File = "shared/models.py"
+                    File = "shared/base_models.py"
                     Issue = "表名不符合规范: $tableName"
                     Line = $table.LineNumber
                     Suggestion = "使用snake_case格式的复数形式"
@@ -218,7 +218,7 @@ function Check-DatabaseNaming {
             if ($fieldName -notmatch $NamingConfig.DatabasePatterns.FieldName) {
                 $violations += @{
                     Type = "数据库字段名"
-                    File = "shared/models.py"
+                    File = "shared/base_models.py"
                     Issue = "字段名不符合规范: $fieldName"
                     Line = $field.LineNumber
                     Suggestion = "使用snake_case格式"

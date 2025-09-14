@@ -25,7 +25,7 @@ from sqlalchemy.orm import relationship
 
 # 从技术基础设施层导入统一的Base类和混入
 from app.core.database import Base
-from app.shared.models import TimestampMixin, SoftDeleteMixin, ModelRegistry
+from app.shared.base_models import TimestampMixin, SoftDeleteMixin, ModelRegistry
 
 
 @ModelRegistry.register
