@@ -16,29 +16,29 @@ docs/
 ├── 📦 modules/              # 功能模块文档
 │   ├── README.md            # 模块总览索引
 │   ├── user-auth/           # 用户认证模块
-│   │   ├── api-implementation.md # 模块API接口文档
-│   │   ├── design.md        # 模块设计文档
-│   │   └── ...             # 其他模块文档
 │   ├── product-catalog/     # 商品管理模块
-│   │   ├── api-implementation.md # 模块API接口文档
-│   │   ├── design.md        # 模块设计文档
-│   │   └── ...             # 其他模块文档
 │   ├── shopping-cart/       # 购物车模块
 │   ├── order-management/    # 订单管理模块
 │   ├── payment-service/     # 支付服务模块
+│   ├── quality-control/     # 质量控制模块
 │   ├── batch-traceability/  # 批次溯源模块
-│   ├── distributor-management/ # 分销商管理模块
+│   ├── logistics-management/ # 物流管理模块
 │   ├── member-system/       # 会员系统模块
+│   ├── distributor-management/ # 分销商管理模块
 │   ├── marketing-campaigns/ # 营销活动模块
+│   ├── social-features/     # 社交功能模块
 │   ├── inventory-management/ # 库存管理模块
 │   ├── notification-service/ # 通知服务模块
-│   ├── customer-service/    # 客服系统模块
-│   ├── social-features/     # 社交功能模块
 │   ├── supplier-management/ # 供应商管理模块
-│   ├── risk-control/        # 风控系统模块
-│   ├── data-analytics/      # 数据分析模块
-│   ├── logistics-management/ # 物流管理模块
-│   └── recommendation-system/ # 推荐系统模块
+│   ├── recommendation-system/ # 推荐系统模块
+│   ├── customer-service-system/ # 客服系统模块
+│   ├── risk-control-system/ # 风控系统模块
+│   ├── data-analytics-platform/ # 数据分析模块
+│   ├── application-core/    # 应用核心模块
+│   ├── database-core/       # 数据库核心模块
+│   ├── base-models/         # 基础模型模块
+│   ├── redis-cache/         # Redis缓存模块
+│   └── database-utils/      # 数据库工具模块
 ├── 💻 development/          # 开发环境指南
 │   ├── README.md            # 开发指南导航
 │   └── tools.md             # 开发工具配置

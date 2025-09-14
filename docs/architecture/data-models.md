@@ -15,7 +15,7 @@
 本文档定义数据模型的**架构原则**和**业务设计标准**。
 具体的技术实施规范（命名约定、ORM编写、SQL规范等）请参见：
 - [数据库设计规范](../standards/database-standards.md) - 技术实施标准
-- [数据模型模块](../modules/data-models/overview.md) - 技术基础设施实现
+- [基础模型模块](../modules/base-models/overview.md) - 技术基础设施实现
 
 ## ORM基础架构设计
 
@@ -105,7 +105,7 @@
 
 具体的数据库实施规范请参见：
 - [数据库设计规范](../standards/database-standards.md) - 命名约定、数据类型、SQLAlchemy编写规范
-- [数据模型模块文档](../modules/data-models/overview.md) - 技术基础设施实现细节
+- [基础模型模块文档](../modules/base-models/overview.md) - 技术基础设施实现细节
 
 ## 数据迁移和版本管理
 
