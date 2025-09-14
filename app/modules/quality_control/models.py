@@ -8,7 +8,7 @@ from sqlalchemy import Column, String, DateTime, Boolean, Text, BigInteger
 from sqlalchemy.sql import func
 
 from app.core.database import Base
-from app.shared.models import TimestampMixin
+from app.shared.base_models import TimestampMixin
 
 
 class Certificate(Base, TimestampMixin):

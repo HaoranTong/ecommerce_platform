@@ -9,4 +9,4 @@
 """
 
 # 只导出基础类，避免循环导入和表重复定义
-from .models import Base, TimestampMixin, BaseModel
+from .base_models import Base, TimestampMixin, BaseModel

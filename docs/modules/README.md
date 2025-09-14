@@ -51,7 +51,7 @@
 |------|------|----------|----------|
 | **应用核心** | ✅ 完成 | [application-core/](./application-core/) | 应用框架、配置管理、启动逻辑 |
 | **数据库核心** | ✅ 完成 | [database-core/](./database-core/) | 数据库连接、事务管理、连接池 |
-| **数据模型** | ✅ 完成 | [data-models/](./data-models/) | ORM基础类、模型混入、数据类型 |
+| **基础模型** | ✅ 完成 | [base-models/](./base-models/) | ORM基础类、模型混入、数据类型 |
 | **Redis缓存** | ✅ 完成 | [redis-cache/](./redis-cache/) | 缓存策略、会话存储、分布式锁 |
 | **数据库工具** | ✅ 完成 | [database-utils/](./database-utils/) | 数据库工具、迁移脚本、维护命令 |
 

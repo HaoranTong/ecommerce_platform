@@ -22,7 +22,18 @@ from typing import Optional, List, Dict, Any
 from datetime import datetime
 from decimal import Decimal
 from enum import Enum
-from app.schemas.base import BaseSchema, TimestampSchema
+
+# 模块内独立定义基础schemas，遵循模块化单体架构原则
+class BaseSchema(BaseModel):
+    """订单管理模块基础模式类"""
+    class Config:
+        from_attributes = True
+        arbitrary_types_allowed = True
+
+class TimestampSchema(BaseSchema):
+    """包含时间戳的基础模式"""
+    created_at: datetime
+    updated_at: datetime
 
 
 # ============ 枚举定义 ============
