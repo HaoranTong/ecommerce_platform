@@ -1,8 +1,33 @@
 # 库存管理模块 (Inventory Management Module)
 
+<!--
+文件名：overview.md
+文件路径：docs/modules/inventory-management/overview.md
+文档类型：模块概览文档
+模块名称：库存管理模块 (Inventory Management Module)
+文档版本：v1.0.0
+创建时间：2025-09-15
+最后修改：2025-09-15
+维护人员：系统架构师
+文档状态：正式版本
+
+文档用途：
+- 提供库存管理模块的整体概览
+- 描述技术架构和主要功能特性
+- 作为模块理解的入门文档
+
+相关文档：
+- 详细需求：requirements.md
+- 系统设计：design.md
+- 技术实现：implementation.md
+- API规范：api-spec.md
+-->
+
 ## 模块概述
 
-库存管理模块负责商品库存的实时跟踪、预占机制、补货预警和库存同步。确保库存数据的准确性和一致性，防止超卖现象。
+库存管理模块是电商平台的核心基础模块，负责商品库存的实时跟踪、预占机制、补货预警和库存同步。确保库存数据的准确性和一致性，防止超卖现象，支持高并发场景下的库存操作。
+
+> **详细信息**：关于模块的完整功能需求和业务规则，请参考 [需求规格说明书](./requirements.md)。
 
 ### 主要功能
 
@@ -129,7 +154,11 @@ inventory:reservation:cart:{user_id} = {
 
 ## API 接口
 
-库存管理模块提供完整的库存操作API，详细的接口规范请参考 [API规范文档](api-spec.md)。
+库存管理模块提供完整的库存操作API，详细的接口规范请参考：
+- [API规范文档](./api-spec.md) - 基础API接口定义
+- [API实现文档](./api-implementation.md) - 详细的实现说明和代码示例
+
+> **技术实现**：关于具体的技术实现细节和代码结构，请参考 [实现指南](./implementation.md)。
 
 ### 主要接口分类
 
@@ -980,6 +1009,15 @@ LOW_STOCK_THRESHOLD=0.2
 
 ## 相关文档
 
+### 本模块详细文档
+- [需求规格说明书](./requirements.md) - 详细的功能需求和业务规则
+- [系统设计文档](./design.md) - 架构设计和技术选型  
+- [实现指南](./implementation.md) - 具体的实现细节和代码结构
+- [API实现文档](./api-implementation.md) - 详细的API端点和使用说明
+- [模块快速指南](./README.md) - 快速开始和使用指南
+- [API规格](./api-spec.md) - API接口规范
+
+### 相关模块文档
 - [商品模块](../product-catalog/overview.md)
 - [订单模块](../order-management/overview.md)
 - [事件架构](../../architecture/event-driven.md)
