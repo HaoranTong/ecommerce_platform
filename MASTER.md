@@ -34,7 +34,7 @@
 - create_file docs/* → 文档结构规范检查点 + 执行 .\scripts\check_docs.ps1
 - create_file *.py → 代码开发强制检查点 + 执行 .\scripts\check_naming_compliance.ps1 -CheckType code
 - create_file *_routes.py → API设计标准检查点 + 执行 .\scripts\check_naming_compliance.ps1 -CheckType api
-- create_file test_*.py → 测试规范检查点 + 自动选择测试策略
+- create_file test_*.py → 测试代码强制文档检查点 + 自动选择测试策略
 - 操作models.py → 数据库设计规范检查点 + 执行 .\scripts\check_naming_compliance.ps1 -CheckType database
 - 任何命名操作 → 命名规范检查点 + 执行 .\scripts\check_naming_compliance.ps1
 - 创建类/函数/变量 → 代码开发检查清单 + 执行 .\scripts\check_naming_compliance.ps1 -CheckType code
@@ -62,10 +62,10 @@ IF 创建新模块 THEN 检查 docs/templates/module-template.md
 IF create_file *.py THEN 执行 docs/standards/code-development-checklist.md + .\scripts\check_naming_compliance.ps1 -CheckType code
 IF create_file *_routes.py THEN 检查 docs/standards/api-standards.md + .\scripts\check_naming_compliance.ps1 -CheckType api
 IF 操作models.py THEN 确认 docs/standards/database-standards.md + .\scripts\check_naming_compliance.ps1 -CheckType database
-IF create_file test_*.py THEN 检查 docs/standards/testing-standards.md + 自动选择测试类型
+IF create_file test_*.py THEN 强制检查 docs/standards/testing-standards.md + 强制阅读所有相关模块技术文档 + 验证模型字段和方法存在性 + 自动选择测试类型
 IF 创建文档 THEN 检查 docs/standards/document-standards.md + .\scripts\check_docs.ps1
 IF 命名实体 THEN 确认 docs/standards/naming-conventions.md + .\scripts\check_naming_compliance.ps1
-IF 编写测试 THEN 检查 docs/standards/testing-standards.md + 验证测试环境配置
+IF 编写测试 THEN 强制检查 docs/standards/testing-standards.md + 强制阅读被测试模块的所有技术文档 + 验证模型字段和API方法的实际存在性 + 验证测试环境配置
 IF 修改流程 THEN 检查 docs/standards/workflow-standards.md
 IF 开始工作会话 THEN 执行 .\scripts\check_naming_compliance.ps1 + .\scripts\check_docs.ps1
 IF 开始测试会话 THEN 环境检查 + 自动选择测试策略:

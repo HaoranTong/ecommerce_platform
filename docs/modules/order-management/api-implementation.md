@@ -17,7 +17,7 @@
 
 ### 认证依赖
 ```python
-from app.auth import (
+from app.modules.user_auth.dependencies import (
     get_current_active_user,     # 用户认证
     get_current_admin_user,      # 管理员认证
     require_ownership           # 所有权验证
@@ -28,12 +28,12 @@ from app.auth import (
 
 ### 1. 创建订单
 
-**端点**: `POST /api/orders`  
+**端点**: `POST /orders`  
 **认证**: 用户认证 + 所有权验证  
 **权限检查**: 用户只能为自己创建订单，管理员可为任何人创建
 
 ```python
-@router.post("/api/orders")
+@router.post("/orders")
 async def create_order(
     order_data: OrderCreate,
     db: Session = Depends(get_db),
@@ -52,12 +52,12 @@ if order_data.user_id != current_user.id:
 
 ### 2. 获取订单列表
 
-**端点**: `GET /api/orders`  
+**端点**: `GET /orders`  
 **认证**: 用户认证 + 数据隔离  
 **权限检查**: 用户只能查看自己的订单，管理员可查看所有
 
 ```python
-@router.get("/api/orders")
+@router.get("/orders")
 async def list_orders(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)  # 用户认证
@@ -75,12 +75,12 @@ if current_user.role not in ['admin', 'super_admin']:
 
 ### 3. 获取订单详情
 
-**端点**: `GET /api/orders/{order_id}`  
+**端点**: `GET /orders/{order_id}`  
 **认证**: 用户认证 + 所有权验证  
 **权限检查**: 用户只能查看自己的订单，管理员可查看所有
 
 ```python
-@router.get("/api/orders/{order_id}")
+@router.get("/orders/{order_id}")
 async def get_order(
     order_id: int,
     db: Session = Depends(get_db),
@@ -97,12 +97,12 @@ if not require_ownership(order.user_id, current_user):
 
 ### 4. 更新订单状态
 
-**端点**: `PATCH /api/orders/{order_id}/status`  
+**端点**: `PATCH /orders/{order_id}/status`  
 **认证**: 管理员权限  
 **权限检查**: 仅管理员可以更新订单状态
 
 ```python
-@router.patch("/api/orders/{order_id}/status")
+@router.patch("/orders/{order_id}/status")
 async def update_order_status(
     order_id: int,
     status_update: OrderStatusUpdate,
@@ -113,12 +113,12 @@ async def update_order_status(
 
 ### 5. 取消订单
 
-**端点**: `DELETE /api/orders/{order_id}`  
+**端点**: `DELETE /orders/{order_id}`  
 **认证**: 用户认证 + 所有权验证  
 **权限检查**: 用户可取消自己的订单，管理员可取消任何订单
 
 ```python
-@router.delete("/api/orders/{order_id}")
+@router.delete("/orders/{order_id}")
 async def cancel_order(
     order_id: int,
     db: Session = Depends(get_db),
@@ -135,12 +135,12 @@ if not require_ownership(order.user_id, current_user):
 
 ### 6. 获取订单商品
 
-**端点**: `GET /api/orders/{order_id}/items`  
+**端点**: `GET /orders/{order_id}/items`  
 **认证**: 用户认证 + 所有权验证  
 **权限检查**: 用户只能查看自己订单的商品，管理员可查看所有
 
 ```python
-@router.get("/api/orders/{order_id}/items")
+@router.get("/orders/{order_id}/items")
 async def get_order_items(
     order_id: int,
     db: Session = Depends(get_db),
@@ -152,12 +152,12 @@ async def get_order_items(
 
 | API端点 | 匿名用户 | 普通用户 | 管理员 | 说明 |
 |---------|---------|---------|--------|------|
-| `POST /api/orders` | ❌ | ✅(自己) | ✅(任意) | 创建订单 |
-| `GET /api/orders` | ❌ | ✅(自己) | ✅(所有) | 订单列表 |
-| `GET /api/orders/{id}` | ❌ | ✅(自己) | ✅(所有) | 订单详情 |
-| `PATCH /api/orders/{id}/status` | ❌ | ❌ | ✅ | 状态管理 |
-| `DELETE /api/orders/{id}` | ❌ | ✅(自己) | ✅(所有) | 取消订单 |
-| `GET /api/orders/{id}/items` | ❌ | ✅(自己) | ✅(所有) | 订单商品 |
+| `POST /orders` | ❌ | ✅(自己) | ✅(任意) | 创建订单 |
+| `GET /orders` | ❌ | ✅(自己) | ✅(所有) | 订单列表 |
+| `GET /orders/{id}` | ❌ | ✅(自己) | ✅(所有) | 订单详情 |
+| `PATCH /orders/{id}/status` | ❌ | ❌ | ✅ | 状态管理 |
+| `DELETE /orders/{id}` | ❌ | ✅(自己) | ✅(所有) | 取消订单 |
+| `GET /orders/{id}/items` | ❌ | ✅(自己) | ✅(所有) | 订单商品 |
 
 ## 错误处理
 

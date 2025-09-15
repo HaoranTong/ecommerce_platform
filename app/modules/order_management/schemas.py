@@ -1,241 +1,269 @@
 """
-文件名：order.py
-文件路径：app/schemas/order.py
-功能描述：订单和购物车相关的Pydantic模式定义
-主要功能：
-- 订单创建、更新、展示模式
-- 订单项管理模式
-- 购物车操作和展示模式
-- 订单状态流转和统计模式
-使用说明：
-- 导入：from app.schemas.order import OrderCreate, OrderRead, CartItemAdd
-- 验证：order_data = OrderCreate(**input_data)
-- 序列化：order_response = OrderRead.model_validate(order_obj)
-依赖模块：
-- app.schemas.base: 基础模式类
-- pydantic: 数据验证和字段定义
-- decimal: 金额字段类型
+订单管理模块数据模式定义
+
+根据 docs/modules/order-management/api-spec.md 规范实现
+符合API设计标准和模块化架构原则
+
+主要模式:
+- API响应格式：统一的成功/失败响应结构
+- 订单相关模式：创建、更新、查询、展示模式
+- 订单项相关模式：Product+SKU双重关联模式
+- 订单状态历史：状态变更审计模式
 """
 
-from pydantic import BaseModel, Field, field_validator
-from typing import Optional, List, Dict, Any
+from pydantic import BaseModel, Field, validator
+from typing import Optional, List, Dict, Any, Union, Generic, TypeVar
+
+T = TypeVar('T')
 from datetime import datetime
 from decimal import Decimal
 from enum import Enum
 
-# 模块内独立定义基础schemas，遵循模块化单体架构原则
+# ============ 基础模式类 ============
+# 模块内独立定义，遵循API设计标准避免跨模块依赖
+
 class BaseSchema(BaseModel):
     """订单管理模块基础模式类"""
     class Config:
         from_attributes = True
-        arbitrary_types_allowed = True
-
-class TimestampSchema(BaseSchema):
-    """包含时间戳的基础模式"""
+        
+class TimestampMixin(BaseModel):
+    """时间戳混入类"""
     created_at: datetime
     updated_at: datetime
+
+
+# ============ 统一API响应格式 ============
+
+class ApiResponse(BaseModel, Generic[T]):
+    """统一API响应格式，符合api-standards.md规范"""
+    success: bool = True
+    code: int = 200
+    message: str = "操作成功"
+    data: Optional[T] = None
+    metadata: Optional[Dict[str, Any]] = None
+
+class PaginatedResponse(BaseModel, Generic[T]):
+    """分页响应格式"""
+    items: List[T] = Field(default_factory=list, description="数据项列表")
+    page: int = Field(default=1, ge=1, description="当前页码")
+    page_size: int = Field(default=20, ge=1, le=100, description="每页数量")
+    total_count: int = Field(default=0, ge=0, description="总数据量")
+    
+    @property
+    def total_pages(self) -> int:
+        """计算总页数"""
+        if self.page_size <= 0:
+            return 0
+        return (self.total_count + self.page_size - 1) // self.page_size
+    
+    @property 
+    def has_next(self) -> bool:
+        """是否有下一页"""
+        return self.page < self.total_pages
+        
+    @property
+    def has_prev(self) -> bool:
+        """是否有上一页"""
+        return self.page > 1
 
 
 # ============ 枚举定义 ============
 
 class OrderStatus(str, Enum):
-    """订单状态枚举"""
-    PENDING = "pending"
-    PAID = "paid"
-    SHIPPED = "shipped"
-    DELIVERED = "delivered"
-    CANCELLED = "cancelled"
-    RETURNED = "returned"
+    """订单状态枚举，符合design.md状态流转设计"""
+    PENDING = "pending"      # 待支付
+    PAID = "paid"           # 已支付
+    SHIPPED = "shipped"     # 已发货  
+    DELIVERED = "delivered" # 已送达
+    CANCELLED = "cancelled" # 已取消
+    RETURNED = "returned"   # 已退货
 
 
 # ============ 订单项相关模式 ============
 
-class OrderItemCreate(BaseSchema):
-    """订单项创建模式"""
+class OrderItemRequest(BaseSchema):
+    """订单项创建请求模式，支持Product+SKU双重关联"""
     product_id: int = Field(..., gt=0, description="商品ID")
+    sku_id: int = Field(..., gt=0, description="SKU ID")
     quantity: int = Field(..., gt=0, le=999, description="购买数量")
-    unit_price: Optional[Decimal] = Field(None, description="单价（可选，默认使用商品当前价格）")
+    
+    @validator('quantity')
+    def validate_quantity(cls, v):
+        if v <= 0:
+            raise ValueError('商品数量必须大于0')
+        if v > 999:
+            raise ValueError('单个商品数量不能超过999')
+        return v
 
-
-class OrderItemRead(BaseSchema):
-    """订单项展示模式"""
+class OrderItemResponse(BaseSchema):
+    """订单项响应模式，包含商品快照信息"""
     id: int
+    order_id: int
     product_id: int
+    sku_id: int
+    
+    # 商品快照信息
+    sku_code: str
     product_name: str
-    product_sku: str
+    sku_name: str
+    
+    # 数量和价格
     quantity: int
     unit_price: Decimal
-    subtotal: Decimal
+    total_price: Decimal
+    
+    created_at: datetime
     
     class Config:
         from_attributes = True
+
+
+# ============ 收货地址相关模式 ============
+
+class ShippingAddressRequest(BaseSchema):
+    """收货地址请求模式"""
+    recipient: str = Field(..., max_length=100, description="收货人")
+    phone: str = Field(..., max_length=20, description="联系电话")
+    address: str = Field(..., max_length=500, description="详细地址")
+
+class ShippingAddressResponse(ShippingAddressRequest):
+    """收货地址响应模式"""
+    pass
 
 
 # ============ 订单相关模式 ============
 
-class OrderCreate(BaseSchema):
-    """订单创建模式"""
-    items: List[OrderItemCreate] = Field(..., min_items=1, description="订单商品列表")
-    shipping_address: Optional[str] = Field(None, description="收货地址")
-    shipping_method: Optional[str] = Field("standard", description="配送方式")
+class OrderCreateRequest(BaseSchema):
+    """订单创建请求模式，符合api-spec.md规范"""
+    items: List[OrderItemRequest] = Field(..., min_items=1, max_items=50, description="订单商品列表")
+    shipping_address: ShippingAddressRequest = Field(..., description="收货地址")
     notes: Optional[str] = Field(None, max_length=500, description="订单备注")
     
-    @field_validator('items')
-    @classmethod
-    def validate_items_not_empty(cls, v):
-        if not v:
-            raise ValueError('订单必须包含至少一个商品')
+    @validator('items')
+    def validate_items_unique(cls, v):
+        """验证订单不能包含重复的SKU"""
+        sku_ids = [item.sku_id for item in v]
+        if len(sku_ids) != len(set(sku_ids)):
+            raise ValueError('订单不能包含重复的SKU')
         return v
 
+class OrderStatusUpdateRequest(BaseSchema):
+    """订单状态更新请求模式"""
+    status: OrderStatus = Field(..., description="订单状态")
+    remark: Optional[str] = Field(None, max_length=500, description="状态变更备注")
 
-class OrderUpdate(BaseSchema):
-    """订单更新模式"""
-    shipping_address: Optional[str] = Field(None, description="收货地址")
-    shipping_method: Optional[str] = Field(None, description="配送方式")
-    notes: Optional[str] = Field(None, max_length=500, description="订单备注")
-
-
-class OrderStatusUpdate(BaseSchema):
-    """订单状态更新模式"""
-    status: str = Field(..., pattern="^(pending|paid|shipped|delivered|cancelled|returned)$", description="订单状态")
-    note: Optional[str] = Field(None, max_length=200, description="状态变更备注")
+class OrderCancelRequest(BaseSchema):
+    """订单取消请求模式"""
+    reason: Optional[str] = Field(None, max_length=500, description="取消原因")
 
 
-class OrderRead(TimestampSchema):
-    """订单展示模式"""
+class OrderResponse(BaseSchema, TimestampMixin):
+    """订单响应模式，符合design.md数据模型"""
     id: int
-    order_no: str
+    order_number: str  # 统一使用order_number
     user_id: int
-    status: str
+    status: OrderStatus
+    
+    # 金额信息
+    subtotal: Decimal
+    shipping_fee: Decimal
+    discount_amount: Decimal
     total_amount: Decimal
+    
+    # 收货信息
     shipping_address: Optional[str] = None
-    shipping_method: str
+    shipping_method: str = "standard"
+    
+    # 备注信息
     notes: Optional[str] = None
     
-    # 时间节点
-    paid_at: Optional[datetime] = None
-    shipped_at: Optional[datetime] = None
-    delivered_at: Optional[datetime] = None
-    
-    # 关联数据
-    items: List[OrderItemRead] = []
+    class Config:
+        from_attributes = True
+
+class OrderDetailResponse(OrderResponse):
+    """订单详情响应模式，包含订单项和状态历史"""
+    items: List[OrderItemResponse] = []
+    status_history: List['OrderStatusHistoryResponse'] = []
     
     class Config:
         from_attributes = True
 
+class OrderListQueryParams(BaseSchema):
+    """订单列表查询参数"""
+    status: Optional[OrderStatus] = Field(None, description="订单状态筛选")
+    page: int = Field(1, ge=1, description="页码")
+    size: int = Field(20, ge=1, le=100, description="每页数量")
+    start_date: Optional[str] = Field(None, description="开始日期(YYYY-MM-DD)")
+    end_date: Optional[str] = Field(None, description="结束日期(YYYY-MM-DD)")
+# ============ 订单状态历史相关模式 ============
 
-class OrderDetail(OrderRead):
-    """订单详情模式（包含更多信息）"""
-    subtotal: Decimal = Field(default=0, description="商品小计")
-    shipping_fee: Decimal = Field(default=0, description="运费")
-    discount_amount: Decimal = Field(default=0, description="优惠金额")
-    remark: Optional[str] = None  # 内部备注
-
-
-class OrderSearch(BaseSchema):
-    """订单搜索模式"""
-    order_no: Optional[str] = Field(None, description="订单号")
-    user_id: Optional[int] = Field(None, description="用户ID")
-    status: Optional[str] = Field(None, description="订单状态")
-    start_date: Optional[datetime] = Field(None, description="开始日期")
-    end_date: Optional[datetime] = Field(None, description="结束日期")
-    min_amount: Optional[Decimal] = Field(None, ge=0, description="最小金额")
-    max_amount: Optional[Decimal] = Field(None, ge=0, description="最大金额")
-
-
-class OrderStats(BaseSchema):
-    """订单统计模式"""
-    total_orders: int
-    pending_orders: int
-    completed_orders: int
-    cancelled_orders: int
-    total_amount: Decimal
-    average_order_value: Decimal
-
-
-# ============ 购物车相关模式 ============
-
-class CartItemAdd(BaseSchema):
-    """购物车添加商品模式"""
-    product_id: int = Field(..., gt=0, description="商品ID")
-    quantity: int = Field(..., gt=0, le=99, description="添加数量（1-99）")
-
-
-# 为了兼容性，创建别名
-CartItemCreate = CartItemAdd
-
-
-class CartItemUpdate(BaseSchema):
-    """购物车商品更新模式"""
-    quantity: int = Field(..., ge=0, le=99, description="更新数量（0表示删除）")
-
-
-class CartItemRead(BaseSchema):
-    """购物车商品展示模式"""
-    product_id: int
-    product_name: str
-    product_sku: str
-    price: Decimal
-    quantity: int
-    subtotal: Decimal  # 小计
-    stock_quantity: int  # 库存数量
-    image_url: Optional[str] = None
-    is_available: bool = True  # 是否可购买
-    
-    class Config:
-        from_attributes = True
-
-
-class CartSummary(BaseSchema):
-    """购物车摘要模式"""
-    user_id: int
-    items: List[CartItemRead]
-    total_items: int  # 商品种类数
-    total_quantity: int  # 总数量
-    total_amount: Decimal  # 总金额
-
-
-# 为了兼容性，创建别名
-CartRead = CartSummary
-
-
-class CartValidation(BaseSchema):
-    """购物车验证结果模式"""
-    can_checkout: bool
-    errors: List[str] = []
-    warnings: List[str] = []
-    total_amount: Decimal
-    available_items: int
-    unavailable_items: int
-
-
-class CartMerge(BaseSchema):
-    """购物车合并模式（游客转用户）"""
-    guest_cart_items: List[CartItemAdd] = Field(..., description="游客购物车商品列表")
-
-
-# ============ 批量操作模式 ============
-
-class OrderBatch(BaseSchema):
-    """订单批量操作模式"""
-    order_ids: List[int] = Field(..., min_items=1, description="订单ID列表")
-    action: str = Field(..., pattern="^(export|print|update_status|cancel)$", description="操作类型")
-    params: Optional[Dict[str, Any]] = Field(None, description="操作参数")
-
-
-class OrderExport(BaseSchema):
-    """订单导出模式"""
-    format: str = Field("excel", pattern="^(excel|csv|pdf)$", description="导出格式")
-    fields: Optional[List[str]] = Field(None, description="导出字段")
-    filters: Optional[OrderSearch] = Field(None, description="筛选条件")
-
-
-class OrderSummary(BaseSchema):
-    """订单摘要模式"""
+class OrderStatusHistoryResponse(BaseSchema):
+    """订单状态历史响应模式"""
     id: int
-    order_number: str
-    total_amount: Decimal
-    status: OrderStatus
+    order_id: int
+    old_status: Optional[str]
+    new_status: str
+    remark: Optional[str] = None
+    operator_id: Optional[int] = None
     created_at: datetime
-    item_count: int
-    customer_name: Optional[str] = None
+    
+    class Config:
+        from_attributes = True
+
+
+# ============ 错误响应模式 ============
+
+class OrderErrorDetail(BaseSchema):
+    """订单错误详情"""
+    type: str
+    details: List[Dict[str, Any]] = []
+
+class OrderErrorResponse(BaseModel):
+    """订单错误响应模式"""
+    success: bool = False
+    code: int
+    message: str
+    error: Optional[OrderErrorDetail] = None
+    metadata: Optional[Dict[str, Any]] = None
+
+
+# ============ 分页数据模式 ============
+
+class PaginationInfo(BaseModel):
+    """分页信息模式"""
+    page: int
+    page_size: int
+    total_pages: int
+    total_items: int
+    has_next: bool
+    has_prev: bool
+
+class OrderListResponse(BaseModel):
+    """订单列表响应模式"""
+    success: bool = True
+    code: int = 200
+    message: str = "查询成功"
+    data: Dict[str, Any] = Field(default_factory=lambda: {
+        "items": [],
+        "pagination": {}
+    })
+    metadata: Optional[Dict[str, Any]] = None
+
+
+class OrderStatisticsResponse(BaseModel):
+    """订单统计响应模式"""
+    total_orders: int = Field(description="订单总数")
+    pending_orders: int = Field(description="待支付订单数")
+    paid_orders: int = Field(description="已支付订单数")
+    shipped_orders: int = Field(description="已发货订单数")
+    delivered_orders: int = Field(description="已送达订单数")
+    cancelled_orders: int = Field(description="已取消订单数")
+    returned_orders: int = Field(description="已退货订单数")
+    total_amount: float = Field(description="订单总金额")
+    completion_rate: float = Field(description="订单完成率（%）")
+    cancellation_rate: float = Field(description="订单取消率（%）")
+
+
+# 解决前向引用问题
+OrderDetailResponse.model_rebuild()

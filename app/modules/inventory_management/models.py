@@ -70,7 +70,7 @@ class InventoryStock(BaseModel):
     __tablename__ = "inventory_stocks"
 
     id = Column(Integer, primary_key=True, index=True)
-    sku_id = Column(String(50), ForeignKey("skus.id"), unique=True, index=True, nullable=False, comment="SKU ID")
+    sku_id = Column(Integer, ForeignKey("skus.id"), unique=True, index=True, nullable=False, comment="SKU ID")
     
     # 库存数量字段
     total_quantity = Column(Integer, nullable=False, default=0, comment="总库存数量")
@@ -182,7 +182,7 @@ class InventoryReservation(BaseModel):
     __tablename__ = "inventory_reservations"
 
     id = Column(Integer, primary_key=True, index=True)
-    sku_id = Column(String(50), ForeignKey("inventory_stocks.sku_id"), nullable=False, comment="SKU ID")
+    sku_id = Column(Integer, ForeignKey("inventory_stocks.sku_id"), nullable=False, comment="SKU ID")
     
     # 预占信息
     reservation_type = Column(SqlEnum(ReservationType), nullable=False, comment="预占类型")
@@ -237,7 +237,7 @@ class InventoryTransaction(BaseModel):
     __tablename__ = "inventory_transactions"
 
     id = Column(Integer, primary_key=True, index=True)
-    sku_id = Column(String(50), ForeignKey("inventory_stocks.sku_id"), nullable=False, comment="SKU ID")
+    sku_id = Column(Integer, ForeignKey("inventory_stocks.sku_id"), nullable=False, comment="SKU ID")
     
     # 变动信息
     transaction_type = Column(SqlEnum(TransactionType), nullable=False, comment="变动类型")
