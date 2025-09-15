@@ -1,11 +1,42 @@
 # 库存管理模块 API 规范
 
+<!--
+文件名：api-spec.md
+文件路径：docs/modules/inventory-management/api-spec.md
+文档类型：API规范文档
+模块名称：库存管理模块 (Inventory Management Module)
+文档版本：v1.0.0
+创建时间：2025-09-15
+最后修改：2025-09-15
+维护人员：API架构师
+文档状态：正式版本
+
+文档用途：
+- 定义库存管理模块的API接口规范
+- 提供API契约和调用标准
+- 指导前端开发和第三方集成
+
+相关文档：
+- API实现文档：api-implementation.md
+- 系统设计文档：design.md
+- 模块概览：overview.md
+-->
+
 ## 文档信息
 - **模块名称**: 库存管理模块 (Inventory Management Module)  
 - **API版本**: v1.0
-- **最后更新**: 2024-12-19
+- **最后更新**: 2025-09-15
 - **文档类型**: API规范文档
-- **遵循标准**: [API设计标准](../../api/api-design-standards.md)
+- **遵循标准**: [API设计标准](../../standards/api-standards.md)
+- **架构对齐**: 严格遵循 [表模块映射](../../architecture/table-module-mapping.md) 架构设计
+
+## 架构原则
+
+### 🎯 **核心设计原则**
+1. **SKU级别管理**: 库存直接关联SKU，而不是Product
+2. **Product-SKU分离**: 遵循架构设计，Product管理基础信息，SKU管理规格和定价
+3. **统一标识**: 使用 `sku_id` 作为库存操作的核心标识符
+4. **事件驱动**: 库存变动触发相应事件，实现模块解耦
 
 ## API 基础信息
 
@@ -13,9 +44,6 @@
 ```
 /api/inventory/
 ```
-
-### 路由前缀
-库存管理模块使用 `/api/inventory/` 前缀，区分于其他业务模块。
 
 ### 认证方式
 - **类型**: Bearer Token (JWT)
@@ -28,7 +56,7 @@
     "code": 200,
     "message": "成功",
     "data": {},
-    "timestamp": "2024-12-19T10:30:00Z"
+    "timestamp": "2025-09-15T10:30:00Z"
 }
 ```
 
@@ -36,39 +64,39 @@
 
 ### 1. 库存查询接口
 
-#### 1.1 获取商品库存信息
+#### 1.1 获取SKU库存信息
 - **方法**: `GET`
-- **路径**: `/api/inventory/{product_id}`
-- **描述**: 获取指定商品的库存信息
+- **路径**: `/api/inventory/stock/{sku_id}`
+- **描述**: 获取指定SKU的实时库存信息
 - **权限**: 已认证用户
 - **参数**:
-  - `product_id` (path, required): 商品ID
+  - `sku_id` (path, required): SKU唯一标识符
 - **响应**:
 ```json
 {
     "code": 200,
     "message": "成功",
     "data": {
-        "product_id": 1001,
+        "sku_id": "SKU001001",
         "available_quantity": 50,
         "reserved_quantity": 10,
         "total_quantity": 60,
         "warning_threshold": 10,
         "is_low_stock": false,
-        "updated_at": "2024-12-19T10:30:00Z"
+        "last_updated": "2025-09-15T10:30:00Z"
     }
 }
 ```
 
-#### 1.2 批量获取商品库存
+#### 1.2 批量获取SKU库存
 - **方法**: `POST`
-- **路径**: `/api/inventory/batch`
-- **描述**: 批量获取多个商品的库存信息
+- **路径**: `/api/inventory/stock/batch`
+- **描述**: 批量获取多个SKU的库存信息
 - **权限**: 已认证用户
 - **请求体**:
 ```json
 {
-    "product_ids": [1001, 1002, 1003]
+    "sku_ids": ["SKU001001", "SKU001002", "SKU001003"]
 }
 ```
 - **响应**:
@@ -78,11 +106,18 @@
     "message": "成功",
     "data": [
         {
-            "product_id": 1001,
+            "sku_id": "SKU001001",
             "available_quantity": 50,
             "reserved_quantity": 10,
             "total_quantity": 60,
             "is_low_stock": false
+        },
+        {
+            "sku_id": "SKU001002",
+            "available_quantity": 0,
+            "reserved_quantity": 5,
+            "total_quantity": 5,
+            "is_low_stock": true
         }
     ]
 }
@@ -90,17 +125,19 @@
 
 ### 2. 库存预占接口
 
-#### 2.1 购物车库存预占
+#### 2.1 库存预占
 - **方法**: `POST`
-- **路径**: `/api/inventory/reserve/cart`
-- **描述**: 为购物车商品预占库存
+- **路径**: `/api/inventory/reserve`
+- **描述**: 为购物车或订单预占库存
 - **权限**: 已认证用户
 - **请求体**:
 ```json
 {
+    "reservation_type": "cart", // 或 "order"
+    "reference_id": "user_123", // 用户ID或订单ID
     "items": [
         {
-            "product_id": 1001,
+            "sku_id": "SKU001001",
             "quantity": 2
         }
     ],
@@ -114,10 +151,10 @@
     "message": "库存预占成功",
     "data": {
         "reservation_id": "res_12345",
-        "expires_at": "2024-12-19T11:00:00Z",
+        "expires_at": "2025-09-15T11:00:00Z",
         "reserved_items": [
             {
-                "product_id": 1001,
+                "sku_id": "SKU001001",
                 "reserved_quantity": 2,
                 "available_after_reserve": 48
             }
@@ -126,78 +163,23 @@
 }
 ```
 
-#### 2.2 订单库存预占
-- **方法**: `POST`
-- **路径**: `/api/inventory/reserve/order`
-- **描述**: 为订单预占库存
-- **权限**: 已认证用户
-- **请求体**:
-```json
-{
-    "order_id": 12345,
-    "items": [
-        {
-            "product_id": 1001,
-            "quantity": 2
-        }
-    ]
-}
-```
-- **响应**:
-```json
-{
-    "code": 200,
-    "message": "订单库存预占成功",
-    "data": {
-        "reservation_id": "res_54321",
-        "order_id": 12345,
-        "expires_at": "2024-12-19T12:00:00Z",
-        "reserved_items": [
-            {
-                "product_id": 1001,
-                "reserved_quantity": 2
-            }
-        ]
-    }
-}
-```
-
-#### 2.3 释放购物车预占
+#### 2.2 释放库存预占
 - **方法**: `DELETE`
-- **路径**: `/api/inventory/reserve/cart`
-- **描述**: 释放用户购物车的库存预占
-- **权限**: 已认证用户
-- **查询参数**:
-  - `user_id` (query, optional): 用户ID（管理员可指定）
-- **响应**:
-```json
-{
-    "code": 200,
-    "message": "购物车预占已释放",
-    "data": {
-        "released_reservations": 3,
-        "released_quantity": 15
-    }
-}
-```
-
-#### 2.4 释放订单预占
-- **方法**: `DELETE`
-- **路径**: `/api/inventory/reserve/order/{order_id}`
-- **描述**: 释放指定订单的库存预占
-- **权限**: 已认证用户（仅能释放自己的订单）
+- **路径**: `/api/inventory/reserve/{reservation_id}`
+- **描述**: 释放指定的库存预占
+- **权限**: 已认证用户（仅能释放自己的预占）
 - **参数**:
-  - `order_id` (path, required): 订单ID
+  - `reservation_id` (path, required): 预占记录ID
 - **响应**:
 ```json
 {
     "code": 200,
-    "message": "订单预占已释放",
+    "message": "预占已释放",
     "data": {
-        "order_id": 12345,
+        "reservation_id": "res_12345",
         "released_items": [
             {
-                "product_id": 1001,
+                "sku_id": "SKU001001",
                 "released_quantity": 2
             }
         ]
@@ -205,21 +187,42 @@
 }
 ```
 
-### 3. 库存扣减接口
+#### 2.3 批量释放用户预占
+- **方法**: `DELETE`
+- **路径**: `/api/inventory/reserve/user/{user_id}`
+- **描述**: 释放指定用户的所有预占（购物车清空）
+- **权限**: 已认证用户（仅能释放自己的预占）或管理员
+- **参数**:
+  - `user_id` (path, required): 用户ID
+- **响应**:
+```json
+{
+    "code": 200,
+    "message": "用户预占已释放",
+    "data": {
+        "user_id": 123,
+        "released_reservations": 3,
+        "total_released_quantity": 15
+    }
+}
+```
 
-#### 3.1 订单完成库存扣减
+### 3. 库存操作接口
+
+#### 3.1 库存扣减
 - **方法**: `POST`
 - **路径**: `/api/inventory/deduct`
-- **描述**: 订单支付完成后执行库存扣减
-- **权限**: 系统内部调用
+- **描述**: 订单完成后扣减库存（从预占转为实际扣减）
+- **权限**: 系统内部调用或管理员
 - **请求体**:
 ```json
 {
-    "order_id": 12345,
+    "order_id": "ORD123456",
     "items": [
         {
-            "product_id": 1001,
-            "quantity": 2
+            "sku_id": "SKU001001",
+            "quantity": 2,
+            "reservation_id": "res_12345"
         }
     ]
 }
@@ -230,33 +233,32 @@
     "code": 200,
     "message": "库存扣减成功",
     "data": {
-        "order_id": 12345,
+        "order_id": "ORD123456",
         "deducted_items": [
             {
-                "product_id": 1001,
+                "sku_id": "SKU001001",
                 "deducted_quantity": 2,
-                "remaining_quantity": 48
+                "remaining_quantity": 58
             }
         ]
     }
 }
 ```
 
-### 4. 库存管理接口（管理员）
-
-#### 4.1 库存调整
-- **方法**: `PUT`
-- **路径**: `/api/inventory/{product_id}/adjust`
-- **描述**: 管理员手动调整商品库存
+#### 3.2 库存调整
+- **方法**: `POST`
+- **路径**: `/api/inventory/adjust/{sku_id}`
+- **描述**: 管理员调整SKU库存数量
 - **权限**: 管理员
 - **参数**:
-  - `product_id` (path, required): 商品ID
+  - `sku_id` (path, required): SKU ID
 - **请求体**:
 ```json
 {
-    "adjustment_type": "increase",
+    "adjustment_type": "increase", // 或 "decrease", "set"
     "quantity": 100,
-    "reason": "新货入库"
+    "reason": "新进货入库",
+    "reference": "PO202509150001"
 }
 ```
 - **响应**:
@@ -265,125 +267,139 @@
     "code": 200,
     "message": "库存调整成功",
     "data": {
-        "product_id": 1001,
-        "old_quantity": 50,
-        "new_quantity": 150,
+        "sku_id": "SKU001001",
+        "old_quantity": 60,
+        "new_quantity": 160,
         "adjustment_quantity": 100,
-        "reason": "新货入库"
+        "transaction_id": "txn_78901"
     }
 }
 ```
 
-#### 4.2 设置预警阈值
+### 4. 库存管理接口
+
+#### 4.1 设置库存阈值
 - **方法**: `PUT`
-- **路径**: `/api/inventory/{product_id}/threshold`
-- **描述**: 设置商品的低库存预警阈值
+- **路径**: `/api/inventory/threshold/{sku_id}`
+- **描述**: 设置SKU的库存预警阈值
 - **权限**: 管理员
 - **参数**:
-  - `product_id` (path, required): 商品ID
+  - `sku_id` (path, required): SKU ID
 - **请求体**:
 ```json
 {
-    "warning_threshold": 20
+    "warning_threshold": 10,
+    "critical_threshold": 5
 }
 ```
 - **响应**:
 ```json
 {
     "code": 200,
-    "message": "预警阈值设置成功",
+    "message": "阈值设置成功",
     "data": {
-        "product_id": 1001,
-        "old_threshold": 10,
-        "new_threshold": 20
+        "sku_id": "SKU001001",
+        "warning_threshold": 10,
+        "critical_threshold": 5
     }
 }
 ```
 
-#### 4.3 获取低库存商品列表
+#### 4.2 获取低库存SKU列表
 - **方法**: `GET`
 - **路径**: `/api/inventory/low-stock`
-- **描述**: 获取低库存预警的商品列表
+- **描述**: 获取库存不足的SKU列表
 - **权限**: 管理员
 - **查询参数**:
-  - `page` (query, optional): 页码，默认1
-  - `page_size` (query, optional): 每页数量，默认20
-  - `category_id` (query, optional): 商品分类ID筛选
+  - `level` (query, optional): 预警级别 (warning|critical)
+  - `limit` (query, optional): 返回数量限制，默认100
+  - `offset` (query, optional): 分页偏移，默认0
 - **响应**:
 ```json
 {
     "code": 200,
     "message": "成功",
     "data": {
+        "total": 25,
         "items": [
             {
-                "product_id": 1001,
-                "product_name": "商品名称",
-                "current_quantity": 8,
+                "sku_id": "SKU001002",
+                "current_quantity": 3,
                 "warning_threshold": 10,
-                "shortage": 2
+                "critical_threshold": 5,
+                "level": "critical"
             }
-        ],
-        "total": 1,
-        "page": 1,
-        "page_size": 20,
-        "total_pages": 1
+        ]
     }
 }
 ```
 
 ### 5. 库存历史接口
 
-#### 5.1 获取库存变动历史
+#### 5.1 获取SKU库存变动历史
 - **方法**: `GET`
-- **路径**: `/api/inventory/{product_id}/transactions`
-- **描述**: 获取商品的库存变动历史记录
+- **路径**: `/api/inventory/logs/{sku_id}`
+- **描述**: 获取指定SKU的库存变动历史记录
 - **权限**: 管理员
 - **参数**:
-  - `product_id` (path, required): 商品ID
+  - `sku_id` (path, required): SKU ID
 - **查询参数**:
-  - `page` (query, optional): 页码，默认1
-  - `page_size` (query, optional): 每页数量，默认20
   - `start_date` (query, optional): 开始日期
   - `end_date` (query, optional): 结束日期
-  - `transaction_type` (query, optional): 交易类型筛选
+  - `transaction_type` (query, optional): 交易类型过滤
+  - `limit` (query, optional): 返回数量限制
 - **响应**:
 ```json
 {
     "code": 200,
     "message": "成功",
     "data": {
-        "items": [
+        "sku_id": "SKU001001",
+        "total": 150,
+        "logs": [
             {
-                "id": 12345,
-                "product_id": 1001,
-                "transaction_type": "purchase",
-                "quantity": 100,
-                "reference_id": "PO-2024-001",
-                "created_at": "2024-12-19T10:00:00Z",
-                "operator": "admin_user"
+                "transaction_id": "txn_78901",
+                "transaction_type": "adjustment",
+                "quantity_change": 100,
+                "quantity_before": 60,
+                "quantity_after": 160,
+                "reason": "新进货入库",
+                "reference": "PO202509150001",
+                "operator_id": 1001,
+                "created_at": "2025-09-15T10:30:00Z"
             }
-        ],
-        "total": 1,
-        "page": 1,
-        "page_size": 20,
-        "total_pages": 1
+        ]
     }
 }
 ```
+
+#### 5.2 搜索库存变动记录
+- **方法**: `GET`
+- **路径**: `/api/inventory/logs/search`
+- **描述**: 按条件搜索库存变动记录
+- **权限**: 管理员
+- **查询参数**:
+  - `sku_ids` (query, optional): SKU ID列表，逗号分隔
+  - `transaction_types` (query, optional): 交易类型列表
+  - `operator_id` (query, optional): 操作人ID
+  - `start_date` (query, optional): 开始日期
+  - `end_date` (query, optional): 结束日期
+  - `limit` (query, optional): 返回数量限制
+  - `offset` (query, optional): 分页偏移
+- **响应**: 与5.1类似的格式
 
 ### 6. 系统维护接口
 
 #### 6.1 清理过期预占
 - **方法**: `POST`
-- **路径**: `/api/inventory/cleanup/expired-reservations`
+- **路径**: `/api/inventory/maintenance/cleanup-reservations`
 - **描述**: 清理过期的库存预占记录
-- **权限**: 系统内部调用或管理员
+- **权限**: 系统内部调用
 - **响应**:
 ```json
 {
     "code": 200,
-    "message": "过期预占清理完成",
+    "message": "清理完成",
     "data": {
         "cleaned_reservations": 25,
         "released_quantity": 150
@@ -391,99 +407,107 @@
 }
 ```
 
-## 错误码定义
-
-| 错误码 | 描述 | 处理建议 |
-|--------|------|----------|
-| 40001 | 商品不存在 | 检查商品ID是否正确 |
-| 40002 | 库存不足 | 提示用户减少购买数量 |
-| 40003 | 预占已过期 | 重新发起预占请求 |
-| 40004 | 预占不存在 | 检查预占ID是否正确 |
-| 40005 | 库存调整数量无效 | 检查调整数量是否为正数 |
-| 50001 | 库存服务异常 | 稍后重试或联系技术支持 |
-| 50002 | 数据库连接异常 | 检查系统状态 |
-
-## 数据模型
-
-### 库存信息模型 (InventoryRead)
+#### 6.2 库存一致性检查
+- **方法**: `POST`
+- **路径**: `/api/inventory/maintenance/consistency-check`
+- **描述**: 检查库存数据一致性
+- **权限**: 管理员
+- **响应**:
 ```json
 {
-    "product_id": "integer",
-    "available_quantity": "integer",
-    "reserved_quantity": "integer", 
-    "total_quantity": "integer",
-    "warning_threshold": "integer",
-    "is_low_stock": "boolean",
-    "created_at": "datetime",
-    "updated_at": "datetime"
+    "code": 200,
+    "message": "检查完成",
+    "data": {
+        "total_skus": 1000,
+        "inconsistent_skus": 2,
+        "details": [
+            {
+                "sku_id": "SKU001003",
+                "issue": "reserved_quantity > total_quantity",
+                "suggested_action": "调整预占数量"
+            }
+        ]
+    }
 }
 ```
 
-### 预占响应模型 (ReservationResponse)
+## 错误响应
+
+### 错误格式
 ```json
 {
-    "reservation_id": "string",
-    "order_id": "integer (optional)",
-    "expires_at": "datetime",
-    "reserved_items": [
-        {
-            "product_id": "integer",
-            "reserved_quantity": "integer",
-            "available_after_reserve": "integer (optional)"
-        }
-    ]
+    "code": 400,
+    "message": "库存不足",
+    "error_code": "INSUFFICIENT_INVENTORY",
+    "details": {
+        "sku_id": "SKU001001",
+        "requested": 10,
+        "available": 5
+    },
+    "timestamp": "2025-09-15T10:30:00Z"
 }
 ```
 
-### 交易记录模型 (InventoryTransactionRead)
+### 常见错误码
+- `INSUFFICIENT_INVENTORY`: 库存不足
+- `RESERVATION_EXPIRED`: 预占已过期
+- `RESERVATION_NOT_FOUND`: 预占记录不存在
+- `SKU_NOT_FOUND`: SKU不存在
+- `INVALID_QUANTITY`: 数量无效
+- `PERMISSION_DENIED`: 权限不足
+
+## 事件通知
+
+### 库存变动事件
+库存操作会触发相应的事件，供其他模块订阅：
+
+1. **inventory.stock.reserved** - 库存预占事件
+2. **inventory.stock.released** - 库存释放事件  
+3. **inventory.stock.deducted** - 库存扣减事件
+4. **inventory.stock.adjusted** - 库存调整事件
+5. **inventory.stock.low_warning** - 库存不足预警事件
+
+### 事件格式示例
 ```json
 {
-    "id": "integer",
-    "product_id": "integer",
-    "transaction_type": "string",
-    "quantity": "integer",
-    "reference_id": "string",
-    "created_at": "datetime",
-    "operator": "string"
+    "event_type": "inventory.stock.reserved",
+    "event_id": "evt_12345",
+    "timestamp": "2025-09-15T10:30:00Z",
+    "data": {
+        "sku_id": "SKU001001",
+        "quantity": 2,
+        "reservation_id": "res_12345",
+        "user_id": 123
+    }
 }
 ```
 
-## 集成说明
+## 性能要求
 
-### 与其他模块的集成
+- **查询响应时间**: < 100ms
+- **操作响应时间**: < 200ms
+- **并发支持**: 1000+ TPS
+- **数据一致性**: 强一致性（库存操作）
 
-#### 购物车模块集成
-- 添加商品到购物车时调用库存预占接口
-- 清空购物车时调用预占释放接口
-- 定期清理过期的购物车预占
+## 安全要求
 
-#### 订单模块集成  
-- 创建订单时调用订单库存预占
-- 取消订单时调用预占释放接口
-- 订单支付完成时调用库存扣减接口
-
-#### 商品模块集成
-- 新增商品时自动创建库存记录
-- 商品下架时处理库存预占和扣减
-
-## 性能指标
-
-### 响应时间要求
-- 库存查询: < 100ms
-- 库存预占: < 200ms  
-- 库存扣减: < 300ms
-- 批量操作: < 500ms
-
-### 并发处理能力
-- 支持1000+ QPS的库存查询
-- 支持500+ QPS的库存预占
-- 支持200+ QPS的库存扣减
-
-### 缓存策略
-- 热门商品库存信息Redis缓存（TTL: 60秒）
-- 低库存商品列表缓存（TTL: 300秒）
-- 预占记录Redis缓存（TTL: 1800秒）
+- JWT认证必须
+- 敏感操作记录审计日志
+- 权限分级控制
+- 防止恶意库存操作
 
 ---
 
-**注意**: 此API规范与实际代码实现完全对应，任何修改需要同步更新代码和文档。
+## 相关文档
+
+### 本模块文档
+- [模块概述](./overview.md) - 库存管理模块整体介绍
+- [需求规格说明书](./requirements.md) - 详细的功能需求和业务规则
+- [系统设计文档](./design.md) - 架构设计和技术选型
+- [实现指南](./implementation.md) - 具体的实现细节和代码结构
+- [API实现文档](./api-implementation.md) - 详细的API端点实现和使用说明
+- [模块快速指南](./README.md) - 快速开始和使用指南
+
+### 架构和标准文档
+- [架构设计 - 表模块映射](../../architecture/table-module-mapping.md)
+- [API设计标准](../../standards/api-standards.md)
