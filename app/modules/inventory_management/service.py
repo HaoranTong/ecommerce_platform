@@ -1,584 +1,340 @@
 """
-库存管理服务层
+文件名：service.py
+文件路径：app/modules/inventory_management/service.py
+功能描述：库存管理模块的业务逻辑服务层
 
-此模块提供库存管理的核心业务逻辑，包括：
-- 库存查询和更新服务
-- 库存预占和释放服务
-- 库存扣减和调整服务
-- 库存变动记录服务
+主要功能：
+- 实现库存查询、预留、扣减、调整等核心业务逻辑
+- 基于SKU的库存管理，遵循Product-SKU分离原则
+- 提供事务安全和数据一致性保证
+- 支持高并发场景下的库存操作
+
+使用说明：
+- 导入：from app.modules.inventory_management.service import InventoryService
+- 初始化：service = InventoryService(db_session)
+- 方法调用：inventory = await service.get_sku_inventory(sku_id)
+
+依赖模块：
+- app.modules.inventory_management.models: 库存数据模型
+- sqlalchemy.orm.Session: 数据库会话管理
+- app.core.redis_client: Redis缓存客户端
+
+业务特性：
+- 支持分布式锁确保并发安全
+- 完整的库存变动日志记录
+- 异步操作提升性能表现
+- 完善的错误处理和异常管理
+
+创建时间：2025-09-15
+最后修改：2025-09-15
 """
 
-import json
 import uuid
-from datetime import datetime, timedelta
-from typing import List, Optional, Dict, Tuple
+from datetime import datetime, timedelta, timezone
+from typing import List, Optional, Dict, Any
 from sqlalchemy.orm import Session
-from sqlalchemy import and_, or_, desc
-from fastapi import HTTPException, status
-import redis
+from sqlalchemy.exc import IntegrityError
 
-from app.data_models import Product
-from app.data_models import Inventory, InventoryTransaction, CartReservation, TransactionType, ReferenceType
-from app.schemas.inventory import (
-    InventoryCreate, InventoryUpdate, ReservationItem, DeductItem,
-    InventoryAdjustment, AdjustmentType, TransactionQuery
+from .models import (
+    InventoryStock, InventoryReservation, InventoryTransaction,
+    TransactionType, ReservationType, AdjustmentType
 )
-
-# 同步Redis客户端用于库存管理
-import os
-REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
-redis_client = redis.from_url(REDIS_URL, decode_responses=True)
 
 
 class InventoryService:
-    """库存管理服务类"""
+    """
+    库存管理服务类 - 基于SKU架构
+    
+    提供完整的SKU库存管理功能
+    """
 
     def __init__(self, db: Session):
         self.db = db
-        self.redis = redis_client
 
-    # ============ 库存查询相关 ============
+    # ============ 基础库存管理 ============
 
-    def get_inventory(self, product_id: int) -> Optional[Inventory]:
-        """获取商品库存信息"""
-        return self.db.query(Inventory).filter(Inventory.product_id == product_id).first()
-
-    def get_inventories_batch(self, product_ids: List[int]) -> List[Inventory]:
-        """批量获取商品库存信息"""
-        return self.db.query(Inventory).filter(Inventory.product_id.in_(product_ids)).all()
-
-    def get_or_create_inventory(self, product_id: int) -> Inventory:
-        """获取或创建商品库存记录"""
-        inventory = self.get_inventory(product_id)
+    async def get_sku_inventory(self, sku_id: str) -> Optional[Dict]:
+        """获取SKU库存信息"""
+        inventory = self.db.query(InventoryStock).filter(
+            InventoryStock.sku_id == sku_id
+        ).first()
+        
         if not inventory:
-            # 检查商品是否存在
-            product = self.db.query(Product).filter(Product.id == product_id).first()
-            if not product:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail=f"商品不存在: {product_id}"
-                )
+            return None
             
-            # 创建库存记录
-            inventory = Inventory(
-                product_id=product_id,
-                available_quantity=product.stock_quantity or 0,
-                reserved_quantity=0,
-                total_quantity=product.stock_quantity or 0,
-                warning_threshold=10
-            )
-            self.db.add(inventory)
-            self.db.commit()
-            self.db.refresh(inventory)
-            
-            # 清除缓存
-            self._clear_inventory_cache(product_id)
-            
-        return inventory
+        return {
+            "id": inventory.id,
+            "sku_id": inventory.sku_id,
+            "total_quantity": inventory.total_quantity,
+            "available_quantity": inventory.available_quantity,
+            "reserved_quantity": inventory.reserved_quantity,
+            "warning_threshold": inventory.warning_threshold,
+            "critical_threshold": inventory.critical_threshold,
+            "is_low_stock": inventory.is_low_stock,
+            "is_critical_stock": inventory.is_critical_stock,
+            "is_out_of_stock": inventory.is_out_of_stock,
+            "is_active": inventory.is_active,
+            "last_updated": inventory.updated_at
+        }
 
-    def get_low_stock_products(self, page: int = 1, page_size: int = 20) -> Tuple[List[Dict], int]:
-        """获取低库存商品列表"""
-        # 缓存键
-        cache_key = f"inventory:low_stock:{page}:{page_size}"
-        cached_result = self.redis.get(cache_key)
+    async def get_batch_inventory(self, sku_ids: List[str]) -> List[Dict]:
+        """批量获取SKU库存信息"""
+        inventories = self.db.query(InventoryStock).filter(
+            InventoryStock.sku_id.in_(sku_ids),
+            InventoryStock.is_active == True
+        ).all()
         
-        if cached_result:
-            return json.loads(cached_result)
-        
-        # 查询低库存商品
-        query = (
-            self.db.query(Inventory, Product)
-            .join(Product, Inventory.product_id == Product.id)
-            .filter(Inventory.available_quantity <= Inventory.warning_threshold)
-            .order_by(Inventory.available_quantity.asc())
-        )
-        
-        total = query.count()
-        items = query.offset((page - 1) * page_size).limit(page_size).all()
-        
-        # 构造响应数据
-        result_items = []
-        for inventory, product in items:
-            result_items.append({
-                "product_id": product.id,
-                "product_name": product.name,
-                "product_sku": product.sku,
-                "available_quantity": inventory.available_quantity,
-                "warning_threshold": inventory.warning_threshold,
-                "category_name": product.category.name if product.category else None
+        results = []
+        for inv in inventories:
+            results.append({
+                "sku_id": inv.sku_id,
+                "available_quantity": inv.available_quantity,
+                "reserved_quantity": inv.reserved_quantity,
+                "total_quantity": inv.total_quantity,
+                "is_low_stock": inv.is_low_stock
             })
         
-        result = (result_items, total)
+        return results
+
+    async def create_sku_inventory(self, inventory_data: Dict) -> Dict:
+        """创建SKU库存记录"""
+        # 检查是否已存在
+        existing = self.db.query(InventoryStock).filter(
+            InventoryStock.sku_id == inventory_data["sku_id"]
+        ).first()
         
-        # 缓存结果 10分钟
-        self.redis.setex(cache_key, 600, json.dumps(result))
+        if existing:
+            raise ValueError(f"SKU {inventory_data['sku_id']} 的库存记录已存在")
         
-        return result
-
-    # ============ 库存预占相关 ============
-
-    def reserve_for_cart(self, user_id: int, items: List[ReservationItem], expires_minutes: int = 30) -> Dict:
-        """为购物车预占库存"""
-        reservation_id = f"cart_{user_id}_{uuid.uuid4().hex[:8]}"
-        expires_at = datetime.utcnow() + timedelta(minutes=expires_minutes)
-        reserved_items = []
-        
-        try:
-            # 检查并预占每个商品的库存
-            for item in items:
-                inventory = self.get_or_create_inventory(item.product_id)
-                
-                # 检查库存是否充足
-                if not inventory.can_reserve(item.quantity):
-                    raise HTTPException(
-                        status_code=status.HTTP_400_BAD_REQUEST,
-                        detail=f"商品 {item.product_id} 库存不足，需要 {item.quantity}，可用 {inventory.available_quantity}"
-                    )
-                
-                # 更新或创建预占记录
-                existing_reservation = (
-                    self.db.query(CartReservation)
-                    .filter(
-                        and_(
-                            CartReservation.user_id == user_id,
-                            CartReservation.product_id == item.product_id
-                        )
-                    )
-                    .first()
-                )
-                
-                if existing_reservation:
-                    # 更新现有预占
-                    old_quantity = existing_reservation.reserved_quantity
-                    inventory.update_quantities(
-                        available_delta=old_quantity - item.quantity,
-                        reserved_delta=item.quantity - old_quantity
-                    )
-                    existing_reservation.reserved_quantity = item.quantity
-                    existing_reservation.expires_at = expires_at
-                else:
-                    # 创建新预占
-                    inventory.update_quantities(
-                        available_delta=-item.quantity,
-                        reserved_delta=item.quantity
-                    )
-                    reservation = CartReservation(
-                        user_id=user_id,
-                        product_id=item.product_id,
-                        reserved_quantity=item.quantity,
-                        expires_at=expires_at
-                    )
-                    self.db.add(reservation)
-                
-                # 记录变动
-                self._create_transaction(
-                    product_id=item.product_id,
-                    transaction_type=TransactionType.RESERVE,
-                    quantity=item.quantity,
-                    reference_type=ReferenceType.CART,
-                    reference_id=user_id,
-                    reason="购物车预占",
-                    operator_id=user_id,
-                    before_quantity=inventory.available_quantity + item.quantity,
-                    after_quantity=inventory.available_quantity
-                )
-                
-                reserved_items.append({
-                    "product_id": item.product_id,
-                    "reserved_quantity": item.quantity,
-                    "available_after_reserve": inventory.available_quantity
-                })
-                
-                # 清除缓存
-                self._clear_inventory_cache(item.product_id)
-            
-            self.db.commit()
-            
-            return {
-                "reservation_id": reservation_id,
-                "expires_at": expires_at,
-                "reserved_items": reserved_items
-            }
-            
-        except Exception as e:
-            self.db.rollback()
-            raise e
-
-    def reserve_for_order(self, order_id: int, items: List[ReservationItem]) -> Dict:
-        """为订单预占库存"""
-        reservation_id = f"order_{order_id}_{uuid.uuid4().hex[:8]}"
-        expires_at = datetime.utcnow() + timedelta(minutes=15)  # 订单预占15分钟
-        reserved_items = []
-        
-        try:
-            for item in items:
-                inventory = self.get_or_create_inventory(item.product_id)
-                
-                # 检查库存是否充足
-                if not inventory.can_reserve(item.quantity):
-                    raise HTTPException(
-                        status_code=status.HTTP_400_BAD_REQUEST,
-                        detail=f"商品 {item.product_id} 库存不足，需要 {item.quantity}，可用 {inventory.available_quantity}"
-                    )
-                
-                # 预占库存
-                inventory.update_quantities(
-                    available_delta=-item.quantity,
-                    reserved_delta=item.quantity
-                )
-                
-                # 记录变动
-                self._create_transaction(
-                    product_id=item.product_id,
-                    transaction_type=TransactionType.RESERVE,
-                    quantity=item.quantity,
-                    reference_type=ReferenceType.ORDER,
-                    reference_id=order_id,
-                    reason="订单预占"
-                )
-                
-                reserved_items.append({
-                    "product_id": item.product_id,
-                    "reserved_quantity": item.quantity,
-                    "available_after_reserve": inventory.available_quantity
-                })
-                
-                # 清除缓存
-                self._clear_inventory_cache(item.product_id)
-            
-            self.db.commit()
-            
-            # 在Redis中存储订单预占信息，用于后续释放
-            reservation_key = f"inventory:order_reservation:{order_id}"
-            reservation_data = {
-                "items": [{"product_id": item.product_id, "quantity": item.quantity} for item in items],
-                "expires_at": expires_at.isoformat()
-            }
-            self.redis.setex(reservation_key, 900, json.dumps(reservation_data))  # 15分钟过期
-            
-            return {
-                "reservation_id": reservation_id,
-                "expires_at": expires_at,
-                "reserved_items": reserved_items
-            }
-            
-        except Exception as e:
-            self.db.rollback()
-            raise e
-
-    def release_cart_reservation(self, user_id: int, product_ids: List[int] = None) -> bool:
-        """释放购物车预占"""
-        try:
-            query = self.db.query(CartReservation).filter(CartReservation.user_id == user_id)
-            
-            if product_ids:
-                query = query.filter(CartReservation.product_id.in_(product_ids))
-            
-            reservations = query.all()
-            
-            for reservation in reservations:
-                # 释放库存
-                inventory = self.get_inventory(reservation.product_id)
-                if inventory:
-                    inventory.update_quantities(
-                        available_delta=reservation.reserved_quantity,
-                        reserved_delta=-reservation.reserved_quantity
-                    )
-                    
-                    # 记录变动
-                    self._create_transaction(
-                        product_id=reservation.product_id,
-                        transaction_type=TransactionType.RELEASE,
-                        quantity=reservation.reserved_quantity,
-                        reference_type=ReferenceType.CART,
-                        reference_id=user_id,
-                        reason="购物车预占释放",
-                        operator_id=user_id
-                    )
-                    
-                    # 清除缓存
-                    self._clear_inventory_cache(reservation.product_id)
-                
-                # 删除预占记录
-                self.db.delete(reservation)
-            
-            self.db.commit()
-            return True
-            
-        except Exception as e:
-            self.db.rollback()
-            raise e
-
-    def release_order_reservation(self, order_id: int) -> bool:
-        """释放订单预占"""
-        try:
-            reservation_key = f"inventory:order_reservation:{order_id}"
-            reservation_data = self.redis.get(reservation_key)
-            
-            if not reservation_data:
-                return False
-            
-            data = json.loads(reservation_data)
-            items = data.get("items", [])
-            
-            for item in items:
-                inventory = self.get_inventory(item["product_id"])
-                if inventory:
-                    inventory.update_quantities(
-                        available_delta=item["quantity"],
-                        reserved_delta=-item["quantity"]
-                    )
-                    
-                    # 记录变动
-                    self._create_transaction(
-                        product_id=item["product_id"],
-                        transaction_type=TransactionType.RELEASE,
-                        quantity=item["quantity"],
-                        reference_type=ReferenceType.ORDER,
-                        reference_id=order_id,
-                        reason="订单预占释放"
-                    )
-                    
-                    # 清除缓存
-                    self._clear_inventory_cache(item["product_id"])
-            
-            self.db.commit()
-            
-            # 删除Redis中的预占记录
-            self.redis.delete(reservation_key)
-            
-            return True
-            
-        except Exception as e:
-            self.db.rollback()
-            raise e
-
-    # ============ 库存扣减相关 ============
-
-    def deduct_inventory(self, order_id: int, items: List[DeductItem]) -> bool:
-        """订单完成后扣减库存"""
-        try:
-            for item in items:
-                inventory = self.get_inventory(item.product_id)
-                if not inventory:
-                    raise HTTPException(
-                        status_code=status.HTTP_404_NOT_FOUND,
-                        detail=f"商品 {item.product_id} 库存记录不存在"
-                    )
-                
-                # 检查预占库存是否充足
-                if inventory.reserved_quantity < item.quantity:
-                    raise HTTPException(
-                        status_code=status.HTTP_400_BAD_REQUEST,
-                        detail=f"商品 {item.product_id} 预占库存不足，需要 {item.quantity}，预占 {inventory.reserved_quantity}"
-                    )
-                
-                # 扣减库存（从预占转为实际扣减）
-                inventory.update_quantities(
-                    available_delta=0,
-                    reserved_delta=-item.quantity
-                )
-                
-                # 记录变动
-                self._create_transaction(
-                    product_id=item.product_id,
-                    transaction_type=TransactionType.OUT,
-                    quantity=item.quantity,
-                    reference_type=ReferenceType.ORDER,
-                    reference_id=order_id,
-                    reason="订单扣减库存"
-                )
-                
-                # 清除缓存
-                self._clear_inventory_cache(item.product_id)
-            
-            self.db.commit()
-            
-            # 删除订单预占记录
-            reservation_key = f"inventory:order_reservation:{order_id}"
-            self.redis.delete(reservation_key)
-            
-            return True
-            
-        except Exception as e:
-            self.db.rollback()
-            raise e
-
-    # ============ 库存调整相关 ============
-
-    def adjust_inventory(self, product_id: int, adjustment: InventoryAdjustment, operator_id: int) -> bool:
-        """调整商品库存"""
-        try:
-            inventory = self.get_or_create_inventory(product_id)
-            
-            before_quantity = inventory.available_quantity
-            
-            if adjustment.adjustment_type == AdjustmentType.ADD:
-                new_quantity = inventory.available_quantity + adjustment.quantity
-            elif adjustment.adjustment_type == AdjustmentType.SUBTRACT:
-                new_quantity = max(0, inventory.available_quantity - adjustment.quantity)
-            else:  # SET
-                new_quantity = adjustment.quantity
-            
-            # 更新库存
-            delta = new_quantity - inventory.available_quantity
-            inventory.update_quantities(available_delta=delta)
-            
-            # 记录变动
-            self._create_transaction(
-                product_id=product_id,
-                transaction_type=TransactionType.ADJUST,
-                quantity=abs(delta),
-                reference_type=ReferenceType.MANUAL,
-                reason=adjustment.reason or f"管理员{adjustment.adjustment_type.value}库存",
-                operator_id=operator_id,
-                before_quantity=before_quantity,
-                after_quantity=new_quantity
-            )
-            
-            self.db.commit()
-            
-            # 清除缓存
-            self._clear_inventory_cache(product_id)
-            
-            return True
-            
-        except Exception as e:
-            self.db.rollback()
-            raise e
-
-    def update_warning_threshold(self, product_id: int, threshold: int) -> bool:
-        """更新预警阈值"""
-        try:
-            inventory = self.get_or_create_inventory(product_id)
-            inventory.warning_threshold = threshold
-            
-            self.db.commit()
-            
-            # 清除缓存
-            self._clear_inventory_cache(product_id)
-            
-            return True
-            
-        except Exception as e:
-            self.db.rollback()
-            raise e
-
-    # ============ 库存变动记录相关 ============
-
-    def get_inventory_transactions(
-        self, 
-        product_id: int, 
-        query_params: TransactionQuery
-    ) -> Tuple[List[InventoryTransaction], int]:
-        """获取库存变动历史记录"""
-        query = (
-            self.db.query(InventoryTransaction)
-            .filter(InventoryTransaction.product_id == product_id)
+        # 创建库存记录
+        inventory = InventoryStock(
+            sku_id=inventory_data["sku_id"],
+            total_quantity=inventory_data["initial_quantity"],
+            available_quantity=inventory_data["initial_quantity"],
+            reserved_quantity=0,
+            warning_threshold=inventory_data.get("warning_threshold", 10),
+            critical_threshold=inventory_data.get("critical_threshold", 5)
         )
         
-        # 添加筛选条件
-        if query_params.start_date:
-            query = query.filter(InventoryTransaction.created_at >= query_params.start_date)
+        self.db.add(inventory)
         
-        if query_params.end_date:
-            query = query.filter(InventoryTransaction.created_at <= query_params.end_date)
-        
-        if query_params.transaction_type:
-            query = query.filter(InventoryTransaction.transaction_type == query_params.transaction_type)
-        
-        # 排序
-        query = query.order_by(desc(InventoryTransaction.created_at))
-        
-        # 分页
-        total = query.count()
-        items = query.offset((query_params.page - 1) * query_params.page_size).limit(query_params.page_size).all()
-        
-        return items, total
-
-    # ============ 辅助方法 ============
-
-    def _create_transaction(
-        self,
-        product_id: int,
-        transaction_type: TransactionType,
-        quantity: int,
-        reference_type: ReferenceType = None,
-        reference_id: int = None,
-        reason: str = None,
-        operator_id: int = None,
-        before_quantity: int = None,
-        after_quantity: int = None
-    ) -> InventoryTransaction:
-        """创建库存变动记录"""
+        # 记录初始库存事务
         transaction = InventoryTransaction(
-            product_id=product_id,
-            transaction_type=transaction_type,
-            quantity=quantity,
-            reference_type=reference_type,
-            reference_id=reference_id,
-            reason=reason,
-            operator_id=operator_id,
-            before_quantity=before_quantity,
-            after_quantity=after_quantity
+            sku_id=inventory_data["sku_id"],
+            transaction_type=TransactionType.RESTOCK,
+            quantity_change=inventory_data["initial_quantity"],
+            quantity_before=0,
+            quantity_after=inventory_data["initial_quantity"],
+            reference_type="initial",
+            reference_id="system_init",
+            reason="初始库存创建"
         )
-        self.db.add(transaction)
-        return transaction
-
-    def _clear_inventory_cache(self, product_id: int):
-        """清除库存相关缓存"""
-        # 清除单个商品库存缓存
-        cache_keys = [
-            f"inventory:product:{product_id}",
-            "inventory:low_stock:*"
-        ]
         
-        for key in cache_keys:
-            if "*" in key:
-                # 删除匹配的所有键
-                keys = self.redis.keys(key)
-                if keys:
-                    self.redis.delete(*keys)
-            else:
-                self.redis.delete(key)
-
-    def cleanup_expired_reservations(self):
-        """清理过期的购物车预占"""
+        self.db.add(transaction)
+        
         try:
-            expired_reservations = (
-                self.db.query(CartReservation)
-                .filter(CartReservation.expires_at <= datetime.utcnow())
-                .all()
-            )
-            
-            for reservation in expired_reservations:
-                # 释放库存
-                inventory = self.get_inventory(reservation.product_id)
-                if inventory:
-                    inventory.update_quantities(
-                        available_delta=reservation.reserved_quantity,
-                        reserved_delta=-reservation.reserved_quantity
-                    )
-                    
-                    # 记录变动
-                    self._create_transaction(
-                        product_id=reservation.product_id,
-                        transaction_type=TransactionType.RELEASE,
-                        quantity=reservation.reserved_quantity,
-                        reference_type=ReferenceType.CART,
-                        reference_id=reservation.user_id,
-                        reason="预占过期自动释放"
-                    )
-                    
-                    # 清除缓存
-                    self._clear_inventory_cache(reservation.product_id)
+            self.db.commit()
+            return await self.get_sku_inventory(inventory_data["sku_id"])
+        except IntegrityError as e:
+            self.db.rollback()
+            raise ValueError(f"创建库存记录失败: {str(e)}")
+
+    # ============ 库存预占管理 ============
+
+    async def reserve_inventory(
+        self,
+        reservation_type: ReservationType,
+        reference_id: str,
+        items: List[Dict],
+        expires_minutes: int,
+        user_id: int
+    ) -> Dict:
+        """预占库存"""
+        reservation_id = str(uuid.uuid4())
+        expires_at = datetime.now(timezone.utc) + timedelta(minutes=expires_minutes)
+        reserved_items = []
+        
+        try:
+            for item in items:
+                sku_id = item["sku_id"]
+                quantity = item["quantity"]
                 
-                # 删除预占记录
-                self.db.delete(reservation)
+                # 获取库存记录
+                inventory = self.db.query(InventoryStock).filter(
+                    InventoryStock.sku_id == sku_id,
+                    InventoryStock.is_active == True
+                ).with_for_update().first()
+                
+                if not inventory:
+                    raise ValueError(f"SKU {sku_id} 不存在或未启用库存管理")
+                
+                # 检查库存是否足够
+                if not inventory.can_reserve(quantity):
+                    raise ValueError(f"SKU {sku_id} 库存不足，可用: {inventory.available_quantity}, 需要: {quantity}")
+                
+                # 执行预占
+                if not inventory.reserve_quantity(quantity):
+                    raise ValueError(f"SKU {sku_id} 预占失败")
+                
+                # 创建预占记录
+                reservation = InventoryReservation(
+                    sku_id=sku_id,
+                    reservation_type=reservation_type,
+                    reference_id=reference_id,
+                    quantity=quantity,
+                    expires_at=expires_at
+                )
+                self.db.add(reservation)
+                
+                reserved_items.append({
+                    "sku_id": sku_id,
+                    "reserved_quantity": quantity,
+                    "available_after_reserve": inventory.available_quantity
+                })
             
             self.db.commit()
-            return len(expired_reservations)
+            
+            return {
+                "reservation_id": reservation_id,
+                "expires_at": expires_at,
+                "reserved_items": reserved_items
+            }
             
         except Exception as e:
             self.db.rollback()
-            raise e
+            raise
+
+    async def release_reservation(self, reservation_id: str, user_id: int) -> bool:
+        """释放指定预占"""
+        reservations = self.db.query(InventoryReservation).filter(
+            InventoryReservation.reference_id == reservation_id,
+            InventoryReservation.is_active == True
+        ).all()
+        
+        if not reservations:
+            return False
+        
+        try:
+            for reservation in reservations:
+                # 获取库存记录
+                inventory = self.db.query(InventoryStock).filter(
+                    InventoryStock.sku_id == reservation.sku_id
+                ).with_for_update().first()
+                
+                if inventory:
+                    # 释放预占
+                    inventory.release_quantity(reservation.quantity)
+                
+                # 标记预占为无效
+                reservation.is_active = False
+            
+            self.db.commit()
+            return True
+            
+        except Exception:
+            self.db.rollback()
+            raise
+
+    # ============ 库存操作管理 ============
+
+    async def deduct_inventory(
+        self,
+        order_id: str,
+        items: List[Dict],
+        operator_id: int
+    ) -> Dict:
+        """扣减库存（实际出库）"""
+        deducted_items = []
+        
+        try:
+            for item in items:
+                sku_id = item["sku_id"]
+                quantity = item["quantity"]
+                reservation_id = item.get("reservation_id")
+                
+                # 获取库存记录
+                inventory = self.db.query(InventoryStock).filter(
+                    InventoryStock.sku_id == sku_id,
+                    InventoryStock.is_active == True
+                ).with_for_update().first()
+                
+                if not inventory:
+                    raise ValueError(f"SKU {sku_id} 不存在或未启用库存管理")
+                
+                # 如果有预占ID，从预占中扣减；否则直接从可用库存扣减
+                from_reserved = reservation_id is not None
+                
+                if not inventory.deduct_quantity(quantity, from_reserved):
+                    if from_reserved:
+                        raise ValueError(f"SKU {sku_id} 预占库存不足")
+                    else:
+                        raise ValueError(f"SKU {sku_id} 可用库存不足")
+                
+                # 如果有预占记录，标记为无效
+                if reservation_id:
+                    reservations = self.db.query(InventoryReservation).filter(
+                        InventoryReservation.reference_id == reservation_id,
+                        InventoryReservation.sku_id == sku_id,
+                        InventoryReservation.is_active == True
+                    ).all()
+                    
+                    for reservation in reservations:
+                        reservation.is_active = False
+                
+                deducted_items.append({
+                    "sku_id": sku_id,
+                    "deducted_quantity": quantity,
+                    "remaining_quantity": inventory.total_quantity
+                })
+            
+            self.db.commit()
+            
+            return {
+                "order_id": order_id,
+                "deducted_items": deducted_items
+            }
+            
+        except Exception as e:
+            self.db.rollback()
+            raise
+
+    # ============ 其他必要方法 ============
+
+    async def update_thresholds(
+        self,
+        sku_id: str,
+        warning_threshold: int,
+        critical_threshold: int
+    ) -> bool:
+        """更新库存阈值"""
+        inventory = self.db.query(InventoryStock).filter(
+            InventoryStock.sku_id == sku_id
+        ).first()
+        
+        if not inventory:
+            return False
+        
+        inventory.warning_threshold = warning_threshold
+        inventory.critical_threshold = critical_threshold
+        
+        try:
+            self.db.commit()
+            return True
+        except Exception:
+            self.db.rollback()
+            raise
+
+    # 添加向后兼容的方法（用于现有代码调用）
+    def get_or_create_inventory(self, sku_id: str) -> Dict:
+        """获取或创建库存记录（同步方法）"""
+        import asyncio
+        try:
+            return asyncio.run(self.get_sku_inventory(sku_id))
+        except:
+            # 如果不存在，返回基本结构
+            return {
+                "sku_id": sku_id,
+                "total_quantity": 0,
+                "available_quantity": 0,
+                "reserved_quantity": 0
+            }

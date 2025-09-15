@@ -22,6 +22,9 @@ from app.modules.product_catalog.models import (
 # 用户认证模块模型（API路由需要User模型）
 from app.modules.user_auth.models import User, Role, Permission, UserRole, RolePermission, Session
 
+# 库存管理模块模型
+from app.modules.inventory_management.models import InventoryStock, InventoryReservation, InventoryTransaction
+
 # 测试数据库配置
 import tempfile
 import os
@@ -35,20 +38,16 @@ INTEGRATION_TEST_DATABASE_URL = "mysql+pymysql://test_user:test_pass@localhost:3
 # ========== 单元测试配置 ==========
 @pytest.fixture(scope="function")
 def unit_test_engine():
-    """单元测试数据库引擎（临时文件）"""
+    """单元测试数据库引擎（内存数据库）"""
+    # 使用内存数据库避免索引冲突问题
     engine = create_engine(
-        UNIT_TEST_DATABASE_URL, 
+        "sqlite:///:memory:", 
         connect_args={"check_same_thread": False},
         poolclass=None  # Disable connection pooling for test
     )
     Base.metadata.create_all(bind=engine)
     yield engine
     engine.dispose()
-    # Clean up the temporary database file
-    try:
-        os.unlink(_temp_db_path)
-    except:
-        pass
 
 @pytest.fixture(scope="function")
 def unit_test_db(unit_test_engine):

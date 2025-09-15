@@ -1,100 +1,119 @@
 """
-库存管理模块 Pydantic Schemas
+文件名：schemas.py
+文件路径：app/modules/inventory_management/schemas.py
+功能描述：库存管理模块的Pydantic Schema定义
 
-此模块定义了库存管理相关的请求和响应数据模型，包括：
-- 库存查询和修改的schemas
-- 库存预占和释放的schemas  
-- 库存变动记录的schemas
+主要功能：
+- 定义API请求和响应的数据模型
+- 提供数据验证和序列化功能
+- 支持批量操作和复杂业务场景
+- 基于SKU的库存管理接口设计
+
+使用说明：
+- 导入：from app.modules.inventory_management.schemas import InventoryRead, ReserveRequest
+- API接口：用于FastAPI路由的请求/响应验证
+- 数据验证：自动进行输入数据验证和格式化
+
+依赖模块：
+- pydantic.BaseModel: 基础Schema类
+- typing: 类型注解支持
+- datetime: 时间数据处理
+
+Schema分类：
+- Read Schemas: 用于API响应的数据输出
+- Create/Update Schemas: 用于API请求的数据输入
+- Query Schemas: 用于复杂查询和批量操作
+
+创建时间：2025-09-15
+最后修改：2025-09-15
 """
 
 from datetime import datetime
-from typing import List, Optional
-from pydantic import BaseModel, validator
+from typing import List, Optional, Union
+from pydantic import BaseModel, Field, validator
 from enum import Enum
 
 
-class TransactionType(str, Enum):
+class TransactionTypeEnum(str, Enum):
     """库存变动类型"""
-    IN = "IN"           # 入库
-    OUT = "OUT"         # 出库
-    RESERVE = "RESERVE" # 预占
-    RELEASE = "RELEASE" # 释放
-    ADJUST = "ADJUST"   # 调整
+    RESERVE = "reserve"
+    RELEASE = "release"  
+    DEDUCT = "deduct"
+    ADJUST = "adjust"
+    RESTOCK = "restock"
 
 
-class ReferenceType(str, Enum):
-    """变动关联类型"""
-    ORDER = "ORDER"     # 订单
-    CART = "CART"       # 购物车
-    MANUAL = "MANUAL"   # 手动操作
-    IMPORT = "IMPORT"   # 批量导入
+class ReservationTypeEnum(str, Enum):
+    """预占类型"""
+    CART = "cart"
+    ORDER = "order"
 
 
-class AdjustmentType(str, Enum):
-    """库存调整类型"""
-    ADD = "ADD"         # 增加
-    SUBTRACT = "SUBTRACT"  # 减少
-    SET = "SET"         # 设置
+class AdjustmentTypeEnum(str, Enum):
+    """调整类型"""
+    INCREASE = "increase"
+    DECREASE = "decrease"
+    SET = "set"
 
 
 # ============ 基础 Schemas ============
 
-class InventoryBase(BaseModel):
-    """库存基础信息"""
-    available_quantity: int
-    reserved_quantity: int
-    total_quantity: int
-    warning_threshold: int
+class SKUInventoryBase(BaseModel):
+    """SKU库存基础信息"""
+    sku_id: str = Field(..., description="SKU唯一标识符")
+    available_quantity: int = Field(ge=0, description="可用库存数量")
+    reserved_quantity: int = Field(ge=0, description="预占库存数量") 
+    total_quantity: int = Field(ge=0, description="总库存数量")
+    warning_threshold: int = Field(ge=0, description="库存预警阈值")
+    critical_threshold: int = Field(ge=0, description="库存严重不足阈值")
 
 
-class InventoryCreate(InventoryBase):
-    """创建库存"""
-    product_id: int
+class SKUInventoryCreate(BaseModel):
+    """创建SKU库存"""
+    sku_id: str = Field(..., description="SKU ID")
+    initial_quantity: int = Field(ge=0, description="初始库存数量")
+    warning_threshold: int = Field(default=10, ge=0, description="库存预警阈值")
+    critical_threshold: int = Field(default=5, ge=0, description="库存严重不足阈值")
 
 
-class InventoryUpdate(BaseModel):
-    """更新库存"""
-    available_quantity: Optional[int] = None
-    reserved_quantity: Optional[int] = None
-    warning_threshold: Optional[int] = None
+class SKUInventoryUpdate(BaseModel):
+    """更新SKU库存配置"""
+    warning_threshold: Optional[int] = Field(None, ge=0, description="库存预警阈值")
+    critical_threshold: Optional[int] = Field(None, ge=0, description="库存严重不足阈值")
+    is_active: Optional[bool] = Field(None, description="是否启用库存管理")
 
 
-class InventoryRead(InventoryBase):
-    """库存读取"""
+class SKUInventoryRead(SKUInventoryBase):
+    """SKU库存读取响应"""
     id: int
-    product_id: int
-    is_low_stock: bool
-    is_out_of_stock: bool
-    created_at: datetime
-    updated_at: datetime
+    is_low_stock: bool = Field(description="是否库存不足")
+    is_critical_stock: bool = Field(description="是否库存严重不足")
+    is_out_of_stock: bool = Field(description="是否缺货")
+    is_active: bool = Field(description="是否启用库存管理")
+    last_updated: datetime = Field(description="最后更新时间")
 
     class Config:
         from_attributes = True
 
 
-# ============ 库存查询 Schemas ============
-
-class ProductInventoryQuery(BaseModel):
-    """商品库存查询"""
-    product_id: int
-
+# ============ 批量操作 Schemas ============
 
 class BatchInventoryQuery(BaseModel):
     """批量库存查询"""
-    product_ids: List[int]
+    sku_ids: List[str] = Field(..., description="SKU ID列表")
 
-    @validator('product_ids')
-    def validate_product_ids(cls, v):
-        if not v or len(v) == 0:
-            raise ValueError('product_ids不能为空')
+    @validator('sku_ids')
+    def validate_sku_ids(cls, v):
+        if not v:
+            raise ValueError('sku_ids不能为空')
         if len(v) > 100:
-            raise ValueError('一次最多查询100个商品')
-        return v
+            raise ValueError('一次最多查询100个SKU')
+        return list(set(v))  # 去重
 
 
-class InventorySimple(BaseModel):
-    """简化的库存信息"""
-    product_id: int
+class SKUInventorySimple(BaseModel):
+    """简化的SKU库存信息"""
+    sku_id: str
     available_quantity: int
     reserved_quantity: int
     total_quantity: int
@@ -108,49 +127,29 @@ class InventorySimple(BaseModel):
 
 class ReservationItem(BaseModel):
     """预占商品项"""
-    product_id: int
-    quantity: int
-
-    @validator('quantity')
-    def validate_quantity(cls, v):
-        if v <= 0:
-            raise ValueError('数量必须大于0')
-        return v
+    sku_id: str = Field(..., description="SKU ID")
+    quantity: int = Field(gt=0, description="预占数量")
 
 
-class CartReserveRequest(BaseModel):
-    """购物车库存预占请求"""
-    items: List[ReservationItem]
-    expires_minutes: Optional[int] = 30
+class ReserveRequest(BaseModel):
+    """库存预占请求"""
+    reservation_type: ReservationTypeEnum = Field(..., description="预占类型")
+    reference_id: str = Field(..., description="关联ID（用户ID或订单ID）")
+    items: List[ReservationItem] = Field(..., description="预占商品列表")
+    expires_minutes: int = Field(default=30, ge=1, le=1440, description="预占有效期（分钟）")
 
     @validator('items')
     def validate_items(cls, v):
-        if not v or len(v) == 0:
-            raise ValueError('预占商品不能为空')
-        return v
-
-    @validator('expires_minutes')
-    def validate_expires_minutes(cls, v):
-        if v is not None and (v < 1 or v > 120):
-            raise ValueError('过期时间必须在1-120分钟之间')
+        if not v:
+            raise ValueError('items不能为空')
+        if len(v) > 50:
+            raise ValueError('一次最多预占50个SKU')
         return v
 
 
-class OrderReserveRequest(BaseModel):
-    """订单库存预占请求"""
-    order_id: int
-    items: List[ReservationItem]
-
-    @validator('items')
-    def validate_items(cls, v):
-        if not v or len(v) == 0:
-            raise ValueError('预占商品不能为空')
-        return v
-
-
-class ReservedItem(BaseModel):
-    """已预占商品信息"""
-    product_id: int
+class ReservationItemResponse(BaseModel):
+    """预占商品响应项"""
+    sku_id: str
     reserved_quantity: int
     available_after_reserve: int
 
@@ -159,80 +158,112 @@ class ReservationResponse(BaseModel):
     """预占响应"""
     reservation_id: str
     expires_at: datetime
-    reserved_items: List[ReservedItem]
+    reserved_items: List[ReservationItemResponse]
 
 
-# ============ 库存扣减 Schemas ============
+class ReleaseReservationRequest(BaseModel):
+    """释放预占请求"""
+    reservation_id: Optional[str] = Field(None, description="预占记录ID")
+    user_id: Optional[str] = Field(None, description="用户ID（释放该用户所有预占）")
+
+
+# ============ 库存操作 Schemas ============
 
 class DeductItem(BaseModel):
     """扣减商品项"""
-    product_id: int
-    quantity: int
-
-    @validator('quantity')
-    def validate_quantity(cls, v):
-        if v <= 0:
-            raise ValueError('扣减数量必须大于0')
-        return v
+    sku_id: str = Field(..., description="SKU ID")
+    quantity: int = Field(gt=0, description="扣减数量")
+    reservation_id: Optional[str] = Field(None, description="对应的预占记录ID")
 
 
 class InventoryDeductRequest(BaseModel):
     """库存扣减请求"""
-    order_id: int
-    items: List[DeductItem]
+    order_id: str = Field(..., description="订单ID")
+    items: List[DeductItem] = Field(..., description="扣减商品列表")
 
     @validator('items')
     def validate_items(cls, v):
-        if not v or len(v) == 0:
-            raise ValueError('扣减商品不能为空')
+        if not v:
+            raise ValueError('items不能为空')
         return v
 
 
-# ============ 库存调整 Schemas ============
+class DeductItemResponse(BaseModel):
+    """扣减响应项"""
+    sku_id: str
+    deducted_quantity: int
+    remaining_quantity: int
+
+
+class DeductResponse(BaseModel):
+    """扣减响应"""
+    order_id: str
+    deducted_items: List[DeductItemResponse]
+
 
 class InventoryAdjustment(BaseModel):
-    """库存调整"""
-    adjustment_type: AdjustmentType
-    quantity: int
-    reason: Optional[str] = None
+    """库存调整请求"""
+    sku_id: str = Field(..., description="SKU ID")
+    adjustment_type: AdjustmentTypeEnum = Field(..., description="调整类型")
+    quantity: int = Field(gt=0, description="调整数量")
+    reason: str = Field(..., description="调整原因")
+    reference: Optional[str] = Field(None, description="参考单号")
 
-    @validator('quantity')
-    def validate_quantity(cls, v):
-        if v <= 0:
-            raise ValueError('调整数量必须大于0')
-        return v
 
-    @validator('reason')
-    def validate_reason(cls, v):
-        if v and len(v) > 500:
-            raise ValueError('调整原因最多500个字符')
-        return v
+class AdjustmentResponse(BaseModel):
+    """调整响应"""
+    sku_id: str
+    old_quantity: int
+    new_quantity: int
+    adjustment_quantity: int
+    transaction_id: str
 
+
+# ============ 库存管理 Schemas ============
 
 class ThresholdUpdate(BaseModel):
-    """预警阈值更新"""
-    warning_threshold: int
+    """阈值更新请求"""
+    warning_threshold: int = Field(ge=0, description="库存预警阈值")
+    critical_threshold: int = Field(ge=0, description="库存严重不足阈值")
 
-    @validator('warning_threshold')
-    def validate_threshold(cls, v):
-        if v < 0:
-            raise ValueError('预警阈值不能为负数')
+    @validator('critical_threshold')
+    def validate_thresholds(cls, v, values):
+        if 'warning_threshold' in values and v > values['warning_threshold']:
+            raise ValueError('critical_threshold不能大于warning_threshold')
         return v
 
 
-# ============ 库存变动记录 Schemas ============
+class LowStockItem(BaseModel):
+    """低库存商品项"""
+    sku_id: str
+    current_quantity: int
+    warning_threshold: int
+    critical_threshold: int
+    level: str = Field(description="预警级别: warning/critical")
+
+    class Config:
+        from_attributes = True
+
+
+class LowStockQuery(BaseModel):
+    """低库存查询参数"""
+    level: Optional[str] = Field("warning", description="预警级别")
+    limit: int = Field(default=100, ge=1, le=1000)
+    offset: int = Field(default=0, ge=0)
+
+
+# ============ 历史记录 Schemas ============
 
 class InventoryTransactionRead(BaseModel):
     """库存变动记录"""
-    id: int
-    product_id: int
-    transaction_type: TransactionType
-    quantity: int
-    reference_type: Optional[ReferenceType]
-    reference_id: Optional[int]
+    transaction_id: str
+    sku_id: str
+    transaction_type: TransactionTypeEnum
+    quantity_change: int
+    quantity_before: int
+    quantity_after: int
     reason: Optional[str]
-    before_quantity: Optional[int]
-    after_quantity: Optional[int]
+    reference: Optional[str]
     operator_id: Optional[int]
     created_at: datetime
 
@@ -242,88 +273,126 @@ class InventoryTransactionRead(BaseModel):
 
 class TransactionQuery(BaseModel):
     """变动记录查询参数"""
-    start_date: Optional[datetime] = None
-    end_date: Optional[datetime] = None
-    transaction_type: Optional[TransactionType] = None
-    page: int = 1
-    page_size: int = 20
-
-    @validator('page')
-    def validate_page(cls, v):
-        if v < 1:
-            raise ValueError('页码必须大于0')
-        return v
-
-    @validator('page_size')
-    def validate_page_size(cls, v):
-        if v < 1 or v > 100:
-            raise ValueError('每页数量必须在1-100之间')
-        return v
+    sku_ids: Optional[List[str]] = Field(None, description="SKU ID列表")
+    transaction_types: Optional[List[TransactionTypeEnum]] = Field(None, description="变动类型列表")
+    operator_id: Optional[int] = Field(None, description="操作人ID")
+    start_date: Optional[str] = Field(None, description="开始日期")
+    end_date: Optional[str] = Field(None, description="结束日期")
+    limit: int = Field(default=50, ge=1, le=1000)
+    offset: int = Field(default=0, ge=0)
 
 
-# ============ 购物车预占 Schemas ============
-
-class CartReservationRead(BaseModel):
-    """购物车预占记录"""
-    id: int
-    user_id: int
-    product_id: int
-    reserved_quantity: int
-    expires_at: datetime
-    created_at: datetime
-    is_expired: bool
-    remaining_minutes: int
-
-    class Config:
-        from_attributes = True
+class TransactionSearchResponse(BaseModel):
+    """变动记录搜索响应"""
+    sku_id: str
+    total: int
+    logs: List[InventoryTransactionRead]
 
 
-# ============ 管理员查询 Schemas ============
+# ============ 系统维护 Schemas ============
 
-class LowStockQuery(BaseModel):
-    """低库存查询参数"""
-    page: int = 1
-    page_size: int = 20
-
-    @validator('page')
-    def validate_page(cls, v):
-        if v < 1:
-            raise ValueError('页码必须大于0')
-        return v
-
-    @validator('page_size')
-    def validate_page_size(cls, v):
-        if v < 1 or v > 100:
-            raise ValueError('每页数量必须在1-100之间')
-        return v
+class CleanupResponse(BaseModel):
+    """清理过期预占响应"""
+    cleaned_reservations: int
+    released_quantity: int
 
 
-class LowStockItem(BaseModel):
-    """低库存商品"""
-    product_id: int
-    product_name: str
-    product_sku: str
-    available_quantity: int
-    warning_threshold: int
-    category_name: Optional[str]
+class ConsistencyCheckItem(BaseModel):
+    """一致性检查项"""
+    sku_id: str
+    issue: str
+    suggested_action: str
 
-    class Config:
-        from_attributes = True
+
+class ConsistencyCheckResponse(BaseModel):
+    """一致性检查响应"""
+    total_skus: int
+    inconsistent_skus: int
+    details: List[ConsistencyCheckItem]
 
 
 # ============ 通用响应 Schemas ============
 
-class InventoryResponse(BaseModel):
-    """库存操作响应"""
-    code: int
-    message: str
-    data: Optional[dict] = None
-
-
 class PaginatedResponse(BaseModel):
     """分页响应"""
-    items: List[dict]
     total: int
+    items: List[Union[SKUInventoryRead, LowStockItem, InventoryTransactionRead]]
     page: int
     page_size: int
     total_pages: int
+
+
+class APIResponse(BaseModel):
+    """统一API响应格式"""
+    code: int = Field(default=200)
+    message: str = Field(default="成功")
+    data: Optional[Union[dict, list]] = None
+    timestamp: datetime = Field(default_factory=datetime.now)
+
+
+# ============ 错误响应 Schemas ============
+
+class ErrorDetail(BaseModel):
+    """错误详情"""
+    sku_id: Optional[str] = None
+    requested: Optional[int] = None
+    available: Optional[int] = None
+    message: str
+
+
+class ErrorResponse(BaseModel):
+    """错误响应"""
+    code: int
+    message: str
+    error_code: str
+    details: Optional[ErrorDetail] = None
+    timestamp: datetime = Field(default_factory=datetime.now)
+
+
+# ============ 事件通知 Schemas ============
+
+class InventoryEvent(BaseModel):
+    """库存变动事件"""
+    event_type: str = Field(description="事件类型")
+    event_id: str = Field(description="事件ID")
+    timestamp: datetime = Field(default_factory=datetime.now)
+    data: dict = Field(description="事件数据")
+
+
+class StockReservedEvent(BaseModel):
+    """库存预占事件"""
+    sku_id: str
+    quantity: int
+    reservation_id: str
+    user_id: Optional[str] = None
+
+
+class StockReleasedEvent(BaseModel):
+    """库存释放事件"""
+    sku_id: str
+    quantity: int
+    reservation_id: str
+
+
+class StockDeductedEvent(BaseModel):
+    """库存扣减事件"""
+    sku_id: str
+    quantity: int
+    order_id: str
+
+
+class StockAdjustedEvent(BaseModel):
+    """库存调整事件"""
+    sku_id: str
+    old_quantity: int
+    new_quantity: int
+    adjustment_type: AdjustmentTypeEnum
+    operator_id: int
+
+
+class LowStockWarningEvent(BaseModel):
+    """库存不足预警事件"""
+    sku_id: str
+    current_quantity: int
+    threshold: int
+    level: str  # warning/critical
