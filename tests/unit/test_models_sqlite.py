@@ -11,7 +11,11 @@ import os
 # 将app目录添加到Python路径
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
-from app.data_models import Base, User, Product, Category, Order, CartItem, OrderItem
+from app.core.database import Base
+from app.modules.user_auth.models import User
+from app.modules.product_catalog.models import Product, Category
+from app.modules.order_management.models import Order, OrderItem
+from app.modules.shopping_cart.models import CartItem
 
 def test_models_with_sqlite():
     """使用SQLite测试数据模型关系"""

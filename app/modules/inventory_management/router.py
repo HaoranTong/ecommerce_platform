@@ -86,7 +86,7 @@ async def get_sku_inventory(
     service = InventoryService(db)
     
     try:
-        inventory = await service.get_sku_inventory(sku_id)
+        inventory = service.get_sku_inventory(sku_id)
         if not inventory:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -116,7 +116,7 @@ async def get_batch_sku_inventory(
     service = InventoryService(db)
     
     try:
-        inventories = await service.get_batch_inventory(query.sku_ids)
+        inventories = service.get_batch_inventory(query.sku_ids)
         return inventories
     except Exception as e:
         raise HTTPException(
@@ -618,7 +618,7 @@ async def create_sku_inventory(
     service = InventoryService(db)
     
     try:
-        inventory = await service.create_sku_inventory(inventory_data)
+        inventory = service.create_sku_inventory(inventory_data)
         return inventory
         
     except ValueError as e:

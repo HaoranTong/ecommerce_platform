@@ -26,7 +26,7 @@ class CertificateCreate(CertificateBase):
 
 
 class CertificateRead(CertificateBase):
-    """证书响应模式 - 使用int类型主键符合BigInteger标准"""
+    """证书响应模式 - 使用int类型主键符合INTEGER标准"""
     id: int
     created_at: datetime
     updated_at: datetime

@@ -25,15 +25,10 @@ from app.modules.user_auth.models import User, Role, Permission, UserRole, RoleP
 # 库存管理模块模型
 from app.modules.inventory_management.models import InventoryStock, InventoryReservation, InventoryTransaction
 
-# 测试数据库配置
-import tempfile
-import os
-# Create a temporary file for the test database to ensure shared connection
-_temp_db_fd, _temp_db_path = tempfile.mkstemp(suffix='.db')
-os.close(_temp_db_fd)  # Close the file descriptor but keep the path
-UNIT_TEST_DATABASE_URL = f"sqlite:///{_temp_db_path}"
-SMOKE_TEST_DATABASE_URL = "sqlite:///./tests/smoke_test.db"
-INTEGRATION_TEST_DATABASE_URL = "mysql+pymysql://test_user:test_pass@localhost:3307/test_ecommerce"
+# 测试数据库配置 - 符合testing-standards.md标准
+UNIT_TEST_DATABASE_URL = "sqlite:///:memory:"  # 单元测试：内存数据库
+SMOKE_TEST_DATABASE_URL = "sqlite:///./tests/smoke_test.db"  # 烟雾测试：文件数据库
+INTEGRATION_TEST_DATABASE_URL = "mysql+pymysql://test_user:test_pass@localhost:3307/test_ecommerce"  # 集成测试：MySQL
 
 # ========== 单元测试配置 ==========
 @pytest.fixture(scope="function")

@@ -121,6 +121,18 @@ class ProductService:
 ### Phase 3: 测试验证阶段
 **目标**: 确保功能正确性和系统稳定性
 
+#### 🚨 强制环境检查 (MASTER.md要求)
+**任何测试前必须执行:**
+```powershell
+# 1. 强制环境检查 (30秒)
+.\scripts\check_test_env.ps1
+
+# 2. 标准测试执行流程
+.\scripts\setup_test_env.ps1 -TestType [unit|smoke|integration|all]
+
+# 🚫 禁止直接执行 pytest 命令
+```
+
 #### 3.1 单元测试
 ```python
 # tests/test_{module}.py
@@ -166,16 +178,19 @@ class TestProductAPI:
         assert response.json()["data"]["name"] == "测试商品"
 ```
 
-#### 3.3 API测试
+#### 3.3 标准测试执行流程 (MASTER.md强制要求)
 ```powershell
-# 运行API测试
-.\dev_tools.ps1 test-api
+# ⚠️ 开发阶段测试 (快速反馈)
+.\scripts\setup_test_env.ps1 -TestType unit
 
-# 运行特定模块测试
-pytest tests/test_products.py -v
+# 🎯 功能完成后测试 (完整验证)
+.\scripts\setup_test_env.ps1 -TestType integration
 
-# 运行覆盖率测试
-pytest --cov=app tests/
+# 📊 提交前测试 (全面检查)
+.\scripts\setup_test_env.ps1 -TestType all
+
+# 🔍 问题排查 (仅在出错时使用)
+python scripts\validate_test_config.py
 ```
 
 #### 3.4 系统测试

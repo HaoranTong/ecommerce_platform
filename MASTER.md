@@ -39,7 +39,7 @@
 - 任何命名操作 → 命名规范检查点 + 执行 .\scripts\check_naming_compliance.ps1
 - 创建类/函数/变量 → 代码开发检查清单 + 执行 .\scripts\check_naming_compliance.ps1 -CheckType code
 - 设计数据库表/字段 → 数据库命名检查点 + 执行 .\scripts\check_naming_compliance.ps1 -CheckType database
-- 开始测试会话 → 环境检查点 + 自动选择测试类型 + 验证测试环境
+- 开始测试会话 → ⚠️ **强制测试环境检查点** + 必须执行 .\scripts\check_test_env.ps1
 
 ## 🔍 检查点执行格式
 🔍 检查点触发：[操作类型]
@@ -70,10 +70,11 @@ IF 命名实体 THEN 确认 docs/standards/naming-conventions.md + .\scripts\che
 IF 编写测试 THEN 强制检查 docs/standards/testing-standards.md + 强制阅读被测试模块的所有技术文档 + 验证模型字段和API方法的实际存在性 + 验证测试环境配置
 IF 修改流程 THEN 检查 docs/standards/workflow-standards.md
 IF 开始工作会话 THEN 执行 .\scripts\check_naming_compliance.ps1 + .\scripts\check_docs.ps1
-IF 开始测试会话 THEN 环境检查 + 自动选择测试策略:
-   - 单元测试 → 使用 pytest tests/unit/ (SQLite内存)
-   - 烟雾测试 → 使用 .\scripts\smoke_test.ps1 (SQLite文件)
-   - 集成测试 → 使用 .\scripts\integration_test.ps1 (MySQL Docker)
+IF 开始测试会话 THEN ⚠️ **强制测试环境检查流程**:
+   1. **必须先执行**: .\scripts\check_test_env.ps1 (30秒快速检查)
+   2. **标准执行流程**: .\scripts\setup_test_env.ps1 -TestType [unit|smoke|integration|all]
+   3. **故障排查工具**: python scripts/validate_test_config.py (仅在问题时使用)
+   4. **禁止直接执行**: pytest 命令 (必须通过标准工具)
 
 ## 📄 README同步触发
 IF create_file app/modules/* THEN 更新对应模块README.md

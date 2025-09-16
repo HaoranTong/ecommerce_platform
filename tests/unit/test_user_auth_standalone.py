@@ -34,7 +34,7 @@ class User(Base, TimestampMixin, SoftDeleteMixin):
     """用户模型"""
     __tablename__ = 'users'
 
-    id = Column(BigInteger, primary_key=True, autoincrement=True, index=True)
+    id = Column(Integer, primary_key=True, autoincrement=True, index=True)
     username = Column(String(50), unique=True, nullable=False, index=True)
     email = Column(String(255), unique=True, nullable=False, index=True)
     password_hash = Column(String(255), nullable=False)
@@ -59,7 +59,7 @@ class Role(Base, TimestampMixin):
     """角色模型"""
     __tablename__ = 'roles'
 
-    id = Column(BigInteger, primary_key=True, autoincrement=True, index=True)
+    id = Column(Integer, primary_key=True, autoincrement=True, index=True)
     name = Column(String(100), unique=True, nullable=False, index=True)
     description = Column(Text, nullable=True)
     level = Column(Integer, nullable=False)
@@ -71,7 +71,7 @@ class Permission(Base, TimestampMixin):
     """权限模型"""
     __tablename__ = 'permissions'
 
-    id = Column(BigInteger, primary_key=True, autoincrement=True, index=True)
+    id = Column(Integer, primary_key=True, autoincrement=True, index=True)
     name = Column(String(100), unique=True, nullable=False, index=True)
     resource = Column(String(100), nullable=False)
     action = Column(String(50), nullable=False)
@@ -84,9 +84,9 @@ class UserRole(Base, TimestampMixin):
     """用户角色关联模型"""
     __tablename__ = 'user_roles'
 
-    user_id = Column(BigInteger, ForeignKey('users.id'), primary_key=True)
-    role_id = Column(BigInteger, ForeignKey('roles.id'), primary_key=True)
-    assigned_by = Column(BigInteger, ForeignKey('users.id'), nullable=True)
+    user_id = Column(Integer, ForeignKey('users.id'), primary_key=True)
+    role_id = Column(Integer, ForeignKey('roles.id'), primary_key=True)
+    assigned_by = Column(Integer, ForeignKey('users.id'), nullable=True)
     assigned_at = Column(DateTime, server_default=func.now(), nullable=False)
 
     def __repr__(self):
@@ -96,9 +96,9 @@ class RolePermission(Base, TimestampMixin):
     """角色权限关联模型"""
     __tablename__ = 'role_permissions'
 
-    role_id = Column(BigInteger, ForeignKey('roles.id'), primary_key=True)
-    permission_id = Column(BigInteger, ForeignKey('permissions.id'), primary_key=True)
-    granted_by = Column(BigInteger, ForeignKey('users.id'), nullable=True)
+    role_id = Column(Integer, ForeignKey('roles.id'), primary_key=True)
+    permission_id = Column(Integer, ForeignKey('permissions.id'), primary_key=True)
+    granted_by = Column(Integer, ForeignKey('users.id'), nullable=True)
     granted_at = Column(DateTime, server_default=func.now(), nullable=False)
 
     def __repr__(self):
@@ -108,8 +108,8 @@ class Session(Base, TimestampMixin):
     """会话模型"""
     __tablename__ = 'sessions'
 
-    id = Column(BigInteger, primary_key=True, autoincrement=True, index=True)
-    user_id = Column(BigInteger, ForeignKey('users.id'), nullable=False, index=True)
+    id = Column(Integer, primary_key=True, autoincrement=True, index=True)
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False, index=True)
     token_hash = Column(String(255), nullable=False, unique=True, index=True)
     expires_at = Column(DateTime, nullable=False)
     last_accessed_at = Column(DateTime, server_default=func.now(), nullable=False)

@@ -6,45 +6,105 @@
 tests/
 ├── README.md                       # 测试目录说明 (当前文件)
 ├── conftest.py                     # pytest全局配置
-├── test_users.py                   # 用户功能单元测试
-├── test_products.py                # 商品功能单元测试
-├── test_categories.py              # 分类功能单元测试
-└── integration/                    # 集成测试目录
-    └── test_cart_system.ps1        # 购物车系统集成测试脚本
+├── conftest_inventory.py           # 库存模块测试配置
+├── conftest_standalone.py          # 独立测试配置
+├── inventory_test_utils.py         # 库存测试工具
+├── smoke_test.db                   # 烟雾测试数据库
+├── unit/                           # 单元测试目录
+│   ├── test_models/                # 模型单元测试
+│   │   └── test_inventory_models.py
+│   ├── test_services/              # 服务单元测试
+│   │   ├── test_inventory_service.py
+│   │   └── test_inventory_service_fixed.py
+│   ├── test_data_models_relationships.py
+│   ├── test_inventory_architecture.py
+│   ├── test_models_sqlite.py
+│   ├── test_payment_service.py
+│   ├── test_product_catalog_models.py
+│   ├── test_user_auth.py
+│   ├── test_user_auth_architecture.py
+│   ├── test_user_auth_complete.py
+│   └── test_user_auth_standalone.py
+├── integration/                    # 集成测试目录
+│   ├── test_api/                   # API集成测试
+│   │   └── test_inventory_integration.py
+│   ├── test_auth_integration.py
+│   ├── test_cart_system.ps1
+│   ├── test_categories.py
+│   ├── test_inventory_api.py
+│   ├── test_inventory_integration_strict.py
+│   ├── test_inventory_management_complete.py
+│   ├── test_order_integration.py
+│   ├── test_order_integration_strict.py
+│   ├── test_order_management.py
+│   ├── test_products.py
+│   ├── test_product_catalog.py
+│   ├── test_shopping_cart.py
+│   └── test_users.py
+└── e2e/                           # 端到端测试目录
+    └── test_product_workflow_e2e.py
 ```
 
 ## 🧪 测试类型说明
 
 ### 单元测试 (Unit Tests)
-位于根目录下的 `test_*.py` 文件，测试单个函数或类的功能。
+位于 `unit/` 目录下，测试单个函数、类或模块的功能，使用Mock和SQLite内存数据库。
 
+#### 模型测试
 | 测试文件 | 测试内容 | 覆盖范围 |
 |----------|----------|----------|
-| `test_users.py` | 用户注册、登录、认证等功能 | `app/api/user_routes.py` |
-| `test_products.py` | 商品CRUD操作、搜索等功能 | `app/api/product_routes.py` |
-| `test_categories.py` | 商品分类管理功能 | `app/api/category_routes.py` |
+| `test_models/test_inventory_models.py` | 库存模型业务逻辑 | InventoryStock, InventoryReservation等 |
+| `test_product_catalog_models.py` | 商品目录模型 | Category, Brand, Product, SKU等 |
 
-**运行单元测试:**
-```powershell
-# 运行所有单元测试
-pytest
+#### 服务测试
+| 测试文件 | 测试内容 | 覆盖范围 |
+|----------|----------|----------|
+| `test_services/test_inventory_service.py` | 库存管理服务逻辑 | InventoryService类方法 |
+| `test_payment_service.py` | 支付服务逻辑 | PaymentService类方法 |
 
-# 运行特定测试文件
-pytest tests/test_users.py
+#### 认证模块测试
+| 测试文件 | 测试内容 | 覆盖范围 |
+|----------|----------|----------|
+| `test_user_auth.py` | 核心认证功能 | 登录验证、账户锁定等 |
+| `test_user_auth_architecture.py` | 认证架构合规性 | 模型关系、数据库标准 |
+| `test_user_auth_complete.py` | 完整认证测试 | User, Role, Permission模型 |
+| `test_user_auth_standalone.py` | 独立认证测试 | 避免循环导入的独立测试 |
 
-# 详细输出
-pytest -v
+## � 快速开始
 
-# 覆盖率报告
-pytest --cov=app
-```
+**测试环境工具**: 请使用 `scripts/` 目录下的测试工具
+**标准测试流程**: 请参考 [测试标准文档](../docs/standards/testing-standards.md)
+**环境配置说明**: 请参考 [测试环境配置](../docs/development/testing-setup.md)
 
 ### 集成测试 (Integration Tests)
-位于 `integration/` 目录下，测试多个模块间的协作和端到端功能。
+位于 `integration/` 目录下，测试多个模块间的协作和API端点功能，使用TestClient和真实数据库。
+
+#### API集成测试
+| 测试文件 | 测试内容 | 说明 |
+|----------|----------|------|
+| `test_categories.py` | 商品分类API完整流程 | 分类CRUD操作API测试 |
+| `test_products.py` | 商品管理API完整流程 | 商品CRUD和搜索API测试 |
+| `test_shopping_cart.py` | 购物车API完整流程 | 购物车操作API测试 |
+| `test_users.py` | 用户管理API完整流程 | 用户注册登录API测试 |
+
+#### 业务集成测试
+| 测试文件 | 测试内容 | 说明 |
+|----------|----------|------|
+| `test_auth_integration.py` | 认证系统集成测试 | JWT、权限系统完整测试 |
+| `test_order_management.py` | 订单管理完整业务流程 | 订单创建、状态变更等 |
+| `test_inventory_management_complete.py` | 库存管理完整业务流程 | 库存操作、预留、扣减等 |
+
+#### 系统测试脚本
+| 测试文件 | 测试内容 | 说明 |
+|----------|----------|------|
+| `test_cart_system.ps1` | 购物车系统测试 | PowerShell脚本，端到端业务流程 |
+
+### 端到端测试 (E2E Tests)
+位于 `e2e/` 目录下，测试完整的用户场景和业务流程。
 
 | 测试文件 | 测试内容 | 说明 |
 |----------|----------|------|
-| `test_cart_system.ps1` | 购物车完整业务流程 | PowerShell脚本，测试从用户注册到购物车操作的完整流程 |
+| `test_product_workflow_e2e.py` | 商品管理完整工作流 | 从商品创建到销售的完整流程 |
 
 **运行集成测试:**
 ```powershell

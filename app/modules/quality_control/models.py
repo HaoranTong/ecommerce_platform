@@ -4,7 +4,7 @@
 定义证书管理相关的数据模型
 """
 
-from sqlalchemy import Column, String, DateTime, Boolean, Text, BigInteger
+from sqlalchemy import Column, String, DateTime, Boolean, Text, Integer
 from sqlalchemy.sql import func
 
 from app.core.database import Base
@@ -15,8 +15,8 @@ class Certificate(Base, TimestampMixin):
     """证书模型 - 质量控制证书管理"""
     __tablename__ = 'certificates'
 
-    # 主键 - 严格遵循docs/standards/database-standards.md规定
-    id = Column(BigInteger, primary_key=True, autoincrement=True, index=True)
+    # 主键 - 严格遵循docs/standards/database-standards.md规定：INTEGER主键
+    id = Column(Integer, primary_key=True, autoincrement=True, index=True)
     
     # 证书信息
     serial = Column(String(100), unique=True, nullable=False, index=True)

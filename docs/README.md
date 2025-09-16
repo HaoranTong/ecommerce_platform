@@ -48,6 +48,7 @@ docs/
 │   └── data-analytics-platform/ # 数据分析模块
 ├── 💻 development/          # 开发环境指南
 │   ├── README.md            # 开发指南导航
+│   ├── testing-setup.md     # 测试环境配置指南
 │   └── tools.md             # 开发工具配置
 ├── 🚀 operations/           # 运维部署文档
 │   ├── README.md            # 运维指南
@@ -95,6 +96,7 @@ docs/
 
 ### 开发指南  
 - [开发环境配置](development/README.md) - 搭建开发环境
+- [测试环境配置](development/testing-setup.md) - 测试环境详细配置指南
 - [API设计规范](standards/api-standards.md) - API接口标准
 - [代码规范标准](standards/code-standards.md) - 代码组织规范
 - [文档管理规范](standards/document-standards.md) - 文档编写标准
