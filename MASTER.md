@@ -58,6 +58,8 @@
 - docs/standards/code-development-checklist.md - 代码开发检查清单
 
 ## ⚡ 条件分支执行
+IF 制定开发计划 THEN 强制检查 docs/requirements/functional.md#迭代计划 + docs/status/milestones.md + 确认现有计划状态后再制定
+IF 讨论开发规划 THEN 强制阅读 docs/requirements/functional.md (完整) + docs/architecture/module-architecture.md + docs/analysis/ 下所有分析报告
 IF 创建新模块 THEN 检查 docs/templates/module-template.md
 IF create_file *.py THEN 执行 docs/standards/code-development-checklist.md + .\scripts\check_naming_compliance.ps1 -CheckType code
 IF create_file *_routes.py THEN 检查 docs/standards/api-standards.md + .\scripts\check_naming_compliance.ps1 -CheckType api
