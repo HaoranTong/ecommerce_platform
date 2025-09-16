@@ -28,13 +28,20 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.exc import IntegrityError
 
-# 导入应用模块
+# 导入应用模块 - 使用模块化导入符合项目架构
 try:
-    from app.models import Base, User, Product, Order, OrderItem, Cart
-    from app.database import DATABASE_URL
+    # 从技术基础设施层导入
+    from app.core.database import Base, DATABASE_URL
+    
+    # 从各业务模块导入对应模型
+    from app.modules.user_auth.models import User
+    from app.modules.product_catalog.models import Product
+    from app.modules.order_management.models import Order, OrderItem
+    from app.modules.shopping_cart.models import Cart, CartItem
 except ImportError as e:
     print(f"❌ 导入错误: {e}")
     print("请确保项目结构正确且所有依赖已安装")
+    print("检查各模块的models.py文件是否存在")
     sys.exit(1)
 
 class DataModelRelationshipTester:

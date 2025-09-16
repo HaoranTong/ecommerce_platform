@@ -19,11 +19,13 @@
 | `check_docs.ps1` | 文档结构完整性检查 | 文档更新后 | ✅ MASTER检查点 |
 
 ### 🧪 测试执行
-| 脚本 | 功能 | 数据库 | 使用场景 |
-|------|------|--------|----------|
-| `smoke_test.ps1` | 快速烟雾测试 | SQLite文件 | 快速验证基础功能 |
-| `integration_test.ps1` | 完整集成测试 | MySQL Docker | 模块集成验证 |
-| Unit Tests | 单元测试 | SQLite内存 | `pytest tests/unit/` |
+| 脚本 | 功能 | 数据库 | 使用场景 | 自动触发 |
+|------|------|--------|----------|----------|
+| `check_test_env.ps1` | 快速测试环境检查 | - | 测试前环境验证 | ⚠️ **必须** |
+| `validate_test_config.py` | 完整测试配置验证 | SQLite内存/文件/MySQL | 详细环境诊断 | ⚠️ **推荐** |
+| `setup_test_env.ps1` | 测试环境设置和启动 | 按测试类型 | 标准测试流程 | ✅ **标准** |
+| `smoke_test.ps1` | 快速烟雾测试 | SQLite文件 | 快速验证基础功能 | - |
+| `integration_test.ps1` | 完整集成测试 | MySQL Docker | 模块集成验证 | - |
 
 ### 🔄 项目管理  
 | 脚本 | 功能 | 使用场景 |
@@ -36,17 +38,25 @@
 
 ```
 scripts/
-├── check_naming_compliance.ps1  # 命名规范检查脚本
-├── check_docs.ps1               # 文档状态检查脚本
-├── doc_basic_check.ps1          # 基础文档检查脚本
-├── dev-checkpoint.ps1           # 开发检查点脚本
-├── feature_finish.ps1           # 功能完成流程脚本
-├── log_status.ps1               # 状态日志记录脚本
-├── release_to_main.ps1          # 发布到主分支脚本
-├── smoke_test.ps1               # 冒烟测试脚本
-├── sync_env.ps1                 # 环境同步脚本
-├── _smoke_cert.py               # SSL证书验证工具
-└── README.md                    # 本文档
+├── 🧪 测试环境和执行脚本
+│   ├── check_test_env.ps1           # ⚠️ 快速测试环境检查（必须）
+│   ├── setup_test_env.ps1           # 🎯 测试环境设置启动（标准流程）
+│   ├── validate_test_config.py      # 🔍 完整测试配置验证（推荐）
+│   ├── smoke_test.ps1               # 💨 烟雾测试执行
+│   └── integration_test.ps1         # 🔗 集成测试执行
+├── 🔍 代码质量检查脚本  
+│   ├── check_naming_compliance.ps1  # 命名规范检查脚本
+│   ├── check_docs.ps1               # 文档状态检查脚本
+│   └── doc_basic_check.ps1          # 基础文档检查脚本
+├── 🔄 项目管理脚本
+│   ├── dev-checkpoint.ps1           # 开发检查点脚本
+│   ├── feature_finish.ps1           # 功能完成流程脚本
+│   ├── log_status.ps1               # 状态日志记录脚本
+│   ├── release_to_main.ps1          # 发布到主分支脚本
+│   └── sync_env.ps1                 # 环境同步脚本
+├── 🛠️ 辅助工具
+│   └── _smoke_cert.py               # SSL证书验证工具
+└── README.md                        # 本文档
 ```
 
 ## 📋 核心规范检查脚本
@@ -232,6 +242,76 @@ Get-Help .\scripts\check_naming_compliance.ps1 -Full
 - CI 在 `dev` 上运行测试并创建 PR（dev → main），但合并 `main` 的动作建议在本地由开发者执行以便回退和审查
 - 脚本内置回滚机制，测试失败时自动恢复到合并前状态
 
+## 🧪 测试环境工具详细说明
+
+### ⚠️ check_test_env.ps1 (必须使用)
+**用途**：快速检查测试环境是否就绪，**必须在运行任何测试前执行**
+
+**功能**：
+- 检查Python虚拟环境状态
+- 验证测试依赖包完整性
+- 检查测试目录结构
+- 验证数据库连接能力
+- 30秒快速诊断
+
+**示例**：
+```powershell
+# 测试前必须执行的环境检查
+.\scripts\check_test_env.ps1
+```
+
+**输出示例**：
+```
+🎉 所有检查通过！测试环境就绪。
+您可以运行以下命令开始测试:
+  pytest tests/unit/ -v           # 单元测试
+  pytest tests/integration/ -v    # 集成测试
+  pytest tests/ -v                # 全部测试
+```
+
+### 🎯 setup_test_env.ps1 (标准流程)
+**用途**：标准测试环境设置和启动流程，**推荐的测试执行方式**
+
+**参数**：
+- `-TestType <unit|smoke|integration|all>`：测试类型
+- `-SetupOnly`：只设置环境，不运行测试
+- `-SkipValidation`：跳过环境验证
+
+**示例**：
+```powershell
+# 标准单元测试流程（推荐）
+.\scripts\setup_test_env.ps1 -TestType unit
+
+# 只设置集成测试环境，不运行测试
+.\scripts\setup_test_env.ps1 -TestType integration -SetupOnly
+
+# 运行全部测试
+.\scripts\setup_test_env.ps1 -TestType all
+```
+
+**自动功能**：
+- 虚拟环境检查和激活
+- 测试配置验证
+- 数据库环境准备（SQLite内存/文件/MySQL Docker）
+- 测试执行和结果报告
+- 环境清理（集成测试）
+
+### 🔍 validate_test_config.py (推荐使用)
+**用途**：完整的测试配置功能验证，深度诊断配置问题
+
+**功能**：
+- 7个验证步骤全面检查
+- Python环境、依赖包、应用模块导入
+- SQLite内存/文件数据库测试
+- MySQL连接测试（可选）
+- pytest配置验证
+
+**示例**：
+```powershell
+# 详细的测试配置验证
+python scripts/validate_test_config.py
+```
+
 ### smoke_test.ps1
 **用途**：执行系统烟雾测试，验证关键功能是否正常
 
@@ -255,10 +335,33 @@ Get-Help .\scripts\check_naming_compliance.ps1 -Full
 .\scripts\log_status.ps1 -Message "完成功能开发" -Files "app/api/routes.py" -Author "developer"
 ```
 
-## ⚠️ 注意事项
+## 🎯 快速使用指南
 
+### 测试环境工具
+```powershell
+# 环境检查
+.\scripts\check_test_env.ps1
+
+# 测试环境设置
+.\scripts\setup_test_env.ps1 -TestType <unit|integration|all>
+
+# 详细配置验证
+python scripts/validate_test_config.py
+```
+
+**详细使用流程**: 请参考 [测试标准文档](../docs/standards/testing-standards.md)
+
+## ⚠️ 注意事项和最佳实践
+
+### 强制性要求 (MASTER规范)
+1. **测试前环境检查**：任何测试前必须运行 `.\scripts\check_test_env.ps1`
+2. **使用标准工具**：推荐使用 `setup_test_env.ps1` 而非直接运行 pytest
+3. **虚拟环境验证**：确保在正确的虚拟环境中执行
+
+### 技术要求
 1. **执行权限**: 确保有PowerShell脚本执行权限 (`Set-ExecutionPolicy RemoteSigned -Scope CurrentUser`)
-2. **环境检查**: 脚本会检查必要的依赖和环境
+2. **Docker要求**: 集成测试需要Docker Desktop运行
+3. **环境隔离**: 不同测试类型使用不同数据库配置
 3. **备份**: 重要操作前脚本会自动备份
 4. **日志**: 所有操作都有详细日志记录
 5. **回滚**: 支持操作回滚的脚本会提供回滚选项
