@@ -22,7 +22,7 @@ from typing import Optional, List, Dict, Any
 from datetime import datetime
 from decimal import Decimal
 from enum import Enum
-from app.schemas.base import BaseSchema, TimestampSchema
+from pydantic import BaseModel
 
 
 # ============ 枚举定义 ============
@@ -58,7 +58,7 @@ class PaymentMethod(str, Enum):
 
 # ============ 支付相关模式 ============
 
-class PaymentCreate(BaseSchema):
+class PaymentCreate(BaseModel):
     """支付创建模式"""
     order_id: int = Field(..., description="订单ID")
     payment_method: str = Field(..., description="支付方式")
@@ -84,7 +84,7 @@ class PaymentCreate(BaseSchema):
         return v
 
 
-class PaymentUpdate(BaseSchema):
+class PaymentUpdate(BaseModel):
     """支付更新模式"""
     external_payment_id: Optional[str] = Field(None, description="第三方支付ID")
     external_transaction_id: Optional[str] = Field(None, description="第三方交易ID")
@@ -93,7 +93,7 @@ class PaymentUpdate(BaseSchema):
     description: Optional[str] = Field(None, description="支付描述")
 
 
-class PaymentStatusUpdate(BaseSchema):
+class PaymentStatusUpdate(BaseModel):
     """支付状态更新模式"""
     status: str = Field(..., description="支付状态")
     external_payment_id: Optional[str] = Field(None, description="第三方支付ID")
@@ -109,7 +109,7 @@ class PaymentStatusUpdate(BaseSchema):
         return v
 
 
-class PaymentRead(TimestampSchema):
+class PaymentRead(BaseModel):
     """支付展示模式"""
     id: int
     order_id: int
@@ -141,7 +141,7 @@ class PaymentDetail(PaymentRead):
     refunds: List['RefundRead'] = []
 
 
-class PaymentSearch(BaseSchema):
+class PaymentSearch(BaseModel):
     """支付搜索模式"""
     payment_no: Optional[str] = Field(None, description="支付单号")
     order_id: Optional[int] = Field(None, description="订单ID")
@@ -156,7 +156,7 @@ class PaymentSearch(BaseSchema):
 
 # ============ 退款相关模式 ============
 
-class RefundCreate(BaseSchema):
+class RefundCreate(BaseModel):
     """退款创建模式"""
     amount: Decimal = Field(..., gt=0, description="退款金额")
     reason: str = Field(..., max_length=500, description="退款原因")
@@ -170,14 +170,14 @@ class RefundCreate(BaseSchema):
         return v.strip()
 
 
-class RefundUpdate(BaseSchema):
+class RefundUpdate(BaseModel):
     """退款更新模式"""
     external_refund_id: Optional[str] = Field(None, description="第三方退款ID")
     gateway_response: Optional[Dict[str, Any]] = Field(None, description="网关响应")
     operator_note: Optional[str] = Field(None, description="操作员备注")
 
 
-class RefundStatusUpdate(BaseSchema):
+class RefundStatusUpdate(BaseModel):
     """退款状态更新模式"""
     status: str = Field(..., description="退款状态")
     operator_note: Optional[str] = Field(None, max_length=200, description="操作员备注")
@@ -191,7 +191,7 @@ class RefundStatusUpdate(BaseSchema):
         return v
 
 
-class RefundRead(TimestampSchema):
+class RefundRead(BaseModel):
     """退款展示模式"""
     id: int
     payment_id: int
@@ -216,7 +216,7 @@ class RefundDetail(RefundRead):
 
 # ============ 支付回调模式 ============
 
-class PaymentCallback(BaseSchema):
+class PaymentCallback(BaseModel):
     """支付回调基础模式"""
     payment_no: str = Field(..., description="支付单号")
     status: str = Field(..., description="支付状态")
@@ -246,7 +246,7 @@ class AlipayCallback(PaymentCallback):
 
 # ============ 统计分析模式 ============
 
-class PaymentStats(BaseSchema):
+class PaymentStats(BaseModel):
     """支付统计模式"""
     total_payments: int
     completed_payments: int
@@ -256,7 +256,7 @@ class PaymentStats(BaseSchema):
     payment_methods: List[Dict[str, Any]]
 
 
-class PaymentTrend(BaseSchema):
+class PaymentTrend(BaseModel):
     """支付趋势模式"""
     date: str
     payment_count: int
@@ -266,7 +266,7 @@ class PaymentTrend(BaseSchema):
     success_rate: float
 
 
-class PaymentAnalysis(BaseSchema):
+class PaymentAnalysis(BaseModel):
     """支付分析模式"""
     period: Dict[str, str]  # 统计周期
     summary: PaymentStats   # 汇总统计
@@ -277,14 +277,14 @@ class PaymentAnalysis(BaseSchema):
 
 # ============ 批量操作模式 ============
 
-class PaymentBatch(BaseSchema):
+class PaymentBatch(BaseModel):
     """支付批量操作模式"""
     payment_ids: List[int] = Field(..., min_items=1, description="支付ID列表")
     action: str = Field(..., pattern="^(export|cancel|retry)$", description="操作类型")
     params: Optional[Dict[str, Any]] = Field(None, description="操作参数")
 
 
-class RefundBatch(BaseSchema):
+class RefundBatch(BaseModel):
     """退款批量操作模式"""
     refund_ids: List[int] = Field(..., min_items=1, description="退款ID列表")
     action: str = Field(..., pattern="^(approve|reject|process)$", description="操作类型")

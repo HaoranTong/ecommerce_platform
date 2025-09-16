@@ -16,23 +16,24 @@ from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, or_, desc
 
-from app.database import get_db
-from app.data_models import Payment, Order, User
-from app.auth import get_current_active_user, get_current_admin_user
-from app.payment_auth import (
+from app.core.database import get_db
+from app.modules.payment_service.models import Payment, Refund
+from app.modules.order_management.models import Order
+from app.modules.user_auth.models import User
+from app.core.auth import get_current_active_user, get_current_admin_user
+from app.modules.payment_service.auth_helpers import (
     verify_payment_ownership,
     verify_order_ownership_for_payment,
     validate_payment_amount,
     PaymentSecurityError,
     create_payment_audit_log
 )
-from app.payment_service import (
+from app.modules.payment_service.service import (
     wechat_pay_service,
     payment_validator,
-    payment_number_generator,
-    create_payment_response
+    payment_number_generator
 )
-from app.api.schemas import (
+from app.modules.payment_service.schemas import (
     PaymentCreate,
     PaymentRead,
     PaymentStatusUpdate,
