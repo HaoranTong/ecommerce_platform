@@ -1,325 +1,366 @@
 """
-购物车管理路由
+文件名：router.py
+文件路径：app/modules/shopping_cart/router.py
+功能描述：购物车模块的FastAPI路由定义
+主要功能：
+- 购物车API端点定义：6个核心CRUD操作
+- 请求参数验证和错误处理
+- 统一响应格式处理
+- 用户认证和权限校验
+使用说明：
+- 导入：from app.modules.shopping_cart.router import router
+- 在main.py中注册：app.include_router(router, prefix="/api/v1/cart", tags=["购物车"])
+- API前缀：/api/v1/cart/
+依赖模块：
+- fastapi: Web框架和路由装饰器
+- app.modules.shopping_cart.service: 业务逻辑服务层
+- app.modules.shopping_cart.schemas: 请求响应模型
+- app.modules.shopping_cart.dependencies: 依赖注入组件
+创建时间：2025-09-16
+最后修改：2025-09-16
 """
-from fastapi import APIRouter, HTTPException, Depends, status
-from typing import List
-from decimal import Decimal
+from fastapi import APIRouter, Depends, HTTPException, status, Query
+from typing import List, Dict, Any
+import logging
 
-from ..database import get_db
-from ..auth import get_current_active_user
-from ..models import User, Product, Cart, CartItem
-from ..redis_client import cart_manager
+from .service import CartService
 from .schemas import (
-    CartItemAdd, 
-    CartItemUpdate, 
-    CartItemRead, 
-    CartSummary
+    AddItemRequest, 
+    UpdateQuantityRequest, 
+    BatchDeleteRequest,
+    CartResponse,
+    SuccessResponse,
+    CartUpdateResponse
 )
-from sqlalchemy.orm import Session
+from .dependencies import (
+    get_cart_service, 
+    get_user_id_from_token, 
+    validate_cart_business_rules
+)
 
-router = APIRouter()
+# 配置日志
+logger = logging.getLogger(__name__)
+
+# 创建路由器，不设置前缀，在main.py中统一设置
+router = APIRouter(tags=["购物车"])
 
 
-@router.post("/shopping-cart/carts/items", response_model=dict, summary="添加商品到购物车")
-async def add_to_cart(
-    item: CartItemAdd,
-    current_user: User = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
-):
+@router.post("/items", 
+             response_model=CartResponse,
+             status_code=status.HTTP_200_OK,
+             summary="添加商品到购物车",
+             description="将指定的商品添加到当前用户的购物车中，如果商品已存在则增加数量")
+async def add_item_to_cart(
+    request: AddItemRequest,
+    user_id: int = Depends(get_user_id_from_token),
+    cart_service: CartService = Depends(get_cart_service)
+) -> CartResponse:
     """
     添加商品到购物车
     
-    Args:
-        item: 商品信息（product_id, quantity）
-        current_user: 当前登录用户
-        db: 数据库连接
+    **业务规则：**
+    - 用户必须已登录
+    - 商品必须处于上架状态
+    - 库存必须充足
+    - 购物车商品种类不超过50个
+    - 单个商品数量不超过999个
     
-    Returns:
-        操作结果和购物车统计信息
+    **请求示例：**
+    ```json
+    {
+        "sku_id": 12345,
+        "quantity": 2
+    }
+    ```
+    
+    **响应示例：**
+    ```json
+    {
+        "cart_id": 123,
+        "total_items": 3,
+        "total_quantity": 5,
+        "total_amount": 299.99,
+        "items": [...],
+        "updated_at": "2025-09-16T10:30:00Z"
+    }
+    ```
     """
-    # 检查商品是否存在且有效
-    product = db.query(Product).filter(
-        Product.id == item.product_id,
-        Product.status == 'active'
-    ).first()
-    
-    if not product:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="商品不存在或已下架"
-        )
-    
-    # 检查库存
-    if product.stock_quantity < item.quantity:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"库存不足，当前库存：{product.stock_quantity}"
-        )
-    
-    # 检查购物车中已有数量
-    current_quantity = await cart_manager.get_item_quantity(current_user.id, item.product_id)
-    total_quantity = current_quantity + item.quantity
-    
-    if total_quantity > product.stock_quantity:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"购物车数量超出库存限制，当前购物车：{current_quantity}，库存：{product.stock_quantity}"
-        )
-    
-    # 添加到购物车
-    success = await cart_manager.add_item(current_user.id, item.product_id, item.quantity)
-    
-    if not success:
+    try:
+        logger.info(f"添加商品到购物车: user_id={user_id}, sku_id={request.sku_id}, quantity={request.quantity}")
+        
+        # 验证业务规则
+        validate_cart_business_rules(0, request.quantity)  # 商品种类数在service层验证
+        
+        # 调用业务服务
+        cart_response = await cart_service.add_item(user_id, request)
+        
+        logger.info(f"成功添加商品到购物车: user_id={user_id}, cart_id={cart_response.cart_id}")
+        return cart_response
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"添加商品到购物车异常: user_id={user_id}, error={str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="添加到购物车失败"
+            detail="添加商品失败"
         )
+
+
+@router.get("", 
+            response_model=CartResponse,
+            summary="获取购物车内容", 
+            description="获取当前用户购物车的完整内容，包括商品详情和价格计算")
+async def get_cart(
+    user_id: int = Depends(get_user_id_from_token),
+    cart_service: CartService = Depends(get_cart_service)
+) -> CartResponse:
+    """
+    获取购物车内容
     
-    # 获取购物车统计信息
-    cart_count = await cart_manager.get_cart_count(current_user.id)
-    total_quantity = await cart_manager.get_cart_total_quantity(current_user.id)
+    **功能说明：**
+    - 返回当前用户购物车的完整信息
+    - 包含商品详情、价格、库存状态
+    - 自动计算购物车总价和商品数量
+    - 优先从缓存读取，提升响应速度
     
-    return {
-        "message": "商品已添加到购物车",
-        "cart_count": cart_count,
-        "total_quantity": total_quantity
+    **响应示例：**
+    ```json
+    {
+        "cart_id": 123,
+        "user_id": 789,
+        "total_items": 2,
+        "total_quantity": 4,
+        "total_amount": 399.98,
+        "items": [
+            {
+                "item_id": 456,
+                "sku_id": 12345,
+                "product_name": "iPhone 15 Pro",
+                "unit_price": 99.99,
+                "quantity": 2,
+                "subtotal": 199.98,
+                "stock_status": "in_stock",
+                "available_stock": 100
+            }
+        ]
     }
+    ```
+    """
+    try:
+        logger.info(f"获取购物车: user_id={user_id}")
+        
+        cart_response = await cart_service.get_cart(user_id)
+        
+        logger.info(f"成功获取购物车: user_id={user_id}, total_items={cart_response.total_items}")
+        return cart_response
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"获取购物车异常: user_id={user_id}, error={str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="获取购物车失败"
+        )
 
 
-@router.put("/shopping-cart/carts/items/{product_id}", response_model=dict, summary="更新购物车商品数量")
-async def update_cart_item(
-    product_id: int,
-    item: CartItemUpdate,
-    current_user: User = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
-):
+@router.put("/items/{item_id}", 
+            response_model=CartResponse,
+            summary="更新商品数量",
+            description="更新购物车中指定商品的数量")
+async def update_item_quantity(
+    item_id: int,
+    request: UpdateQuantityRequest,
+    user_id: int = Depends(get_user_id_from_token),
+    cart_service: CartService = Depends(get_cart_service)
+) -> CartResponse:
     """
-    更新购物车中商品的数量
+    更新购物车商品数量
     
-    Args:
-        product_id: 商品ID
-        item: 更新信息（quantity）
-        current_user: 当前登录用户
-        db: 数据库连接
+    **业务规则：**
+    - 商品项必须属于当前用户
+    - 新数量必须在1-999之间
+    - 库存必须充足
+    - 自动重新计算价格
     
-    Returns:
-        操作结果
+    **路径参数：**
+    - item_id: 购物车商品项ID
+    
+    **请求示例：**
+    ```json
+    {
+        "quantity": 5
+    }
+    ```
     """
-    # 检查商品是否存在且有效
-    product = db.query(Product).filter(
-        Product.id == product_id,
-        Product.status == 'active'
-    ).first()
-    
-    if not product:
+    try:
+        logger.info(f"更新商品数量: user_id={user_id}, item_id={item_id}, quantity={request.quantity}")
+        
+        # 验证数量范围
+        validate_cart_business_rules(0, request.quantity)
+        
+        # 调用业务服务
+        cart_response = await cart_service.update_quantity(user_id, item_id, request.quantity)
+        
+        logger.info(f"成功更新商品数量: user_id={user_id}, item_id={item_id}")
+        return cart_response
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"更新商品数量异常: user_id={user_id}, item_id={item_id}, error={str(e)}")
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="商品不存在或已下架"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="更新商品数量失败"
         )
+
+
+@router.delete("/items/{item_id}",
+               response_model=SuccessResponse,
+               summary="删除单个商品",
+               description="从购物车删除指定的商品项")
+async def delete_cart_item(
+    item_id: int,
+    user_id: int = Depends(get_user_id_from_token),
+    cart_service: CartService = Depends(get_cart_service)
+) -> SuccessResponse:
+    """
+    删除购物车商品项
     
-    # 检查商品是否在购物车中
-    current_quantity = await cart_manager.get_item_quantity(current_user.id, product_id)
-    if current_quantity == 0:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="商品不在购物车中"
-        )
+    **功能说明：**
+    - 从购物车中移除指定商品项
+    - 自动重新计算购物车总价
+    - 清理相关缓存数据
     
-    # 如果数量为0，删除商品
-    if item.quantity == 0:
-        success = await cart_manager.remove_item(current_user.id, product_id)
-        message = "商品已从购物车移除"
-    else:
-        # 检查库存
-        if item.quantity > product.stock_quantity:
+    **路径参数：**
+    - item_id: 要删除的商品项ID
+    """
+    try:
+        logger.info(f"删除购物车商品: user_id={user_id}, item_id={item_id}")
+        
+        success = await cart_service.delete_item(user_id, item_id)
+        
+        if success:
+            logger.info(f"成功删除购物车商品: user_id={user_id}, item_id={item_id}")
+            return SuccessResponse(message="商品已从购物车中删除")
+        else:
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"数量超出库存限制，当前库存：{product.stock_quantity}"
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="商品项不存在"
             )
         
-        success = await cart_manager.update_item_quantity(current_user.id, product_id, item.quantity)
-        message = "购物车数量已更新"
-    
-    if not success:
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"删除购物车商品异常: user_id={user_id}, item_id={item_id}, error={str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="更新购物车失败"
+            detail="删除商品失败"
         )
+
+
+@router.delete("/items",
+               response_model=SuccessResponse, 
+               summary="批量删除商品",
+               description="批量删除购物车中的多个商品项")
+async def batch_delete_items(
+    request: BatchDeleteRequest,
+    user_id: int = Depends(get_user_id_from_token),
+    cart_service: CartService = Depends(get_cart_service)
+) -> SuccessResponse:
+    """
+    批量删除购物车商品
     
-    # 获取购物车统计信息
-    cart_count = await cart_manager.get_cart_count(current_user.id)
-    total_quantity = await cart_manager.get_cart_total_quantity(current_user.id)
+    **功能说明：**
+    - 一次性删除多个购物车商品项
+    - 提升用户操作效率
+    - 事务性操作，保证数据一致性
     
-    return {
-        "message": message,
-        "cart_count": cart_count,
-        "total_quantity": total_quantity
+    **请求示例：**
+    ```json
+    {
+        "item_ids": [123, 456, 789]
     }
-
-
-@router.delete("/shopping-cart/carts/items/{product_id}", response_model=dict, summary="从购物车移除商品")
-async def remove_from_cart(
-    product_id: int,
-    current_user: User = Depends(get_current_active_user)
-):
+    ```
     """
-    从购物车移除指定商品
-    
-    Args:
-        product_id: 商品ID
-        current_user: 当前登录用户
-    
-    Returns:
-        操作结果
-    """
-    # 检查商品是否在购物车中
-    current_quantity = await cart_manager.get_item_quantity(current_user.id, product_id)
-    if current_quantity == 0:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="商品不在购物车中"
-        )
-    
-    success = await cart_manager.remove_item(current_user.id, product_id)
-    
-    if not success:
+    try:
+        logger.info(f"批量删除购物车商品: user_id={user_id}, item_ids={request.item_ids}")
+        
+        success = await cart_service.batch_delete_items(user_id, request.item_ids)
+        
+        if success:
+            logger.info(f"成功批量删除购物车商品: user_id={user_id}, count={len(request.item_ids)}")
+            return SuccessResponse(message=f"已删除{len(request.item_ids)}个商品")
+        else:
+            return SuccessResponse(message="未找到要删除的商品")
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"批量删除购物车商品异常: user_id={user_id}, error={str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="移除商品失败"
+            detail="批量删除商品失败"
         )
-    
-    # 获取购物车统计信息
-    cart_count = await cart_manager.get_cart_count(current_user.id)
-    total_quantity = await cart_manager.get_cart_total_quantity(current_user.id)
-    
-    return {
-        "message": "商品已从购物车移除",
-        "cart_count": cart_count,
-        "total_quantity": total_quantity
-    }
 
 
-@router.get("/shopping-cart/carts", response_model=CartSummary, summary="获取购物车详情")
-async def get_cart(
-    current_user: User = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
-):
-    """
-    获取当前用户的购物车详情
-    
-    Args:
-        current_user: 当前登录用户
-        db: 数据库连接
-    
-    Returns:
-        购物车详细信息
-    """
-    # 获取购物车中的商品
-    cart_items = await cart_manager.get_cart_items(current_user.id)
-    
-    if not cart_items:
-        return CartSummary(
-            user_id=current_user.id,
-            items=[],
-            total_items=0,
-            total_quantity=0,
-            total_amount=Decimal('0.00')
-        )
-    
-    # 获取商品详细信息
-    product_ids = [int(pid) for pid in cart_items.keys()]
-    products = db.query(Product).filter(
-        Product.id.in_(product_ids),
-        Product.status == 'active'
-    ).all()
-    
-    # 构建购物车商品列表
-    cart_item_list = []
-    total_amount = Decimal('0.00')
-    total_quantity = 0
-    
-    for product in products:
-        quantity = cart_items[str(product.id)]
-        subtotal = product.price * quantity
-        
-        cart_item_list.append(CartItemRead(
-            product_id=product.id,
-            product_name=product.name,
-            product_sku=product.sku,
-            price=product.price,
-            quantity=quantity,
-            subtotal=subtotal,
-            stock_quantity=product.stock_quantity,
-            image_url=product.image_url
-        ))
-        
-        total_amount += subtotal
-        total_quantity += quantity
-    
-    # 检查是否有商品已下架或删除
-    invalid_product_ids = []
-    for pid in product_ids:
-        if not any(p.id == pid for p in products):
-            invalid_product_ids.append(pid)
-    
-    # 清理无效商品
-    for pid in invalid_product_ids:
-        await cart_manager.remove_item(current_user.id, pid)
-    
-    return CartSummary(
-        user_id=current_user.id,
-        items=cart_item_list,
-        total_items=len(cart_item_list),
-        total_quantity=total_quantity,
-        total_amount=total_amount
-    )
-
-
-@router.delete("/shopping-cart/carts/items", response_model=dict, summary="清空购物车")
+@router.delete("",
+               response_model=SuccessResponse,
+               summary="清空购物车", 
+               description="清空当前用户的整个购物车")
 async def clear_cart(
-    current_user: User = Depends(get_current_active_user)
-):
+    user_id: int = Depends(get_user_id_from_token),
+    cart_service: CartService = Depends(get_cart_service)
+) -> SuccessResponse:
     """
-    清空当前用户的购物车
+    清空购物车
     
-    Args:
-        current_user: 当前登录用户
+    **功能说明：**
+    - 删除购物车中的所有商品项
+    - 保留购物车主记录
+    - 清理所有相关缓存
     
-    Returns:
-        操作结果
+    **注意事项：**
+    - 此操作不可撤销
+    - 建议在前端添加确认对话框
     """
-    success = await cart_manager.clear_cart(current_user.id)
-    
-    if not success:
+    try:
+        logger.info(f"清空购物车: user_id={user_id}")
+        
+        success = await cart_service.clear_cart(user_id)
+        
+        if success:
+            logger.info(f"成功清空购物车: user_id={user_id}")
+            return SuccessResponse(message="购物车已清空")
+        else:
+            return SuccessResponse(message="购物车已为空")
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"清空购物车异常: user_id={user_id}, error={str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="清空购物车失败"
         )
-    
-    return {
-        "message": "购物车已清空",
-        "cart_count": 0,
-        "total_quantity": 0
-    }
 
 
-@router.get("/shopping-cart/carts/summary", response_model=dict, summary="获取购物车统计")
-async def get_cart_count(
-    current_user: User = Depends(get_current_active_user)
-):
+# ==================== 健康检查端点 ====================
+
+@router.get("/health",
+            summary="购物车服务健康检查",
+            description="检查购物车服务的运行状态",
+            include_in_schema=False)  # 不在API文档中显示
+async def health_check() -> Dict[str, Any]:
     """
-    获取购物车商品统计信息
+    购物车服务健康检查
     
-    Args:
-        current_user: 当前登录用户
-    
-    Returns:
-        购物车统计信息
+    返回服务运行状态信息
     """
-    cart_count = await cart_manager.get_cart_count(current_user.id)
-    total_quantity = await cart_manager.get_cart_total_quantity(current_user.id)
-    
     return {
-        "cart_count": cart_count,
-        "total_quantity": total_quantity
+        "status": "healthy",
+        "service": "shopping-cart",
+        "version": "1.0.0",
+        "timestamp": "2025-09-16T10:30:00Z"
     }
