@@ -243,8 +243,10 @@ def mock_admin_user():
         id=1,
         username="admin",
         email="admin@test.com",
+        password_hash="mock_password_hash",
         role="admin",
-        is_active=True
+        is_active=True,
+        email_verified=True
     )
     return mock_user
 

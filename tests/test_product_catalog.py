@@ -10,17 +10,12 @@
 - 商品属性、图片、标签管理
 - API接口功能测试
 
-使用SQLite内存数据库，确保测试独立性和执行速度
+使用conftest.py中的标准测试配置，确保测试独立性和认证正确性
 """
 
 import pytest
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from fastapi.testclient import TestClient
 from decimal import Decimal
 
-from app.core.database import Base, get_db
-from app.main import app
 from app.modules.product_catalog.models import (
     Product, Category, Brand, SKU, ProductAttribute, ProductImage, ProductTag
 )
@@ -28,49 +23,12 @@ from app.modules.product_catalog.schemas import (
     ProductCreate, CategoryCreate, BrandCreate, SKUCreate
 )
 
-# 单元测试数据库配置
-UNIT_TEST_DATABASE_URL = "sqlite:///:memory:"
 
-
-@pytest.fixture(scope="function")
-def unit_test_engine():
-    """单元测试数据库引擎（内存）"""
-    engine = create_engine(
-        UNIT_TEST_DATABASE_URL, 
-        connect_args={"check_same_thread": False}
-    )
-    Base.metadata.create_all(bind=engine)
-    yield engine
-    engine.dispose()
-
-
-@pytest.fixture(scope="function")
-def unit_test_db(unit_test_engine):
-    """单元测试数据库会话"""
-    TestingSessionLocal = sessionmaker(
-        autocommit=False, 
-        autoflush=False, 
-        bind=unit_test_engine
-    )
-    database = TestingSessionLocal()
-    try:
-        yield database
-    finally:
-        database.close()
-
-
-@pytest.fixture(scope="function")
-def test_client(unit_test_db):
-    """测试客户端"""
-    def override_get_db():
-        try:
-            yield unit_test_db
-        finally:
-            pass
-    
-    app.dependency_overrides[get_db] = override_get_db
-    yield TestClient(app)
-    app.dependency_overrides.clear()
+# 使用conftest.py中的标准测试配置
+# - unit_test_engine: 内存数据库引擎  
+# - unit_test_db: 数据库会话
+# - unit_test_client: 已配置认证mock的测试客户端
+# - mock_admin_user: mock管理员用户
 
 
 # ============ 模型测试 ============
@@ -335,27 +293,27 @@ class TestProductAttributeModel:
 class TestCategoryAPI:
     """分类API测试"""
 
-    def test_create_category_api(self, test_client):
+    def test_create_category_api(self, unit_test_client):
         """测试创建分类API"""
         category_data = {
             "name": "数码产品",
             "sort_order": 1,
             "is_active": True
         }
-        response = test_client.post("/api/v1/product-catalog/categories", json=category_data)
+        response = unit_test_client.post("/api/v1/product-catalog/categories", json=category_data)
         assert response.status_code == 201
         data = response.json()
         assert data["name"] == "数码产品"
         assert data["sort_order"] == 1
 
-    def test_get_categories_list(self, test_client):
+    def test_get_categories_list(self, unit_test_client):
         """测试获取分类列表"""
         # 创建测试分类
         category_data = {"name": "测试分类", "sort_order": 1}
-        test_client.post("/api/v1/product-catalog/categories", json=category_data)
+        unit_test_client.post("/api/v1/product-catalog/categories", json=category_data)
         
         # 获取列表
-        response = test_client.get("/api/v1/product-catalog/categories")
+        response = unit_test_client.get("/api/v1/product-catalog/categories")
         assert response.status_code == 200
         data = response.json()
         assert len(data) > 0
@@ -365,7 +323,7 @@ class TestCategoryAPI:
 class TestBrandAPI:
     """品牌API测试"""
 
-    def test_create_brand_api(self, test_client):
+    def test_create_brand_api(self, unit_test_client):
         """测试创建品牌API"""
         brand_data = {
             "name": "小米",
@@ -373,7 +331,7 @@ class TestBrandAPI:
             "description": "小米科技",
             "is_active": True
         }
-        response = test_client.post("/api/v1/product-catalog/brands", json=brand_data)
+        response = unit_test_client.post("/api/v1/product-catalog/brands", json=brand_data)
         assert response.status_code == 201
         data = response.json()
         assert data["name"] == "小米"
@@ -383,7 +341,7 @@ class TestBrandAPI:
 class TestProductAPI:
     """商品API测试"""
 
-    def test_create_product_api(self, test_client, unit_test_db):
+    def test_create_product_api(self, unit_test_client, unit_test_db):
         """测试创建商品API"""
         # 首先创建品牌和分类
         brand = Brand(name="苹果", slug="apple")
@@ -402,26 +360,26 @@ class TestProductAPI:
             "seo_title": "iPhone 15 Pro - 苹果最新旗舰手机"
         }
         
-        response = test_client.post("/api/v1/product-catalog/products", json=product_data)
+        response = unit_test_client.post("/api/v1/product-catalog/products", json=product_data)
         assert response.status_code == 201
         data = response.json()
         assert data["name"] == "iPhone 15 Pro"
         assert data["brand_id"] == brand.id
         assert data["category_id"] == category.id
 
-    def test_get_products_list(self, test_client, unit_test_db):
+    def test_get_products_list(self, unit_test_client, unit_test_db):
         """测试获取商品列表"""
         # 创建测试商品
         product = Product(name="测试商品", status="published")
         unit_test_db.add(product)
         unit_test_db.commit()
         
-        response = test_client.get("/api/v1/product-catalog/products")
+        response = unit_test_client.get("/api/v1/product-catalog/products")
         assert response.status_code == 200
         data = response.json()
         assert len(data) > 0
 
-    def test_get_product_by_id(self, test_client, unit_test_db):
+    def test_get_product_by_id(self, unit_test_client, unit_test_db):
         """测试根据ID获取商品"""
         # 创建测试商品
         product = Product(name="指定商品", status="published")
@@ -429,13 +387,13 @@ class TestProductAPI:
         unit_test_db.commit()
         unit_test_db.refresh(product)
         
-        response = test_client.get(f"/api/v1/product-catalog/products/{product.id}")
+        response = unit_test_client.get(f"/api/v1/product-catalog/products/{product.id}")
         assert response.status_code == 200
         data = response.json()
         assert data["name"] == "指定商品"
         assert data["id"] == product.id
 
-    def test_update_product(self, test_client, unit_test_db):
+    def test_update_product(self, unit_test_client, unit_test_db):
         """测试更新商品"""
         # 创建测试商品
         product = Product(name="原始名称", status="draft")
@@ -448,13 +406,13 @@ class TestProductAPI:
             "status": "published"
         }
         
-        response = test_client.put(f"/api/v1/product-catalog/products/{product.id}", json=update_data)
+        response = unit_test_client.put(f"/api/v1/product-catalog/products/{product.id}", json=update_data)
         assert response.status_code == 200
         data = response.json()
         assert data["name"] == "更新名称"
         assert data["status"] == "published"
 
-    def test_delete_product(self, test_client, unit_test_db):
+    def test_delete_product(self, unit_test_client, unit_test_db):
         """测试删除商品（软删除）"""
         # 创建测试商品
         product = Product(name="待删除商品")
@@ -462,7 +420,7 @@ class TestProductAPI:
         unit_test_db.commit()
         unit_test_db.refresh(product)
         
-        response = test_client.delete(f"/api/v1/product-catalog/products/{product.id}")
+        response = unit_test_client.delete(f"/api/v1/product-catalog/products/{product.id}")
         assert response.status_code == 204
         
         # 验证软删除
@@ -475,7 +433,7 @@ class TestProductAPI:
 class TestProductBusiness:
     """商品业务逻辑测试"""
 
-    def test_product_search_by_category(self, test_client, unit_test_db):
+    def test_product_search_by_category(self, unit_test_client, unit_test_db):
         """测试按分类搜索商品"""
         # 创建分类和商品
         category = Category(name="笔记本电脑")
@@ -487,13 +445,13 @@ class TestProductBusiness:
         unit_test_db.add(product)
         unit_test_db.commit()
         
-        response = test_client.get(f"/api/v1/product-catalog/products?category_id={category.id}")
+        response = unit_test_client.get(f"/api/v1/product-catalog/products?category_id={category.id}")
         assert response.status_code == 200
         data = response.json()
         assert len(data) == 1
         assert data[0]["name"] == "ThinkPad"
 
-    def test_product_search_by_brand(self, test_client, unit_test_db):
+    def test_product_search_by_brand(self, unit_test_client, unit_test_db):
         """测试按品牌搜索商品"""
         # 创建品牌和商品
         brand = Brand(name="联想", slug="lenovo")
@@ -505,13 +463,13 @@ class TestProductBusiness:
         unit_test_db.add(product)
         unit_test_db.commit()
         
-        response = test_client.get(f"/api/v1/product-catalog/products?brand_id={brand.id}")
+        response = unit_test_client.get(f"/api/v1/product-catalog/products?brand_id={brand.id}")
         assert response.status_code == 200
         data = response.json()
         assert len(data) == 1
         assert data[0]["name"] == "ThinkPad X1"
 
-    def test_product_status_filtering(self, test_client, unit_test_db):
+    def test_product_status_filtering(self, unit_test_client, unit_test_db):
         """测试商品状态过滤"""
         # 创建不同状态的商品
         product_draft = Product(name="草稿商品", status="draft")
@@ -520,7 +478,7 @@ class TestProductBusiness:
         unit_test_db.commit()
         
         # 测试只获取已发布商品
-        response = test_client.get("/api/v1/product-catalog/products?status=published")
+        response = unit_test_client.get("/api/v1/product-catalog/products?status=published")
         assert response.status_code == 200
         data = response.json()
         published_names = [p["name"] for p in data]
