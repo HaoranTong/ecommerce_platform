@@ -53,7 +53,7 @@ class InventoryService:
 
     # ============ 基础库存管理 ============
 
-    async def get_sku_inventory(self, sku_id: str) -> Optional[Dict]:
+    def get_sku_inventory(self, sku_id: str) -> Optional[Dict]:
         """获取SKU库存信息"""
         inventory = self.db.query(InventoryStock).filter(
             InventoryStock.sku_id == sku_id
@@ -77,7 +77,7 @@ class InventoryService:
             "last_updated": inventory.updated_at
         }
 
-    async def get_batch_inventory(self, sku_ids: List[str]) -> List[Dict]:
+    def get_batch_inventory(self, sku_ids: List[str]) -> List[Dict]:
         """批量获取SKU库存信息"""
         inventories = self.db.query(InventoryStock).filter(
             InventoryStock.sku_id.in_(sku_ids),
@@ -96,7 +96,7 @@ class InventoryService:
         
         return results
 
-    async def create_sku_inventory(self, inventory_data: Dict) -> Dict:
+    def create_sku_inventory(self, inventory_data: Dict) -> Dict:
         """创建SKU库存记录"""
         # 检查是否已存在
         existing = self.db.query(InventoryStock).filter(
@@ -134,7 +134,7 @@ class InventoryService:
         
         try:
             self.db.commit()
-            return await self.get_sku_inventory(inventory_data["sku_id"])
+            return self.get_sku_inventory(inventory_data["sku_id"])
         except IntegrityError as e:
             self.db.rollback()
             raise ValueError(f"创建库存记录失败: {str(e)}")

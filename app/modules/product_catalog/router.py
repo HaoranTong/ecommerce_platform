@@ -30,7 +30,7 @@ async def create_category(
 ):
     """创建新分类（需要管理员权限）"""
     try:
-        category_data = payload.dict()
+        category_data = payload.model_dump()
         category = Category(**category_data)
         db.add(category)
         db.commit()
@@ -76,7 +76,7 @@ async def create_brand(
 ):
     """创建新品牌（需要管理员权限）"""
     try:
-        brand_data = payload.dict()
+        brand_data = payload.model_dump()
         brand = Brand(**brand_data)
         db.add(brand)
         db.commit()
@@ -100,7 +100,7 @@ async def create_product(
 ):
     """创建新商品（需要管理员权限）"""
     try:
-        product_data = payload.dict()
+        product_data = payload.model_dump()
         product = Product(**product_data)
         db.add(product)
         db.commit()

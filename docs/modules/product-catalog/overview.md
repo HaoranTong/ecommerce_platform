@@ -17,47 +17,62 @@
 7. implementation.md - 实现细节文档（强制）
 -->
 
-# product-catalog模块 模块
+# 商品目录模块 (product-catalog)
 
-📝 **状态**: 草稿 | 评审中 | ✅ 已发布 | 🔄 更新中  
-📅 **创建日期**: 2025-09-16  
-👤 **负责人**: 待指定  
-🔄 **最后更新**: 2025-09-16  
+📝 **状态**: 🔄 更新中  
+📅 **创建日期**: 2024-12-19  
+👤 **负责人**: 系统架构师  
+🔄 **最后更新**: 2024-12-19  
 📋 **版本**: v1.0.0  
 
 ## 模块概述
 
 ### 主要职责
-简要描述模块的核心职责和业务价值，3-5个要点：
-- 职责1
-- 职责2  
-- 职责3
+电商平台的商品目录管理核心模块，负责商品全生命周期管理：
+- **商品信息管理** - 商品CRUD操作、规格管理、属性维护
+- **分类体系管理** - 多级分类层次结构、分类关系维护
+- **品牌管理** - 品牌信息维护、品牌商品关联
+- **库存集成** - 与库存管理模块协同，提供实时库存信息
+- **价格管理** - 商品定价、促销价格、动态定价支持
 
 ### 业务价值
-- **核心价值**: 模块为业务带来的主要价值
-- **用户收益**: 对终端用户的直接收益
-- **系统收益**: 对整个系统的价值贡献
+- **核心价值**: 为电商平台提供完整的商品目录基础设施，支撑商品展示、搜索、购买流程
+- **用户收益**: 用户可以通过结构化分类快速找到商品，获得详细商品信息和规格参数
+- **系统收益**: 为购物车、订单管理、推荐系统等提供标准化的商品数据接口
 
 ### 模块边界
-- **包含功能**: 明确模块包含的功能范围
-- **排除功能**: 明确不属于该模块的功能
-- **依赖模块**: 依赖的其他模块
-- **被依赖**: 被哪些模块依赖
+- **包含功能**: 商品CRUD、分类管理、品牌管理、SKU管理、商品属性、商品图片、商品标签
+- **排除功能**: 库存数量管理(库存模块)、价格计算逻辑(订单模块)、商品推荐算法(推荐模块)
+- **依赖模块**: user-auth(权限验证)、core/database(数据持久化)、core/redis_client(缓存)
+- **被依赖**: shopping-cart、order-management、inventory-management、recommendation-system
 
 ## 技术架构
 
 ### 架构图
-```
-{模块架构图，使用Mermaid或ASCII}
+```mermaid
+graph TD
+    A[API Router] --> B[Service Layer]
+    B --> C[Models Layer]
+    B --> D[Cache Layer]
+    C --> E[Database]
+    D --> F[Redis]
+    
+    G[Category API] --> A
+    H[Product API] --> A  
+    I[Brand API] --> A
+    J[SKU API] --> A
+    
+    B --> K[User Auth Module]
+    B --> L[Inventory Module]
 ```
 
 ### 核心组件
 ```
-{模块名}/
-├── router.py           # API路由定义
+product_catalog/
+├── router.py           # API路由定义 (399行，21个API端点)
 ├── service.py          # 业务逻辑处理
-├── models.py           # 数据模型定义
-├── schemas.py          # 请求/响应模型
+├── models.py           # 数据模型定义 (337行，7个核心模型)
+├── schemas.py          # 请求/响应模型 (366行，完整API模式)
 ├── dependencies.py     # 模块依赖注入
 └── utils.py            # 工具函数
 ```
@@ -87,58 +102,153 @@ app/adapters/           # 第三方服务适配器
 ### 技术栈
 - **编程语言**: Python 3.11+
 - **Web框架**: FastAPI
-- **数据库**: MySQL 8.0
-- **缓存**: Redis
-- **其他依赖**: 列出主要的第三方库
+- **数据库**: SQLAlchemy ORM + MySQL 8.0
+- **缓存**: Redis (通过core/redis_client.py)
+- **数据验证**: Pydantic v2
+- **主要依赖**: TimestampMixin, SoftDeleteMixin, ModelRegistry
 
 ### 设计模式
-- **使用的设计模式**: 如Repository、Factory、Strategy等
-- **架构模式**: 如Clean Architecture、DDD等
-- **代码组织**: 分层架构说明
+- **领域模型模式**: Category, Product, Brand, SKU等核心业务实体
+- **仓储模式**: 通过SQLAlchemy Session实现数据访问抽象
+- **依赖注入**: 通过FastAPI的Depends机制注入数据库会话和认证用户
+- **模式验证**: Pydantic模式确保API输入输出的类型安全
+- **代码组织**: 分层架构，Models(数据层) -> Service(业务层) -> Router(API层)
 
 ## 核心功能
 
 ### 功能列表
 | 功能名称 | 优先级 | 状态 | 描述 |
 |---------|--------|------|------|
-| 功能1 | 高 | ✅ 已完成 | 功能简要描述 |
-| 功能2 | 中 | 🔄 开发中 | 功能简要描述 |
-| 功能3 | 低 | ⏳ 待开始 | 功能简要描述 |
+| 分类管理 | 高 | ✅ 已完成 | 多级分类创建、查询、更新，支持层次结构 |
+| 品牌管理 | 高 | ✅ 已完成 | 品牌信息CRUD，支持SEO友好的slug |
+| 商品管理 | 高 | ✅ 已完成 | 商品信息CRUD，支持分类品牌关联 |
+| SKU管理 | 高 | ✅ 已完成 | 商品规格变体管理，库存关联 |
+| 商品属性 | 中 | ✅ 已完成 | 可配置的商品属性系统 |
+| 商品图片 | 中 | ✅ 已完成 | 商品多媒体资源管理 |
+| 商品标签 | 低 | ✅ 已完成 | 商品标签分类和管理 |
 
 ### 核心业务流程
 ```mermaid
 graph TD
-    A[开始] --> B[步骤1]
-    B --> C[步骤2]
-    C --> D[结束]
+    A[商品录入] --> B[选择分类]
+    B --> C[选择品牌]
+    C --> D[填写商品信息]
+    D --> E[创建SKU规格]
+    E --> F[上传商品图片]
+    F --> G[设置商品属性]
+    G --> H[商品发布]
+    H --> I[库存同步]
 ```
 
 ### 业务规则
-1. **规则1**: 详细描述业务规则
-2. **规则2**: 详细描述业务规则
-3. **规则3**: 详细描述业务规则
+1. **分类层次**: 分类支持无限级嵌套，但建议不超过3级以保证用户体验
+2. **SKU唯一性**: 每个SKU必须有唯一的sku_code，同一商品不同规格对应不同SKU
+3. **软删除**: 商品和分类支持软删除，保持数据完整性和历史记录
+4. **权限控制**: 商品管理操作需要管理员权限，普通用户只有查询权限
+5. **数据完整性**: 删除分类前必须先处理其子分类和关联商品
 
 ## 数据模型
 
 ### 核心实体
 ```python
-# 主要数据模型示例
-class {EntityName}(Base):
-    __tablename__ = "{table_name}"
-    
-    id = Column(Integer, primary_key=True)
+# 商品分类模型
+class Category(Base, TimestampMixin, SoftDeleteMixin):
+    __tablename__ = 'categories'
+    id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String(100), nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    parent_id = Column(Integer, ForeignKey('categories.id'))
+    sort_order = Column(Integer, default=0)
+    is_active = Column(Boolean, default=True)
+
+# 品牌模型  
+class Brand(Base, TimestampMixin):
+    __tablename__ = 'brands'
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String(100), unique=True, nullable=False)
+    slug = Column(String(100), unique=True, nullable=False)
+    logo_url = Column(String(500))
+    is_active = Column(Boolean, default=True)
+
+# 商品主模型
+class Product(Base, TimestampMixin, SoftDeleteMixin):
+    __tablename__ = 'products'  
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String(200), nullable=False)
+    description = Column(Text)
+    category_id = Column(Integer, ForeignKey('categories.id'))
+    brand_id = Column(Integer, ForeignKey('brands.id'))
+    status = Column(String(20), default='draft')
+    is_active = Column(Boolean, default=True)
+
+# SKU规格模型
+class SKU(Base, TimestampMixin):
+    __tablename__ = 'product_skus'
+    id = Column(Integer, primary_key=True, autoincrement=True) 
+    product_id = Column(Integer, ForeignKey('products.id'))
+    sku_code = Column(String(50), unique=True, nullable=False)
+    price = Column(DECIMAL(10, 2), nullable=False)
+    stock_quantity = Column(Integer, default=0)
+    is_active = Column(Boolean, default=True)
 ```
 
 ### 数据关系图
-```
-{实体关系图，可以使用Mermaid ER图}
+```mermaid
+erDiagram
+    Category {
+        int id PK
+        string name
+        int parent_id FK
+        int sort_order
+        bool is_active
+    }
+    
+    Brand {
+        int id PK
+        string name UK
+        string slug UK  
+        string logo_url
+        bool is_active
+    }
+    
+    Product {
+        int id PK
+        string name
+        text description
+        int category_id FK
+        int brand_id FK
+        string status
+        bool is_active
+    }
+    
+    SKU {
+        int id PK
+        int product_id FK
+        string sku_code UK
+        decimal price
+        int stock_quantity
+        bool is_active
+    }
+    
+    ProductAttribute {
+        int id PK
+        int product_id FK
+        string name
+        string value
+    }
+    
+    Category ||--o{ Category : "parent-child"
+    Category ||--o{ Product : "has"
+    Brand ||--o{ Product : "manufactures"
+    Product ||--o{ SKU : "variants"
+    Product ||--o{ ProductAttribute : "properties"
 ```
 
 ### 数据约束
-- **唯一性约束**: 字段级别的唯一性要求
+- **唯一性约束**: Brand.name, Brand.slug, SKU.sku_code必须唯一
+- **外键约束**: Product必须关联有效的Category和Brand
+- **软删除**: Category和Product支持软删除，保持引用完整性
+- **层次约束**: Category的parent_id不能形成循环引用
+- **状态约束**: Product.status限制为draft/published/archived
 - **外键约束**: 与其他表的关系约束
 - **业务约束**: 业务级别的数据约束
 
@@ -147,39 +257,67 @@ class {EntityName}(Base):
 ### 接口列表
 | 接口 | 方法 | 路径 | 描述 | 状态 |
 |------|------|------|------|------|
-| 创建{实体} | POST | /api/v1/{entities} | 创建新的{实体} | ✅ |
-| 获取{实体} | GET | /api/v1/{entities}/{id} | 获取指定{实体} | ✅ |
-| 更新{实体} | PUT | /api/v1/{entities}/{id} | 更新{实体}信息 | 🔄 |
-| 删除{实体} | DELETE | /api/v1/{entities}/{id} | 删除{实体} | ⏳ |
+| 创建分类 | POST | /api/v1/product-catalog/categories | 创建新分类 | ✅ |
+| 分类列表 | GET | /api/v1/product-catalog/categories | 获取分类列表，支持分页筛选 | ✅ |
+| 创建品牌 | POST | /api/v1/product-catalog/brands | 创建新品牌 | ✅ |
+| 品牌列表 | GET | /api/v1/product-catalog/brands | 获取品牌列表，支持分页筛选 | ✅ |
+| 创建商品 | POST | /api/v1/product-catalog/products | 创建新商品 | ✅ |
+| 商品列表 | GET | /api/v1/product-catalog/products | 获取商品列表，支持多维度筛选 | ✅ |
+| 商品详情 | GET | /api/v1/product-catalog/products/{id} | 获取指定商品详细信息 | ✅ |
+| 更新商品 | PUT | /api/v1/product-catalog/products/{id} | 更新商品信息 | ✅ |
+| 商品搜索 | GET | /api/v1/product-catalog/products/search | 商品关键词搜索 | ✅ |
+| 创建SKU | POST | /api/v1/product-catalog/skus | 为商品创建规格SKU | ✅ |
+| SKU列表 | GET | /api/v1/product-catalog/skus | 获取SKU列表 | ✅ |
 
 ### 接口详情示例
 ```yaml
-/api/v1/{entities}:
+/api/v1/product-catalog/products:
   post:
-    summary: 创建{实体}
+    summary: 创建商品
+    security:
+      - bearerAuth: []
     requestBody:
       required: true
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/{Entity}Create'
+            type: object
+            properties:
+              name:
+                type: string
+                maxLength: 200
+              description:
+                type: string
+              category_id:
+                type: integer
+              brand_id:
+                type: integer
+              status:
+                type: string
+                enum: [draft, published, archived]
     responses:
       201:
-        description: 创建成功
+        description: 商品创建成功
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/{Entity}'
+              $ref: '#/components/schemas/ProductRead'
       400:
         description: 请求参数错误
+      401:
+        description: 未授权访问
+      403:
+        description: 权限不足
 ```
 
 ### 错误码
 | 错误码 | 状态码 | 描述 | 解决方案 |
 |--------|--------|------|----------|
-| {MODULE}_001 | 400 | 参数验证失败 | 检查请求参数 |
-| {MODULE}_002 | 404 | 资源不存在 | 确认资源ID |
-| {MODULE}_003 | 409 | 资源冲突 | 检查资源状态 |
+| PRODUCT_001 | 400 | 商品名称不能为空 | 检查name字段 |
+| PRODUCT_002 | 400 | 分类ID无效 | 确认category_id存在 |
+| PRODUCT_003 | 400 | 品牌ID无效 | 确认brand_id存在 |
+| PRODUCT_004 | 404 | 商品不存在 | 确认商品ID |
+| PRODUCT_005 | 409 | SKU代码已存在 | 使用不同的sku_code |
 
 ## 测试策略
 

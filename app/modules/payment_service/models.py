@@ -16,12 +16,15 @@
 
 from sqlalchemy import Column, String, Text, DECIMAL, Integer, ForeignKey, Index, DateTime
 from sqlalchemy.orm import relationship
-from app.models.base import BaseModel, TimestampMixin
+from app.core.database import Base
+from app.shared.base_models import TimestampMixin
 
 
-class Payment(BaseModel, TimestampMixin):
+class Payment(Base, TimestampMixin):
     """支付模型"""
     __tablename__ = 'payments'
+    
+    id = Column(Integer, primary_key=True, index=True)
     
     # 关联订单和用户
     order_id = Column(Integer, ForeignKey('orders.id'), nullable=False)
@@ -75,9 +78,11 @@ class Payment(BaseModel, TimestampMixin):
         return f"<Payment(id={self.id}, payment_no='{self.payment_no}', status='{self.status}')>"
 
 
-class Refund(BaseModel, TimestampMixin):
+class Refund(Base, TimestampMixin):
     """退款模型"""
     __tablename__ = 'refunds'
+    
+    id = Column(Integer, primary_key=True, index=True)
     
     # 关联支付记录
     payment_id = Column(Integer, ForeignKey('payments.id'), nullable=False)
