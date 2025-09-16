@@ -1,615 +1,334 @@
-# 购物车模块 (Shopping Cart Module)
+<!--
+文档说明：
+- 内容：模块文档标准模板，用于创建新的模块文档  
+- 使用方法：复制此模板，替换模板变量，填入具体内容
+- 更新方法：模板规范变更时由架构师更新
+- 引用关系：被所有模块文档使用
+- 更新频率：模板标准变化时
+
+⚠️ 强制文档要求：
+每个模块必须包含以下7个文档（无可选项）：
+1. README.md - 模块导航（简洁版入口）
+2. overview.md - 模块概述（本模板，详细版）
+3. requirements.md - 业务需求文档（强制）
+4. design.md - 设计决策文档（强制）
+5. api-spec.md - API规范文档（强制）
+6. api-implementation.md - API实施记录（强制）
+7. implementation.md - 实现细节文档（强制）
+-->
+
+# shopping-cart模块 模块
+
+📝 **状态**: 草稿 | 评审中 | ✅ 已发布 | 🔄 更新中  
+📅 **创建日期**: 2025-09-16  
+👤 **负责人**: 待指定  
+🔄 **最后更新**: 2025-09-16  
+📋 **版本**: v1.0.0  
 
 ## 模块概述
 
-购物车模块是电商平台的核心交易模块，负责商品选择、数量管理、价格计算和订单准备。支持多设备同步、实时库存检查和智能推荐。
+### 主要职责
+简要描述模块的核心职责和业务价值，3-5个要点：
+- 职责1
+- 职责2  
+- 职责3
 
-### 主要功能
+### 业务价值
+- **核心价值**: 模块为业务带来的主要价值
+- **用户收益**: 对终端用户的直接收益
+- **系统收益**: 对整个系统的价值贡献
 
-1. **购物车管理**
-   - 商品添加/删除/更新
-   - 批量操作支持
-   - 购物车持久化
-   - 多设备同步
-
-2. **价格计算**
-   - 实时价格更新
-   - 优惠券应用
-   - 促销活动计算
-   - 运费估算
-
-3. **库存检查**
-   - 实时库存验证
-   - 库存预占机制
-   - 缺货提醒
-   - 替代商品推荐
+### 模块边界
+- **包含功能**: 明确模块包含的功能范围
+- **排除功能**: 明确不属于该模块的功能
+- **依赖模块**: 依赖的其他模块
+- **被依赖**: 被哪些模块依赖
 
 ## 技术架构
 
+### 架构图
+```
+{模块架构图，使用Mermaid或ASCII}
+```
+
 ### 核心组件
-
 ```
-shopping_cart/
+{模块名}/
 ├── router.py           # API路由定义
-├── service.py          # 购物车业务逻辑
-├── models.py           # 购物车数据模型(Cart, CartItem)
-├── schemas.py          # 请求/响应数据模型  
+├── service.py          # 业务逻辑处理
+├── models.py           # 数据模型定义
+├── schemas.py          # 请求/响应模型
 ├── dependencies.py     # 模块依赖注入
-└── utils.py            # 购物车工具函数(价格计算、库存检查)
+└── utils.py            # 工具函数
 ```
 
-### 依赖的核心服务
+### 模块化单体架构
+- **架构模式**: 模块化单体架构 (Modular Monolith)
+- **垂直切片**: 每个模块包含完整的业务功能
+- **依赖原则**: 依赖注入和接口抽象
+
+### 核心基础设施
 ```
-app/core/
-├── redis_client.py     # Redis缓存客户端
+app/core/               # 核心基础设施
 ├── database.py         # 数据库连接管理
-└── auth.py             # 用户认证中间件
+├── redis_client.py     # Redis缓存客户端  
+├── auth.py             # 认证中间件
+└── __init__.py         # 核心组件导出
 ```
 
-### 集成的适配器
+### 适配器集成
 ```
-app/adapters/
-└── inventory/          # 库存管理适配器(待开发)
-    └── stock_adapter.py # 实时库存检查
-    └── sync_utils.py           # 同步工具
-```
-
-### 数据存储设计
-
-#### 关系型数据库 (持久化存储)
-
-```sql
--- 购物车表
-CREATE TABLE shopping_carts (
-    id UUID PRIMARY KEY,
-    user_id UUID NOT NULL,
-    guest_id VARCHAR(255),
-    status VARCHAR(20) NOT NULL DEFAULT 'active',
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    expires_at TIMESTAMP WITH TIME ZONE,
-    total_amount DECIMAL(10,2) DEFAULT 0.00,
-    total_discount DECIMAL(10,2) DEFAULT 0.00,
-    item_count INTEGER DEFAULT 0,
-    
-    CONSTRAINT cart_user_check CHECK (
-        (user_id IS NOT NULL AND guest_id IS NULL) OR 
-        (user_id IS NULL AND guest_id IS NOT NULL)
-    )
-);
-
--- 购物车项表
-CREATE TABLE cart_items (
-    id UUID PRIMARY KEY,
-    cart_id UUID REFERENCES shopping_carts(id) ON DELETE CASCADE,
-    product_id UUID NOT NULL,
-    sku_id UUID NOT NULL,
-    quantity INTEGER NOT NULL CHECK (quantity > 0),
-    unit_price DECIMAL(10,2) NOT NULL,
-    original_price DECIMAL(10,2) NOT NULL,
-    discount_amount DECIMAL(10,2) DEFAULT 0.00,
-    total_price DECIMAL(10,2) NOT NULL,
-    added_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    
-    UNIQUE(cart_id, sku_id)
-);
-
--- 价格规则表
-CREATE TABLE pricing_rules (
-    id UUID PRIMARY KEY,
-    name VARCHAR(100) NOT NULL,
-    rule_type VARCHAR(50) NOT NULL, -- 'discount', 'coupon', 'promotion'
-    conditions JSONB NOT NULL,
-    actions JSONB NOT NULL,
-    priority INTEGER DEFAULT 0,
-    start_date TIMESTAMP WITH TIME ZONE,
-    end_date TIMESTAMP WITH TIME ZONE,
-    is_active BOOLEAN DEFAULT TRUE,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
--- 优惠券使用记录
-CREATE TABLE coupon_usage (
-    id UUID PRIMARY KEY,
-    cart_id UUID REFERENCES shopping_carts(id),
-    coupon_code VARCHAR(50) NOT NULL,
-    discount_amount DECIMAL(10,2) NOT NULL,
-    used_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
+app/adapters/           # 第三方服务适配器
+├── {service_type}/     # 服务类型目录
+│   ├── {provider}_adapter.py
+│   └── config.py
 ```
 
-#### Redis 缓存设计
+### 技术栈
+- **编程语言**: Python 3.11+
+- **Web框架**: FastAPI
+- **数据库**: MySQL 8.0
+- **缓存**: Redis
+- **其他依赖**: 列出主要的第三方库
 
+### 设计模式
+- **使用的设计模式**: 如Repository、Factory、Strategy等
+- **架构模式**: 如Clean Architecture、DDD等
+- **代码组织**: 分层架构说明
+
+## 核心功能
+
+### 功能列表
+| 功能名称 | 优先级 | 状态 | 描述 |
+|---------|--------|------|------|
+| 功能1 | 高 | ✅ 已完成 | 功能简要描述 |
+| 功能2 | 中 | 🔄 开发中 | 功能简要描述 |
+| 功能3 | 低 | ⏳ 待开始 | 功能简要描述 |
+
+### 核心业务流程
+```mermaid
+graph TD
+    A[开始] --> B[步骤1]
+    B --> C[步骤2]
+    C --> D[结束]
+```
+
+### 业务规则
+1. **规则1**: 详细描述业务规则
+2. **规则2**: 详细描述业务规则
+3. **规则3**: 详细描述业务规则
+
+## 数据模型
+
+### 核心实体
 ```python
-# 购物车缓存结构
-cart:{user_id} = {
-    "items": {
-        "sku_123": {
-            "product_id": "prod_456",
-            "quantity": 2,
-            "unit_price": 99.99,
-            "added_at": "2024-01-01T10:00:00Z"
-        }
-    },
-    "totals": {
-        "subtotal": 199.98,
-        "discount": 20.00,
-        "total": 179.98,
-        "item_count": 2
-    },
-    "updated_at": "2024-01-01T10:30:00Z",
-    "expires_at": "2024-01-08T10:30:00Z"
-}
-
-# 库存缓存
-inventory:{sku_id} = {
-    "available": 100,
-    "reserved": 20,
-    "last_updated": "2024-01-01T10:00:00Z"
-}
-
-# 价格缓存
-price:{sku_id} = {
-    "base_price": 99.99,
-    "current_price": 89.99,
-    "discount_rules": ["rule_123", "rule_456"],
-    "valid_until": "2024-01-01T12:00:00Z"
-}
+# 主要数据模型示例
+class {EntityName}(Base):
+    __tablename__ = "{table_name}"
+    
+    id = Column(Integer, primary_key=True)
+    name = Column(String(100), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 ```
 
-## API 接口
+### 数据关系图
+```
+{实体关系图，可以使用Mermaid ER图}
+```
 
-### 购物车操作
+### 数据约束
+- **唯一性约束**: 字段级别的唯一性要求
+- **外键约束**: 与其他表的关系约束
+- **业务约束**: 业务级别的数据约束
 
+## API接口
+
+### 接口列表
+| 接口 | 方法 | 路径 | 描述 | 状态 |
+|------|------|------|------|------|
+| 创建{实体} | POST | /api/v1/{entities} | 创建新的{实体} | ✅ |
+| 获取{实体} | GET | /api/v1/{entities}/{id} | 获取指定{实体} | ✅ |
+| 更新{实体} | PUT | /api/v1/{entities}/{id} | 更新{实体}信息 | 🔄 |
+| 删除{实体} | DELETE | /api/v1/{entities}/{id} | 删除{实体} | ⏳ |
+
+### 接口详情示例
 ```yaml
-/api/v1/cart:
-  GET /:
-    summary: 获取购物车
-    security:
-      - BearerAuth: []
-    responses:
-      200:
-        description: 购物车详情
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/Cart'
-
-  POST /items:
-    summary: 添加商品到购物车
-    security:
-      - BearerAuth: []
+/api/v1/{entities}:
+  post:
+    summary: 创建{实体}
     requestBody:
       required: true
       content:
         application/json:
           schema:
-            type: object
-            properties:
-              sku_id:
-                type: string
-                format: uuid
-              quantity:
-                type: integer
-                minimum: 1
-                maximum: 99
+            $ref: '#/components/schemas/{Entity}Create'
     responses:
       201:
-        description: 商品添加成功
-      400:
-        description: 请求参数错误
-      409:
-        description: 库存不足
-
-  PUT /items/{item_id}:
-    summary: 更新购物车商品
-    security:
-      - BearerAuth: []
-    parameters:
-      - name: item_id
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-    requestBody:
-      required: true
-      content:
-        application/json:
-          schema:
-            type: object
-            properties:
-              quantity:
-                type: integer
-                minimum: 1
-                maximum: 99
-    responses:
-      200:
-        description: 更新成功
-      404:
-        description: 商品不存在
-
-  DELETE /items/{item_id}:
-    summary: 删除购物车商品
-    security:
-      - BearerAuth: []
-    parameters:
-      - name: item_id
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-    responses:
-      204:
-        description: 删除成功
-
-  POST /clear:
-    summary: 清空购物车
-    security:
-      - BearerAuth: []
-    responses:
-      200:
-        description: 清空成功
-
-  POST /merge:
-    summary: 合并游客购物车
-    security:
-      - BearerAuth: []
-    requestBody:
-      required: true
-      content:
-        application/json:
-          schema:
-            type: object
-            properties:
-              guest_cart_id:
-                type: string
-                format: uuid
-    responses:
-      200:
-        description: 合并成功
-```
-
-### 价格计算
-
-```yaml
-/api/v1/cart/pricing:
-  POST /calculate:
-    summary: 计算购物车价格
-    security:
-      - BearerAuth: []
-    requestBody:
-      required: true
-      content:
-        application/json:
-          schema:
-            type: object
-            properties:
-              coupon_codes:
-                type: array
-                items:
-                  type: string
-              shipping_address:
-                $ref: '#/components/schemas/Address'
-    responses:
-      200:
-        description: 价格计算结果
+        description: 创建成功
         content:
           application/json:
             schema:
-              type: object
-              properties:
-                subtotal:
-                  type: number
-                  format: decimal
-                discount:
-                  type: number
-                  format: decimal
-                shipping:
-                  type: number
-                  format: decimal
-                tax:
-                  type: number
-                  format: decimal
-                total:
-                  type: number
-                  format: decimal
-                applied_coupons:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      discount:
-                        type: number
-                        format: decimal
+              $ref: '#/components/schemas/{Entity}'
+      400:
+        description: 请求参数错误
 ```
 
-## 业务逻辑
+### 错误码
+| 错误码 | 状态码 | 描述 | 解决方案 |
+|--------|--------|------|----------|
+| {MODULE}_001 | 400 | 参数验证失败 | 检查请求参数 |
+| {MODULE}_002 | 404 | 资源不存在 | 确认资源ID |
+| {MODULE}_003 | 409 | 资源冲突 | 检查资源状态 |
 
-### 价格计算引擎
+## 测试策略
 
+### 测试覆盖率目标
+- **单元测试**: ≥ 85%
+- **集成测试**: ≥ 70%
+- **端到端测试**: 核心业务流程100%
+
+### 测试类型
 ```python
-class PricingEngine:
-    def __init__(self):
-        self.rule_processors = {
-            'discount': DiscountProcessor(),
-            'coupon': CouponProcessor(),
-            'promotion': PromotionProcessor(),
-            'shipping': ShippingProcessor(),
-            'tax': TaxProcessor()
-        }
+# 单元测试示例
+class Test{Entity}Service:
+    def test_create_{entity}_success(self):
+        # 测试成功创建{实体}
+        pass
     
-    def calculate_cart_total(self, cart: Cart, context: PricingContext) -> PricingResult:
-        """
-        计算购物车总价
-        
-        计算顺序:
-        1. 商品原价汇总
-        2. 应用商品级折扣
-        3. 应用购物车级折扣
-        4. 应用优惠券
-        5. 计算运费
-        6. 计算税费
-        """
-        result = PricingResult()
-        
-        # 1. 计算商品小计
-        for item in cart.items:
-            item_total = self._calculate_item_total(item, context)
-            result.add_item_total(item_total)
-        
-        # 2. 应用购物车级规则
-        cart_rules = self._get_applicable_rules(cart, context)
-        for rule in sorted(cart_rules, key=lambda x: x.priority):
-            processor = self.rule_processors[rule.rule_type]
-            result = processor.apply(result, rule, context)
-        
-        # 3. 计算运费和税费
-        result.shipping = self._calculate_shipping(cart, context)
-        result.tax = self._calculate_tax(result.subtotal, context)
-        result.total = result.subtotal - result.discount + result.shipping + result.tax
-        
-        return result
+    def test_create_{entity}_validation_error(self):
+        # 测试验证错误
+        pass
+
+# 集成测试示例  
+class Test{Entity}API:
+    def test_{entity}_crud_workflow(self):
+        # 测试完整CRUD流程
+        pass
 ```
 
-### 库存管理
+### 性能测试
+- **响应时间**: API响应时间 < 500ms
+- **并发处理**: 支持100并发请求
+- **数据量**: 支持100万条记录
 
+### 测试数据
+- **测试数据生成**: Factory Boy或自定义工厂
+- **数据清理**: 每个测试后清理测试数据
+- **Mock策略**: 外部依赖的Mock策略
+
+## 部署和运维
+
+### 环境要求
+- **开发环境**: 本地开发环境配置
+- **测试环境**: 测试环境配置要求
+- **生产环境**: 生产环境配置要求
+
+### 配置管理
 ```python
-class InventoryManager:
-    def __init__(self, redis_client, inventory_service):
-        self.redis = redis_client
-        self.inventory_service = inventory_service
-    
-    async def check_availability(self, sku_id: str, quantity: int) -> bool:
-        """检查商品库存可用性"""
-        # 1. 从缓存获取库存信息
-        inventory = await self._get_cached_inventory(sku_id)
-        
-        if not inventory:
-            # 2. 缓存未命中，从数据库获取
-            inventory = await self.inventory_service.get_inventory(sku_id)
-            await self._cache_inventory(sku_id, inventory)
-        
-        available = inventory['available'] - inventory['reserved']
-        return available >= quantity
-    
-    async def reserve_inventory(self, sku_id: str, quantity: int, cart_id: str) -> bool:
-        """预占库存"""
-        lock_key = f"inventory_lock:{sku_id}"
-        
-        async with self.redis.lock(lock_key, timeout=30):
-            if await self.check_availability(sku_id, quantity):
-                # 更新预占数量
-                await self.redis.hincrby(f"inventory:{sku_id}", "reserved", quantity)
-                
-                # 记录预占信息
-                reservation = {
-                    "cart_id": cart_id,
-                    "quantity": quantity,
-                    "reserved_at": datetime.utcnow().isoformat(),
-                    "expires_at": (datetime.utcnow() + timedelta(minutes=30)).isoformat()
-                }
-                await self.redis.hset(f"reservation:{cart_id}:{sku_id}", mapping=reservation)
-                
-                return True
-        
-        return False
+# 环境变量配置
+{MODULE}_DATABASE_URL=mysql://...
+{MODULE}_REDIS_URL=redis://...
+{MODULE}_LOG_LEVEL=INFO
 ```
 
-### 多设备同步
+### 监控指标
+- **业务指标**: 关键业务指标监控
+- **技术指标**: 响应时间、错误率等
+- **资源指标**: CPU、内存、数据库连接等
 
-```python
-class CartSyncManager:
-    def __init__(self, redis_client, event_publisher):
-        self.redis = redis_client
-        self.event_publisher = event_publisher
-    
-    async def sync_cart_update(self, user_id: str, cart_data: dict):
-        """同步购物车更新到所有设备"""
-        # 1. 更新缓存
-        cache_key = f"cart:{user_id}"
-        await self.redis.hset(cache_key, mapping=cart_data)
-        
-        # 2. 发布同步事件
-        sync_event = {
-            "event_type": "cart.updated",
-            "user_id": user_id,
-            "cart_data": cart_data,
-            "timestamp": datetime.utcnow().isoformat()
-        }
-        
-        await self.event_publisher.publish("cart.sync", sync_event)
-    
-    async def handle_offline_sync(self, user_id: str, device_id: str, offline_changes: list):
-        """处理离线设备的同步"""
-        current_cart = await self._get_current_cart(user_id)
-        
-        # 冲突解决策略: 最新时间戳优先
-        merged_cart = self._merge_changes(current_cart, offline_changes)
-        
-        await self.sync_cart_update(user_id, merged_cart)
-        
-        return merged_cart
-```
+### 告警规则
+- **错误率**: > 1% 触发告警
+- **响应时间**: > 1s 触发告警
+- **资源使用**: > 80% 触发告警
+
+## 安全考虑
+
+### 认证授权
+- **身份认证**: JWT Token验证
+- **权限控制**: 基于角色的访问控制
+- **API安全**: Rate Limiting、CORS等
+
+### 数据安全
+- **数据加密**: 敏感数据加密存储
+- **传输安全**: HTTPS传输
+- **输入验证**: 严格的输入验证
+
+### 审计日志
+- **操作日志**: 记录关键操作
+- **访问日志**: 记录API访问
+- **安全日志**: 记录安全相关事件
 
 ## 性能优化
 
 ### 缓存策略
-
-1. **多级缓存**
-   - L1: 应用内存缓存 (商品信息)
-   - L2: Redis缓存 (购物车数据)
-   - L3: 数据库 (持久化存储)
-
-2. **缓存更新策略**
-   - 购物车数据: Write-through
-   - 商品价格: TTL + 主动刷新
-   - 库存信息: 事件驱动更新
-
-3. **缓存预热**
-   - 热门商品价格预加载
-   - 用户购物车预加载
-   - 促销规则预计算
+- **应用缓存**: Redis缓存热点数据
+- **数据库缓存**: 查询结果缓存
+- **CDN缓存**: 静态资源缓存
 
 ### 数据库优化
+- **索引优化**: 关键字段索引
+- **查询优化**: SQL查询优化
+- **连接池**: 数据库连接池配置
 
-1. **索引策略**
-   ```sql
-   -- 购物车查询优化
-   CREATE INDEX idx_carts_user_status ON shopping_carts(user_id, status);
-   CREATE INDEX idx_cart_items_cart_id ON cart_items(cart_id);
-   CREATE INDEX idx_cart_items_sku ON cart_items(sku_id);
-   
-   -- 价格规则查询优化
-   CREATE INDEX idx_pricing_rules_active ON pricing_rules(is_active, start_date, end_date);
-   ```
+### 扩展性设计
+- **水平扩展**: 支持多实例部署
+- **垂直扩展**: 资源配置优化
+- **降级策略**: 服务降级机制
 
-2. **分区策略**
-   - 按用户ID哈希分区
-   - 按时间范围分区 (历史数据)
+## 问题和风险
 
-## 监控指标
+### 已知问题
+| 问题ID | 描述 | 优先级 | 状态 | 解决方案 |
+|--------|------|--------|------|----------|
+| {MODULE}-001 | 问题描述 | 高 | 🔄 处理中 | 解决方案 |
 
-### 业务指标
+### 技术风险
+- **风险1**: 风险描述和缓解措施
+- **风险2**: 风险描述和缓解措施
 
-- 购物车添加率
-- 购物车放弃率
-- 平均购物车价值
-- 转化漏斗分析
+### 技术债务
+- **债务1**: 技术债务描述和还债计划
+- **债务2**: 技术债务描述和还债计划
 
-### 技术指标
+## 开发计划
 
-- API响应时间
-- 缓存命中率
-- 数据库连接池使用率
-- 库存检查延迟
+### 里程碑
+- **M1**: 基础功能开发 (预计: {日期})
+- **M2**: 完整功能实现 (预计: {日期})
+- **M3**: 性能优化 (预计: {日期})
 
-### 异常指标
-
-- 库存超卖次数
-- 价格计算错误
-- 同步失败率
-- 缓存穿透次数
-
-## 事件处理
-
-### 事件类型
-
-```python
-# 购物车事件
-class CartEvents:
-    ITEM_ADDED = "cart.item.added"
-    ITEM_UPDATED = "cart.item.updated"
-    ITEM_REMOVED = "cart.item.removed"
-    CART_CLEARED = "cart.cleared"
-    CART_ABANDONED = "cart.abandoned"
-    CHECKOUT_STARTED = "cart.checkout.started"
-
-# 库存事件
-class InventoryEvents:
-    STOCK_RESERVED = "inventory.reserved"
-    STOCK_RELEASED = "inventory.released"
-    STOCK_DEPLETED = "inventory.depleted"
-    STOCK_REPLENISHED = "inventory.replenished"
-```
-
-### 事件处理器
-
-```python
-@event_handler(CartEvents.ITEM_ADDED)
-async def handle_item_added(event_data):
-    """处理商品添加事件"""
-    # 1. 更新推荐算法
-    await recommendation_service.update_user_preferences(
-        event_data['user_id'], 
-        event_data['product_id']
-    )
-    
-    # 2. 检查库存预警
-    await inventory_service.check_stock_levels(event_data['sku_id'])
-    
-    # 3. 触发个性化营销
-    await marketing_service.trigger_cart_abandon_prevention(
-        event_data['user_id']
-    )
-
-@event_handler(InventoryEvents.STOCK_DEPLETED)
-async def handle_stock_depleted(event_data):
-    """处理库存耗尽事件"""
-    sku_id = event_data['sku_id']
-    
-    # 1. 通知相关购物车用户
-    affected_carts = await cart_service.get_carts_with_sku(sku_id)
-    for cart in affected_carts:
-        await notification_service.send_stock_alert(cart.user_id, sku_id)
-    
-    # 2. 推荐替代商品
-    alternatives = await product_service.get_alternatives(sku_id)
-    await recommendation_service.push_alternatives(affected_carts, alternatives)
-```
-
-## 部署配置
-
-### 环境变量
-
-```bash
-# Redis配置
-CART_REDIS_URL=redis://localhost:6379/1
-CART_CACHE_TTL=3600
-
-# 数据库配置
-CART_DB_URL=postgresql://user:pass@localhost/cart_db
-
-# 库存服务配置
-INVENTORY_SERVICE_URL=http://inventory-service:8080
-INVENTORY_CHECK_TIMEOUT=5
-
-# 价格服务配置
-PRICING_SERVICE_URL=http://pricing-service:8080
-PRICING_CACHE_TTL=1800
-
-# 消息队列配置
-MESSAGE_BROKER_URL=redis://localhost:6379/2
-CART_SYNC_TOPIC=cart.sync
-```
-
-### 依赖服务
-
-- Redis (缓存和消息队列)
-- PostgreSQL (数据持久化)
-- 库存服务 (库存检查)
-- 商品服务 (商品信息)
-- 用户服务 (用户认证)
-- 推荐服务 (智能推荐)
+### 任务分解
+- [ ] 任务1 (负责人: {姓名}, 预计: {日期})
+- [ ] 任务2 (负责人: {姓名}, 预计: {日期})
+- [ ] 任务3 (负责人: {姓名}, 预计: {日期})
 
 ## 相关文档
 
-- [商品模块](../product-catalog/overview.md)
-- [订单模块](../order-management/overview.md)
-- [库存模块](../inventory/overview.md)
-- [推荐系统](../recommendation/overview.md)
-- [事件架构](../../architecture/event-driven.md)
+### 架构文档
+- [系统架构总览](../architecture/overview.md)
+- [API设计规范](../architecture/api-standards.md)
+- [数据模型规范](../architecture/data-models.md)
+
+### 开发文档
+- [开发规范](../development/development-standards.md)
+- [测试指南](../development/testing.md)
+- [部署指南](../operations/deployment.md)
+
+### 需求文档
+- [业务需求](../requirements/business.md)
+- [功能需求](../requirements/functional.md)
+
+### 其他模块
+- [依赖模块1](../modules/{module1}/overview.md)
+- [依赖模块2](../modules/{module2}/overview.md)
+
+---
+
+📝 **模板使用说明**:
+1. 复制此模板创建新的模块文档
+2. 替换所有 `{变量}` 为实际值
+3. 删除不适用的章节
+4. 根据模块特点调整章节内容
+5. 保持文档及时更新
+

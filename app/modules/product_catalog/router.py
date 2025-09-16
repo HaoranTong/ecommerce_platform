@@ -22,7 +22,7 @@ router = APIRouter()
 
 # ============ 分类管理API ============
 
-@router.post("/categories", response_model=CategoryRead, status_code=status.HTTP_201_CREATED)
+@router.post("/product-catalog/categories", response_model=CategoryRead, status_code=status.HTTP_201_CREATED)
 async def create_category(
     payload: CategoryCreate, 
     db: Session = Depends(get_db),
@@ -44,7 +44,7 @@ async def create_category(
         )
 
 
-@router.get("/categories", response_model=List[CategoryRead])
+@router.get("/product-catalog/categories", response_model=List[CategoryRead])
 async def list_categories(
     parent_id: Optional[int] = Query(None, description="按父分类筛选"),
     is_active: Optional[bool] = Query(None, description="按状态筛选"),
@@ -68,7 +68,7 @@ async def list_categories(
 
 # ============ 品牌管理API ============
 
-@router.post("/brands", response_model=BrandRead, status_code=status.HTTP_201_CREATED)
+@router.post("/product-catalog/brands", response_model=BrandRead, status_code=status.HTTP_201_CREATED)
 async def create_brand(
     payload: BrandCreate, 
     db: Session = Depends(get_db),
@@ -92,7 +92,7 @@ async def create_brand(
 
 # ============ 商品管理API ============
 
-@router.post("/products", response_model=ProductRead, status_code=status.HTTP_201_CREATED)
+@router.post("/product-catalog/products", response_model=ProductRead, status_code=status.HTTP_201_CREATED)
 async def create_product(
     payload: ProductCreate, 
     db: Session = Depends(get_db),
@@ -114,7 +114,7 @@ async def create_product(
         )
 
 
-@router.get("/products", response_model=List[ProductRead])
+@router.get("/product-catalog/products", response_model=List[ProductRead])
 async def list_products(
     search: Optional[str] = Query(None, description="搜索商品名称或描述"),
     category_id: Optional[int] = Query(None, description="按分类筛选"),
@@ -138,7 +138,7 @@ async def list_products(
     return products
 
 
-@router.get("/products/{product_id}", response_model=ProductRead)
+@router.get("/product-catalog/products/{product_id}", response_model=ProductRead)
 async def get_product(product_id: int, db: Session = Depends(get_db)):
     """获取单个商品详情"""
     product = db.query(Product).filter(
@@ -153,7 +153,7 @@ async def get_product(product_id: int, db: Session = Depends(get_db)):
     return product
 
 
-@router.put("/products/{product_id}", response_model=ProductRead)
+@router.put("/product-catalog/products/{product_id}", response_model=ProductRead)
 async def update_product(
     product_id: int,
     payload: ProductUpdate,
@@ -184,7 +184,7 @@ async def update_product(
         )
 
 
-@router.delete("/products/{product_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/product-catalog/products/{product_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_product(
     product_id: int,
     db: Session = Depends(get_db),
@@ -211,7 +211,7 @@ async def delete_product(
 
 # ============ SKU管理API ============
 
-@router.post("/skus", response_model=SKURead, status_code=status.HTTP_201_CREATED)
+@router.post("/product-catalog/skus", response_model=SKURead, status_code=status.HTTP_201_CREATED)
 async def create_sku(
     payload: SKUCreate, 
     db: Session = Depends(get_db),
@@ -249,7 +249,7 @@ async def create_sku(
         )
 
 
-@router.get("/skus", response_model=List[SKURead])
+@router.get("/product-catalog/skus", response_model=List[SKURead])
 async def list_skus(
     search: Optional[str] = Query(None, description="搜索SKU名称或编码"),
     product_id: Optional[int] = Query(None, description="按产品ID筛选"),
@@ -274,7 +274,7 @@ async def list_skus(
     return query.offset(skip).limit(limit).all()
 
 
-@router.get("/skus/{sku_id}", response_model=SKURead)
+@router.get("/product-catalog/skus/{sku_id}", response_model=SKURead)
 async def get_sku(
     sku_id: int,
     db: Session = Depends(get_db)
@@ -289,7 +289,7 @@ async def get_sku(
     return sku
 
 
-@router.put("/skus/{sku_id}", response_model=SKURead)
+@router.put("/product-catalog/skus/{sku_id}", response_model=SKURead)
 async def update_sku(
     sku_id: int,
     payload: SKUUpdate,
@@ -319,7 +319,7 @@ async def update_sku(
         )
 
 
-@router.delete("/skus/{sku_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/product-catalog/skus/{sku_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_sku(
     sku_id: int,
     db: Session = Depends(get_db),
@@ -346,7 +346,7 @@ async def delete_sku(
 
 # ============ 产品关联的SKU API（兼容旧接口）============
 
-@router.post("/products/{product_id}/skus", response_model=SKURead, status_code=status.HTTP_201_CREATED)
+@router.post("/product-catalog/products/{product_id}/skus", response_model=SKURead, status_code=status.HTTP_201_CREATED)
 async def create_product_sku(
     product_id: int,
     payload: dict,  # 使用dict来兼容测试中的数据格式

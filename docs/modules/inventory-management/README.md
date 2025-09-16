@@ -118,12 +118,12 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 import httpx
 
 # 查询单个SKU库存
-response = httpx.get("http://localhost:8000/api/v1/inventory/SKU001")
+response = httpx.get("http://localhost:8000/api/v1/inventory-management/SKU001")
 print(response.json())
 
 # 批量查询库存
 response = httpx.post(
-    "http://localhost:8000/api/v1/inventory/batch-query",
+    "http://localhost:8000/api/v1/inventory-management/batch-query",
     json={"sku_codes": ["SKU001", "SKU002", "SKU003"]}
 )
 print(response.json())
@@ -133,7 +133,7 @@ print(response.json())
 ```python
 # 预留库存
 response = httpx.post(
-    "http://localhost:8000/api/v1/inventory/reserve",
+    "http://localhost:8000/api/v1/inventory-management/reserve",
     json={
         "sku_code": "SKU001",
         "quantity": 10,
@@ -149,7 +149,7 @@ print(response.json())
 ```python
 # 确认扣减库存
 response = httpx.post(
-    "http://localhost:8000/api/v1/inventory/deduct",
+    "http://localhost:8000/api/v1/inventory-management/deduct",
     json={
         "sku_code": "SKU001",
         "quantity": 5,

@@ -1,22 +1,61 @@
 # 文档模板
 
-本目录包含项目中各类文档的标准模板，确保文档格式和内容的一致性。
+📝 **文档类型**: 模块文档创建模板集合  
+📍 **作用**: 确保所有模块文档结构一致性和完整性  
+🔗 **使用方法**: 创建新模块时复制对应模板
 
-## 📋 模板列表
+## � 目录结构
 
-- **[模块文档模板](module-template.md)** - 功能模块设计文档的标准模板
+```
+templates/
+├── module-template.md              # 模块概述文档模板 (overview.md)
+├── module-readme-template.md       # 模块导航文档模板 (README.md)
+├── module-requirements-template.md # 业务需求文档模板 (requirements.md)
+├── module-design-template.md       # 技术设计文档模板 (design.md)
+├── module-implementation-template.md # 实现记录文档模板 (implementation.md)
+└── README.md                       # 本文档
+```
 
-## 🎯 使用说明
+## 🚨 强制文档要求
 
-### 开发人员
-- 创建新模块时使用module-template.md作为起始模板
-- 按照模板格式填写模块的详细设计信息
-- 确保所有必需章节都有内容
+每个模块**必须**包含以下7个文档（无可选项）：
 
-### 文档维护者
-- 新增文档类型时需要创建对应模板
-- 定期评审和优化现有模板
-- 确保模板符合最新的文档规范
+| 序号 | 文档文件 | 对应模板 | 文档职责 |
+|------|----------|----------|----------|
+| 1 | `README.md` | `module-readme-template.md` | 模块导航入口 |
+| 2 | `overview.md` | `module-template.md` | 详细技术概述 |
+| 3 | `requirements.md` | `module-requirements-template.md` | 业务需求规格 |
+| 4 | `design.md` | `module-design-template.md` | 技术设计决策 |
+| 5 | `api-spec.md` | (已有标准) | API规范定义 |
+| 6 | `api-implementation.md` | (已有标准) | API实施记录 |
+| 7 | `implementation.md` | `module-implementation-template.md` | 开发实现记录 |
+
+## 📋 使用流程
+
+### 创建新模块文档
+```bash
+# 1. 创建模块目录
+mkdir docs/modules/{module-name}
+
+# 2. 复制所有必需模板
+cp docs/templates/module-readme-template.md docs/modules/{module-name}/README.md
+cp docs/templates/module-template.md docs/modules/{module-name}/overview.md
+cp docs/templates/module-requirements-template.md docs/modules/{module-name}/requirements.md
+cp docs/templates/module-design-template.md docs/modules/{module-name}/design.md
+cp docs/templates/module-implementation-template.md docs/modules/{module-name}/implementation.md
+
+# 3. API文档需要手动创建
+touch docs/modules/{module-name}/api-spec.md
+touch docs/modules/{module-name}/api-implementation.md
+```
+
+### 模板变量替换
+所有模板中的变量需要替换为实际值：
+- `{模块名称}`: 中文名称，如"用户认证模块"
+- `{module-name}`: 英文名称，如"user-auth"
+- `{module_name}`: 代码名称，如"user_auth"
+- `{YYYY-MM-DD}`: 日期格式
+- `{负责人姓名}`: 负责人信息
 
 ## 📝 模板使用流程
 

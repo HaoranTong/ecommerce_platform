@@ -1,352 +1,334 @@
-# 订单管理模块 (Order Management Module)
+<!--
+文档说明：
+- 内容：模块文档标准模板，用于创建新的模块文档  
+- 使用方法：复制此模板，替换模板变量，填入具体内容
+- 更新方法：模板规范变更时由架构师更新
+- 引用关系：被所有模块文档使用
+- 更新频率：模板标准变化时
+
+⚠️ 强制文档要求：
+每个模块必须包含以下7个文档（无可选项）：
+1. README.md - 模块导航（简洁版入口）
+2. overview.md - 模块概述（本模板，详细版）
+3. requirements.md - 业务需求文档（强制）
+4. design.md - 设计决策文档（强制）
+5. api-spec.md - API规范文档（强制）
+6. api-implementation.md - API实施记录（强制）
+7. implementation.md - 实现细节文档（强制）
+-->
+
+# order-management模块 模块
+
+📝 **状态**: 草稿 | 评审中 | ✅ 已发布 | 🔄 更新中  
+📅 **创建日期**: 2025-09-16  
+👤 **负责人**: 待指定  
+🔄 **最后更新**: 2025-09-16  
+📋 **版本**: v1.0.0  
 
 ## 模块概述
 
-订单管理模块负责订单创建、状态流转、支付集成、履约跟踪和售后服务。支持多渠道订单、分布式事务、事件驱动状态同步。
+### 主要职责
+简要描述模块的核心职责和业务价值，3-5个要点：
+- 职责1
+- 职责2  
+- 职责3
 
-### 主要功能
+### 业务价值
+- **核心价值**: 模块为业务带来的主要价值
+- **用户收益**: 对终端用户的直接收益
+- **系统收益**: 对整个系统的价值贡献
 
-1. **订单创建与管理**
-   - 订单生成（购物车结算、直接购买）
-   - 订单状态流转（待支付、已支付、已发货、已完成、已取消、售后中）
-   - 多渠道订单（PC、移动、API、第三方平台）
-   - 订单拆分与合并
-
-2. **支付集成**
-   - 多支付方式（支付宝、微信、银联、PayPal）
-   - 支付状态回调
-   - 支付安全校验
-   - 退款处理
-
-3. **履约跟踪**
-   - 发货管理
-   - 物流跟踪
-   - 配送状态同步
-   - 异常处理（丢件、延迟、拒收）
-
-4. **售后服务**
-   - 退货/换货申请
-   - 售后状态流转
-   - 售后审核与处理
-   - 售后退款
+### 模块边界
+- **包含功能**: 明确模块包含的功能范围
+- **排除功能**: 明确不属于该模块的功能
+- **依赖模块**: 依赖的其他模块
+- **被依赖**: 被哪些模块依赖
 
 ## 技术架构
 
+### 架构图
+```
+{模块架构图，使用Mermaid或ASCII}
+```
+
 ### 核心组件
-
 ```
-order_management/
+{模块名}/
 ├── router.py           # API路由定义
-├── service.py          # 订单业务逻辑
-├── models.py           # 订单数据模型(Order, OrderItem, OrderStatus)
-├── schemas.py          # 请求/响应数据模型
+├── service.py          # 业务逻辑处理
+├── models.py           # 数据模型定义
+├── schemas.py          # 请求/响应模型
 ├── dependencies.py     # 模块依赖注入
-└── utils.py            # 订单工具函数(状态机、履约处理)
+└── utils.py            # 工具函数
 ```
 
-### 依赖的核心服务
+### 模块化单体架构
+- **架构模式**: 模块化单体架构 (Modular Monolith)
+- **垂直切片**: 每个模块包含完整的业务功能
+- **依赖原则**: 依赖注入和接口抽象
+
+### 核心基础设施
 ```
-app/core/
+app/core/               # 核心基础设施
 ├── database.py         # 数据库连接管理
-├── redis_client.py     # 订单缓存服务
-└── auth.py             # 用户认证中间件
+├── redis_client.py     # Redis缓存客户端  
+├── auth.py             # 认证中间件
+└── __init__.py         # 核心组件导出
 ```
 
-### 集成的适配器
+### 适配器集成
 ```
-app/adapters/
-├── payment/            # 支付适配器
-│   ├── wechat_adapter.py
-│   └── alipay_adapter.py
-└── logistics/          # 物流适配器(待开发)
-    └── express_adapter.py
-│   ├── payment.py               # 支付模型
-│   ├── shipment.py              # 发货模型
-│   └── aftersales.py            # 售后模型
-├── events/
-│   ├── order_events.py          # 订单事件
-│   └── payment_events.py        # 支付事件
-└── utils/
-    ├── transaction_utils.py     # 分布式事务工具
-    └── event_utils.py           # 事件工具
+app/adapters/           # 第三方服务适配器
+├── {service_type}/     # 服务类型目录
+│   ├── {provider}_adapter.py
+│   └── config.py
 ```
 
-### 数据库设计
+### 技术栈
+- **编程语言**: Python 3.11+
+- **Web框架**: FastAPI
+- **数据库**: MySQL 8.0
+- **缓存**: Redis
+- **其他依赖**: 列出主要的第三方库
 
-```sql
--- 订单表
-CREATE TABLE orders (
-    id UUID PRIMARY KEY,
-    user_id UUID NOT NULL,
-    status VARCHAR(20) NOT NULL,
-    channel VARCHAR(20) NOT NULL,
-    total_amount DECIMAL(10,2) NOT NULL,
-    discount_amount DECIMAL(10,2) DEFAULT 0.00,
-    shipping_fee DECIMAL(10,2) DEFAULT 0.00,
-    tax_amount DECIMAL(10,2) DEFAULT 0.00,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    paid_at TIMESTAMP WITH TIME ZONE,
-    shipped_at TIMESTAMP WITH TIME ZONE,
-    completed_at TIMESTAMP WITH TIME ZONE,
-    cancelled_at TIMESTAMP WITH TIME ZONE,
-    aftersales_status VARCHAR(20) DEFAULT 'none'
-);
+### 设计模式
+- **使用的设计模式**: 如Repository、Factory、Strategy等
+- **架构模式**: 如Clean Architecture、DDD等
+- **代码组织**: 分层架构说明
 
--- 订单项表
-CREATE TABLE order_items (
-    id UUID PRIMARY KEY,
-    order_id UUID REFERENCES orders(id) ON DELETE CASCADE,
-    product_id UUID NOT NULL,
-    sku_id UUID NOT NULL,
-    quantity INTEGER NOT NULL,
-    unit_price DECIMAL(10,2) NOT NULL,
-    total_price DECIMAL(10,2) NOT NULL,
-    refund_status VARCHAR(20) DEFAULT 'none',
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
+## 核心功能
 
--- 支付表
-CREATE TABLE payments (
-    id UUID PRIMARY KEY,
-    order_id UUID REFERENCES orders(id) ON DELETE CASCADE,
-    payment_method VARCHAR(20) NOT NULL,
-    amount DECIMAL(10,2) NOT NULL,
-    status VARCHAR(20) NOT NULL,
-    transaction_id VARCHAR(100),
-    paid_at TIMESTAMP WITH TIME ZONE,
-    refunded_at TIMESTAMP WITH TIME ZONE,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
+### 功能列表
+| 功能名称 | 优先级 | 状态 | 描述 |
+|---------|--------|------|------|
+| 功能1 | 高 | ✅ 已完成 | 功能简要描述 |
+| 功能2 | 中 | 🔄 开发中 | 功能简要描述 |
+| 功能3 | 低 | ⏳ 待开始 | 功能简要描述 |
 
--- 发货表
-CREATE TABLE shipments (
-    id UUID PRIMARY KEY,
-    order_id UUID REFERENCES orders(id) ON DELETE CASCADE,
-    carrier VARCHAR(50) NOT NULL,
-    tracking_number VARCHAR(100),
-    status VARCHAR(20) NOT NULL,
-    shipped_at TIMESTAMP WITH TIME ZONE,
-    delivered_at TIMESTAMP WITH TIME ZONE,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
--- 售后表
-CREATE TABLE aftersales (
-    id UUID PRIMARY KEY,
-    order_id UUID REFERENCES orders(id) ON DELETE CASCADE,
-    type VARCHAR(20) NOT NULL, -- 'refund', 'exchange', 'return'
-    status VARCHAR(20) NOT NULL,
-    reason TEXT,
-    requested_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    processed_at TIMESTAMP WITH TIME ZONE,
-    completed_at TIMESTAMP WITH TIME ZONE
-);
+### 核心业务流程
+```mermaid
+graph TD
+    A[开始] --> B[步骤1]
+    B --> C[步骤2]
+    C --> D[结束]
 ```
 
-## API 接口
+### 业务规则
+1. **规则1**: 详细描述业务规则
+2. **规则2**: 详细描述业务规则
+3. **规则3**: 详细描述业务规则
 
-### 订单操作
+## 数据模型
 
+### 核心实体
+```python
+# 主要数据模型示例
+class {EntityName}(Base):
+    __tablename__ = "{table_name}"
+    
+    id = Column(Integer, primary_key=True)
+    name = Column(String(100), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+```
+
+### 数据关系图
+```
+{实体关系图，可以使用Mermaid ER图}
+```
+
+### 数据约束
+- **唯一性约束**: 字段级别的唯一性要求
+- **外键约束**: 与其他表的关系约束
+- **业务约束**: 业务级别的数据约束
+
+## API接口
+
+### 接口列表
+| 接口 | 方法 | 路径 | 描述 | 状态 |
+|------|------|------|------|------|
+| 创建{实体} | POST | /api/v1/{entities} | 创建新的{实体} | ✅ |
+| 获取{实体} | GET | /api/v1/{entities}/{id} | 获取指定{实体} | ✅ |
+| 更新{实体} | PUT | /api/v1/{entities}/{id} | 更新{实体}信息 | 🔄 |
+| 删除{实体} | DELETE | /api/v1/{entities}/{id} | 删除{实体} | ⏳ |
+
+### 接口详情示例
 ```yaml
-/api/v1/orders:
-  POST /:
-    summary: 创建订单
-    security:
-      - BearerAuth: []
+/api/v1/{entities}:
+  post:
+    summary: 创建{实体}
     requestBody:
       required: true
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/OrderCreateRequest'
+            $ref: '#/components/schemas/{Entity}Create'
     responses:
       201:
-        description: 订单创建成功
+        description: 创建成功
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/Order'
+              $ref: '#/components/schemas/{Entity}'
       400:
         description: 请求参数错误
-      409:
-        description: 库存不足
-
-  GET /{order_id}:
-    summary: 获取订单详情
-    security:
-      - BearerAuth: []
-    parameters:
-      - name: order_id
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-    responses:
-      200:
-        description: 订单详情
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/Order'
-      404:
-        description: 订单不存在
-
-  PUT /{order_id}/cancel:
-    summary: 取消订单
-    security:
-      - BearerAuth: []
-    parameters:
-      - name: order_id
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-    responses:
-      200:
-        description: 订单取消成功
-      404:
-        description: 订单不存在
-      409:
-        description: 订单不可取消
-
-  POST /{order_id}/pay:
-    summary: 订单支付
-    security:
-      - BearerAuth: []
-    parameters:
-      - name: order_id
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-    requestBody:
-      required: true
-      content:
-        application/json:
-          schema:
-            type: object
-            properties:
-              payment_method:
-                type: string
-                enum: [alipay, wechat, unionpay, paypal]
-    responses:
-      200:
-        description: 支付成功
-      400:
-        description: 支付参数错误
-      409:
-        description: 支付失败
-
-  POST /{order_id}/refund:
-    summary: 订单退款
-    security:
-      - BearerAuth: []
-    parameters:
-      - name: order_id
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-    requestBody:
-      required: true
-      content:
-        application/json:
-          schema:
-            type: object
-            properties:
-              reason:
-                type: string
-    responses:
-      200:
-        description: 退款成功
-      400:
-        description: 退款参数错误
-      409:
-        description: 退款失败
 ```
 
-## 订单状态流转
+### 错误码
+| 错误码 | 状态码 | 描述 | 解决方案 |
+|--------|--------|------|----------|
+| {MODULE}_001 | 400 | 参数验证失败 | 检查请求参数 |
+| {MODULE}_002 | 404 | 资源不存在 | 确认资源ID |
+| {MODULE}_003 | 409 | 资源冲突 | 检查资源状态 |
 
-```mermaid
-stateDiagram-v2
-    [*] --> 待支付
-    待支付 --> 已支付: 支付成功
-    已支付 --> 已发货: 发货
-    已发货 --> 已完成: 用户确认收货
-    已发货 --> 售后中: 售后申请
-    已支付 --> 已取消: 用户/系统取消
-    已发货 --> 已取消: 拒收/丢件
-    售后中 --> 已完成: 售后处理完成
-    售后中 --> 已取消: 售后失败
+## 测试策略
+
+### 测试覆盖率目标
+- **单元测试**: ≥ 85%
+- **集成测试**: ≥ 70%
+- **端到端测试**: 核心业务流程100%
+
+### 测试类型
+```python
+# 单元测试示例
+class Test{Entity}Service:
+    def test_create_{entity}_success(self):
+        # 测试成功创建{实体}
+        pass
+    
+    def test_create_{entity}_validation_error(self):
+        # 测试验证错误
+        pass
+
+# 集成测试示例  
+class Test{Entity}API:
+    def test_{entity}_crud_workflow(self):
+        # 测试完整CRUD流程
+        pass
 ```
 
-## 分布式事务
+### 性能测试
+- **响应时间**: API响应时间 < 500ms
+- **并发处理**: 支持100并发请求
+- **数据量**: 支持100万条记录
 
-- Saga模式：订单与库存、支付、物流等服务的分布式一致性
-- 事件驱动：订单状态变更通过事件总线同步到各服务
-- 补偿机制：失败时自动回滚相关操作
+### 测试数据
+- **测试数据生成**: Factory Boy或自定义工厂
+- **数据清理**: 每个测试后清理测试数据
+- **Mock策略**: 外部依赖的Mock策略
 
-## 监控指标
+## 部署和运维
 
-### 业务指标
+### 环境要求
+- **开发环境**: 本地开发环境配置
+- **测试环境**: 测试环境配置要求
+- **生产环境**: 生产环境配置要求
 
-- 订单创建量
-- 支付成功率
-- 发货及时率
-- 售后处理时长
-
-### 技术指标
-
-- API响应时间
-- 分布式事务成功率
-- 事件处理延迟
-- 数据库慢查询
-
-### 异常指标
-
-- 订单取消率
-- 支付失败率
-- 售后失败率
-- 物流异常率
-
-## 部署配置
-
-### 环境变量
-
-```bash
-# 数据库配置
-ORDER_DB_URL=postgresql://user:pass@localhost/order_db
-
-# 支付服务配置
-PAYMENT_GATEWAY_URL=https://payment.example.com
-PAYMENT_TIMEOUT=10
-
-# 物流服务配置
-FULFILLMENT_SERVICE_URL=http://fulfillment-service:8080
-FULFILLMENT_TIMEOUT=5
-
-# 消息队列配置
-ORDER_EVENT_BROKER=redis://localhost:6379/3
-ORDER_EVENT_TOPIC=order.events
+### 配置管理
+```python
+# 环境变量配置
+{MODULE}_DATABASE_URL=mysql://...
+{MODULE}_REDIS_URL=redis://...
+{MODULE}_LOG_LEVEL=INFO
 ```
 
-### 依赖服务
+### 监控指标
+- **业务指标**: 关键业务指标监控
+- **技术指标**: 响应时间、错误率等
+- **资源指标**: CPU、内存、数据库连接等
 
-- PostgreSQL (订单数据存储)
-- Redis (事件队列)
-- 支付网关 (支付集成)
-- 物流服务 (履约跟踪)
-- 用户服务 (用户信息)
-- 商品服务 (商品信息)
+### 告警规则
+- **错误率**: > 1% 触发告警
+- **响应时间**: > 1s 触发告警
+- **资源使用**: > 80% 触发告警
+
+## 安全考虑
+
+### 认证授权
+- **身份认证**: JWT Token验证
+- **权限控制**: 基于角色的访问控制
+- **API安全**: Rate Limiting、CORS等
+
+### 数据安全
+- **数据加密**: 敏感数据加密存储
+- **传输安全**: HTTPS传输
+- **输入验证**: 严格的输入验证
+
+### 审计日志
+- **操作日志**: 记录关键操作
+- **访问日志**: 记录API访问
+- **安全日志**: 记录安全相关事件
+
+## 性能优化
+
+### 缓存策略
+- **应用缓存**: Redis缓存热点数据
+- **数据库缓存**: 查询结果缓存
+- **CDN缓存**: 静态资源缓存
+
+### 数据库优化
+- **索引优化**: 关键字段索引
+- **查询优化**: SQL查询优化
+- **连接池**: 数据库连接池配置
+
+### 扩展性设计
+- **水平扩展**: 支持多实例部署
+- **垂直扩展**: 资源配置优化
+- **降级策略**: 服务降级机制
+
+## 问题和风险
+
+### 已知问题
+| 问题ID | 描述 | 优先级 | 状态 | 解决方案 |
+|--------|------|--------|------|----------|
+| {MODULE}-001 | 问题描述 | 高 | 🔄 处理中 | 解决方案 |
+
+### 技术风险
+- **风险1**: 风险描述和缓解措施
+- **风险2**: 风险描述和缓解措施
+
+### 技术债务
+- **债务1**: 技术债务描述和还债计划
+- **债务2**: 技术债务描述和还债计划
+
+## 开发计划
+
+### 里程碑
+- **M1**: 基础功能开发 (预计: {日期})
+- **M2**: 完整功能实现 (预计: {日期})
+- **M3**: 性能优化 (预计: {日期})
+
+### 任务分解
+- [ ] 任务1 (负责人: {姓名}, 预计: {日期})
+- [ ] 任务2 (负责人: {姓名}, 预计: {日期})
+- [ ] 任务3 (负责人: {姓名}, 预计: {日期})
 
 ## 相关文档
 
-- [购物车模块](../shopping-cart/overview.md)
-- [支付集成](../payment/overview.md)
-- [事件架构](../../architecture/event-driven.md)
-- [分布式事务](../../architecture/distributed-transactions.md)
+### 架构文档
+- [系统架构总览](../architecture/overview.md)
+- [API设计规范](../architecture/api-standards.md)
+- [数据模型规范](../architecture/data-models.md)
+
+### 开发文档
+- [开发规范](../development/development-standards.md)
+- [测试指南](../development/testing.md)
+- [部署指南](../operations/deployment.md)
+
+### 需求文档
+- [业务需求](../requirements/business.md)
+- [功能需求](../requirements/functional.md)
+
+### 其他模块
+- [依赖模块1](../modules/{module1}/overview.md)
+- [依赖模块2](../modules/{module2}/overview.md)
+
+---
+
+📝 **模板使用说明**:
+1. 复制此模板创建新的模块文档
+2. 替换所有 `{变量}` 为实际值
+3. 删除不适用的章节
+4. 根据模块特点调整章节内容
+5. 保持文档及时更新
+

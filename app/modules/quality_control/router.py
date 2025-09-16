@@ -20,7 +20,7 @@ router = APIRouter()
 
 # ============ 证书管理接口 ============
 
-@router.post("/certificates", response_model=CertificateRead, status_code=status.HTTP_201_CREATED)
+@router.post("/quality-control/certificates", response_model=CertificateRead, status_code=status.HTTP_201_CREATED)
 def create_certificate(payload: CertificateCreate, db: Session = Depends(get_db)):
     """创建新证书"""
     existing = db.query(Certificate).filter(Certificate.serial == payload.serial).first()
@@ -39,14 +39,14 @@ def create_certificate(payload: CertificateCreate, db: Session = Depends(get_db)
     return cert
 
 
-@router.get("/certificates", response_model=List[CertificateRead])
+@router.get("/quality-control/certificates", response_model=List[CertificateRead])
 def list_certificates(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
     """获取证书列表"""
     certs = db.query(Certificate).offset(skip).limit(limit).all()
     return certs
 
 
-@router.get("/certificates/{cert_id}", response_model=CertificateRead)
+@router.get("/quality-control/certificates/{cert_id}", response_model=CertificateRead)
 def get_certificate(cert_id: int, db: Session = Depends(get_db)):
     """获取指定证书信息"""
     cert = db.query(Certificate).get(cert_id)
@@ -55,7 +55,7 @@ def get_certificate(cert_id: int, db: Session = Depends(get_db)):
     return cert
 
 
-@router.delete("/certificates/{cert_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/quality-control/certificates/{cert_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_certificate(cert_id: int, db: Session = Depends(get_db)):
     """删除证书"""
     cert = db.query(Certificate).get(cert_id)

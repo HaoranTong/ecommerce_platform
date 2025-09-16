@@ -1,796 +1,334 @@
-# 支付服务模块 (Payment Service Module)
+<!--
+文档说明：
+- 内容：模块文档标准模板，用于创建新的模块文档  
+- 使用方法：复制此模板，替换模板变量，填入具体内容
+- 更新方法：模板规范变更时由架构师更新
+- 引用关系：被所有模块文档使用
+- 更新频率：模板标准变化时
+
+⚠️ 强制文档要求：
+每个模块必须包含以下7个文档（无可选项）：
+1. README.md - 模块导航（简洁版入口）
+2. overview.md - 模块概述（本模板，详细版）
+3. requirements.md - 业务需求文档（强制）
+4. design.md - 设计决策文档（强制）
+5. api-spec.md - API规范文档（强制）
+6. api-implementation.md - API实施记录（强制）
+7. implementation.md - 实现细节文档（强制）
+-->
+
+# payment-service模块 模块
+
+📝 **状态**: 草稿 | 评审中 | ✅ 已发布 | 🔄 更新中  
+📅 **创建日期**: 2025-09-16  
+👤 **负责人**: 待指定  
+🔄 **最后更新**: 2025-09-16  
+📋 **版本**: v1.0.0  
 
 ## 模块概述
 
-支付服务模块负责集成多种支付渠道、处理支付流程、管理支付状态、处理退款和对账。确保支付安全性、可靠性和合规性。
+### 主要职责
+简要描述模块的核心职责和业务价值，3-5个要点：
+- 职责1
+- 职责2  
+- 职责3
 
-### 主要功能
+### 业务价值
+- **核心价值**: 模块为业务带来的主要价值
+- **用户收益**: 对终端用户的直接收益
+- **系统收益**: 对整个系统的价值贡献
 
-1. **支付集成**
-   - 多支付渠道集成 (支付宝、微信、银联、PayPal)
-   - 统一支付接口封装
-   - 支付路由策略
-   - 支付降级处理
-
-2. **支付流程管理**
-   - 支付订单创建
-   - 支付状态跟踪
-   - 支付结果通知
-   - 异步回调处理
-
-3. **风控与安全**
-   - 支付风险评估
-   - 反欺诈检测
-   - 支付限额控制
-   - 敏感信息加密
-
-4. **财务管理**
-   - 退款处理
-   - 对账管理
-   - 清结算处理
-   - 财务报表
+### 模块边界
+- **包含功能**: 明确模块包含的功能范围
+- **排除功能**: 明确不属于该模块的功能
+- **依赖模块**: 依赖的其他模块
+- **被依赖**: 被哪些模块依赖
 
 ## 技术架构
 
+### 架构图
+```
+{模块架构图，使用Mermaid或ASCII}
+```
+
 ### 核心组件
-
 ```
-payment_service/
-├── router.py                   # 支付API路由
-├── service.py                  # 支付业务逻辑服务
-├── models.py                   # 支付相关数据模型
-├── schemas.py                  # API请求/响应模型
-├── dependencies.py             # 模块依赖注入
-└── utils.py                    # 支付工具函数
-```
-
-### 第三方适配器集成
-```
-adapters/payment/
-├── wechat_adapter.py           # 微信支付适配器
-├── alipay_adapter.py           # 支付宝适配器
-├── unionpay_adapter.py         # 银联支付适配器
-├── paypal_adapter.py           # PayPal适配器
-└── config.py                   # 支付渠道配置
-│   ├── base_gateway.py            # 网关基类
-│   ├── alipay_gateway.py          # 支付宝网关
-│   ├── wechat_gateway.py          # 微信支付网关
-│   ├── unionpay_gateway.py        # 银联网关
-│   └── paypal_gateway.py          # PayPal网关
-├── models/
-│   ├── payment.py                 # 支付模型
-│   ├── refund.py                  # 退款模型
-│   ├── transaction.py             # 交易模型
-│   └── reconciliation.py          # 对账模型
-├── events/
-│   ├── payment_events.py          # 支付事件
-│   └── refund_events.py           # 退款事件
-└── utils/
-    ├── crypto_utils.py            # 加密工具
-    ├── signature_utils.py         # 签名工具
-    └── currency_utils.py          # 货币工具
+{模块名}/
+├── router.py           # API路由定义
+├── service.py          # 业务逻辑处理
+├── models.py           # 数据模型定义
+├── schemas.py          # 请求/响应模型
+├── dependencies.py     # 模块依赖注入
+└── utils.py            # 工具函数
 ```
 
-### 数据库设计
+### 模块化单体架构
+- **架构模式**: 模块化单体架构 (Modular Monolith)
+- **垂直切片**: 每个模块包含完整的业务功能
+- **依赖原则**: 依赖注入和接口抽象
 
-```sql
--- 支付订单表
-CREATE TABLE payment_orders (
-    id UUID PRIMARY KEY,
-    order_id UUID NOT NULL,
-    user_id UUID NOT NULL,
-    payment_method VARCHAR(20) NOT NULL,
-    amount DECIMAL(12,2) NOT NULL,
-    currency VARCHAR(3) NOT NULL DEFAULT 'CNY',
-    status VARCHAR(20) NOT NULL DEFAULT 'pending',
-    gateway VARCHAR(20) NOT NULL,
-    gateway_order_id VARCHAR(100),
-    gateway_transaction_id VARCHAR(100),
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    paid_at TIMESTAMP WITH TIME ZONE,
-    expired_at TIMESTAMP WITH TIME ZONE,
-    callback_url VARCHAR(500),
-    return_url VARCHAR(500),
-    client_ip INET,
-    user_agent TEXT,
-    
-    CONSTRAINT payment_amount_check CHECK (amount > 0)
-);
-
--- 支付交易表
-CREATE TABLE payment_transactions (
-    id UUID PRIMARY KEY,
-    payment_order_id UUID REFERENCES payment_orders(id),
-    transaction_type VARCHAR(20) NOT NULL, -- 'payment', 'refund', 'chargeback'
-    amount DECIMAL(12,2) NOT NULL,
-    currency VARCHAR(3) NOT NULL,
-    gateway VARCHAR(20) NOT NULL,
-    gateway_transaction_id VARCHAR(100) UNIQUE,
-    status VARCHAR(20) NOT NULL,
-    raw_response JSONB,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    processed_at TIMESTAMP WITH TIME ZONE
-);
-
--- 退款表
-CREATE TABLE refunds (
-    id UUID PRIMARY KEY,
-    payment_order_id UUID REFERENCES payment_orders(id),
-    refund_amount DECIMAL(12,2) NOT NULL,
-    refund_reason VARCHAR(200),
-    status VARCHAR(20) NOT NULL DEFAULT 'pending',
-    gateway_refund_id VARCHAR(100),
-    created_by UUID,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    processed_at TIMESTAMP WITH TIME ZONE,
-    completed_at TIMESTAMP WITH TIME ZONE,
-    
-    CONSTRAINT refund_amount_check CHECK (refund_amount > 0)
-);
-
--- 支付方式配置表
-CREATE TABLE payment_methods (
-    id UUID PRIMARY KEY,
-    method_code VARCHAR(20) UNIQUE NOT NULL,
-    method_name VARCHAR(50) NOT NULL,
-    gateway VARCHAR(20) NOT NULL,
-    is_active BOOLEAN DEFAULT TRUE,
-    min_amount DECIMAL(10,2) DEFAULT 0.01,
-    max_amount DECIMAL(10,2),
-    supported_currencies TEXT[] DEFAULT ARRAY['CNY'],
-    config JSONB NOT NULL,
-    sort_order INTEGER DEFAULT 0,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
--- 对账记录表
-CREATE TABLE reconciliation_records (
-    id UUID PRIMARY KEY,
-    reconciliation_date DATE NOT NULL,
-    gateway VARCHAR(20) NOT NULL,
-    total_count INTEGER NOT NULL DEFAULT 0,
-    matched_count INTEGER NOT NULL DEFAULT 0,
-    unmatched_count INTEGER NOT NULL DEFAULT 0,
-    total_amount DECIMAL(12,2) NOT NULL DEFAULT 0,
-    matched_amount DECIMAL(12,2) NOT NULL DEFAULT 0,
-    unmatched_amount DECIMAL(12,2) NOT NULL DEFAULT 0,
-    status VARCHAR(20) NOT NULL DEFAULT 'pending',
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    completed_at TIMESTAMP WITH TIME ZONE,
-    
-    UNIQUE(reconciliation_date, gateway)
-);
-
--- 风控规则表
-CREATE TABLE risk_rules (
-    id UUID PRIMARY KEY,
-    rule_name VARCHAR(100) NOT NULL,
-    rule_type VARCHAR(20) NOT NULL, -- 'amount', 'frequency', 'location', 'device'
-    conditions JSONB NOT NULL,
-    action VARCHAR(20) NOT NULL, -- 'allow', 'review', 'deny'
-    priority INTEGER DEFAULT 100,
-    is_active BOOLEAN DEFAULT TRUE,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
+### 核心基础设施
+```
+app/core/               # 核心基础设施
+├── database.py         # 数据库连接管理
+├── redis_client.py     # Redis缓存客户端  
+├── auth.py             # 认证中间件
+└── __init__.py         # 核心组件导出
 ```
 
-### 支付网关适配器
+### 适配器集成
+```
+app/adapters/           # 第三方服务适配器
+├── {service_type}/     # 服务类型目录
+│   ├── {provider}_adapter.py
+│   └── config.py
+```
 
+### 技术栈
+- **编程语言**: Python 3.11+
+- **Web框架**: FastAPI
+- **数据库**: MySQL 8.0
+- **缓存**: Redis
+- **其他依赖**: 列出主要的第三方库
+
+### 设计模式
+- **使用的设计模式**: 如Repository、Factory、Strategy等
+- **架构模式**: 如Clean Architecture、DDD等
+- **代码组织**: 分层架构说明
+
+## 核心功能
+
+### 功能列表
+| 功能名称 | 优先级 | 状态 | 描述 |
+|---------|--------|------|------|
+| 功能1 | 高 | ✅ 已完成 | 功能简要描述 |
+| 功能2 | 中 | 🔄 开发中 | 功能简要描述 |
+| 功能3 | 低 | ⏳ 待开始 | 功能简要描述 |
+
+### 核心业务流程
+```mermaid
+graph TD
+    A[开始] --> B[步骤1]
+    B --> C[步骤2]
+    C --> D[结束]
+```
+
+### 业务规则
+1. **规则1**: 详细描述业务规则
+2. **规则2**: 详细描述业务规则
+3. **规则3**: 详细描述业务规则
+
+## 数据模型
+
+### 核心实体
 ```python
-# 支付网关基类
-class BasePaymentGateway:
-    def __init__(self, config: dict):
-        self.config = config
+# 主要数据模型示例
+class {EntityName}(Base):
+    __tablename__ = "{table_name}"
     
-    async def create_payment(self, payment_request: PaymentRequest) -> PaymentResponse:
-        """创建支付订单"""
-        raise NotImplementedError
-    
-    async def query_payment(self, gateway_order_id: str) -> PaymentQueryResponse:
-        """查询支付状态"""
-        raise NotImplementedError
-    
-    async def create_refund(self, refund_request: RefundRequest) -> RefundResponse:
-        """创建退款"""
-        raise NotImplementedError
-    
-    async def verify_callback(self, callback_data: dict) -> bool:
-        """验证回调签名"""
-        raise NotImplementedError
-
-# 支付宝网关实现
-class AlipayGateway(BasePaymentGateway):
-    def __init__(self, config: dict):
-        super().__init__(config)
-        self.app_id = config['app_id']
-        self.private_key = config['private_key']
-        self.alipay_public_key = config['alipay_public_key']
-        self.gateway_url = config.get('gateway_url', 'https://openapi.alipay.com/gateway.do')
-    
-    async def create_payment(self, payment_request: PaymentRequest) -> PaymentResponse:
-        """创建支付宝支付订单"""
-        biz_content = {
-            "out_trade_no": payment_request.order_id,
-            "total_amount": str(payment_request.amount),
-            "subject": payment_request.subject,
-            "product_code": "FAST_INSTANT_TRADE_PAY",
-            "notify_url": payment_request.notify_url,
-            "return_url": payment_request.return_url
-        }
-        
-        params = {
-            "app_id": self.app_id,
-            "method": "alipay.trade.page.pay",
-            "charset": "utf-8",
-            "sign_type": "RSA2",
-            "timestamp": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-            "version": "1.0",
-            "biz_content": json.dumps(biz_content, separators=(',', ':'))
-        }
-        
-        # 生成签名
-        sign = self._generate_sign(params)
-        params['sign'] = sign
-        
-        # 生成支付URL
-        payment_url = f"{self.gateway_url}?{self._build_query_string(params)}"
-        
-        return PaymentResponse(
-            gateway_order_id=payment_request.order_id,
-            payment_url=payment_url,
-            status='created'
-        )
-    
-    async def verify_callback(self, callback_data: dict) -> bool:
-        """验证支付宝回调签名"""
-        sign = callback_data.pop('sign', '')
-        sign_type = callback_data.pop('sign_type', '')
-        
-        if sign_type != 'RSA2':
-            return False
-        
-        # 参数排序并生成待签名字符串
-        sorted_params = sorted(callback_data.items())
-        sign_string = '&'.join([f"{k}={v}" for k, v in sorted_params if v])
-        
-        # 验证签名
-        return self._verify_sign(sign_string, sign)
-
-# 微信支付网关实现
-class WechatPayGateway(BasePaymentGateway):
-    def __init__(self, config: dict):
-        super().__init__(config)
-        self.mch_id = config['mch_id']
-        self.app_id = config['app_id']
-        self.api_key = config['api_key']
-        self.gateway_url = config.get('gateway_url', 'https://api.mch.weixin.qq.com')
-    
-    async def create_payment(self, payment_request: PaymentRequest) -> PaymentResponse:
-        """创建微信支付订单"""
-        params = {
-            'appid': self.app_id,
-            'mch_id': self.mch_id,
-            'nonce_str': self._generate_nonce_str(),
-            'body': payment_request.subject,
-            'out_trade_no': payment_request.order_id,
-            'total_fee': int(payment_request.amount * 100),  # 转为分
-            'spbill_create_ip': payment_request.client_ip,
-            'notify_url': payment_request.notify_url,
-            'trade_type': 'NATIVE',  # 扫码支付
-        }
-        
-        # 生成签名
-        params['sign'] = self._generate_wechat_sign(params)
-        
-        # 转换为XML
-        xml_data = self._dict_to_xml(params)
-        
-        # 调用微信API
-        response = await self._make_request(
-            f"{self.gateway_url}/pay/unifiedorder", 
-            xml_data
-        )
-        
-        response_data = self._xml_to_dict(response)
-        
-        if response_data.get('return_code') == 'SUCCESS' and response_data.get('result_code') == 'SUCCESS':
-            return PaymentResponse(
-                gateway_order_id=response_data['prepay_id'],
-                payment_url=response_data['code_url'],  # 二维码URL
-                status='created'
-            )
-        else:
-            raise PaymentError(response_data.get('err_code_des', 'Unknown error'))
+    id = Column(Integer, primary_key=True)
+    name = Column(String(100), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 ```
 
-## API 接口
+### 数据关系图
+```
+{实体关系图，可以使用Mermaid ER图}
+```
 
-### 支付操作
+### 数据约束
+- **唯一性约束**: 字段级别的唯一性要求
+- **外键约束**: 与其他表的关系约束
+- **业务约束**: 业务级别的数据约束
 
+## API接口
+
+### 接口列表
+| 接口 | 方法 | 路径 | 描述 | 状态 |
+|------|------|------|------|------|
+| 创建{实体} | POST | /api/v1/{entities} | 创建新的{实体} | ✅ |
+| 获取{实体} | GET | /api/v1/{entities}/{id} | 获取指定{实体} | ✅ |
+| 更新{实体} | PUT | /api/v1/{entities}/{id} | 更新{实体}信息 | 🔄 |
+| 删除{实体} | DELETE | /api/v1/{entities}/{id} | 删除{实体} | ⏳ |
+
+### 接口详情示例
 ```yaml
-/api/v1/payments:
-  POST /:
-    summary: 创建支付订单
-    security:
-      - BearerAuth: []
+/api/v1/{entities}:
+  post:
+    summary: 创建{实体}
     requestBody:
       required: true
       content:
         application/json:
           schema:
-            type: object
-            properties:
-              order_id:
-                type: string
-                format: uuid
-              payment_method:
-                type: string
-                enum: [alipay, wechat, unionpay, paypal]
-              amount:
-                type: number
-                format: decimal
-                minimum: 0.01
-              currency:
-                type: string
-                default: CNY
-              return_url:
-                type: string
-                format: uri
+            $ref: '#/components/schemas/{Entity}Create'
     responses:
       201:
-        description: 支付订单创建成功
+        description: 创建成功
         content:
           application/json:
             schema:
-              type: object
-              properties:
-                payment_id:
-                  type: string
-                  format: uuid
-                payment_url:
-                  type: string
-                  format: uri
-                qr_code:
-                  type: string
-                  description: 二维码内容（微信支付）
-
-  GET /{payment_id}:
-    summary: 查询支付状态
-    security:
-      - BearerAuth: []
-    parameters:
-      - name: payment_id
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-    responses:
-      200:
-        description: 支付状态
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/PaymentStatus'
-
-  POST /{payment_id}/cancel:
-    summary: 取消支付
-    security:
-      - BearerAuth: []
-    parameters:
-      - name: payment_id
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-    responses:
-      200:
-        description: 取消成功
-
-  POST /{payment_id}/refund:
-    summary: 申请退款
-    security:
-      - BearerAuth: []
-    parameters:
-      - name: payment_id
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-    requestBody:
-      required: true
-      content:
-        application/json:
-          schema:
-            type: object
-            properties:
-              refund_amount:
-                type: number
-                format: decimal
-                minimum: 0.01
-              refund_reason:
-                type: string
-                maxLength: 200
-    responses:
-      201:
-        description: 退款申请成功
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                refund_id:
-                  type: string
-                  format: uuid
-                status:
-                  type: string
+              $ref: '#/components/schemas/{Entity}'
+      400:
+        description: 请求参数错误
 ```
 
-### 支付回调
+### 错误码
+| 错误码 | 状态码 | 描述 | 解决方案 |
+|--------|--------|------|----------|
+| {MODULE}_001 | 400 | 参数验证失败 | 检查请求参数 |
+| {MODULE}_002 | 404 | 资源不存在 | 确认资源ID |
+| {MODULE}_003 | 409 | 资源冲突 | 检查资源状态 |
 
-```yaml
-/api/v1/payments/webhooks:
-  POST /{gateway}/notify:
-    summary: 支付网关回调通知
-    parameters:
-      - name: gateway
-        in: path
-        required: true
-        schema:
-          type: string
-          enum: [alipay, wechat, unionpay, paypal]
-    requestBody:
-      required: true
-      content:
-        application/x-www-form-urlencoded:
-          schema:
-            type: object
-        application/json:
-          schema:
-            type: object
-        application/xml:
-          schema:
-            type: string
-    responses:
-      200:
-        description: 回调处理成功
-        content:
-          text/plain:
-            schema:
-              type: string
-              example: "success"
-```
+## 测试策略
 
-## 业务逻辑
+### 测试覆盖率目标
+- **单元测试**: ≥ 85%
+- **集成测试**: ≥ 70%
+- **端到端测试**: 核心业务流程100%
 
-### 支付流程服务
-
+### 测试类型
 ```python
-class PaymentService:
-    def __init__(self, db, gateway_manager, event_publisher, risk_service):
-        self.db = db
-        self.gateway_manager = gateway_manager
-        self.event_publisher = event_publisher
-        self.risk_service = risk_service
+# 单元测试示例
+class Test{Entity}Service:
+    def test_create_{entity}_success(self):
+        # 测试成功创建{实体}
+        pass
     
-    async def create_payment(self, payment_request: PaymentCreateRequest) -> PaymentResult:
-        """
-        创建支付订单
-        1. 风险评估
-        2. 创建支付订单
-        3. 调用支付网关
-        4. 返回支付信息
-        """
-        # 1. 风险评估
-        risk_result = await self.risk_service.assess_payment_risk(payment_request)
-        
-        if risk_result.action == 'deny':
-            raise PaymentRiskError("支付被风控系统拒绝")
-        elif risk_result.action == 'review':
-            # 标记为需要人工审核
-            payment_request.requires_review = True
-        
-        # 2. 创建支付订单
-        payment_order = await self.db.create_payment_order(
-            order_id=payment_request.order_id,
-            user_id=payment_request.user_id,
-            payment_method=payment_request.payment_method,
-            amount=payment_request.amount,
-            currency=payment_request.currency,
-            gateway=self._select_gateway(payment_request.payment_method),
-            callback_url=payment_request.callback_url,
-            return_url=payment_request.return_url,
-            client_ip=payment_request.client_ip,
-            user_agent=payment_request.user_agent
-        )
-        
-        # 3. 如果需要审核，暂停处理
-        if payment_request.requires_review:
-            await self.db.update_payment_status(payment_order.id, 'review')
-            return PaymentResult(
-                payment_id=payment_order.id,
-                status='review',
-                message="支付订单需要人工审核"
-            )
-        
-        # 4. 调用支付网关
-        gateway = self.gateway_manager.get_gateway(payment_order.gateway)
-        
-        try:
-            gateway_response = await gateway.create_payment(PaymentRequest(
-                order_id=str(payment_order.id),
-                amount=payment_order.amount,
-                subject=f"订单支付-{payment_request.order_id}",
-                notify_url=f"{self.base_url}/api/v1/payments/webhooks/{payment_order.gateway}/notify",
-                return_url=payment_request.return_url,
-                client_ip=payment_request.client_ip
-            ))
-            
-            # 5. 更新支付订单
-            await self.db.update_payment_order(
-                payment_order.id,
-                gateway_order_id=gateway_response.gateway_order_id,
-                status='created'
-            )
-            
-            # 6. 发布事件
-            await self.event_publisher.publish('payment.created', {
-                'payment_id': str(payment_order.id),
-                'order_id': payment_request.order_id,
-                'amount': float(payment_order.amount),
-                'payment_method': payment_order.payment_method
-            })
-            
-            return PaymentResult(
-                payment_id=payment_order.id,
-                payment_url=gateway_response.payment_url,
-                qr_code=gateway_response.qr_code,
-                status='created'
-            )
-            
-        except Exception as e:
-            await self.db.update_payment_status(payment_order.id, 'failed')
-            raise PaymentGatewayError(f"支付网关调用失败: {str(e)}")
-    
-    async def handle_payment_callback(self, gateway: str, callback_data: dict) -> bool:
-        """
-        处理支付回调
-        1. 验证回调签名
-        2. 更新支付状态
-        3. 通知订单系统
-        """
-        gateway_instance = self.gateway_manager.get_gateway(gateway)
-        
-        # 1. 验证签名
-        if not await gateway_instance.verify_callback(callback_data):
-            logger.error(f"Invalid callback signature from {gateway}: {callback_data}")
-            return False
-        
-        # 2. 解析回调数据
-        payment_info = self._parse_callback_data(gateway, callback_data)
-        
-        # 3. 查找支付订单
-        payment_order = await self.db.get_payment_order_by_gateway_id(
-            payment_info.gateway_order_id
-        )
-        
-        if not payment_order:
-            logger.error(f"Payment order not found: {payment_info.gateway_order_id}")
-            return False
-        
-        # 4. 防止重复处理
-        if payment_order.status in ['paid', 'failed', 'cancelled']:
-            return True
-        
-        # 5. 更新支付状态
-        async with self.db.transaction():
-            await self.db.update_payment_order(
-                payment_order.id,
-                status=payment_info.status,
-                gateway_transaction_id=payment_info.transaction_id,
-                paid_at=payment_info.paid_at if payment_info.status == 'paid' else None
-            )
-            
-            # 6. 记录交易
-            await self.db.create_payment_transaction(
-                payment_order_id=payment_order.id,
-                transaction_type='payment',
-                amount=payment_info.amount,
-                currency=payment_order.currency,
-                gateway=gateway,
-                gateway_transaction_id=payment_info.transaction_id,
-                status=payment_info.status,
-                raw_response=callback_data
-            )
-        
-        # 7. 发布事件
-        event_type = f"payment.{payment_info.status}"
-        await self.event_publisher.publish(event_type, {
-            'payment_id': str(payment_order.id),
-            'order_id': str(payment_order.order_id),
-            'amount': float(payment_order.amount),
-            'gateway_transaction_id': payment_info.transaction_id,
-            'paid_at': payment_info.paid_at.isoformat() if payment_info.paid_at else None
-        })
-        
-        return True
+    def test_create_{entity}_validation_error(self):
+        # 测试验证错误
+        pass
+
+# 集成测试示例  
+class Test{Entity}API:
+    def test_{entity}_crud_workflow(self):
+        # 测试完整CRUD流程
+        pass
 ```
 
-### 风控服务
+### 性能测试
+- **响应时间**: API响应时间 < 500ms
+- **并发处理**: 支持100并发请求
+- **数据量**: 支持100万条记录
 
+### 测试数据
+- **测试数据生成**: Factory Boy或自定义工厂
+- **数据清理**: 每个测试后清理测试数据
+- **Mock策略**: 外部依赖的Mock策略
+
+## 部署和运维
+
+### 环境要求
+- **开发环境**: 本地开发环境配置
+- **测试环境**: 测试环境配置要求
+- **生产环境**: 生产环境配置要求
+
+### 配置管理
 ```python
-class RiskAssessmentService:
-    def __init__(self, db, redis_client):
-        self.db = db
-        self.redis = redis_client
-    
-    async def assess_payment_risk(self, payment_request: PaymentCreateRequest) -> RiskResult:
-        """
-        支付风险评估
-        """
-        risk_score = 0
-        risk_factors = []
-        
-        # 1. 金额风险检查
-        amount_risk = await self._check_amount_risk(payment_request)
-        risk_score += amount_risk.score
-        risk_factors.extend(amount_risk.factors)
-        
-        # 2. 频率风险检查
-        frequency_risk = await self._check_frequency_risk(payment_request)
-        risk_score += frequency_risk.score
-        risk_factors.extend(frequency_risk.factors)
-        
-        # 3. 地理位置风险检查
-        location_risk = await self._check_location_risk(payment_request)
-        risk_score += location_risk.score
-        risk_factors.extend(location_risk.factors)
-        
-        # 4. 设备风险检查
-        device_risk = await self._check_device_risk(payment_request)
-        risk_score += device_risk.score
-        risk_factors.extend(device_risk.factors)
-        
-        # 5. 用户历史风险检查
-        user_risk = await self._check_user_history_risk(payment_request)
-        risk_score += user_risk.score
-        risk_factors.extend(user_risk.factors)
-        
-        # 6. 确定风险等级和处理动作
-        action = self._determine_risk_action(risk_score)
-        
-        return RiskResult(
-            score=risk_score,
-            action=action,
-            factors=risk_factors
-        )
-    
-    async def _check_amount_risk(self, payment_request: PaymentCreateRequest) -> RiskCheck:
-        """检查金额风险"""
-        risk_score = 0
-        factors = []
-        
-        # 大额支付风险
-        if payment_request.amount > 10000:
-            risk_score += 30
-            factors.append("大额支付")
-        elif payment_request.amount > 5000:
-            risk_score += 15
-            factors.append("中额支付")
-        
-        # 用户历史支付金额对比
-        user_payment_history = await self.db.get_user_payment_history(
-            payment_request.user_id, 
-            days=30
-        )
-        
-        if user_payment_history:
-            avg_amount = sum(p.amount for p in user_payment_history) / len(user_payment_history)
-            if payment_request.amount > avg_amount * 5:
-                risk_score += 25
-                factors.append("支付金额异常（超过历史平均5倍）")
-        
-        return RiskCheck(score=risk_score, factors=factors)
-    
-    async def _check_frequency_risk(self, payment_request: PaymentCreateRequest) -> RiskCheck:
-        """检查频率风险"""
-        risk_score = 0
-        factors = []
-        
-        # 检查用户短时间内支付频率
-        recent_payments_key = f"payment_frequency:{payment_request.user_id}"
-        recent_count = await self.redis.zcount(
-            recent_payments_key,
-            time.time() - 300,  # 5分钟内
-            time.time()
-        )
-        
-        if recent_count >= 5:
-            risk_score += 40
-            factors.append("5分钟内支付次数过多")
-        elif recent_count >= 3:
-            risk_score += 20
-            factors.append("5分钟内支付次数较多")
-        
-        # 检查IP地址支付频率
-        ip_payments_key = f"payment_ip:{payment_request.client_ip}"
-        ip_count = await self.redis.zcount(
-            ip_payments_key,
-            time.time() - 3600,  # 1小时内
-            time.time()
-        )
-        
-        if ip_count >= 20:
-            risk_score += 30
-            factors.append("IP地址1小时内支付次数过多")
-        
-        return RiskCheck(score=risk_score, factors=factors)
-    
-    def _determine_risk_action(self, risk_score: int) -> str:
-        """根据风险分数确定处理动作"""
-        if risk_score >= 80:
-            return 'deny'
-        elif risk_score >= 50:
-            return 'review'
-        else:
-            return 'allow'
+# 环境变量配置
+{MODULE}_DATABASE_URL=mysql://...
+{MODULE}_REDIS_URL=redis://...
+{MODULE}_LOG_LEVEL=INFO
 ```
 
-## 监控指标
+### 监控指标
+- **业务指标**: 关键业务指标监控
+- **技术指标**: 响应时间、错误率等
+- **资源指标**: CPU、内存、数据库连接等
 
-### 业务指标
+### 告警规则
+- **错误率**: > 1% 触发告警
+- **响应时间**: > 1s 触发告警
+- **资源使用**: > 80% 触发告警
 
-- 支付成功率
-- 支付转化率
-- 平均支付时长
-- 退款率
+## 安全考虑
 
-### 技术指标
+### 认证授权
+- **身份认证**: JWT Token验证
+- **权限控制**: 基于角色的访问控制
+- **API安全**: Rate Limiting、CORS等
 
-- 支付网关响应时间
-- 回调处理延迟
-- API可用性
-- 签名验证成功率
+### 数据安全
+- **数据加密**: 敏感数据加密存储
+- **传输安全**: HTTPS传输
+- **输入验证**: 严格的输入验证
 
-### 风控指标
+### 审计日志
+- **操作日志**: 记录关键操作
+- **访问日志**: 记录API访问
+- **安全日志**: 记录安全相关事件
 
-- 风控拦截率
-- 误报率
-- 风险识别准确率
-- 人工审核通过率
+## 性能优化
 
-## 部署配置
+### 缓存策略
+- **应用缓存**: Redis缓存热点数据
+- **数据库缓存**: 查询结果缓存
+- **CDN缓存**: 静态资源缓存
 
-### 环境变量
+### 数据库优化
+- **索引优化**: 关键字段索引
+- **查询优化**: SQL查询优化
+- **连接池**: 数据库连接池配置
 
-```bash
-# 数据库配置
-PAYMENT_DB_URL=postgresql://user:pass@localhost/payment_db
+### 扩展性设计
+- **水平扩展**: 支持多实例部署
+- **垂直扩展**: 资源配置优化
+- **降级策略**: 服务降级机制
 
-# 支付宝配置
-ALIPAY_APP_ID=your_app_id
-ALIPAY_PRIVATE_KEY=your_private_key
-ALIPAY_PUBLIC_KEY=alipay_public_key
+## 问题和风险
 
-# 微信支付配置
-WECHAT_MCH_ID=your_mch_id
-WECHAT_APP_ID=your_app_id
-WECHAT_API_KEY=your_api_key
+### 已知问题
+| 问题ID | 描述 | 优先级 | 状态 | 解决方案 |
+|--------|------|--------|------|----------|
+| {MODULE}-001 | 问题描述 | 高 | 🔄 处理中 | 解决方案 |
 
-# 风控配置
-RISK_ASSESSMENT_ENABLED=true
-HIGH_RISK_THRESHOLD=80
-MEDIUM_RISK_THRESHOLD=50
-```
+### 技术风险
+- **风险1**: 风险描述和缓解措施
+- **风险2**: 风险描述和缓解措施
+
+### 技术债务
+- **债务1**: 技术债务描述和还债计划
+- **债务2**: 技术债务描述和还债计划
+
+## 开发计划
+
+### 里程碑
+- **M1**: 基础功能开发 (预计: {日期})
+- **M2**: 完整功能实现 (预计: {日期})
+- **M3**: 性能优化 (预计: {日期})
+
+### 任务分解
+- [ ] 任务1 (负责人: {姓名}, 预计: {日期})
+- [ ] 任务2 (负责人: {姓名}, 预计: {日期})
+- [ ] 任务3 (负责人: {姓名}, 预计: {日期})
 
 ## 相关文档
 
-- [订单模块](../order-management/overview.md)
-- [风控系统](../risk-management/overview.md)
-- [安全架构](../../architecture/security.md)
-- [事件架构](../../architecture/event-driven.md)
+### 架构文档
+- [系统架构总览](../architecture/overview.md)
+- [API设计规范](../architecture/api-standards.md)
+- [数据模型规范](../architecture/data-models.md)
+
+### 开发文档
+- [开发规范](../development/development-standards.md)
+- [测试指南](../development/testing.md)
+- [部署指南](../operations/deployment.md)
+
+### 需求文档
+- [业务需求](../requirements/business.md)
+- [功能需求](../requirements/functional.md)
+
+### 其他模块
+- [依赖模块1](../modules/{module1}/overview.md)
+- [依赖模块2](../modules/{module2}/overview.md)
+
+---
+
+📝 **模板使用说明**:
+1. 复制此模板创建新的模块文档
+2. 替换所有 `{变量}` 为实际值
+3. 删除不适用的章节
+4. 根据模块特点调整章节内容
+5. 保持文档及时更新
+

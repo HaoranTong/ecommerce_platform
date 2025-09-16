@@ -1,785 +1,334 @@
-# 商品管理模块 (Product Catalog Module)
+<!--
+文档说明：
+- 内容：模块文档标准模板，用于创建新的模块文档  
+- 使用方法：复制此模板，替换模板变量，填入具体内容
+- 更新方法：模板规范变更时由架构师更新
+- 引用关系：被所有模块文档使用
+- 更新频率：模板标准变化时
+
+⚠️ 强制文档要求：
+每个模块必须包含以下7个文档（无可选项）：
+1. README.md - 模块导航（简洁版入口）
+2. overview.md - 模块概述（本模板，详细版）
+3. requirements.md - 业务需求文档（强制）
+4. design.md - 设计决策文档（强制）
+5. api-spec.md - API规范文档（强制）
+6. api-implementation.md - API实施记录（强制）
+7. implementation.md - 实现细节文档（强制）
+-->
+
+# product-catalog模块 模块
+
+📝 **状态**: 草稿 | 评审中 | ✅ 已发布 | 🔄 更新中  
+📅 **创建日期**: 2025-09-16  
+👤 **负责人**: 待指定  
+🔄 **最后更新**: 2025-09-16  
+📋 **版本**: v1.0.0  
 
 ## 模块概述
 
-商品管理模块是电商平台的核心业务模块，负责商品信息管理、分类体系、库存同步、搜索索引和内容管理。支持多规格商品、动态定价、个性化展示。
+### 主要职责
+简要描述模块的核心职责和业务价值，3-5个要点：
+- 职责1
+- 职责2  
+- 职责3
 
-### 主要功能
+### 业务价值
+- **核心价值**: 模块为业务带来的主要价值
+- **用户收益**: 对终端用户的直接收益
+- **系统收益**: 对整个系统的价值贡献
 
-1. **商品信息管理**
-   - 商品基本信息 (名称、描述、图片、视频)
-   - 商品规格管理 (SKU、颜色、尺寸、材质)
-   - 商品分类体系 (多级分类、标签体系)
-   - 商品状态管理 (上架、下架、预售、停产)
-
-2. **价格管理**
-   - 基础定价策略
-   - 动态价格调整
-   - 促销价格管理
-   - 会员价格体系
-
-3. **内容管理**
-   - 商品详情页内容
-   - 富文本编辑器
-   - 多媒体资源管理
-   - SEO优化支持
-
-4. **搜索与发现**
-   - 全文搜索
-   - 分面搜索 (筛选器)
-   - 智能推荐
-   - 相关商品推荐
+### 模块边界
+- **包含功能**: 明确模块包含的功能范围
+- **排除功能**: 明确不属于该模块的功能
+- **依赖模块**: 依赖的其他模块
+- **被依赖**: 被哪些模块依赖
 
 ## 技术架构
 
+### 架构图
+```
+{模块架构图，使用Mermaid或ASCII}
+```
+
 ### 核心组件
-
 ```
-product_catalog/
+{模块名}/
 ├── router.py           # API路由定义
-├── service.py          # 商品业务逻辑
-├── models.py           # 商品数据模型(Product, Category, SKU)
-├── schemas.py          # 请求/响应数据模型
+├── service.py          # 业务逻辑处理
+├── models.py           # 数据模型定义
+├── schemas.py          # 请求/响应模型
 ├── dependencies.py     # 模块依赖注入
-└── utils.py            # 商品工具函数(搜索、定价、库存同步)
+└── utils.py            # 工具函数
 ```
 
-### 依赖的核心服务
+### 模块化单体架构
+- **架构模式**: 模块化单体架构 (Modular Monolith)
+- **垂直切片**: 每个模块包含完整的业务功能
+- **依赖原则**: 依赖注入和接口抽象
+
+### 核心基础设施
 ```
-app/core/
+app/core/               # 核心基础设施
 ├── database.py         # 数据库连接管理
-├── redis_client.py     # 商品缓存服务
-└── auth.py             # 权限认证中间件
+├── redis_client.py     # Redis缓存客户端  
+├── auth.py             # 认证中间件
+└── __init__.py         # 核心组件导出
 ```
 
-### 集成的适配器
+### 适配器集成
 ```
-app/adapters/
-├── search/             # 搜索引擎适配器(待开发)
-│   └── elasticsearch_adapter.py
-└── image/              # 图片处理适配器(待开发)
-    └── oss_adapter.py  # 对象存储适配器
-│   ├── product.py               # 商品模型
-│   ├── category.py              # 分类模型
-│   ├── sku.py                   # SKU模型
-│   ├── brand.py                 # 品牌模型
-│   └── attribute.py             # 属性模型
-├── events/
-│   ├── product_events.py        # 商品事件
-│   └── inventory_events.py      # 库存事件
-└── utils/
-    ├── seo_utils.py             # SEO工具
-    ├── image_utils.py           # 图片处理工具
-    └── search_utils.py          # 搜索工具
+app/adapters/           # 第三方服务适配器
+├── {service_type}/     # 服务类型目录
+│   ├── {provider}_adapter.py
+│   └── config.py
 ```
 
-### 数据库设计
+### 技术栈
+- **编程语言**: Python 3.11+
+- **Web框架**: FastAPI
+- **数据库**: MySQL 8.0
+- **缓存**: Redis
+- **其他依赖**: 列出主要的第三方库
 
-```sql
--- 商品表
-CREATE TABLE products (
-    id INTEGER PRIMARY KEY AUTO_INCREMENT,
-    name VARCHAR(200) NOT NULL,
-    description TEXT,
-    brand_id INTEGER REFERENCES brands(id),
-    category_id INTEGER REFERENCES categories(id),
-    status VARCHAR(20) NOT NULL DEFAULT 'draft',
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    published_at TIMESTAMP WITH TIME ZONE,
-    seo_title VARCHAR(200),
-    seo_description TEXT,
-    seo_keywords VARCHAR(500),
-    sort_order INTEGER DEFAULT 0,
-    view_count INTEGER DEFAULT 0,
-    sale_count INTEGER DEFAULT 0
-);
+### 设计模式
+- **使用的设计模式**: 如Repository、Factory、Strategy等
+- **架构模式**: 如Clean Architecture、DDD等
+- **代码组织**: 分层架构说明
 
--- 分类表
-CREATE TABLE categories (
-    id INTEGER PRIMARY KEY AUTO_INCREMENT,
-    name VARCHAR(100) NOT NULL,
-    slug VARCHAR(100) UNIQUE NOT NULL,
-    description TEXT,
-    parent_id INTEGER REFERENCES categories(id),
-    level INTEGER NOT NULL DEFAULT 1,
-    path VARCHAR(500) NOT NULL, -- 层级路径 /1/2/3
-    sort_order INTEGER DEFAULT 0,
-    is_active BOOLEAN DEFAULT TRUE,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
+## 核心功能
 
--- SKU表
-CREATE TABLE skus (
-    id INTEGER PRIMARY KEY AUTO_INCREMENT,
-    product_id INTEGER REFERENCES products(id) ON DELETE CASCADE,
-    sku_code VARCHAR(100) UNIQUE NOT NULL,
-    name VARCHAR(200),
-    price DECIMAL(10,2) NOT NULL,
-    cost_price DECIMAL(10,2),
-    market_price DECIMAL(10,2),
-    weight DECIMAL(8,3),
-    volume DECIMAL(8,3),
-    is_active BOOLEAN DEFAULT TRUE,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
+### 功能列表
+| 功能名称 | 优先级 | 状态 | 描述 |
+|---------|--------|------|------|
+| 功能1 | 高 | ✅ 已完成 | 功能简要描述 |
+| 功能2 | 中 | 🔄 开发中 | 功能简要描述 |
+| 功能3 | 低 | ⏳ 待开始 | 功能简要描述 |
 
--- 品牌表
-CREATE TABLE brands (
-    id INTEGER PRIMARY KEY AUTO_INCREMENT,
-    name VARCHAR(100) UNIQUE NOT NULL,
-    slug VARCHAR(100) UNIQUE NOT NULL,
-    description TEXT,
-    logo_url VARCHAR(500),
-    website_url VARCHAR(500),
-    is_active BOOLEAN DEFAULT TRUE,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
+### 核心业务流程
+```mermaid
+graph TD
+    A[开始] --> B[步骤1]
+    B --> C[步骤2]
+    C --> D[结束]
+```
 
--- 商品属性表
-CREATE TABLE product_attributes (
-    id INTEGER PRIMARY KEY AUTO_INCREMENT,
-    product_id INTEGER REFERENCES products(id) ON DELETE CASCADE,
-    attribute_name VARCHAR(100) NOT NULL,
-    attribute_value VARCHAR(500) NOT NULL,
-    attribute_type VARCHAR(20) NOT NULL, -- 'text', 'number', 'boolean', 'select'
-    is_searchable BOOLEAN DEFAULT FALSE,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
+### 业务规则
+1. **规则1**: 详细描述业务规则
+2. **规则2**: 详细描述业务规则
+3. **规则3**: 详细描述业务规则
 
--- SKU属性表 (颜色、尺寸等)
-CREATE TABLE sku_attributes (
-    id INTEGER PRIMARY KEY AUTO_INCREMENT,
-    sku_id INTEGER REFERENCES skus(id) ON DELETE CASCADE,
-    attribute_name VARCHAR(100) NOT NULL,
-    attribute_value VARCHAR(200) NOT NULL,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+## 数据模型
+
+### 核心实体
+```python
+# 主要数据模型示例
+class {EntityName}(Base):
+    __tablename__ = "{table_name}"
     
-    UNIQUE(sku_id, attribute_name)
-);
-
--- 商品图片表
-CREATE TABLE product_images (
-    id INTEGER PRIMARY KEY AUTO_INCREMENT,
-    product_id INTEGER REFERENCES products(id) ON DELETE CASCADE,
-    sku_id INTEGER REFERENCES skus(id) ON DELETE CASCADE,
-    image_url VARCHAR(500) NOT NULL,
-    alt_text VARCHAR(200),
-    sort_order INTEGER DEFAULT 0,
-    is_primary BOOLEAN DEFAULT FALSE,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
--- 商品标签表
-CREATE TABLE product_tags (
-    id INTEGER PRIMARY KEY AUTO_INCREMENT,
-    product_id INTEGER REFERENCES products(id) ON DELETE CASCADE,
-    tag_name VARCHAR(50) NOT NULL,
-    tag_type VARCHAR(20) DEFAULT 'general', -- 'general', 'promotion', 'feature'
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    
-    UNIQUE(product_id, tag_name)
-);
+    id = Column(Integer, primary_key=True)
+    name = Column(String(100), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 ```
 
-### 搜索引擎设计 (Elasticsearch)
-
-```json
-{
-  "mappings": {
-    "properties": {
-      "id": { "type": "keyword" },
-      "name": {
-        "type": "text",
-        "analyzer": "ik_max_word",
-        "search_analyzer": "ik_smart",
-        "fields": {
-          "suggest": {
-            "type": "completion"
-          }
-        }
-      },
-      "description": {
-        "type": "text",
-        "analyzer": "ik_max_word"
-      },
-      "category": {
-        "type": "nested",
-        "properties": {
-          "id": { "type": "keyword" },
-          "name": { "type": "keyword" },
-          "path": { "type": "keyword" }
-        }
-      },
-      "brand": {
-        "type": "object",
-        "properties": {
-          "id": { "type": "keyword" },
-          "name": { "type": "keyword" }
-        }
-      },
-      "price": { "type": "double" },
-      "price_range": { "type": "keyword" },
-      "attributes": {
-        "type": "nested",
-        "properties": {
-          "name": { "type": "keyword" },
-          "value": { "type": "keyword" }
-        }
-      },
-      "tags": { "type": "keyword" },
-      "status": { "type": "keyword" },
-      "created_at": { "type": "date" },
-      "popularity_score": { "type": "double" },
-      "rating": { "type": "double" },
-      "review_count": { "type": "integer" },
-      "sale_count": { "type": "integer" }
-    }
-  }
-}
+### 数据关系图
+```
+{实体关系图，可以使用Mermaid ER图}
 ```
 
-## API 接口
+### 数据约束
+- **唯一性约束**: 字段级别的唯一性要求
+- **外键约束**: 与其他表的关系约束
+- **业务约束**: 业务级别的数据约束
 
-### 商品管理
+## API接口
 
+### 接口列表
+| 接口 | 方法 | 路径 | 描述 | 状态 |
+|------|------|------|------|------|
+| 创建{实体} | POST | /api/v1/{entities} | 创建新的{实体} | ✅ |
+| 获取{实体} | GET | /api/v1/{entities}/{id} | 获取指定{实体} | ✅ |
+| 更新{实体} | PUT | /api/v1/{entities}/{id} | 更新{实体}信息 | 🔄 |
+| 删除{实体} | DELETE | /api/v1/{entities}/{id} | 删除{实体} | ⏳ |
+
+### 接口详情示例
 ```yaml
-/api/v1/products:
-  GET /:
-    summary: 获取商品列表
-    parameters:
-      - name: category_id
-        in: query
-        schema:
-          type: string
-          format: uuid
-      - name: brand_id
-        in: query
-        schema:
-          type: string
-          format: uuid
-      - name: status
-        in: query
-        schema:
-          type: string
-          enum: [draft, published, archived]
-      - name: page
-        in: query
-        schema:
-          type: integer
-          default: 1
-      - name: limit
-        in: query
-        schema:
-          type: integer
-          default: 20
-          maximum: 100
-    responses:
-      200:
-        description: 商品列表
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                products:
-                  type: array
-                  items:
-                    $ref: '#/components/schemas/Product'
-                pagination:
-                  $ref: '#/components/schemas/Pagination'
-
-  POST /:
-    summary: 创建商品
-    security:
-      - BearerAuth: []
+/api/v1/{entities}:
+  post:
+    summary: 创建{实体}
     requestBody:
       required: true
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/ProductCreateRequest'
+            $ref: '#/components/schemas/{Entity}Create'
     responses:
       201:
-        description: 商品创建成功
+        description: 创建成功
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/Product'
-
-  GET /{product_id}:
-    summary: 获取商品详情
-    parameters:
-      - name: product_id
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-    responses:
-      200:
-        description: 商品详情
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ProductDetail'
-
-  PUT /{product_id}:
-    summary: 更新商品
-    security:
-      - BearerAuth: []
-    parameters:
-      - name: product_id
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-    requestBody:
-      required: true
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ProductUpdateRequest'
-    responses:
-      200:
-        description: 更新成功
-
-  DELETE /{product_id}:
-    summary: 删除商品
-    security:
-      - BearerAuth: []
-    parameters:
-      - name: product_id
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-    responses:
-      204:
-        description: 删除成功
+              $ref: '#/components/schemas/{Entity}'
+      400:
+        description: 请求参数错误
 ```
 
-### 商品搜索
+### 错误码
+| 错误码 | 状态码 | 描述 | 解决方案 |
+|--------|--------|------|----------|
+| {MODULE}_001 | 400 | 参数验证失败 | 检查请求参数 |
+| {MODULE}_002 | 404 | 资源不存在 | 确认资源ID |
+| {MODULE}_003 | 409 | 资源冲突 | 检查资源状态 |
 
-```yaml
-/api/v1/search:
-  GET /products:
-    summary: 搜索商品
-    parameters:
-      - name: q
-        in: query
-        description: 搜索关键词
-        schema:
-          type: string
-      - name: category
-        in: query
-        description: 分类筛选
-        schema:
-          type: string
-      - name: brand
-        in: query
-        description: 品牌筛选
-        schema:
-          type: string
-      - name: price_min
-        in: query
-        description: 最低价格
-        schema:
-          type: number
-      - name: price_max
-        in: query
-        description: 最高价格
-        schema:
-          type: number
-      - name: sort
-        in: query
-        description: 排序方式
-        schema:
-          type: string
-          enum: [relevance, price_asc, price_desc, sales, newest]
-          default: relevance
-      - name: page
-        in: query
-        schema:
-          type: integer
-          default: 1
-      - name: limit
-        in: query
-        schema:
-          type: integer
-          default: 20
-    responses:
-      200:
-        description: 搜索结果
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                products:
-                  type: array
-                  items:
-                    $ref: '#/components/schemas/ProductSearchResult'
-                facets:
-                  type: object
-                  properties:
-                    categories:
-                      type: array
-                      items:
-                        type: object
-                        properties:
-                          name:
-                            type: string
-                          count:
-                            type: integer
-                    brands:
-                      type: array
-                      items:
-                        type: object
-                        properties:
-                          name:
-                            type: string
-                          count:
-                            type: integer
-                    price_ranges:
-                      type: array
-                      items:
-                        type: object
-                        properties:
-                          range:
-                            type: string
-                          count:
-                            type: integer
-                pagination:
-                  $ref: '#/components/schemas/Pagination'
-                total:
-                  type: integer
+## 测试策略
 
-  GET /suggestions:
-    summary: 搜索建议
-    parameters:
-      - name: q
-        in: query
-        required: true
-        schema:
-          type: string
-    responses:
-      200:
-        description: 搜索建议
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                suggestions:
-                  type: array
-                  items:
-                    type: string
-```
+### 测试覆盖率目标
+- **单元测试**: ≥ 85%
+- **集成测试**: ≥ 70%
+- **端到端测试**: 核心业务流程100%
 
-## 业务逻辑
-
-### 商品发布流程
-
+### 测试类型
 ```python
-class ProductPublishService:
-    def __init__(self, db, search_engine, event_publisher):
-        self.db = db
-        self.search_engine = search_engine
-        self.event_publisher = event_publisher
+# 单元测试示例
+class Test{Entity}Service:
+    def test_create_{entity}_success(self):
+        # 测试成功创建{实体}
+        pass
     
-    async def publish_product(self, product_id: str, user_id: str) -> bool:
-        """
-        商品发布流程
-        1. 验证商品信息完整性
-        2. 检查库存配置
-        3. 更新商品状态
-        4. 同步搜索索引
-        5. 发布事件通知
-        """
-        async with self.db.transaction():
-            # 1. 获取商品信息
-            product = await self.db.get_product(product_id)
-            if not product:
-                raise ProductNotFoundError()
-            
-            # 2. 验证发布条件
-            validation_result = await self._validate_product_for_publish(product)
-            if not validation_result.is_valid:
-                raise ProductValidationError(validation_result.errors)
-            
-            # 3. 更新商品状态
-            await self.db.update_product_status(
-                product_id, 
-                'published',
-                published_at=datetime.utcnow(),
-                published_by=user_id
-            )
-            
-            # 4. 同步搜索索引
-            search_doc = self._build_search_document(product)
-            await self.search_engine.index_document('products', product_id, search_doc)
-            
-            # 5. 发布事件
-            event = {
-                'event_type': 'product.published',
-                'product_id': product_id,
-                'published_by': user_id,
-                'timestamp': datetime.utcnow().isoformat()
-            }
-            await self.event_publisher.publish('product.events', event)
-            
-            return True
-    
-    async def _validate_product_for_publish(self, product) -> ValidationResult:
-        """验证商品发布条件"""
-        errors = []
-        
-        # 基本信息检查
-        if not product.name or len(product.name.strip()) < 2:
-            errors.append("商品名称不能为空且长度不能少于2个字符")
-        
-        if not product.description:
-            errors.append("商品描述不能为空")
-        
-        if not product.category_id:
-            errors.append("必须选择商品分类")
-        
-        # SKU检查
-        skus = await self.db.get_product_skus(product.id)
-        if not skus:
-            errors.append("至少需要一个SKU")
-        
-        for sku in skus:
-            if sku.price <= 0:
-                errors.append(f"SKU {sku.sku_code} 价格必须大于0")
-        
-        # 图片检查
-        images = await self.db.get_product_images(product.id)
-        if not images:
-            errors.append("至少需要一张商品图片")
-        
-        return ValidationResult(len(errors) == 0, errors)
+    def test_create_{entity}_validation_error(self):
+        # 测试验证错误
+        pass
+
+# 集成测试示例  
+class Test{Entity}API:
+    def test_{entity}_crud_workflow(self):
+        # 测试完整CRUD流程
+        pass
 ```
 
-### 价格计算引擎
+### 性能测试
+- **响应时间**: API响应时间 < 500ms
+- **并发处理**: 支持100并发请求
+- **数据量**: 支持100万条记录
 
+### 测试数据
+- **测试数据生成**: Factory Boy或自定义工厂
+- **数据清理**: 每个测试后清理测试数据
+- **Mock策略**: 外部依赖的Mock策略
+
+## 部署和运维
+
+### 环境要求
+- **开发环境**: 本地开发环境配置
+- **测试环境**: 测试环境配置要求
+- **生产环境**: 生产环境配置要求
+
+### 配置管理
 ```python
-class PricingEngine:
-    def __init__(self, rule_engine):
-        self.rule_engine = rule_engine
-    
-    async def calculate_price(self, sku_id: str, context: PricingContext) -> PriceResult:
-        """
-        价格计算
-        1. 获取基础价格
-        2. 应用定价规则
-        3. 计算最终价格
-        """
-        # 获取SKU基础价格
-        sku = await self.db.get_sku(sku_id)
-        base_price = sku.price
-        
-        # 应用定价规则
-        applicable_rules = await self.rule_engine.get_applicable_rules(
-            sku_id, context
-        )
-        
-        current_price = base_price
-        applied_rules = []
-        
-        for rule in sorted(applicable_rules, key=lambda x: x.priority):
-            rule_result = await rule.apply(current_price, context)
-            if rule_result.applied:
-                current_price = rule_result.new_price
-                applied_rules.append(rule_result)
-        
-        return PriceResult(
-            sku_id=sku_id,
-            base_price=base_price,
-            current_price=current_price,
-            discount_amount=base_price - current_price,
-            applied_rules=applied_rules
-        )
-
-class DynamicPricingRule:
-    """动态定价规则"""
-    
-    async def apply(self, current_price: Decimal, context: PricingContext) -> RuleResult:
-        # 基于库存水位调价
-        inventory_level = await self._get_inventory_level(context.sku_id)
-        
-        if inventory_level < 10:  # 库存紧张，提价
-            new_price = current_price * Decimal('1.05')  # 提价5%
-            return RuleResult(
-                applied=True,
-                new_price=new_price,
-                reason="库存紧张自动提价"
-            )
-        elif inventory_level > 100:  # 库存过多，降价
-            new_price = current_price * Decimal('0.95')  # 降价5%
-            return RuleResult(
-                applied=True,
-                new_price=new_price,
-                reason="库存过多自动降价"
-            )
-        
-        return RuleResult(applied=False, new_price=current_price)
+# 环境变量配置
+{MODULE}_DATABASE_URL=mysql://...
+{MODULE}_REDIS_URL=redis://...
+{MODULE}_LOG_LEVEL=INFO
 ```
 
-### 搜索服务
+### 监控指标
+- **业务指标**: 关键业务指标监控
+- **技术指标**: 响应时间、错误率等
+- **资源指标**: CPU、内存、数据库连接等
 
-```python
-class ProductSearchService:
-    def __init__(self, elasticsearch_client):
-        self.es = elasticsearch_client
-    
-    async def search_products(self, query: SearchQuery) -> SearchResult:
-        """
-        商品搜索
-        支持全文搜索、分面搜索、排序、分页
-        """
-        # 构建ES查询
-        es_query = {
-            "query": self._build_query(query),
-            "aggs": self._build_aggregations(),
-            "sort": self._build_sort(query.sort),
-            "from": (query.page - 1) * query.limit,
-            "size": query.limit,
-            "highlight": {
-                "fields": {
-                    "name": {},
-                    "description": {}
-                }
-            }
-        }
-        
-        # 执行搜索
-        response = await self.es.search(index="products", body=es_query)
-        
-        # 解析结果
-        products = []
-        for hit in response['hits']['hits']:
-            product = ProductSearchResult.from_es_hit(hit)
-            products.append(product)
-        
-        # 解析分面
-        facets = self._parse_aggregations(response.get('aggregations', {}))
-        
-        return SearchResult(
-            products=products,
-            total=response['hits']['total']['value'],
-            facets=facets,
-            pagination=Pagination(
-                page=query.page,
-                limit=query.limit,
-                total=response['hits']['total']['value']
-            )
-        )
-    
-    def _build_query(self, query: SearchQuery) -> dict:
-        """构建ES查询"""
-        must_clauses = []
-        filter_clauses = []
-        
-        # 全文搜索
-        if query.keyword:
-            must_clauses.append({
-                "multi_match": {
-                    "query": query.keyword,
-                    "fields": ["name^3", "description", "attributes.value"],
-                    "type": "best_fields",
-                    "fuzziness": "AUTO"
-                }
-            })
-        
-        # 分类筛选
-        if query.category_id:
-            filter_clauses.append({
-                "term": {"category.id": query.category_id}
-            })
-        
-        # 品牌筛选
-        if query.brand_id:
-            filter_clauses.append({
-                "term": {"brand.id": query.brand_id}
-            })
-        
-        # 价格范围筛选
-        if query.price_min or query.price_max:
-            price_filter = {"range": {"price": {}}}
-            if query.price_min:
-                price_filter["range"]["price"]["gte"] = query.price_min
-            if query.price_max:
-                price_filter["range"]["price"]["lte"] = query.price_max
-            filter_clauses.append(price_filter)
-        
-        # 状态筛选
-        filter_clauses.append({
-            "term": {"status": "published"}
-        })
-        
-        return {
-            "bool": {
-                "must": must_clauses,
-                "filter": filter_clauses
-            }
-        }
-```
+### 告警规则
+- **错误率**: > 1% 触发告警
+- **响应时间**: > 1s 触发告警
+- **资源使用**: > 80% 触发告警
+
+## 安全考虑
+
+### 认证授权
+- **身份认证**: JWT Token验证
+- **权限控制**: 基于角色的访问控制
+- **API安全**: Rate Limiting、CORS等
+
+### 数据安全
+- **数据加密**: 敏感数据加密存储
+- **传输安全**: HTTPS传输
+- **输入验证**: 严格的输入验证
+
+### 审计日志
+- **操作日志**: 记录关键操作
+- **访问日志**: 记录API访问
+- **安全日志**: 记录安全相关事件
 
 ## 性能优化
 
 ### 缓存策略
+- **应用缓存**: Redis缓存热点数据
+- **数据库缓存**: 查询结果缓存
+- **CDN缓存**: 静态资源缓存
 
-1. **商品信息缓存**
-   - Redis缓存热门商品详情
-   - CDN缓存商品图片
-   - 应用层缓存分类树
+### 数据库优化
+- **索引优化**: 关键字段索引
+- **查询优化**: SQL查询优化
+- **连接池**: 数据库连接池配置
 
-2. **搜索优化**
-   - ES索引优化
-   - 搜索结果缓存
-   - 分面结果缓存
+### 扩展性设计
+- **水平扩展**: 支持多实例部署
+- **垂直扩展**: 资源配置优化
+- **降级策略**: 服务降级机制
 
-3. **数据库优化**
-   - 读写分离
-   - 分库分表
-   - 索引优化
+## 问题和风险
 
-### 监控指标
+### 已知问题
+| 问题ID | 描述 | 优先级 | 状态 | 解决方案 |
+|--------|------|--------|------|----------|
+| {MODULE}-001 | 问题描述 | 高 | 🔄 处理中 | 解决方案 |
 
-- 商品发布成功率
-- 搜索响应时间
-- 缓存命中率
-- 数据库慢查询
+### 技术风险
+- **风险1**: 风险描述和缓解措施
+- **风险2**: 风险描述和缓解措施
 
-## 部署配置
+### 技术债务
+- **债务1**: 技术债务描述和还债计划
+- **债务2**: 技术债务描述和还债计划
 
-### 环境变量
+## 开发计划
 
-```bash
-# 数据库配置
-PRODUCT_DB_URL=postgresql://user:pass@localhost/product_db
+### 里程碑
+- **M1**: 基础功能开发 (预计: {日期})
+- **M2**: 完整功能实现 (预计: {日期})
+- **M3**: 性能优化 (预计: {日期})
 
-# 搜索引擎配置
-ELASTICSEARCH_URL=http://localhost:9200
-ELASTICSEARCH_INDEX=products
-
-# 缓存配置
-PRODUCT_REDIS_URL=redis://localhost:6379/2
-
-# 文件存储配置
-OSS_ENDPOINT=https://oss-cn-hangzhou.aliyuncs.com
-OSS_BUCKET=product-images
-```
+### 任务分解
+- [ ] 任务1 (负责人: {姓名}, 预计: {日期})
+- [ ] 任务2 (负责人: {姓名}, 预计: {日期})
+- [ ] 任务3 (负责人: {姓名}, 预计: {日期})
 
 ## 相关文档
 
-- [库存模块](../inventory/overview.md)
-- [搜索架构](../../architecture/search.md)
-- [缓存策略](../../architecture/caching.md)
-- [事件架构](../../architecture/event-driven.md)
+### 架构文档
+- [系统架构总览](../architecture/overview.md)
+- [API设计规范](../architecture/api-standards.md)
+- [数据模型规范](../architecture/data-models.md)
+
+### 开发文档
+- [开发规范](../development/development-standards.md)
+- [测试指南](../development/testing.md)
+- [部署指南](../operations/deployment.md)
+
+### 需求文档
+- [业务需求](../requirements/business.md)
+- [功能需求](../requirements/functional.md)
+
+### 其他模块
+- [依赖模块1](../modules/{module1}/overview.md)
+- [依赖模块2](../modules/{module2}/overview.md)
+
+---
+
+📝 **模板使用说明**:
+1. 复制此模板创建新的模块文档
+2. 替换所有 `{变量}` 为实际值
+3. 删除不适用的章节
+4. 根据模块特点调整章节内容
+5. 保持文档及时更新
+

@@ -3,6 +3,6 @@
 
 from fastapi import APIRouter
 
-router = APIRouter(prefix="/api/batch-traceability", tags=["批次溯源"])
+router = APIRouter(tags=["批次溯源"])
 
 # 待实现API端点
