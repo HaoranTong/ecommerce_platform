@@ -6,6 +6,8 @@
 
 ## 📂 模块目录结构
 
+当前业务功能模块: **19个** | 全部文档完整 ✅ | 核心组件已分离 🔧
+
 ### 核心交易模块 (5个)
 
 | 模块 | 状态 | 文档链接 | 核心功能 |
@@ -21,39 +23,43 @@
 | 模块 | 状态 | 文档链接 | 核心功能 |
 |------|------|----------|----------|
 | **质量控制** | ✅ 完成 | [quality-control/](./quality-control/) | 证书管理、质量认证、合规检查 |
-| **批次溯源** | 🔄 开发中 | [batch-traceability/](./batch-traceability/) | 农产品溯源、批次管理、质量认证 |
-| **物流管理** | 🔄 开发中 | [logistics-management/](./logistics-management/) | 冷链配送、物流跟踪、配送优化 |
+| **批次溯源** | ✅ 完成 | [batch-traceability/](./batch-traceability/) | 农产品溯源、批次管理、质量认证 |
+| **物流管理** | ✅ 完成 | [logistics-management/](./logistics-management/) | 冷链配送、物流跟踪、配送优化 |
 
 ### 营销会员模块 (4个)
 
 | 模块 | 状态 | 文档链接 | 核心功能 |
 |------|------|----------|----------|
-| **会员系统** | 🔄 开发中 | [member-system/](./member-system/) | 会员等级、积分体系、权益管理 |
-| **分销商管理** | 🔄 开发中 | [distributor-management/](./distributor-management/) | 多级分销、佣金管理、团队管理 |
-| **营销活动** | 🔄 开发中 | [marketing-campaigns/](./marketing-campaigns/) | 优惠券、促销活动、营销工具 |
-| **社交功能** | 🔄 开发中 | [social-features/](./social-features/) | 社交分享、拼团功能、社群营销 |
+| **会员系统** | ✅ 完成 | [member-system/](./member-system/) | 会员等级、积分体系、权益管理 |
+| **分销商管理** | ✅ 完成 | [distributor-management/](./distributor-management/) | 多级分销、佣金管理、团队管理 |
+| **营销活动** | ✅ 完成 | [marketing-campaigns/](./marketing-campaigns/) | 优惠券、促销活动、营销工具 |
+| **社交功能** | ✅ 完成 | [social-features/](./social-features/) | 社交分享、拼团功能、社群营销 |
 
 ### 基础服务模块 (7个)
 
 | 模块 | 状态 | 文档链接 | 核心功能 |
 |------|------|----------|----------|
-| **库存管理** | 📋 规划中 | [inventory-management/](./inventory-management/) | 库存跟踪、预占机制、补货管理 |
-| **通知服务** | 📋 规划中 | [notification-service/](./notification-service/) | 多渠道通知、模板管理、智能发送 |
-| **供应商管理** | 📋 规划中 | [supplier-management/](./supplier-management/) | 供应商入驻、协作管理、绩效评估 |
-| **推荐系统** | 📋 规划中 | [recommendation-system/](./recommendation-system/) | 个性化推荐、智能算法、用户画像 |
-| **客服系统** | 📋 规划中 | [customer-service-system/](./customer-service-system/) | 在线客服、工单管理、知识库 |
-| **风控系统** | 📋 规划中 | [risk-control-system/](./risk-control-system/) | 反欺诈、风险评估、安全防护 |
-| **数据分析** | 📋 规划中 | [data-analytics-platform/](./data-analytics-platform/) | 数据报表、业务分析、决策支持 |
+| **库存管理** | ✅ 完成 | [inventory-management/](./inventory-management/) | 库存跟踪、预占机制、补货管理 |
+| **通知服务** | ✅ 完成 | [notification-service/](./notification-service/) | 多渠道通知、模板管理、智能发送 |
+| **供应商管理** | ✅ 完成 | [supplier-management/](./supplier-management/) | 供应商入驻、协作管理、绩效评估 |
+| **推荐系统** | ✅ 完成 | [recommendation-system/](./recommendation-system/) | 个性化推荐、智能算法、用户画像 |
+| **客服系统** | ✅ 完成 | [customer-service-system/](./customer-service-system/) | 在线客服、工单管理、知识库 |
+| **风控系统** | ✅ 完成 | [risk-control-system/](./risk-control-system/) | 反欺诈、风险评估、安全防护 |
+| **数据分析** | ✅ 完成 | [data-analytics-platform/](./data-analytics-platform/) | 数据报表、业务分析、决策支持 |
 
-### 技术基础设施模块 (5个)
+### 核心基础设施 (已迁移)
 
-| 模块 | 状态 | 文档链接 | 核心功能 |
-|------|------|----------|----------|
-| **应用核心** | ✅ 完成 | [application-core/](./application-core/) | 应用框架、配置管理、启动逻辑 |
-| **数据库核心** | ✅ 完成 | [database-core/](./database-core/) | 数据库连接、事务管理、连接池 |
-| **基础模型** | ✅ 完成 | [base-models/](./base-models/) | ORM基础类、模型混入、数据类型 |
-| **Redis缓存** | ✅ 完成 | [redis-cache/](./redis-cache/) | 缓存策略、会话存储、分布式锁 |
-| **数据库工具** | ✅ 完成 | [database-utils/](./database-utils/) | 数据库工具、迁移脚本、维护命令 |
+**注意**: 以下核心组件已迁移到专门的核心基础设施目录
+
+| 原模块 | 新位置 | 文档链接 | 核心功能 |
+|--------|-------|----------|----------|
+| ~~应用核心~~ | 📁 [core/](../core/) | [application-core/](../core/application-core/) | 应用框架、配置管理、启动逻辑 |
+| ~~数据库核心~~ | 📁 [core/](../core/) | [database-core/](../core/database-core/) | 数据库连接、事务管理、连接池 |
+| ~~基础模型~~ | 📁 [shared/](../shared/) | [base-models/](../shared/base-models/) | ORM基础类、模型混入、数据类型 |
+| ~~Redis缓存~~ | 📁 [core/](../core/) | [redis-cache/](../core/redis-cache/) | 缓存策略、会话存储、分布式锁 |
+| ~~数据库工具~~ | 📁 [core/](../core/) | [database-utils/](../core/database-utils/) | 数据库工具、迁移脚本、维护命令 |
+
+> 💡 **架构调整说明**: 为了更好地区分核心基础设施和业务功能模块，核心组件已迁移到单独的目录结构中。这样可以更清晰地管理依赖关系和职责边界。
 
 ## 📋 文档导航
 

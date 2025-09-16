@@ -417,7 +417,7 @@ class TestOrderIntegration:
         # 注意：这个测试可能因为认证中间件而失败，这是预期的
         # 在实际项目中，需要实现完整的JWT认证mock
         try:
-            response = integration_client.post("/api/v1/orders/", json=order_data)
+            response = integration_client.post("/api/v1/order-management/orders", json=order_data)
             
             if response.status_code == 201:
                 response_data = response.json()

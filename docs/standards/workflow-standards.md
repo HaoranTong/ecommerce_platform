@@ -27,13 +27,25 @@
 - [ ] 考虑 [安全架构](../architecture/security.md) 要求
 - [ ] 规划 [第三方集成](../architecture/integration.md) 需求
 
-#### 1.3 模块文档创建
-- [ ] 在 `docs/modules/{module-name}/` 创建模块目录
-- [ ] 编写 `requirements.md` - 详细功能需求
-- [ ] 编写 `design.md` - 技术设计方案
-- [ ] 编写 `api-spec.md` - API接口规范（遵循 standards/openapi.yaml 契约）
-- [ ] 创建 `api-implementation.md` - API接口实施细节记录
-- [ ] 创建 `implementation.md` - 开发记录文档
+#### 1.3 模块文档创建 (使用自动化工具)
+```powershell
+# 使用标准化工具创建完整文档结构
+.\scripts\create_module_docs.ps1 -ModuleName "{module-name}"
+
+# 验证文档结构完整性
+.\scripts\check_docs.ps1 -Path docs/modules/{module-name}
+```
+
+**必须创建的7个强制文档:**
+- [ ] `README.md` - 模块导航和快速入口 (自动生成)
+- [ ] `overview.md` - 技术架构和概述 (自动生成)
+- [ ] `requirements.md` - 详细功能需求 (自动生成，需编辑)
+- [ ] `design.md` - 技术设计方案 (自动生成，需编辑)
+- [ ] `api-spec.md` - API接口规范 (自动生成，需编辑)
+- [ ] `api-implementation.md` - API接口实施细节记录 (自动生成)
+- [ ] `implementation.md` - 开发记录文档 (自动生成)
+
+> **重要**: 使用 `create_module_docs.ps1` 确保文档结构标准化，避免手动创建导致的不一致
 
 ### Phase 2: 开发实施阶段
 **目标**: 高质量代码实现，完整测试覆盖
@@ -90,10 +102,21 @@ class ProductService:
         pass
 ```
 
-#### 2.4 实时记录和更新
+#### 2.4 实时记录和更新 + 文档同步
 - [ ] 更新 `docs/modules/{module}/implementation.md` 记录开发进展
+- [ ] 更新 `docs/modules/{module}/api-implementation.md` 记录API实现细节
 - [ ] 更新 `docs/status/daily-log.md` 记录每日工作
 - [ ] 遇到问题时更新 `docs/status/issues-tracking.md`
+
+#### 2.5 文档完整性验证 (新增)
+```powershell
+# 每日开发结束时检查文档完整性
+.\scripts\check_docs.ps1 -Path docs/modules/{module-name} -Detailed
+
+# 如有问题，及时修复文档内容
+# 再次验证直到通过
+.\scripts\check_docs.ps1 -CheckModuleCompleteness
+```
 
 ### Phase 3: 测试验证阶段
 **目标**: 确保功能正确性和系统稳定性
@@ -134,7 +157,7 @@ from fastapi.testclient import TestClient
 
 class TestProductAPI:
     def test_create_product_api(self, client: TestClient):
-        response = client.post("/api/v1/products", json={
+        response = client.post("/api/v1/product-catalog/products", json={
             "name": "测试商品",
             "price": 99.99,
             "category_id": 1
@@ -164,10 +187,10 @@ pytest --cov=app tests/
 # 使用locust或类似工具进行负载测试
 ```
 
-### Phase 4: 文档完善阶段
-**目标**: 完整准确的技术文档
+### Phase 4: 文档完善阶段 (强制标准化)
+**目标**: 完整准确的技术文档，100%符合标准
 
-#### 4.1 API文档更新
+#### 4.1 API文档更新  
 - [ ] 更新 `docs/modules/{module}/api-spec.md` - 接口规范要求
 - [ ] 更新 `docs/modules/{module}/api-implementation.md` - 实施细节记录
 - [ ] 确保遵循 `standards/openapi.yaml` 全局契约
@@ -176,32 +199,55 @@ pytest --cov=app tests/
 
 #### 4.2 模块文档完善
 - [ ] 完善 `docs/modules/{module}/design.md` 技术设计
-- [ ] 更新 `docs/modules/{module}/implementation.md` 实现细节
-- [ ] 记录已知问题和解决方案
-- [ ] 添加使用示例和最佳实践
+- [ ] 更新 `docs/modules/{module}/implementation.md` 实现细节  
+- [ ] 完善 `docs/modules/{module}/requirements.md` 需求文档
+- [ ] 更新 `docs/modules/{module}/overview.md` 技术概述
+- [ ] 确保 `docs/modules/{module}/README.md` 导航完整
 
-#### 4.3 总结文档
-- [ ] 创建 `docs/modules/{module}/summary.md` 完成总结
-- [ ] 包含功能清单、技术要点、测试结果
-- [ ] 记录经验教训和改进建议
+#### 4.3 文档标准化验证 (强制)
+```powershell
+# 验证模块文档100%完整性
+.\scripts\check_docs.ps1 -Path docs/modules/{module-name} -Detailed
+
+# 必须通过检查，显示：
+# ✅ 完整 {module-name} (完成度: 100%)
+```
+
+#### 4.4 全局文档验证 (强制)
+```powershell
+# 最终验证所有模块文档完整性
+.\scripts\check_docs.ps1 -CheckModuleCompleteness
+
+# 必须确保结果为：
+# 📈 整体完成率: 100%
+# 🔍 总问题数: 0
+```
+
+> **⚠️ 重要**: 不符合文档标准的代码不允许合并到主分支
 
 ### Phase 5: 代码提交阶段
 **目标**: 规范化代码提交和版本管理
 
-#### 5.1 提交前检查
+#### 5.1 提交前检查 (包含文档验证)
 ```powershell
-# 1. 运行所有测试
+# 1. 文档完整性检查 (必须)
+.\scripts\check_docs.ps1 -CheckModuleCompleteness
+# 确保显示: 📈 整体完成率: 100%
+
+# 2. 运行所有测试
 pytest tests/ -v
 
-# 2. 检查代码质量
+# 3. 检查代码质量
 # (如果配置了flake8等工具)
 
-# 3. 确保数据库迁移正确
+# 4. 确保数据库迁移正确
 alembic upgrade head
 
-# 4. 运行烟雾测试
+# 5. 运行烟雾测试
 .\scripts\smoke_test.ps1
 ```
+
+> **⚠️ 提交阻止规则**: 如果文档完整性检查不通过，禁止提交代码
 
 #### 5.2 自动化提交
 ```powershell

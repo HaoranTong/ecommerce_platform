@@ -34,7 +34,7 @@ from app.modules.user_auth.schemas import (
 router = APIRouter()
 
 
-@router.post("/register", response_model=UserRead, status_code=status.HTTP_201_CREATED)
+@router.post("/user-auth/register", response_model=UserRead, status_code=status.HTTP_201_CREATED)
 async def register_user(
     user_data: UserRegister,
     db: Session = Depends(get_db)
@@ -85,7 +85,7 @@ async def register_user(
         )
 
 
-@router.post("/login", response_model=Token)
+@router.post("/user-auth/login", response_model=Token)
 async def login_user(
     user_credentials: UserLogin,
     db: Session = Depends(get_db)
@@ -158,7 +158,7 @@ async def login_user(
     }
 
 
-@router.post("/refresh", response_model=Token)
+@router.post("/user-auth/refresh", response_model=Token)
 async def refresh_token(
     token_data: TokenRefresh,
     db: Session = Depends(get_db)
@@ -199,7 +199,7 @@ async def refresh_token(
         )
 
 
-@router.get("/me", response_model=UserRead)
+@router.get("/user-auth/me", response_model=UserRead)
 async def get_current_user_info(
     current_user: User = Depends(get_current_active_user)
 ):
@@ -207,7 +207,7 @@ async def get_current_user_info(
     return current_user
 
 
-@router.put("/me", response_model=UserRead)
+@router.put("/user-auth/me", response_model=UserRead)
 async def update_current_user(
     user_update: UserUpdate,
     current_user: User = Depends(get_current_active_user),
@@ -244,7 +244,7 @@ async def update_current_user(
         )
 
 
-@router.put("/password")
+@router.put("/user-auth/password")
 async def change_password(
     password_data: UserChangePassword,
     current_user: User = Depends(get_current_active_user),
@@ -273,7 +273,7 @@ async def change_password(
         )
 
 
-@router.post("/logout")
+@router.post("/user-auth/logout")
 async def logout_user(
     current_user: User = Depends(get_current_active_user)
 ):
@@ -284,7 +284,7 @@ async def logout_user(
 
 
 # 管理员相关路由（可选）
-@router.get("/users", response_model=list[UserRead])
+@router.get("/user-auth/users", response_model=list[UserRead])
 async def list_users(
     skip: int = 0,
     limit: int = 100,
@@ -298,7 +298,7 @@ async def list_users(
     return users
 
 
-@router.get("/users/{user_id}", response_model=UserRead)
+@router.get("/user-auth/users/{user_id}", response_model=UserRead)
 async def get_user_by_id(
     user_id: int,
     current_user: User = Depends(get_current_active_user),

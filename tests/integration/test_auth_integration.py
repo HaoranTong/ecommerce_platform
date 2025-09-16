@@ -263,7 +263,7 @@ class TestUserAuthIntegration:
         # API可能返回201创建成功或其他状态
         if register_response.status_code == 404:
             # 尝试其他可能的路径
-            register_response = auth_client.post("/register", json=register_data)
+            register_response = auth_client.post("/auth/register", json=register_data)
         
         print(f"注册API响应状态: {register_response.status_code}")
         
@@ -276,7 +276,7 @@ class TestUserAuthIntegration:
         login_response = auth_client.post("/api/v1/user-auth/login", json=login_data)
         
         if login_response.status_code == 404:
-            login_response = auth_client.post("/login", json=login_data)
+            login_response = auth_client.post("/auth/login", json=login_data)
             
         print(f"登录API响应状态: {login_response.status_code}")
 

@@ -46,7 +46,7 @@ from .dependencies import (
 router = APIRouter()
 
 
-@router.post("/", response_model=ApiResponse[OrderResponse], status_code=status.HTTP_201_CREATED)
+@router.post("/order-management/orders", response_model=ApiResponse[OrderResponse], status_code=status.HTTP_201_CREATED)
 async def create_order(
     order_data: OrderCreateRequest,
     order_service: OrderService = Depends(get_order_service),
@@ -104,7 +104,7 @@ async def create_order(
         )
 
 
-@router.get("/", response_model=ApiResponse[PaginatedResponse[OrderListResponse]])
+@router.get("/order-management/orders", response_model=ApiResponse[PaginatedResponse[OrderListResponse]])
 async def list_orders(
     status_filter: Optional[OrderStatus] = Query(None, description="订单状态筛选"),
     user_id: Optional[int] = Query(None, description="用户ID筛选（仅管理员可用）"),
@@ -187,7 +187,7 @@ async def list_orders(
         )
 
 
-@router.get("/{order_id}", response_model=ApiResponse[OrderResponse])
+@router.get("/order-management/orders/{order_id}", response_model=ApiResponse[OrderResponse])
 async def get_order_detail(
     order: Order = Depends(validate_order_access)
 ):
@@ -226,7 +226,7 @@ async def get_order_detail(
         )
 
 
-@router.patch("/{order_id}/status", response_model=ApiResponse[OrderResponse])
+@router.patch("/order-management/orders/{order_id}/status", response_model=ApiResponse[OrderResponse])
 async def update_order_status(
     order_id: int = Path(..., ge=1, description="订单ID"),
     status_update: OrderStatusUpdateRequest = ...,
@@ -291,7 +291,7 @@ async def update_order_status(
         )
 
 
-@router.post("/{order_id}/cancel", response_model=ApiResponse[dict])
+@router.post("/order-management/orders/{order_id}/cancel", response_model=ApiResponse[dict])
 async def cancel_order(
     order: Order = Depends(validate_order_access),
     order_service: OrderService = Depends(get_order_service),
@@ -349,7 +349,7 @@ async def cancel_order(
         )
 
 
-@router.get("/{order_id}/items", response_model=ApiResponse[List[OrderItemResponse]])
+@router.get("/order-management/orders/{order_id}/items", response_model=ApiResponse[List[OrderItemResponse]])
 async def get_order_items(
     order: Order = Depends(validate_order_access),
     current_user: User = Depends(get_current_authenticated_user),
@@ -400,7 +400,7 @@ async def get_order_items(
         )
 
 
-@router.get("/{order_id}/history", response_model=ApiResponse[List[dict]])
+@router.get("/order-management/orders/{order_id}/history", response_model=ApiResponse[List[dict]])
 async def get_order_status_history(
     order: Order = Depends(validate_order_access),
     current_user: User = Depends(get_current_authenticated_user),
@@ -448,7 +448,7 @@ async def get_order_status_history(
         )
 
 
-@router.get("/statistics", response_model=ApiResponse[OrderStatisticsResponse])
+@router.get("/order-management/statistics", response_model=ApiResponse[OrderStatisticsResponse])
 async def get_order_statistics(
     user_id: Optional[int] = Query(None, description="用户ID（仅管理员可用）"),
     current_user: User = Depends(get_current_authenticated_user),

@@ -527,7 +527,7 @@ class TestUserJourney:
             "password": "password123"
         }
         
-        register_response = client.post("/api/v1/auth/register", json=registration_data)
+        register_response = client.post("/api/v1/user-auth/register", json=registration_data)
         assert register_response.status_code == 201
         
         # 2. 用户登录
@@ -536,7 +536,7 @@ class TestUserJourney:
             "password": "password123"
         }
         
-        login_response = client.post("/api/v1/auth/login", json=login_data)
+        login_response = client.post("/api/v1/user-auth/login", json=login_data)
         assert login_response.status_code == 200
         
         token = login_response.json()["access_token"]
@@ -595,7 +595,7 @@ def sample_user(db):
 def authenticated_client(client, sample_user):
     """认证客户端"""
     login_data = {"email": sample_user.email, "password": "password"}
-    response = client.post("/api/v1/auth/login", json=login_data)
+    response = client.post("/api/v1/user-auth/login", json=login_data)
     token = response.json()["access_token"]
     
     client.headers.update({"Authorization": f"Bearer {token}"})
@@ -647,7 +647,7 @@ class UserBehavior(HttpUser):
     
     def on_start(self):
         # 登录获取token
-        response = self.client.post("/api/v1/auth/login", json={
+        response = self.client.post("/api/v1/user-auth/login", json={
             "email": "test@example.com",
             "password": "password"
         })
@@ -657,15 +657,15 @@ class UserBehavior(HttpUser):
     
     @task(3)
     def get_products(self):
-        self.client.get("/api/v1/products")
+        self.client.get("/api/v1/product-catalog/products")
     
     @task(2)
     def get_user_profile(self):
-        self.client.get("/api/v1/users/me")
+        self.client.get("/api/v1/user-auth/me")
     
     @task(1)
     def create_order(self):
-        self.client.post("/api/v1/orders", json={
+        self.client.post("/api/v1/order-management/orders", json={
             "product_id": 1,
             "quantity": 1
         })
