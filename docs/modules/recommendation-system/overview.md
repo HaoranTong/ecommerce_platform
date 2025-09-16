@@ -1,655 +1,334 @@
-# 推荐系统模块 (Recommendation System Module)
+<!--
+文档说明：
+- 内容：模块文档标准模板，用于创建新的模块文档  
+- 使用方法：复制此模板，替换模板变量，填入具体内容
+- 更新方法：模板规范变更时由架构师更新
+- 引用关系：被所有模块文档使用
+- 更新频率：模板标准变化时
+
+⚠️ 强制文档要求：
+每个模块必须包含以下7个文档（无可选项）：
+1. README.md - 模块导航（简洁版入口）
+2. overview.md - 模块概述（本模板，详细版）
+3. requirements.md - 业务需求文档（强制）
+4. design.md - 设计决策文档（强制）
+5. api-spec.md - API规范文档（强制）
+6. api-implementation.md - API实施记录（强制）
+7. implementation.md - 实现细节文档（强制）
+-->
+
+# recommendation-system模块 模块
+
+📝 **状态**: 草稿 | 评审中 | ✅ 已发布 | 🔄 更新中  
+📅 **创建日期**: 2025-09-16  
+👤 **负责人**: 待指定  
+🔄 **最后更新**: 2025-09-16  
+📋 **版本**: v1.0.0  
 
 ## 模块概述
 
-推荐系统模块基于机器学习算法和用户行为分析，提供个性化商品推荐、相关商品推荐、热门商品推荐和智能搜索建议。支持实时推荐和离线计算相结合的架构。
+### 主要职责
+简要描述模块的核心职责和业务价值，3-5个要点：
+- 职责1
+- 职责2  
+- 职责3
 
-### 主要功能
+### 业务价值
+- **核心价值**: 模块为业务带来的主要价值
+- **用户收益**: 对终端用户的直接收益
+- **系统收益**: 对整个系统的价值贡献
 
-1. **个性化推荐**
-   - 基于协同过滤的商品推荐
-   - 基于内容的商品推荐
-   - 混合推荐算法
-   - 冷启动问题解决
-
-2. **实时推荐**
-   - 浏览历史推荐
-   - 购物车关联推荐
-   - 实时热门推荐
-   - 地理位置推荐
-
-3. **智能搜索**
-   - 搜索建议自动补全
-   - 搜索结果个性化排序
-   - 同义词扩展
-   - 搜索意图识别
-
-4. **推荐优化**
-   - A/B测试框架
-   - 推荐效果评估
-   - 算法参数调优
-   - 多样性控制
+### 模块边界
+- **包含功能**: 明确模块包含的功能范围
+- **排除功能**: 明确不属于该模块的功能
+- **依赖模块**: 依赖的其他模块
+- **被依赖**: 被哪些模块依赖
 
 ## 技术架构
 
+### 架构图
+```
+{模块架构图，使用Mermaid或ASCII}
+```
+
 ### 核心组件
-
 ```
-recommendation_system/
+{模块名}/
 ├── router.py           # API路由定义
-├── service.py          # 推荐业务逻辑
-├── models.py           # 推荐数据模型(UserProfile, Recommendation)
-├── schemas.py          # 请求/响应数据模型
+├── service.py          # 业务逻辑处理
+├── models.py           # 数据模型定义
+├── schemas.py          # 请求/响应模型
 ├── dependencies.py     # 模块依赖注入
-└── utils.py            # 推荐工具函数(算法、实验、分析)
+└── utils.py            # 工具函数
 ```
 
-### 集成的适配器
+### 模块化单体架构
+- **架构模式**: 模块化单体架构 (Modular Monolith)
+- **垂直切片**: 每个模块包含完整的业务功能
+- **依赖原则**: 依赖注入和接口抽象
+
+### 核心基础设施
 ```
-app/adapters/
-├── ai/                 # AI服务适配器
-│   ├── recommendation_adapter.py
-│   └── vector_db_adapter.py
-└── analytics/          # 数据分析适配器
-    └── behavior_tracker.py
-│   ├── ranking_service.py            # 排序服务
-│   ├── feature_service.py            # 特征服务
-│   ├── model_service.py              # 模型服务
-│   └── experiment_service.py         # 实验服务
-├── algorithms/
-│   ├── collaborative_filtering.py   # 协同过滤
-│   ├── content_based.py              # 基于内容
-│   ├── deep_learning.py              # 深度学习
-│   ├── hybrid_recommender.py         # 混合推荐
-│   └── ranking_algorithm.py          # 排序算法
-├── models/
-│   ├── user_profile.py               # 用户画像模型
-│   ├── item_profile.py               # 商品画像模型
-│   ├── interaction.py                # 交互模型
-│   ├── recommendation.py             # 推荐模型
-│   └── experiment.py                 # 实验模型
-├── events/
-│   ├── user_behavior_events.py       # 用户行为事件
-│   └── recommendation_events.py      # 推荐事件
-└── utils/
-    ├── feature_engineering.py        # 特征工程
-    ├── model_utils.py                # 模型工具
-    ├── evaluation_utils.py           # 评估工具
-    └── cache_utils.py                # 缓存工具
+app/core/               # 核心基础设施
+├── database.py         # 数据库连接管理
+├── redis_client.py     # Redis缓存客户端  
+├── auth.py             # 认证中间件
+└── __init__.py         # 核心组件导出
 ```
 
-### 数据库设计
-
-```sql
--- 用户画像表
-CREATE TABLE user_profiles (
-    id UUID PRIMARY KEY,
-    user_id UUID UNIQUE NOT NULL,
-    demographics JSONB, -- 人口统计学特征
-    preferences JSONB, -- 偏好特征
-    behavior_features JSONB, -- 行为特征
-    embedding_vector FLOAT8[], -- 用户向量表示
-    last_updated TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
--- 商品画像表
-CREATE TABLE item_profiles (
-    id UUID PRIMARY KEY,
-    product_id UUID UNIQUE NOT NULL,
-    category_features JSONB, -- 分类特征
-    content_features JSONB, -- 内容特征
-    statistical_features JSONB, -- 统计特征
-    embedding_vector FLOAT8[], -- 商品向量表示
-    popularity_score FLOAT8 DEFAULT 0,
-    quality_score FLOAT8 DEFAULT 0,
-    last_updated TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
--- 用户行为记录表
-CREATE TABLE user_interactions (
-    id UUID PRIMARY KEY,
-    user_id UUID NOT NULL,
-    item_id UUID NOT NULL,
-    interaction_type VARCHAR(20) NOT NULL, -- 'view', 'click', 'cart', 'purchase', 'favorite', 'share'
-    interaction_value FLOAT8 DEFAULT 1.0, -- 交互强度
-    context JSONB, -- 上下文信息（设备、时间、页面等）
-    session_id VARCHAR(100),
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
--- 推荐结果缓存表
-CREATE TABLE recommendation_cache (
-    id UUID PRIMARY KEY,
-    user_id UUID NOT NULL,
-    scenario VARCHAR(50) NOT NULL, -- 'homepage', 'product_detail', 'cart', 'search'
-    algorithm VARCHAR(50) NOT NULL,
-    recommendations JSONB NOT NULL, -- 推荐商品列表
-    metadata JSONB, -- 推荐元数据（分数、原因等）
-    expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    
-    UNIQUE(user_id, scenario, algorithm)
-);
-
--- 推荐模型表
-CREATE TABLE recommendation_models (
-    id UUID PRIMARY KEY,
-    model_name VARCHAR(100) UNIQUE NOT NULL,
-    model_type VARCHAR(50) NOT NULL, -- 'collaborative_filtering', 'content_based', 'deep_learning'
-    algorithm_config JSONB NOT NULL,
-    model_path VARCHAR(500), -- 模型文件路径
-    performance_metrics JSONB, -- 性能指标
-    training_data_info JSONB, -- 训练数据信息
-    status VARCHAR(20) DEFAULT 'training', -- 'training', 'ready', 'deployed', 'deprecated'
-    version VARCHAR(20) NOT NULL,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    deployed_at TIMESTAMP WITH TIME ZONE
-);
-
--- A/B测试实验表
-CREATE TABLE recommendation_experiments (
-    id UUID PRIMARY KEY,
-    experiment_name VARCHAR(100) UNIQUE NOT NULL,
-    description TEXT,
-    status VARCHAR(20) DEFAULT 'draft', -- 'draft', 'running', 'paused', 'completed'
-    traffic_allocation FLOAT8 NOT NULL, -- 流量分配比例
-    control_algorithm VARCHAR(50) NOT NULL,
-    treatment_algorithm VARCHAR(50) NOT NULL,
-    target_metrics JSONB NOT NULL, -- 目标指标
-    start_date TIMESTAMP WITH TIME ZONE,
-    end_date TIMESTAMP WITH TIME ZONE,
-    results JSONB, -- 实验结果
-    created_by UUID,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
--- 推荐效果统计表
-CREATE TABLE recommendation_analytics (
-    id UUID PRIMARY KEY,
-    date DATE NOT NULL,
-    scenario VARCHAR(50) NOT NULL,
-    algorithm VARCHAR(50) NOT NULL,
-    total_requests INTEGER DEFAULT 0,
-    click_through_rate FLOAT8 DEFAULT 0,
-    conversion_rate FLOAT8 DEFAULT 0,
-    revenue_per_request FLOAT8 DEFAULT 0,
-    average_position FLOAT8 DEFAULT 0,
-    diversity_score FLOAT8 DEFAULT 0,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    
-    UNIQUE(date, scenario, algorithm)
-);
+### 适配器集成
+```
+app/adapters/           # 第三方服务适配器
+├── {service_type}/     # 服务类型目录
+│   ├── {provider}_adapter.py
+│   └── config.py
 ```
 
-### 特征工程
+### 技术栈
+- **编程语言**: Python 3.11+
+- **Web框架**: FastAPI
+- **数据库**: MySQL 8.0
+- **缓存**: Redis
+- **其他依赖**: 列出主要的第三方库
 
+### 设计模式
+- **使用的设计模式**: 如Repository、Factory、Strategy等
+- **架构模式**: 如Clean Architecture、DDD等
+- **代码组织**: 分层架构说明
+
+## 核心功能
+
+### 功能列表
+| 功能名称 | 优先级 | 状态 | 描述 |
+|---------|--------|------|------|
+| 功能1 | 高 | ✅ 已完成 | 功能简要描述 |
+| 功能2 | 中 | 🔄 开发中 | 功能简要描述 |
+| 功能3 | 低 | ⏳ 待开始 | 功能简要描述 |
+
+### 核心业务流程
+```mermaid
+graph TD
+    A[开始] --> B[步骤1]
+    B --> C[步骤2]
+    C --> D[结束]
+```
+
+### 业务规则
+1. **规则1**: 详细描述业务规则
+2. **规则2**: 详细描述业务规则
+3. **规则3**: 详细描述业务规则
+
+## 数据模型
+
+### 核心实体
 ```python
-class FeatureEngineering:
-    def __init__(self, db, redis_client):
-        self.db = db
-        self.redis = redis_client
+# 主要数据模型示例
+class {EntityName}(Base):
+    __tablename__ = "{table_name}"
     
-    async def build_user_features(self, user_id: str) -> UserFeatures:
-        """构建用户特征"""
-        # 1. 基础人口统计学特征
-        user_info = await self.db.get_user_basic_info(user_id)
-        demographic_features = {
-            'age_group': self._get_age_group(user_info.age) if user_info.age else 'unknown',
-            'gender': user_info.gender or 'unknown',
-            'city': user_info.city or 'unknown',
-            'registration_days': (datetime.now() - user_info.created_at).days
-        }
-        
-        # 2. 行为特征
-        interactions = await self.db.get_user_interactions(user_id, days=90)
-        behavior_features = {
-            'total_views': len([i for i in interactions if i.interaction_type == 'view']),
-            'total_purchases': len([i for i in interactions if i.interaction_type == 'purchase']),
-            'avg_session_duration': self._calculate_avg_session_duration(interactions),
-            'favorite_categories': self._get_favorite_categories(interactions),
-            'preferred_price_range': self._get_preferred_price_range(interactions),
-            'shopping_time_pattern': self._get_shopping_time_pattern(interactions),
-            'device_preference': self._get_device_preference(interactions)
-        }
-        
-        # 3. 偏好特征
-        preference_features = {
-            'brand_affinity': await self._calculate_brand_affinity(user_id),
-            'category_preferences': await self._calculate_category_preferences(user_id),
-            'price_sensitivity': await self._calculate_price_sensitivity(user_id),
-            'quality_preference': await self._calculate_quality_preference(user_id)
-        }
-        
-        return UserFeatures(
-            user_id=user_id,
-            demographic=demographic_features,
-            behavior=behavior_features,
-            preferences=preference_features
-        )
-    
-    async def build_item_features(self, product_id: str) -> ItemFeatures:
-        """构建商品特征"""
-        # 1. 基础商品信息
-        product = await self.db.get_product_detail(product_id)
-        basic_features = {
-            'category_id': product.category_id,
-            'brand_id': product.brand_id,
-            'price': float(product.price),
-            'age_days': (datetime.now() - product.created_at).days
-        }
-        
-        # 2. 内容特征
-        content_features = {
-            'title_length': len(product.name),
-            'description_length': len(product.description or ''),
-            'image_count': len(product.images),
-            'has_video': product.video_url is not None,
-            'attribute_count': len(product.attributes)
-        }
-        
-        # 3. 统计特征
-        stats = await self.db.get_product_statistics(product_id, days=30)
-        statistical_features = {
-            'view_count': stats.view_count,
-            'purchase_count': stats.purchase_count,
-            'conversion_rate': stats.conversion_rate,
-            'avg_rating': stats.avg_rating,
-            'review_count': stats.review_count,
-            'return_rate': stats.return_rate,
-            'inventory_level': stats.current_inventory
-        }
-        
-        # 4. 市场特征
-        market_features = {
-            'category_popularity': await self._get_category_popularity(product.category_id),
-            'brand_popularity': await self._get_brand_popularity(product.brand_id),
-            'price_competitiveness': await self._get_price_competitiveness(product_id),
-            'seasonal_trend': await self._get_seasonal_trend(product.category_id)
-        }
-        
-        return ItemFeatures(
-            product_id=product_id,
-            basic=basic_features,
-            content=content_features,
-            statistical=statistical_features,
-            market=market_features
-        )
+    id = Column(Integer, primary_key=True)
+    name = Column(String(100), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 ```
 
-## 推荐算法
-
-### 协同过滤算法
-
-```python
-class CollaborativeFilteringRecommender:
-    def __init__(self, model_config: dict):
-        self.config = model_config
-        self.user_similarity_matrix = None
-        self.item_similarity_matrix = None
-    
-    async def train(self, interactions: List[Interaction]):
-        """训练协同过滤模型"""
-        # 1. 构建用户-商品交互矩阵
-        interaction_matrix = self._build_interaction_matrix(interactions)
-        
-        # 2. 计算用户相似度矩阵
-        self.user_similarity_matrix = self._calculate_user_similarity(interaction_matrix)
-        
-        # 3. 计算商品相似度矩阵
-        self.item_similarity_matrix = self._calculate_item_similarity(interaction_matrix)
-        
-        # 4. 保存模型
-        await self._save_model()
-    
-    async def recommend(self, user_id: str, num_recommendations: int = 10) -> List[Recommendation]:
-        """为用户生成推荐"""
-        # 1. 获取用户历史交互
-        user_interactions = await self.db.get_user_interactions(user_id)
-        interacted_items = {i.item_id for i in user_interactions}
-        
-        # 2. 基于用户的协同过滤
-        user_based_scores = await self._user_based_recommendation(user_id, interacted_items)
-        
-        # 3. 基于商品的协同过滤
-        item_based_scores = await self._item_based_recommendation(user_id, interacted_items)
-        
-        # 4. 混合两种方法的结果
-        combined_scores = self._combine_scores(user_based_scores, item_based_scores)
-        
-        # 5. 排序并返回top-N推荐
-        recommendations = sorted(combined_scores.items(), key=lambda x: x[1], reverse=True)[:num_recommendations]
-        
-        return [
-            Recommendation(
-                item_id=item_id,
-                score=score,
-                algorithm='collaborative_filtering',
-                explanation=f"基于相似用户的购买行为推荐"
-            )
-            for item_id, score in recommendations
-        ]
-    
-    def _calculate_user_similarity(self, interaction_matrix):
-        """计算用户相似度（余弦相似度）"""
-        from sklearn.metrics.pairwise import cosine_similarity
-        return cosine_similarity(interaction_matrix)
-    
-    def _calculate_item_similarity(self, interaction_matrix):
-        """计算商品相似度"""
-        from sklearn.metrics.pairwise import cosine_similarity
-        return cosine_similarity(interaction_matrix.T)
-    
-    async def _user_based_recommendation(self, user_id: str, interacted_items: set) -> dict:
-        """基于用户的协同过滤推荐"""
-        # 找到相似用户
-        similar_users = await self._find_similar_users(user_id, top_k=50)
-        
-        # 收集相似用户喜欢的商品
-        candidate_items = {}
-        for similar_user_id, similarity in similar_users:
-            similar_user_interactions = await self.db.get_user_interactions(similar_user_id)
-            
-            for interaction in similar_user_interactions:
-                if interaction.item_id not in interacted_items:
-                    item_id = interaction.item_id
-                    if item_id not in candidate_items:
-                        candidate_items[item_id] = 0
-                    
-                    # 加权评分：相似度 × 交互强度
-                    candidate_items[item_id] += similarity * interaction.interaction_value
-        
-        return candidate_items
-
-class ContentBasedRecommender:
-    def __init__(self, model_config: dict):
-        self.config = model_config
-        self.item_features_matrix = None
-        self.feature_vectorizer = None
-    
-    async def train(self, items: List[Item]):
-        """训练基于内容的推荐模型"""
-        # 1. 提取商品特征
-        item_features = []
-        for item in items:
-            features = await self._extract_item_features(item)
-            item_features.append(features)
-        
-        # 2. 特征向量化
-        from sklearn.feature_extraction.text import TfidfVectorizer
-        self.feature_vectorizer = TfidfVectorizer(max_features=10000)
-        self.item_features_matrix = self.feature_vectorizer.fit_transform(item_features)
-        
-        # 3. 保存模型
-        await self._save_model()
-    
-    async def recommend(self, user_id: str, num_recommendations: int = 10) -> List[Recommendation]:
-        """基于内容的推荐"""
-        # 1. 构建用户画像
-        user_profile = await self._build_user_profile(user_id)
-        
-        # 2. 计算用户画像与商品特征的相似度
-        user_vector = self.feature_vectorizer.transform([user_profile])
-        similarities = cosine_similarity(user_vector, self.item_features_matrix).flatten()
-        
-        # 3. 排序并过滤已交互商品
-        user_interactions = await self.db.get_user_interactions(user_id)
-        interacted_items = {i.item_id for i in user_interactions}
-        
-        recommendations = []
-        for i, similarity in enumerate(similarities):
-            item_id = self.item_ids[i]  # 需要维护商品ID映射
-            if item_id not in interacted_items:
-                recommendations.append((item_id, similarity))
-        
-        # 4. 返回top-N推荐
-        recommendations.sort(key=lambda x: x[1], reverse=True)
-        return [
-            Recommendation(
-                item_id=item_id,
-                score=score,
-                algorithm='content_based',
-                explanation=f"基于您的兴趣偏好推荐"
-            )
-            for item_id, score in recommendations[:num_recommendations]
-        ]
-
-class DeepLearningRecommender:
-    def __init__(self, model_config: dict):
-        self.config = model_config
-        self.model = None
-        
-    async def train(self, interactions: List[Interaction], user_features: dict, item_features: dict):
-        """训练深度学习推荐模型"""
-        import tensorflow as tf
-        from tensorflow.keras.models import Model
-        from tensorflow.keras.layers import Input, Embedding, Dense, Concatenate, Dropout
-        
-        # 1. 准备训练数据
-        train_data = self._prepare_training_data(interactions, user_features, item_features)
-        
-        # 2. 构建神经网络模型
-        # 用户输入
-        user_input = Input(shape=(len(user_features[0]),), name='user_features')
-        user_dense = Dense(128, activation='relu')(user_input)
-        user_dense = Dropout(0.2)(user_dense)
-        
-        # 商品输入
-        item_input = Input(shape=(len(item_features[0]),), name='item_features')
-        item_dense = Dense(128, activation='relu')(item_input)
-        item_dense = Dropout(0.2)(item_dense)
-        
-        # 特征融合
-        concat = Concatenate()([user_dense, item_dense])
-        hidden = Dense(256, activation='relu')(concat)
-        hidden = Dropout(0.3)(hidden)
-        hidden = Dense(128, activation='relu')(hidden)
-        output = Dense(1, activation='sigmoid', name='rating')(hidden)
-        
-        # 3. 编译模型
-        self.model = Model(inputs=[user_input, item_input], outputs=output)
-        self.model.compile(
-            optimizer='adam',
-            loss='binary_crossentropy',
-            metrics=['accuracy', 'auc']
-        )
-        
-        # 4. 训练模型
-        history = self.model.fit(
-            train_data['X'],
-            train_data['y'],
-            epochs=self.config.get('epochs', 100),
-            batch_size=self.config.get('batch_size', 256),
-            validation_split=0.2,
-            callbacks=[
-                tf.keras.callbacks.EarlyStopping(patience=10),
-                tf.keras.callbacks.ReduceLROnPlateau(patience=5)
-            ]
-        )
-        
-        # 5. 保存模型
-        await self._save_model()
-        
-        return history
+### 数据关系图
+```
+{实体关系图，可以使用Mermaid ER图}
 ```
 
-## API 接口
+### 数据约束
+- **唯一性约束**: 字段级别的唯一性要求
+- **外键约束**: 与其他表的关系约束
+- **业务约束**: 业务级别的数据约束
 
-### 推荐服务
+## API接口
 
+### 接口列表
+| 接口 | 方法 | 路径 | 描述 | 状态 |
+|------|------|------|------|------|
+| 创建{实体} | POST | /api/v1/{entities} | 创建新的{实体} | ✅ |
+| 获取{实体} | GET | /api/v1/{entities}/{id} | 获取指定{实体} | ✅ |
+| 更新{实体} | PUT | /api/v1/{entities}/{id} | 更新{实体}信息 | 🔄 |
+| 删除{实体} | DELETE | /api/v1/{entities}/{id} | 删除{实体} | ⏳ |
+
+### 接口详情示例
 ```yaml
-/api/v1/recommendations:
-  GET /users/{user_id}/products:
-    summary: 获取用户个性化推荐
-    parameters:
-      - name: user_id
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-      - name: scenario
-        in: query
-        schema:
-          type: string
-          enum: [homepage, product_detail, cart, checkout]
-          default: homepage
-      - name: limit
-        in: query
-        schema:
-          type: integer
-          default: 10
-          maximum: 50
-    responses:
-      200:
-        description: 推荐商品列表
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                recommendations:
-                  type: array
-                  items:
-                    $ref: '#/components/schemas/ProductRecommendation'
-                metadata:
-                  type: object
-                  properties:
-                    algorithm:
-                      type: string
-                    explanation:
-                      type: string
-
-  GET /products/{product_id}/related:
-    summary: 获取相关商品推荐
-    parameters:
-      - name: product_id
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-      - name: limit
-        in: query
-        schema:
-          type: integer
-          default: 10
-    responses:
-      200:
-        description: 相关商品列表
-
-  GET /trending:
-    summary: 获取热门商品推荐
-    parameters:
-      - name: category_id
-        in: query
-        schema:
-          type: string
-          format: uuid
-      - name: time_window
-        in: query
-        schema:
-          type: string
-          enum: [1h, 24h, 7d, 30d]
-          default: 24h
-    responses:
-      200:
-        description: 热门商品列表
-
-  POST /feedback:
-    summary: 记录用户反馈
-    security:
-      - BearerAuth: []
+/api/v1/{entities}:
+  post:
+    summary: 创建{实体}
     requestBody:
       required: true
       content:
         application/json:
           schema:
-            type: object
-            properties:
-              user_id:
-                type: string
-                format: uuid
-              product_id:
-                type: string
-                format: uuid
-              feedback_type:
-                type: string
-                enum: [like, dislike, not_interested, purchased]
-              context:
-                type: object
+            $ref: '#/components/schemas/{Entity}Create'
     responses:
       201:
-        description: 反馈记录成功
+        description: 创建成功
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/{Entity}'
+      400:
+        description: 请求参数错误
 ```
+
+### 错误码
+| 错误码 | 状态码 | 描述 | 解决方案 |
+|--------|--------|------|----------|
+| {MODULE}_001 | 400 | 参数验证失败 | 检查请求参数 |
+| {MODULE}_002 | 404 | 资源不存在 | 确认资源ID |
+| {MODULE}_003 | 409 | 资源冲突 | 检查资源状态 |
+
+## 测试策略
+
+### 测试覆盖率目标
+- **单元测试**: ≥ 85%
+- **集成测试**: ≥ 70%
+- **端到端测试**: 核心业务流程100%
+
+### 测试类型
+```python
+# 单元测试示例
+class Test{Entity}Service:
+    def test_create_{entity}_success(self):
+        # 测试成功创建{实体}
+        pass
+    
+    def test_create_{entity}_validation_error(self):
+        # 测试验证错误
+        pass
+
+# 集成测试示例  
+class Test{Entity}API:
+    def test_{entity}_crud_workflow(self):
+        # 测试完整CRUD流程
+        pass
+```
+
+### 性能测试
+- **响应时间**: API响应时间 < 500ms
+- **并发处理**: 支持100并发请求
+- **数据量**: 支持100万条记录
+
+### 测试数据
+- **测试数据生成**: Factory Boy或自定义工厂
+- **数据清理**: 每个测试后清理测试数据
+- **Mock策略**: 外部依赖的Mock策略
+
+## 部署和运维
+
+### 环境要求
+- **开发环境**: 本地开发环境配置
+- **测试环境**: 测试环境配置要求
+- **生产环境**: 生产环境配置要求
+
+### 配置管理
+```python
+# 环境变量配置
+{MODULE}_DATABASE_URL=mysql://...
+{MODULE}_REDIS_URL=redis://...
+{MODULE}_LOG_LEVEL=INFO
+```
+
+### 监控指标
+- **业务指标**: 关键业务指标监控
+- **技术指标**: 响应时间、错误率等
+- **资源指标**: CPU、内存、数据库连接等
+
+### 告警规则
+- **错误率**: > 1% 触发告警
+- **响应时间**: > 1s 触发告警
+- **资源使用**: > 80% 触发告警
+
+## 安全考虑
+
+### 认证授权
+- **身份认证**: JWT Token验证
+- **权限控制**: 基于角色的访问控制
+- **API安全**: Rate Limiting、CORS等
+
+### 数据安全
+- **数据加密**: 敏感数据加密存储
+- **传输安全**: HTTPS传输
+- **输入验证**: 严格的输入验证
+
+### 审计日志
+- **操作日志**: 记录关键操作
+- **访问日志**: 记录API访问
+- **安全日志**: 记录安全相关事件
 
 ## 性能优化
 
 ### 缓存策略
+- **应用缓存**: Redis缓存热点数据
+- **数据库缓存**: 查询结果缓存
+- **CDN缓存**: 静态资源缓存
 
-1. **多级缓存**
-   - L1: 应用内存缓存 (热门推荐)
-   - L2: Redis缓存 (个性化推荐)
-   - L3: 数据库 (完整推荐数据)
+### 数据库优化
+- **索引优化**: 关键字段索引
+- **查询优化**: SQL查询优化
+- **连接池**: 数据库连接池配置
 
-2. **预计算**
-   - 离线批量计算相似度矩阵
-   - 预生成热门用户推荐
-   - 缓存商品相关推荐
+### 扩展性设计
+- **水平扩展**: 支持多实例部署
+- **垂直扩展**: 资源配置优化
+- **降级策略**: 服务降级机制
 
-3. **实时更新**
-   - 增量更新用户画像
-   - 实时调整推荐权重
-   - 动态过滤售罄商品
+## 问题和风险
 
-## 监控指标
+### 已知问题
+| 问题ID | 描述 | 优先级 | 状态 | 解决方案 |
+|--------|------|--------|------|----------|
+| {MODULE}-001 | 问题描述 | 高 | 🔄 处理中 | 解决方案 |
 
-### 业务指标
+### 技术风险
+- **风险1**: 风险描述和缓解措施
+- **风险2**: 风险描述和缓解措施
 
-- 推荐点击率 (CTR)
-- 推荐转化率 (CVR)
-- 推荐收入贡献
-- 用户满意度
+### 技术债务
+- **债务1**: 技术债务描述和还债计划
+- **债务2**: 技术债务描述和还债计划
 
-### 技术指标
+## 开发计划
 
-- 推荐响应时间
-- 缓存命中率
-- 模型预测准确率
-- 特征计算延迟
+### 里程碑
+- **M1**: 基础功能开发 (预计: {日期})
+- **M2**: 完整功能实现 (预计: {日期})
+- **M3**: 性能优化 (预计: {日期})
 
-### 算法指标
-
-- 推荐覆盖率
-- 推荐多样性
-- 推荐新颖性
-- 推荐公平性
-
-## 部署配置
-
-### 环境变量
-
-```bash
-# 数据库配置
-RECOMMENDATION_DB_URL=postgresql://user:pass@localhost/recommendation_db
-
-# 机器学习配置
-ML_MODEL_PATH=/models/recommendation
-TENSORFLOW_SERVING_URL=http://localhost:8501
-
-# 特征存储配置
-FEATURE_STORE_URL=redis://localhost:6379/5
-FEATURE_CACHE_TTL=3600
-
-# 算法配置
-DEFAULT_ALGORITHM=hybrid
-ENABLE_REAL_TIME_UPDATES=true
-```
+### 任务分解
+- [ ] 任务1 (负责人: {姓名}, 预计: {日期})
+- [ ] 任务2 (负责人: {姓名}, 预计: {日期})
+- [ ] 任务3 (负责人: {姓名}, 预计: {日期})
 
 ## 相关文档
 
-- [商品模块](../product-catalog/overview.md)
-- [用户模块](../user-auth/overview.md)
-- [机器学习架构](../../architecture/machine-learning.md)
-- [实时计算](../../architecture/real-time-processing.md)
+### 架构文档
+- [系统架构总览](../architecture/overview.md)
+- [API设计规范](../architecture/api-standards.md)
+- [数据模型规范](../architecture/data-models.md)
+
+### 开发文档
+- [开发规范](../development/development-standards.md)
+- [测试指南](../development/testing.md)
+- [部署指南](../operations/deployment.md)
+
+### 需求文档
+- [业务需求](../requirements/business.md)
+- [功能需求](../requirements/functional.md)
+
+### 其他模块
+- [依赖模块1](../modules/{module1}/overview.md)
+- [依赖模块2](../modules/{module2}/overview.md)
+
+---
+
+📝 **模板使用说明**:
+1. 复制此模板创建新的模块文档
+2. 替换所有 `{变量}` 为实际值
+3. 删除不适用的章节
+4. 根据模块特点调整章节内容
+5. 保持文档及时更新
+

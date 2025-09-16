@@ -23,13 +23,13 @@
 ### 3. 代码实现与文档不匹配
 - **问题**: `app/api/inventory_routes.py` 使用了与文档不一致的API路径
 - **当前实现**: `/api/inventory/` 前缀
-- **文档定义**: `/api/v1/inventory/` 前缀
+- **文档定义**: `/api/v1/inventory-management/` 前缀
 - **违规级别**: 高 - 代码与文档不同步
 
 ### 4. 命名规范违规
 - **问题**: 同一概念使用不同命名
   - `product_id` vs `sku_id`
-  - `/api/inventory/` vs `/api/v1/inventory/`
+  - `/api/inventory/` vs `/api/v1/inventory-management/`
 - **违规级别**: 中 - 违反命名一致性原则
 
 ## 当前代码状态

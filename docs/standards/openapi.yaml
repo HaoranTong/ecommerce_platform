@@ -182,7 +182,7 @@ paths:
           description: 商品不存在
 
   # 预留的电商核心 API（将在后续 Sprint 实现）
-  /api/v1/orders:
+  /api/v1/order-management/orders:
     post:
       tags: [订单管理]
       summary: 创建订单（未实现）

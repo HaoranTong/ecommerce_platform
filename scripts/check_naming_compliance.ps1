@@ -40,13 +40,15 @@ $NamingConfig = @{
         "database-utils" = "database_utils"
     }
     
-    # API端点规范 - 修正：考虑FastAPI路由前缀合并
+    # API端点规范 - 完整模块名称架构
     ApiPatterns = @{
-        # 模块路由文件中的路径模式（不包含/api/v1前缀，由main_routes.py添加）
-        "ModuleRoute" = "^/[a-z][a-z0-9-]*(/[a-z0-9-]+)*(/\{[a-z_]+\})?(/[a-z0-9-]+)*$"
-        # 完整API路径模式（包含/api/v1前缀）
-        "FullApiPath" = "^/api/v1/[a-z][a-z0-9-]*(/[a-z0-9-]+)*(/\{[a-z_]+\})?(/[a-z0-9-]+)*$"
+        # 模块路由文件中的路径模式（完整模块名 + 资源路径）
+        "ModuleRoute" = "^/[a-z][a-z0-9-]+/[a-z0-9-]+(/[a-z0-9-]+)*(/\{[a-z_]+\})?(/[a-z0-9-]+)*$"
+        # 完整API路径模式（包含/api/v1前缀 + 完整模块名）
+        "FullApiPath" = "^/api/v1/[a-z][a-z0-9-]+/[a-z0-9-]+(/[a-z0-9-]+)*(/\{[a-z_]+\})?(/[a-z0-9-]+)*$"
         "Parameters" = "^[a-z][a-z0-9_]*$"
+        # 完整模块名模式（连字符分隔的业务概念名）
+        "CompleteModuleName" = "^[a-z]+(-[a-z]+)*$"
     }
     
     # 数据库命名规范
@@ -59,8 +61,8 @@ $NamingConfig = @{
     # 代码命名规范
     CodePatterns = @{
         "ClassName" = "^[A-Z][a-zA-Z0-9]*$"      # PascalCase
-        "FunctionName" = "^[a-z][a-zA-Z0-9_]*$"  # camelCase或snake_case
-        "VariableName" = "^[a-z][a-zA-Z0-9_]*$"  # camelCase或snake_case
+        "FunctionName" = "^(_*[a-z][a-zA-Z0-9_]*|[a-z][a-zA-Z0-9_]*)$"  # snake_case，支持私有函数(_开头)
+        "VariableName" = "^[a-z][a-zA-Z0-9_]*$"  # snake_case
     }
 }
 
@@ -114,34 +116,44 @@ function Check-ApiNaming {
             if ($line -match '@router\.\w+\("([^"]+)"') {
                 $endpoint = $matches[1]
                 
-                # 模块路由应该是相对路径，如 "/login", "/products", "/users/{id}" 等
-                if ($endpoint -notmatch "^/[a-z]") {
+                # 根据新规范：模块路由应该包含完整模块名作为前缀
+                $expectedModuleName = $moduleName -replace "_", "-"
+                $expectedPrefix = "/$expectedModuleName/"
+                
+                # 检查是否使用完整模块名前缀
+                if ($endpoint -notmatch "^/$expectedModuleName/") {
                     $violations += @{
                         Type = "API路由"
                         File = "$moduleName/router.py"
-                        Issue = "模块路由格式不符合规范: $endpoint"
+                        Issue = "API端点未使用完整模块名前缀: $endpoint"
                         Line = $route.LineNumber
-                        Suggestion = "使用标准模块路由格式，如 /login, /products, /users/{id}"
+                        Suggestion = "应该使用完整模块名前缀，如: $expectedPrefix{resource}"
+                    }
+                }
+                
+                # 检查路径格式（完整模块名 + 资源路径）
+                if ($endpoint -notmatch "^/[a-z][a-z0-9-]+/[a-z][a-z0-9-]*") {
+                    $violations += @{
+                        Type = "API路由格式"
+                        File = "$moduleName/router.py"
+                        Issue = "API路径格式不符合规范: $endpoint"
+                        Line = $route.LineNumber
+                        Suggestion = "使用格式: /{完整模块名}/{资源名}，如 /user-auth/login, /product-catalog/products"
                     }
                 }
             }
         }
         
-        # 检查APIRouter前缀配置
+        # 检查模块路由文件不应该包含prefix配置（由main.py统一管理）
         $prefixLines = $content | Select-String -Pattern "prefix\s*="
-        foreach ($prefixLine in $prefixLines) {
-            if ($prefixLine.Line -match 'prefix\s*=\s*["'']([^"'']+)["'']') {
-                $prefix = $matches[1]
-                # 业务概念层应该使用连字符
-                $expectedPrefix = "/api/" + ($moduleName -replace "_", "-")
-                if ($prefix -ne $expectedPrefix) {
-                    $violations += @{
-                        Type = "模块路由前缀"
-                        File = "$moduleName/router.py"
-                        Issue = "路由前缀不符合规范: $prefix"
-                        Line = $prefixLine.LineNumber
-                        Suggestion = "应该使用: $expectedPrefix"
-                    }
+        if ($prefixLines) {
+            foreach ($prefixLine in $prefixLines) {
+                $violations += @{
+                    Type = "路由架构"
+                    File = "$moduleName/router.py"
+                    Issue = "模块路由文件不应包含prefix配置"
+                    Line = $prefixLine.LineNumber
+                    Suggestion = "移除prefix配置，统一前缀在main.py中设置"
                 }
             }
         }

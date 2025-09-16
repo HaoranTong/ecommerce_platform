@@ -72,14 +72,14 @@ app.include_router(
 ### 路径结构
 ```
 # 基础商品管理
-GET    /api/v1/products           # 获取商品列表
-GET    /api/v1/products/{id}      # 获取指定商品
-POST   /api/v1/products           # 创建商品
-PUT    /api/v1/products/{id}      # 更新商品
-DELETE /api/v1/products/{id}      # 删除商品
+GET    /api/v1/product-catalog/products           # 获取商品列表
+GET    /api/v1/product-catalog/products/{id}      # 获取指定商品
+POST   /api/v1/product-catalog/products           # 创建商品
+PUT    /api/v1/product-catalog/products/{id}      # 更新商品
+DELETE /api/v1/product-catalog/products/{id}      # 删除商品
 
 # 嵌套资源
-GET    /api/v1/products/{id}/reviews     # 获取商品评论
+GET    /api/v1/product-catalog/products/{id}/reviews     # 获取商品评论
 POST   /api/v1/products/{id}/reviews     # 创建商品评论
 
 # 农产品电商特色API

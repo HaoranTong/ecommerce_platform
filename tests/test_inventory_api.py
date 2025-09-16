@@ -22,11 +22,11 @@ def test_inventory_api():
     print("📊 测试库存API可访问性...")
     
     # 测试获取商品库存（应该返回404或401，证明端点存在）
-    response = requests.get(f"{BASE_URL}/api/v1/inventory/1")
+    response = requests.get(f"{BASE_URL}/api/v1/inventory-management/stock/1")
     print(f"  库存查询端点响应: {response.status_code}")
     
     # 测试批量查询（应该返回422或401，证明端点存在）
-    response = requests.post(f"{BASE_URL}/api/v1/inventory/batch", 
+    response = requests.post(f"{BASE_URL}/api/v1/inventory-management/stock/batch", 
                            json={"product_ids": [1, 2]})
     print(f"  批量查询端点响应: {response.status_code}")
     

@@ -6,6 +6,43 @@
 - **更新频率**：随测试需求变化和框架升级更新
 - **关联文档**：[开发工作流程](workflow.md)、[编码标准](standards.md)、[MASTER工作流程](../MASTER.md)
 
+## 🚨 强制性测试代码编写规范
+
+### 测试代码编写前强制检查清单
+**⚠️ 违反此检查清单将导致测试质量问题和生产环境风险**
+
+#### 1. 强制文档依赖检查
+**任何测试代码编写前，必须完成以下步骤：**
+- ✅ **必须阅读被测试模块的技术文档** - 包括模块的 overview.md、models.py、service.py、schemas.py
+- ✅ **必须阅读相关依赖模块的技术文档** - 所有被引用模块的文档
+- ✅ **必须验证数据模型字段的实际存在性** - 通过 read_file 检查模型定义
+- ✅ **必须验证API方法的实际存在性** - 通过 grep_search 检查方法定义
+- ✅ **必须验证方法参数的正确性** - 检查方法签名和参数类型
+
+#### 2. 禁止凭感觉编写测试代码
+**🚫 严禁以下行为：**
+- ❌ 凭经验猜测字段名称（如 `hashed_password` vs `password_hash`）
+- ❌ 凭经验猜测方法名称（如 `get_order_details` vs `get_order_by_id`）
+- ❌ 假设字段存在而不验证（如不存在的 `location` 字段）
+- ❌ 猜测方法参数（如遗漏 `operator_id` 参数）
+- ❌ 简化业务逻辑测试（如跳过认证流程）
+- ❌ 简化API端点测试（如只测试主页而不测试实际API）
+
+#### 3. 强制验证流程
+**编写测试前必须执行的验证步骤：**
+1. **模型验证**: `read_file app/modules/[模块]/models.py` 检查所有字段定义
+2. **服务验证**: `grep_search "def " app/modules/[模块]/service.py` 检查所有方法
+3. **API验证**: `read_file app/modules/[模块]/routes.py` 检查所有端点
+4. **依赖验证**: 检查所有import的模块和类的实际定义
+
+#### 4. 测试质量强制要求
+**测试必须达到以下质量标准：**
+- ✅ **100%使用真实字段名** - 所有字段名必须与模型定义一致
+- ✅ **100%使用真实方法名** - 所有方法调用必须与实际代码一致
+- ✅ **100%使用正确参数** - 所有参数必须与方法签名一致
+- ✅ **覆盖真实业务流程** - 不得简化关键业务逻辑
+- ✅ **测试真实API端点** - 不得用无关端点替代实际API
+
 ---
 
 ## 测试策略概览
@@ -490,7 +527,7 @@ class TestUserJourney:
             "password": "password123"
         }
         
-        register_response = client.post("/api/v1/auth/register", json=registration_data)
+        register_response = client.post("/api/v1/user-auth/register", json=registration_data)
         assert register_response.status_code == 201
         
         # 2. 用户登录
@@ -499,7 +536,7 @@ class TestUserJourney:
             "password": "password123"
         }
         
-        login_response = client.post("/api/v1/auth/login", json=login_data)
+        login_response = client.post("/api/v1/user-auth/login", json=login_data)
         assert login_response.status_code == 200
         
         token = login_response.json()["access_token"]
@@ -558,7 +595,7 @@ def sample_user(db):
 def authenticated_client(client, sample_user):
     """认证客户端"""
     login_data = {"email": sample_user.email, "password": "password"}
-    response = client.post("/api/v1/auth/login", json=login_data)
+    response = client.post("/api/v1/user-auth/login", json=login_data)
     token = response.json()["access_token"]
     
     client.headers.update({"Authorization": f"Bearer {token}"})
@@ -610,7 +647,7 @@ class UserBehavior(HttpUser):
     
     def on_start(self):
         # 登录获取token
-        response = self.client.post("/api/v1/auth/login", json={
+        response = self.client.post("/api/v1/user-auth/login", json={
             "email": "test@example.com",
             "password": "password"
         })
@@ -620,15 +657,15 @@ class UserBehavior(HttpUser):
     
     @task(3)
     def get_products(self):
-        self.client.get("/api/v1/products")
+        self.client.get("/api/v1/product-catalog/products")
     
     @task(2)
     def get_user_profile(self):
-        self.client.get("/api/v1/users/me")
+        self.client.get("/api/v1/user-auth/me")
     
     @task(1)
     def create_order(self):
-        self.client.post("/api/v1/orders", json={
+        self.client.post("/api/v1/order-management/orders", json={
             "product_id": 1,
             "quantity": 1
         })

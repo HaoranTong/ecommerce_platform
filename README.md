@@ -16,37 +16,42 @@
 
 ```
 ecommerce_platform/
-├── app/                    # 应用程序源码
-├── docs/                   # 项目技术文档
-├── tests/                  # 测试代码
-├── scripts/                # 自动化脚本
-├── alembic/               # 数据库迁移
-└── requirements.txt       # 项目依赖
-│   │   │   └── dependencies.py       # 模块依赖
-│   │   ├── product_catalog/          # 商品管理模块
-│   │   ├── shopping_cart/            # 购物车模块
-│   │   ├── order_management/         # 订单管理模块
-│   │   ├── payment_service/          # 支付服务模块
-│   │   ├── batch_traceability/       # 批次溯源模块
-│   │   └── ... (18个其他模块)        # 其他业务模块
-│   └── main.py                       # FastAPI应用入口
-│   │   └── __init__.py          # API包初始化
-│   ├── models/                  # 数据模型（SQLAlchemy）
-│   │   ├── base.py              # 基础模型类
-│   │   ├── user.py              # 用户模型
-│   │   ├── product.py           # 商品模型
-│   │   ├── order.py             # 订单模型
-│   │   ├── payment.py           # 支付模型
-│   │   └── __init__.py          # 模型统一导出
-│   ├── schemas/                 # 数据验证模式（Pydantic）
-│   │   ├── base.py              # 基础模式类
-│   │   ├── user.py              # 用户相关模式
-│   │   ├── product.py           # 商品相关模式
-│   │   ├── order.py             # 订单相关模式
-│   │   ├── payment.py           # 支付相关模式
-│   │   └── __init__.py          # 模式统一导出
-│   ├── services/                # 业务逻辑服务
-│   │   ├── user_service.py      # 用户业务服务
+├── 📂 app/                     # 应用程序源码
+│   ├── main.py                 # FastAPI应用入口
+│   ├── core/                   # 核心基础设施
+│   │   ├── auth.py            # 认证管理
+│   │   ├── database.py        # 数据库连接
+│   │   ├── redis_client.py    # Redis客户端
+│   │   └── security_logger.py # 安全日志
+│   ├── shared/                 # 共享组件
+│   │   ├── base_models.py     # 基础数据模型
+│   │   ├── base_schemas.py    # 基础验证模式
+│   │   └── api_schemas.py     # API通用模式
+│   └── modules/                # 业务功能模块 (19个)
+│       ├── user_auth/         # 用户认证模块
+│       ├── product_catalog/   # 商品管理模块  
+│       ├── shopping_cart/     # 购物车模块
+│       ├── order_management/  # 订单管理模块
+│       ├── payment_service/   # 支付服务模块
+│       ├── batch_traceability/ # 批次溯源模块
+│       └── ... (13个其他模块) # 其他业务模块
+├── 📚 docs/                    # 项目技术文档
+│   ├── README.md              # 文档导航中心
+│   ├── core/                  # 核心组件文档
+│   ├── shared/                # 共享组件文档
+│   ├── modules/               # 业务模块文档 (19个)
+│   ├── architecture/          # 系统架构设计
+│   ├── standards/             # 开发规范标准
+│   ├── development/           # 开发环境指南
+│   ├── operations/            # 运维部署文档
+│   ├── requirements/          # 需求分析文档
+│   └── templates/             # 文档标准模板
+├── 🧪 tests/                   # 测试代码
+├── 🛠️ scripts/                 # 自动化脚本
+├── 📝 alembic/                 # 数据库迁移
+├── 📊 logs/                    # 日志文件
+├── requirements.txt           # 项目依赖
+└── docker-compose.yml         # 容器配置
 ```
 
 ## 🚀 快速开始
@@ -92,11 +97,11 @@ pytest
 - `GET /{id}` - 获取订单详情
 - `PUT /{id}/cancel` - 取消订单
 
-### 支付管理 `/api/v1/payments`
-- `POST /` - 创建支付
-- `GET /{id}` - 获取支付状态
-- `POST /{id}/confirm` - 确认支付
-- `POST /refunds` - 申请退款
+### 支付管理 `/api/v1/payment-service`
+- `POST /payments` - 创建支付
+- `GET /payments/{id}` - 获取支付状态
+- `POST /payments/{id}/confirm` - 确认支付
+- `POST /payments/refunds` - 申请退款
 
 ## 🚀 部署
 
@@ -138,20 +143,13 @@ gunicorn app.main:app -w 4 -k uvicorn.workers.UvicornWorker
 ## 📄 许可证
 
 本项目采用 MIT 许可证 - 查看 [LICENSE](LICENSE) 文件了解详情。
-│   └── test_*.py                # 单元测试
-├── 🛠️ scripts/                  # 自动化脚本
-│   ├── smoke_test.ps1           # 冒烟测试
-│   ├── feature_finish.ps1       # 功能完成流程
-│   └── release_to_main.ps1      # 发布脚本
-├── 🗄️ alembic/                  # 数据库迁移
-│   ├── versions/                # 迁移版本文件
-│   └── env.py                   # 迁移环境配置
-├── 🔧 .github/                  # CI/CD工作流
-##  文档导航
+## � 文档导航
 
 - [📋 项目文档](docs/) - 完整技术文档中心
-- [🏗️ 系统架构](docs/architecture/) - 架构设计与技术选型
-- [📦 功能模块](docs/modules/) - 业务模块设计文档
+- [🏗️ 系统架构](docs/architecture/) - 架构设计与技术选型  
+- [📦 功能模块](docs/modules/) - 业务模块设计文档 (19个完整模块)
+- [🔧 核心组件](docs/core/) - 应用核心基础设施文档
+- [🔗 共享组件](docs/shared/) - 通用数据模型和工具  
 - [📡 API规范](docs/standards/api-standards.md) - 接口设计标准
 - [💻 开发指南](docs/development/) - 开发环境配置
 - [🚀 部署运维](docs/operations/) - 生产环境部署
@@ -159,17 +157,15 @@ gunicorn app.main:app -w 4 -k uvicorn.workers.UvicornWorker
 
 ## 🎯 项目状态
 
-当前版本：**开发阶段**  
-主要分支：`feature/add-user-auth`
+当前版本：**文档标准化完成**  
+主要分支：`main`
 
-### 核心模块完成情况
-- ✅ 用户认证模块 - JWT认证、权限管理
-- ✅ 商品管理模块 - 商品CRUD、分类体系  
-- ✅ 购物车模块 - Redis存储、实时计算
-- ✅ 订单管理模块 - 订单流程、状态管理
-- ✅ 支付服务模块 - 多渠道支付集成
-- � 农产品溯源模块 - 开发中
-- � 物流管理模块 - 开发中
+### 模块文档完成情况 (100%)
+- ✅ **19个业务模块** - 完整7文档结构 (README + 需求 + 设计 + API规范 + API实现 + 实现记录 + 概览)
+- ✅ **5个核心组件** - 应用框架、数据库、缓存、工具组件完整文档
+- ✅ **1个共享组件** - 基础数据模型标准化文档
+- ✅ **自动化工具** - 文档生成、完整性检查、标准验证工具
+- ✅ **文档架构** - 分离式结构、依赖管理、模板标准化
 
 ---
 

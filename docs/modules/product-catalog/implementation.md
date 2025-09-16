@@ -1,229 +1,341 @@
 <!--
 文档说明：
-- 内容：商品管理模块的实现状态和开发记录
-- 使用方法：开发过程中实时更新，跟踪实现进度
-- 更新方法：每次代码提交后更新对应实现状态
-- 引用关系：引用 design.md 和 requirements.md
-- 更新频率：开发期间每日更新
+- 内容：模块实现记录文档模板
+- 作用：记录开发过程、实现细节、技术问题和解决方案
+- 使用方法：开发过程中实时记录，便于知识传承
 -->
 
-# 商品管理模块实现记录
+# product-catalog模块 - 实现记录文档
 
-📝 **状态**: 🔄 开发中  
-📅 **创建日期**: 2025-09-12  
-👤 **负责人**: AI开发助手  
-🔄 **最后更新**: 2025-09-12  
-📋 **版本**: v0.8.0  
+📅 **创建日期**: 2025-09-16  
+👤 **开发者**: {开发人员}  
+🔄 **最后更新**: 2025-09-16  
+📊 **完成进度**: {百分比}%  
 
-## 实现状态总览
+## 实施概述
 
-### 整体进度
-- ✅ **数据模型设计** (100%) - 已完成Product和Category模型
-- ✅ **基础服务层** (90%) - ProductService和CategoryService已实现
-- ✅ **API路由** (85%) - 主要REST接口已实现
-- ⚠️ **关系映射** (60%) - SQLAlchemy关系存在问题待修复
-- ❌ **缓存层** (0%) - 待实现Redis缓存
-- ❌ **测试覆盖** (10%) - 需要完整测试用例
+### 实施状态
+- **当前状态**: {开发中|测试中|已完成|部署中}
+- **完成功能**: {已完成的功能列表}
+- **待实施**: {待实施的功能列表}
+- **技术债务**: {已知的技术债务}
 
-### 当前问题
-1. **SQLAlchemy关系映射问题** - 需要修复Product和Category的关系映射
-2. **缺少完整的错误处理** - 需要实现标准异常处理
-3. **缺少缓存层** - 需要实现Redis缓存策略
+### 关键里程碑
+| 日期 | 里程碑 | 状态 | 备注 |
+|------|--------|------|------|
+| 2025-09-16 | {里程碑1} | ✅ | {备注} |
+| 2025-09-16 | {里程碑2} | 🔄 | {备注} |
 
-## 代码实现状态
+## 代码实现
 
-### 数据模型层 ✅
-**文件位置**: `app/models/product.py`
-
-**已实现功能**:
-- ✅ Product模型定义
-- ✅ Category模型定义  
-- ✅ 数据库字段定义
-- ✅ 基础索引配置
-- ⚠️ 关系映射配置（存在问题）
-
-**实现代码**:
-```python
-# app/models/product.py
-class Product(BaseModel, TimestampMixin):
-    __tablename__ = 'products'
-    
-    name = Column(String(200), nullable=False)
-    sku = Column(String(100), unique=True, nullable=False)
-    description = Column(Text, nullable=True)
-    category_id = Column(Integer, ForeignKey('categories.id'))
-    price = Column(DECIMAL(10, 2), nullable=False)
-    stock_quantity = Column(Integer, nullable=False)
-    status = Column(String(20), default='active')
-    image_url = Column(String(500), nullable=True)
-    
-    # 关系映射 - 当前存在问题，需要修复
-    category = relationship("Category", back_populates="products")
+### 目录结构
+```
+app/modules/product_catalog/
+├── __init__.py
+├── router.py           # ✅ API路由实现
+├── service.py          # ✅ 业务逻辑实现
+├── repository.py       # 🔄 数据访问层
+├── models.py           # ✅ 数据模型
+├── schemas.py          # ✅ 数据传输对象
+├── dependencies.py     # ⏳ 依赖注入
+├── exceptions.py       # ⏳ 自定义异常
+└── utils.py           # ⏳ 工具函数
 ```
 
-**待解决问题**:
-- 需要修复Category.children自引用关系
-- 需要恢复与Order、Cart的关系映射
+### 核心组件实现
 
-### 服务层 ✅
-**文件位置**: `app/services/product_service.py`, `app/services/category_service.py`
-
-**已实现功能**:
-- ✅ ProductService.create_product() 
-- ✅ ProductService.get_products()
-- ✅ ProductService.update_product()
-- ✅ CategoryService.get_categories()
-- ✅ CategoryService.create_category()
-
-**实现代码**:
+#### API路由层 (router.py)
 ```python
-# app/services/product_service.py
-class ProductService:
-    @staticmethod
-    def create_product(db: Session, product_data: dict) -> Product:
-        # 已实现基础功能，需要增加业务验证
-        
-    @staticmethod
-    def get_products(db: Session, filters: dict) -> List[Product]:
-        # 已实现基础查询，需要增加分页和筛选
+from fastapi import APIRouter, Depends
+from .schemas import {Schema}Request, {Schema}Response
+from .service import {Module}Service
+
+router = APIRouter()
+
+@router.post("/product-catalog/{resource}", response_model={Schema}Response)
+async def create_{resource}(
+    request: {Schema}Request,
+    service: {Module}Service = Depends()
+):
+    """
+    实现说明：
+    - 功能：{功能描述}
+    - 验证：{验证逻辑}
+    - 处理：{处理逻辑}
+    """
+    return await service.create_{resource}(request)
 ```
 
-**待优化内容**:
-- 增加完整的业务验证逻辑
-- 实现分页和高级筛选
-- 增加库存管理逻辑
-- 实现缓存策略
-
-### API路由层 ✅
-**文件位置**: `app/api/routes/product.py`
-
-**已实现接口**:
-- ✅ `GET /api/v1/products` - 商品列表查询
-- ✅ `GET /api/v1/products/{id}` - 商品详情查询
-- ✅ `POST /api/v1/products` - 创建商品
-- ✅ `PUT /api/v1/products/{id}` - 更新商品
-- ✅ `DELETE /api/v1/products/{id}` - 删除商品
-
-**当前API状态**:
+#### 业务逻辑层 (service.py)
 ```python
-# 已实现的路由示例
-@router.get("/products")
-async def get_products():
-    # 基础实现完成，需要增加查询参数处理
+class {Module}Service:
+    def __init__(self, repository: {Module}Repository = Depends()):
+        self.repository = repository
     
-@router.post("/products")  
-async def create_product(product_data: ProductCreateRequest):
-    # 基础实现完成，需要增加权限验证
+    async def create_{resource}(self, request: {Schema}Request):
+        """
+        业务逻辑实现：
+        1. {步骤1}
+        2. {步骤2}
+        3. {步骤3}
+        """
+        # 实现代码
+        pass
 ```
 
-**待完善功能**:
-- 增加完整的查询参数支持
-- 实现权限验证和用户认证
-- 增加数据验证和错误处理
-- 实现响应缓存
+#### 数据访问层 (repository.py)
+```python
+class {Module}Repository:
+    def __init__(self, db: Session = Depends(get_db)):
+        self.db = db
+    
+    async def create_{entity}(self, entity_data: dict):
+        """
+        数据访问实现：
+        - 表：{table_name}
+        - 操作：{操作类型}
+        - 索引使用：{索引信息}
+        """
+        # 实现代码
+        pass
+```
 
-## 数据库迁移状态
+### 数据模型实现
 
-### 已创建的表结构
-- ✅ `products` 表 - 商品基础信息
-- ✅ `categories` 表 - 商品分类信息
-- ✅ 基础索引 - 主要查询字段索引
+#### SQLAlchemy模型
+```python
+from app.shared.base_models import BaseModel, TimestampMixin
 
-### 待创建的内容
-- ❌ 复合索引优化
-- ❌ 外键约束完善
-- ❌ 数据初始化脚本
+class {Entity}(BaseModel, TimestampMixin):
+    __tablename__ = '{table_name}'
+    
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    name = Column(String(200), nullable=False, index=True)
+    # 其他字段
+    
+    # 实现说明：
+    # - 继承BaseModel提供基础功能
+    # - 使用TimestampMixin自动处理时间戳
+    # - 索引策略：{索引说明}
+```
 
-## 测试实现状态
+## 技术实现细节
 
-### 单元测试 ❌
-**计划文件**: `tests/test_product_service.py`
-**测试覆盖率**: 10%
+### 关键算法实现
+- **算法1**: {算法描述和实现}
+- **算法2**: {算法描述和实现}
 
-**待实现测试**:
-- ProductService单元测试
-- CategoryService单元测试  
-- 数据模型验证测试
+### 性能优化
+- **数据库优化**: {具体优化措施}
+- **缓存实现**: {缓存策略实现}
+- **异步处理**: {异步实现方案}
 
-### 集成测试 ❌
-**计划文件**: `tests/test_product_api.py`
-**测试覆盖率**: 0%
+### 错误处理
+```python
+class {Module}Exception(Exception):
+    """模块自定义异常"""
+    def __init__(self, message: str, error_code: str):
+        self.message = message
+        self.error_code = error_code
+        super().__init__(self.message)
 
-**待实现测试**:
-- API接口集成测试
-- 数据库操作测试
-- 错误场景测试
+# 使用示例
+try:
+    # 业务逻辑
+    pass
+except ValueError as e:
+    raise {Module}Exception("业务错误", "MODULE_001")
+```
 
-## 性能优化状态
+## 集成实现
 
-### 数据库优化 ⚠️
-- ✅ 基础索引已创建
-- ❌ 查询优化待实现
-- ❌ 分页性能优化
+### 模块间集成
+- **依赖模块**: {集成实现}
+- **事件发布**: {事件实现}
+- **接口调用**: {调用实现}
 
-### 缓存策略 ❌
-- ❌ Redis缓存层未实现
-- ❌ 分类树缓存策略
-- ❌ 商品详情缓存
+### 外部服务集成
+```python
+class External{Service}Client:
+    """外部服务客户端实现"""
+    
+    def __init__(self):
+        self.base_url = settings.{SERVICE}_URL
+        self.timeout = 30
+    
+    async def call_api(self, data):
+        """
+        集成实现：
+        - 接口：{API接口}
+        - 重试：{重试机制}
+        - 降级：{降级方案}
+        """
+        # 实现代码
+        pass
+```
 
-## 下一步开发计划
+## 数据库实施
 
-### 优先级1（本周完成）
-1. **修复SQLAlchemy关系映射问题**
-   - 解决Category.children自引用关系
-   - 恢复Product与其他模型的关系
+### 迁移脚本
+```python
+# alembic/versions/{timestamp}_{module}_init.py
+def upgrade():
+    op.create_table('{table_name}',
+        sa.Column('id', sa.BigInteger(), nullable=False),
+        sa.Column('name', sa.String(200), nullable=False),
+        # 其他字段
+        sa.PrimaryKeyConstraint('id')
+    )
+    
+    # 索引创建
+    op.create_index('idx_{table}_{field}', '{table_name}', ['field'])
 
-2. **完善API权限验证**
-   - 实现管理员权限检查
-   - 增加JWT令牌验证
+def downgrade():
+    op.drop_table('{table_name}')
+```
 
-### 优先级2（下周完成）
-1. **实现Redis缓存层**
-   - 分类树缓存策略
-   - 商品列表缓存
-   - 商品详情缓存
+### 数据初始化
+```python
+# 初始化数据脚本
+def init_{module}_data():
+    """
+    数据初始化：
+    - 基础数据：{基础数据说明}
+    - 测试数据：{测试数据说明}
+    """
+    # 实现代码
+    pass
+```
 
-2. **完善错误处理**
-   - 自定义业务异常
-   - 统一错误响应格式
+## 测试实施
 
-### 优先级3（后续完成）
-1. **完整测试覆盖**
-   - 单元测试用例
-   - 集成测试用例
-   - 性能测试
+### 单元测试实现
+```python
+import pytest
+from app.modules.product_catalog.service import {Module}Service
 
-2. **监控和日志**
-   - 业务指标监控
-   - 操作日志记录
+class Test{Module}Service:
+    def setup_method(self):
+        """测试设置"""
+        self.service = {Module}Service()
+    
+    def test_create_{resource}(self):
+        """
+        测试用例：
+        - 场景：{测试场景}
+        - 输入：{输入数据}
+        - 预期：{预期结果}
+        """
+        # 测试实现
+        pass
+```
 
-## 技术债务记录
+### 集成测试实现
+```python
+def test_{module}_api_integration():
+    """
+    集成测试：
+    - 测试范围：{测试范围}
+    - 数据准备：{数据准备}
+    - 验证点：{验证内容}
+    """
+    # 测试实现
+    pass
+```
 
-### 已知问题
-1. **关系映射问题** - SQLAlchemy back_populates配置错误
-2. **缺少事务管理** - 数据库操作缺少事务控制
-3. **硬编码问题** - 部分配置信息硬编码在代码中
+## 配置实施
 
-### 重构需求
-1. **服务层重构** - 增加更清晰的业务逻辑分层
-2. **错误处理重构** - 统一异常处理机制
-3. **配置管理重构** - 将配置外部化
+### 环境配置
+```python
+# app/core/config.py
+class {Module}Settings:
+    """模块配置"""
+    {module}_feature_enabled: bool = True
+    {module}_cache_ttl: int = 3600
+    # 其他配置项
+```
 
-## 开发日志
+### 依赖注入配置
+```python
+# app/modules/product_catalog/dependencies.py
+def get_{module}_service() -> {Module}Service:
+    """依赖注入工厂"""
+    repository = get_{module}_repository()
+    return {Module}Service(repository)
+```
 
-### 2025-09-12
-- ✅ 创建完整的模块文档结构
-- ✅ 编写requirements.md和design.md
-- 🔄 开始整理implementation.md
-- ⚠️ 发现SQLAlchemy关系映射问题需要修复
+## 部署实施
 
-### 历史记录
-- 2025-09-10: 完成基础Product和Category模型
-- 2025-09-11: 实现基础API路由和服务层
-- 2025-09-12: 完善模块文档结构
+### Docker配置
+```dockerfile
+# 如果需要特殊配置
+FROM python:3.11-slim
 
-参考文档：
-- [需求规范](requirements.md)
-- [技术设计](design.md)  
-- [API规范](api-spec.md)
-- [数据库规范](../../standards/database-standards.md)
+# 模块特定依赖
+RUN pip install {special_packages}
+
+# 配置文件
+COPY config/{module}.yaml /app/config/
+```
+
+### 环境变量
+```bash
+# 模块相关环境变量
+{MODULE}_FEATURE_ENABLED=true
+{MODULE}_CACHE_TTL=3600
+{MODULE}_EXTERNAL_API_URL=https://api.example.com
+```
+
+## 问题和解决方案
+
+### 技术问题记录
+| 日期 | 问题描述 | 解决方案 | 状态 |
+|------|----------|----------|------|
+| 2025-09-16 | {问题描述} | {解决方案} | ✅ |
+| 2025-09-16 | {问题描述} | {解决方案} | 🔄 |
+
+### 性能问题
+- **问题**: {性能问题描述}
+- **原因**: {问题原因分析}
+- **解决**: {解决方案实施}
+- **效果**: {优化效果}
+
+### 集成问题
+- **问题**: {集成问题}
+- **影响**: {问题影响}
+- **解决**: {解决过程}
+
+## 知识总结
+
+### 经验教训
+- **经验1**: {具体经验}
+- **教训1**: {具体教训}
+- **改进**: {改进建议}
+
+### 最佳实践
+- **实践1**: {最佳实践描述}
+- **实践2**: {最佳实践描述}
+
+### 技术债务
+- **债务1**: {技术债务描述和还债计划}
+- **债务2**: {技术债务描述和还债计划}
+
+## 后续计划
+
+### 优化计划
+- [ ] {优化项1} - {预计时间}
+- [ ] {优化项2} - {预计时间}
+
+### 功能扩展
+- [ ] {扩展功能1} - {预计时间}
+- [ ] {扩展功能2} - {预计时间}
+
+### 技术升级
+- [ ] {升级项1} - {预计时间}
+- [ ] {升级项2} - {预计时间}
+
+## 变更记录
+
+| 日期 | 版本 | 变更内容 | 开发者 |
+|------|------|----------|--------|
+| 2025-09-16 | v1.0 | 初始实现 | {姓名} |

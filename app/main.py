@@ -79,21 +79,25 @@ async def health():
 from app.modules.user_auth.router import router as user_auth_router
 from app.modules.quality_control.router import router as quality_control_router
 
-# 注册用户认证模块路由，使用正确的API路径标准
+# 注册模块路由，使用统一的API前缀
 app.include_router(
     user_auth_router, 
-    prefix="/api/v1/user-auth", 
+    prefix="/api/v1", 
     tags=["用户认证"]
 )
 
 app.include_router(
     quality_control_router,
-    prefix="/api/v1/quality-control",
+    prefix="/api/v1",
     tags=["质量控制"]
 )
 
 # 注册产品目录模块路由
 from app.modules.product_catalog.router import router as product_router
-app.include_router(product_router, prefix="/api/v1/product-catalog", tags=["商品管理"])
+app.include_router(product_router, prefix="/api/v1", tags=["商品管理"])
+
+# 注册订单管理模块路由
+from app.modules.order_management.router import router as order_router
+app.include_router(order_router, prefix="/api/v1", tags=["订单管理"])
 
 # TODO: 其他模块路由按需添加

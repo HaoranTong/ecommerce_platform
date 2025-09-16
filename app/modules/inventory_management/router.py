@@ -11,7 +11,7 @@
 
 使用说明：
 - 导入：from app.modules.inventory_management import router
-- 路由前缀：/api/v1/inventory
+- 路由前缀：/api/v1/inventory-management
 - 认证要求：部分接口需要用户认证，管理接口需要管理员权限
 
 依赖模块：
@@ -70,7 +70,7 @@ router = APIRouter()
 
 # ============ 库存查询接口 ============
 
-@router.get("/stock/{sku_id}", response_model=SKUInventoryRead, summary="获取SKU库存信息")
+@router.get("/inventory-management/stock/{sku_id}", response_model=SKUInventoryRead, summary="获取SKU库存信息")
 async def get_sku_inventory(
     sku_id: str,
     db: Session = Depends(get_db),
@@ -100,7 +100,7 @@ async def get_sku_inventory(
         )
 
 
-@router.post("/stock/batch", response_model=List[SKUInventorySimple], summary="批量获取SKU库存")
+@router.post("/inventory-management/stock/batch", response_model=List[SKUInventorySimple], summary="批量获取SKU库存")
 async def get_batch_sku_inventory(
     query: BatchInventoryQuery,
     db: Session = Depends(get_db),
@@ -127,7 +127,7 @@ async def get_batch_sku_inventory(
 
 # ============ 库存预占接口 ============
 
-@router.post("/reserve", response_model=ReservationResponse, summary="库存预占")
+@router.post("/inventory-management/reserve", response_model=ReservationResponse, summary="库存预占")
 async def reserve_inventory(
     request: ReserveRequest,
     background_tasks: BackgroundTasks,
@@ -181,7 +181,7 @@ async def reserve_inventory(
         )
 
 
-@router.delete("/reserve/{reservation_id}", summary="释放库存预占")
+@router.delete("/inventory-management/reserve/{reservation_id}", summary="释放库存预占")
 async def release_reservation(
     reservation_id: str,
     background_tasks: BackgroundTasks,
@@ -223,7 +223,7 @@ async def release_reservation(
         )
 
 
-@router.delete("/reserve/user/{user_id}", summary="批量释放用户预占")
+@router.delete("/inventory-management/reserve/user/{user_id}", summary="批量释放用户预占")
 async def release_user_reservations(
     user_id: str,
     background_tasks: BackgroundTasks,
@@ -271,7 +271,7 @@ async def release_user_reservations(
 
 # ============ 库存操作接口 ============
 
-@router.post("/deduct", response_model=DeductResponse, summary="库存扣减")
+@router.post("/inventory-management/deduct", response_model=DeductResponse, summary="库存扣减")
 async def deduct_inventory(
     request: InventoryDeductRequest,
     background_tasks: BackgroundTasks,
@@ -321,7 +321,7 @@ async def deduct_inventory(
         )
 
 
-@router.post("/adjust/{sku_id}", response_model=AdjustmentResponse, summary="库存调整")
+@router.post("/inventory-management/adjust/{sku_id}", response_model=AdjustmentResponse, summary="库存调整")
 async def adjust_inventory(
     sku_id: str,
     adjustment: InventoryAdjustment,
@@ -388,7 +388,7 @@ async def adjust_inventory(
 
 # ============ 库存管理接口 ============
 
-@router.put("/threshold/{sku_id}", summary="设置库存阈值")
+@router.put("/inventory-management/threshold/{sku_id}", summary="设置库存阈值")
 async def update_inventory_threshold(
     sku_id: str,
     threshold: ThresholdUpdate,
@@ -430,7 +430,7 @@ async def update_inventory_threshold(
         )
 
 
-@router.get("/low-stock", response_model=List[LowStockItem], summary="获取低库存SKU列表")
+@router.get("/inventory-management/low-stock", response_model=List[LowStockItem], summary="获取低库存SKU列表")
 async def get_low_stock_skus(
     level: Optional[str] = Query("warning", description="预警级别: warning|critical"),
     limit: int = Query(100, ge=1, le=1000, description="返回数量限制"),
@@ -459,7 +459,7 @@ async def get_low_stock_skus(
 
 # ============ 库存历史接口 ============
 
-@router.get("/logs/{sku_id}", response_model=TransactionSearchResponse, summary="获取SKU库存变动历史")
+@router.get("/inventory-management/logs/{sku_id}", response_model=TransactionSearchResponse, summary="获取SKU库存变动历史")
 async def get_sku_transaction_logs(
     sku_id: str,
     start_date: Optional[str] = Query(None, description="开始日期"),
@@ -503,7 +503,7 @@ async def get_sku_transaction_logs(
         )
 
 
-@router.get("/logs/search", response_model=List[TransactionSearchResponse], summary="搜索库存变动记录")
+@router.get("/inventory-management/logs/search", response_model=List[TransactionSearchResponse], summary="搜索库存变动记录")
 async def search_inventory_transactions(
     sku_ids: Optional[str] = Query(None, description="SKU ID列表，逗号分隔"),
     transaction_types: Optional[str] = Query(None, description="交易类型列表，逗号分隔"),
@@ -549,7 +549,7 @@ async def search_inventory_transactions(
 
 # ============ 系统维护接口 ============
 
-@router.post("/maintenance/cleanup-reservations", response_model=CleanupResponse, summary="清理过期预占")
+@router.post("/inventory-management/maintenance/cleanup-reservations", response_model=CleanupResponse, summary="清理过期预占")
 async def cleanup_expired_reservations(
     db: Session = Depends(get_db),
     # 注意：这个接口应该由系统内部调用或定时任务调用
@@ -574,7 +574,7 @@ async def cleanup_expired_reservations(
         )
 
 
-@router.post("/maintenance/consistency-check", response_model=ConsistencyCheckResponse, summary="库存一致性检查")
+@router.post("/inventory-management/maintenance/consistency-check", response_model=ConsistencyCheckResponse, summary="库存一致性检查")
 async def check_inventory_consistency(
     db: Session = Depends(get_db),
     admin_user: User = Depends(get_current_admin_user)
@@ -599,7 +599,7 @@ async def check_inventory_consistency(
 
 # ============ SKU库存初始化接口 ============
 
-@router.post("/stock", response_model=SKUInventoryRead, summary="创建SKU库存")
+@router.post("/inventory-management/stock", response_model=SKUInventoryRead, summary="创建SKU库存")
 async def create_sku_inventory(
     inventory_data: SKUInventoryCreate,
     db: Session = Depends(get_db),
@@ -633,7 +633,7 @@ async def create_sku_inventory(
         )
 
 
-@router.put("/stock/{sku_id}", summary="更新SKU库存配置")
+@router.put("/inventory-management/stock/{sku_id}", summary="更新SKU库存配置")
 async def update_sku_inventory_config(
     sku_id: str,
     update_data: SKUInventoryUpdate,
