@@ -5,8 +5,8 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.main import app
-import app.data_models as models
-from app.db import get_session, Base
+from app.core.database import get_db, Base
+from app.modules.user_auth.models import User
 
 # use in-memory sqlite for fast tests
 SQLITE_URL = "sqlite+pysqlite:///:memory:"
@@ -35,7 +35,7 @@ def override_get_session():
 # create tables before TestClient instantiation (avoid race with TestClient server)
 Base.metadata.create_all(bind=engine)
 
-app.dependency_overrides[get_session] = override_get_session
+app.dependency_overrides[get_db] = override_get_session
 client = TestClient(app)
 
 
