@@ -20,7 +20,7 @@ from sqlalchemy.orm import Session
 router = APIRouter()
 
 
-@router.post("/carts/items", response_model=dict, summary="添加商品到购物车")
+@router.post("/shopping-cart/carts/items", response_model=dict, summary="添加商品到购物车")
 async def add_to_cart(
     item: CartItemAdd,
     current_user: User = Depends(get_current_active_user),
@@ -86,7 +86,7 @@ async def add_to_cart(
     }
 
 
-@router.put("/carts/items/{product_id}", response_model=dict, summary="更新购物车商品数量")
+@router.put("/shopping-cart/carts/items/{product_id}", response_model=dict, summary="更新购物车商品数量")
 async def update_cart_item(
     product_id: int,
     item: CartItemUpdate,
@@ -157,7 +157,7 @@ async def update_cart_item(
     }
 
 
-@router.delete("/carts/items/{product_id}", response_model=dict, summary="从购物车移除商品")
+@router.delete("/shopping-cart/carts/items/{product_id}", response_model=dict, summary="从购物车移除商品")
 async def remove_from_cart(
     product_id: int,
     current_user: User = Depends(get_current_active_user)
@@ -199,7 +199,7 @@ async def remove_from_cart(
     }
 
 
-@router.get("/carts", response_model=CartSummary, summary="获取购物车详情")
+@router.get("/shopping-cart/carts", response_model=CartSummary, summary="获取购物车详情")
 async def get_cart(
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
@@ -275,7 +275,7 @@ async def get_cart(
     )
 
 
-@router.delete("/carts/items", response_model=dict, summary="清空购物车")
+@router.delete("/shopping-cart/carts/items", response_model=dict, summary="清空购物车")
 async def clear_cart(
     current_user: User = Depends(get_current_active_user)
 ):
@@ -303,7 +303,7 @@ async def clear_cart(
     }
 
 
-@router.get("/carts/summary", response_model=dict, summary="获取购物车统计")
+@router.get("/shopping-cart/carts/summary", response_model=dict, summary="获取购物车统计")
 async def get_cart_count(
     current_user: User = Depends(get_current_active_user)
 ):

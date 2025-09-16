@@ -59,7 +59,7 @@ $moduleInfo = @{
         name = '订单管理模块'
         purpose = '提供订单创建、查询、状态管理等功能'
         features = @('订单创建提交', '订单状态跟踪', '订单查询搜索', '订单统计分析')
-        api_prefix = '/api/order-management/'
+        api_prefix = '/api/v1/order-management/'
     }
     'payment_service' = @{
         name = '支付服务模块'

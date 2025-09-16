@@ -1,368 +1,334 @@
-# 用户认证模块 (User Authentication Module)
+<!--
+文档说明：
+- 内容：模块文档标准模板，用于创建新的模块文档  
+- 使用方法：复制此模板，替换模板变量，填入具体内容
+- 更新方法：模板规范变更时由架构师更新
+- 引用关系：被所有模块文档使用
+- 更新频率：模板标准变化时
+
+⚠️ 强制文档要求：
+每个模块必须包含以下7个文档（无可选项）：
+1. README.md - 模块导航（简洁版入口）
+2. overview.md - 模块概述（本模板，详细版）
+3. requirements.md - 业务需求文档（强制）
+4. design.md - 设计决策文档（强制）
+5. api-spec.md - API规范文档（强制）
+6. api-implementation.md - API实施记录（强制）
+7. implementation.md - 实现细节文档（强制）
+-->
+
+# user-auth模块 模块
+
+📝 **状态**: 草稿 | 评审中 | ✅ 已发布 | 🔄 更新中  
+📅 **创建日期**: 2025-09-16  
+👤 **负责人**: 待指定  
+🔄 **最后更新**: 2025-09-16  
+📋 **版本**: v1.0.0  
 
 ## 模块概述
 
-用户认证模块是平台的核心安全模块，负责处理用户注册、登录、权限管理和会话控制。
-
 ### 主要职责
+简要描述模块的核心职责和业务价值，3-5个要点：
+- 职责1
+- 职责2  
+- 职责3
 
-1. **用户身份验证**
-   - 多因素认证支持
-   - OAuth2/OIDC集成
-   - JWT令牌管理
-   - 生物识别认证
+### 业务价值
+- **核心价值**: 模块为业务带来的主要价值
+- **用户收益**: 对终端用户的直接收益
+- **系统收益**: 对整个系统的价值贡献
 
-2. **权限管理**
-   - 基于角色的访问控制 (RBAC)
-   - 细粒度权限控制
-   - 动态权限分配
-   - 权限继承机制
-
-3. **会话管理**
-   - 分布式会话存储
-   - 会话超时控制
-   - 并发会话限制
-   - 会话安全策略
+### 模块边界
+- **包含功能**: 明确模块包含的功能范围
+- **排除功能**: 明确不属于该模块的功能
+- **依赖模块**: 依赖的其他模块
+- **被依赖**: 被哪些模块依赖
 
 ## 技术架构
 
-### 核心组件
+### 架构图
+```
+{模块架构图，使用Mermaid或ASCII}
+```
 
+### 核心组件
 ```
-user_auth/
+{模块名}/
 ├── router.py           # API路由定义
-├── service.py          # 认证业务逻辑
-├── models.py           # 用户数据模型(User, Role, Permission)
-├── schemas.py          # 请求/响应数据模型
+├── service.py          # 业务逻辑处理
+├── models.py           # 数据模型定义
+├── schemas.py          # 请求/响应模型
 ├── dependencies.py     # 模块依赖注入
-└── utils.py            # 认证工具函数(JWT, 密码加密)
+└── utils.py            # 工具函数
 ```
+
+### 模块化单体架构
+- **架构模式**: 模块化单体架构 (Modular Monolith)
+- **垂直切片**: 每个模块包含完整的业务功能
+- **依赖原则**: 依赖注入和接口抽象
 
 ### 核心基础设施
 ```
-app/core/
-├── auth.py             # 认证中间件和JWT服务
+app/core/               # 核心基础设施
 ├── database.py         # 数据库连接管理
-└── redis_client.py     # 会话存储和缓存
+├── redis_client.py     # Redis缓存客户端  
+├── auth.py             # 认证中间件
+└── __init__.py         # 核心组件导出
 ```
 
-### 数据库设计
-
-```sql
--- 用户表
-CREATE TABLE users (
-    id INTEGER AUTO_INCREMENT PRIMARY KEY,
-    email VARCHAR(255) UNIQUE NOT NULL,
-    password_hash VARCHAR(255) NOT NULL,
-    phone VARCHAR(20) UNIQUE,
-    status VARCHAR(20) NOT NULL DEFAULT 'active',
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    last_login_at TIMESTAMP WITH TIME ZONE,
-    email_verified BOOLEAN DEFAULT FALSE,
-    phone_verified BOOLEAN DEFAULT FALSE,
-    two_factor_enabled BOOLEAN DEFAULT FALSE,
-    failed_login_attempts INTEGER DEFAULT 0,
-    locked_until TIMESTAMP WITH TIME ZONE
-);
-
--- 角色表
-CREATE TABLE roles (
-    id INTEGER AUTO_INCREMENT PRIMARY KEY,
-    name VARCHAR(100) UNIQUE NOT NULL,
-    description TEXT,
-    level INTEGER NOT NULL,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
--- 权限表
-CREATE TABLE permissions (
-    id INTEGER AUTO_INCREMENT PRIMARY KEY,
-    name VARCHAR(100) UNIQUE NOT NULL,
-    resource VARCHAR(100) NOT NULL,
-    action VARCHAR(50) NOT NULL,
-    description TEXT,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
--- 用户角色关联表
-CREATE TABLE user_roles (
-    user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
-    role_id INTEGER REFERENCES roles(id) ON DELETE CASCADE,
-    assigned_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    assigned_by INTEGER REFERENCES users(id),
-    PRIMARY KEY (user_id, role_id)
-);
-
--- 角色权限关联表
-CREATE TABLE role_permissions (
-    role_id INTEGER REFERENCES roles(id) ON DELETE CASCADE,
-    permission_id INTEGER REFERENCES permissions(id) ON DELETE CASCADE,
-    granted_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    granted_by INTEGER REFERENCES users(id),
-    PRIMARY KEY (role_id, permission_id)
-);
-
--- 会话表
-CREATE TABLE sessions (
-    id INTEGER AUTO_INCREMENT PRIMARY KEY,
-    user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
-    token_hash VARCHAR(255) NOT NULL,
-    expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    last_accessed_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    ip_address INET,
-    user_agent TEXT,
-    is_active BOOLEAN DEFAULT TRUE
-);
+### 适配器集成
+```
+app/adapters/           # 第三方服务适配器
+├── {service_type}/     # 服务类型目录
+│   ├── {provider}_adapter.py
+│   └── config.py
 ```
 
-## API 接口
+### 技术栈
+- **编程语言**: Python 3.11+
+- **Web框架**: FastAPI
+- **数据库**: MySQL 8.0
+- **缓存**: Redis
+- **其他依赖**: 列出主要的第三方库
 
-### 认证接口
+### 设计模式
+- **使用的设计模式**: 如Repository、Factory、Strategy等
+- **架构模式**: 如Clean Architecture、DDD等
+- **代码组织**: 分层架构说明
 
+## 核心功能
+
+### 功能列表
+| 功能名称 | 优先级 | 状态 | 描述 |
+|---------|--------|------|------|
+| 功能1 | 高 | ✅ 已完成 | 功能简要描述 |
+| 功能2 | 中 | 🔄 开发中 | 功能简要描述 |
+| 功能3 | 低 | ⏳ 待开始 | 功能简要描述 |
+
+### 核心业务流程
+```mermaid
+graph TD
+    A[开始] --> B[步骤1]
+    B --> C[步骤2]
+    C --> D[结束]
+```
+
+### 业务规则
+1. **规则1**: 详细描述业务规则
+2. **规则2**: 详细描述业务规则
+3. **规则3**: 详细描述业务规则
+
+## 数据模型
+
+### 核心实体
+```python
+# 主要数据模型示例
+class {EntityName}(Base):
+    __tablename__ = "{table_name}"
+    
+    id = Column(Integer, primary_key=True)
+    name = Column(String(100), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+```
+
+### 数据关系图
+```
+{实体关系图，可以使用Mermaid ER图}
+```
+
+### 数据约束
+- **唯一性约束**: 字段级别的唯一性要求
+- **外键约束**: 与其他表的关系约束
+- **业务约束**: 业务级别的数据约束
+
+## API接口
+
+### 接口列表
+| 接口 | 方法 | 路径 | 描述 | 状态 |
+|------|------|------|------|------|
+| 创建{实体} | POST | /api/v1/{entities} | 创建新的{实体} | ✅ |
+| 获取{实体} | GET | /api/v1/{entities}/{id} | 获取指定{实体} | ✅ |
+| 更新{实体} | PUT | /api/v1/{entities}/{id} | 更新{实体}信息 | 🔄 |
+| 删除{实体} | DELETE | /api/v1/{entities}/{id} | 删除{实体} | ⏳ |
+
+### 接口详情示例
 ```yaml
-/api/v1/auth:
-  POST /register:
-    summary: 用户注册
+/api/v1/{entities}:
+  post:
+    summary: 创建{实体}
     requestBody:
       required: true
       content:
         application/json:
           schema:
-            type: object
-            properties:
-              email:
-                type: string
-                format: email
-              password:
-                type: string
-                minLength: 8
-              phone:
-                type: string
-                pattern: "^\\+?[1-9]\\d{1,14}$"
-              name:
-                type: string
-                maxLength: 100
+            $ref: '#/components/schemas/{Entity}Create'
     responses:
       201:
-        description: 注册成功
+        description: 创建成功
         content:
           application/json:
             schema:
-              type: object
-              properties:
-                user_id:
-                  type: string
-                  format: uuid
-                message:
-                  type: string
+              $ref: '#/components/schemas/{Entity}'
       400:
         description: 请求参数错误
-      409:
-        description: 用户已存在
-
-  POST /login:
-    summary: 用户登录
-    requestBody:
-      required: true
-      content:
-        application/json:
-          schema:
-            type: object
-            properties:
-              email:
-                type: string
-                format: email
-              password:
-                type: string
-              mfa_code:
-                type: string
-                description: 多因素认证代码
-    responses:
-      200:
-        description: 登录成功
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                access_token:
-                  type: string
-                refresh_token:
-                  type: string
-                expires_in:
-                  type: integer
-                user:
-                  $ref: '#/components/schemas/User'
-      401:
-        description: 认证失败
-      423:
-        description: 账户被锁定
-
-  POST /logout:
-    summary: 用户登出
-    security:
-      - BearerAuth: []
-    responses:
-      200:
-        description: 登出成功
-
-  POST /refresh:
-    summary: 刷新令牌
-    requestBody:
-      required: true
-      content:
-        application/json:
-          schema:
-            type: object
-            properties:
-              refresh_token:
-                type: string
-    responses:
-      200:
-        description: 令牌刷新成功
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                access_token:
-                  type: string
-                expires_in:
-                  type: integer
 ```
 
-## 安全策略
-
-### 密码策略
-
-1. **密码复杂度要求**
-   - 最少8个字符
-   - 包含大小写字母
-   - 包含数字和特殊字符
-   - 不能使用常见密码
-
-2. **密码存储**
-   - 使用bcrypt加密
-   - 盐值长度12位
-   - 成本因子12
-
-3. **密码重置**
-   - 邮箱验证机制
-   - 重置链接有效期30分钟
-   - 限制重置频率
-
-### 多因素认证
-
-1. **支持方式**
-   - TOTP (Google Authenticator)
-   - SMS验证码
-   - 邮箱验证码
-   - 生物识别
-
-2. **实施策略**
-   - 高风险操作强制MFA
-   - 新设备登录要求MFA
-   - 管理员账户强制MFA
-
-### 会话安全
-
-1. **令牌管理**
-   - JWT访问令牌 (15分钟有效期)
-   - 刷新令牌 (7天有效期)
-   - 令牌黑名单机制
-
-2. **会话监控**
-   - 异常登录检测
-   - 地理位置验证
-   - 设备指纹识别
-
-## 监控指标
-
-### 业务指标
-
-- 日活跃用户数 (DAU)
-- 注册转化率
-- 登录成功率
-- MFA启用率
-
-### 技术指标
-
-- 认证响应时间
-- 令牌刷新频率
-- 失败登录次数
-- 会话超时率
-
-### 安全指标
-
-- 暴力破解尝试
-- 异常登录检测
-- 权限违规次数
-- 账户锁定率
-
-## 部署要求
-
-### 环境变量
-
-```bash
-# JWT配置
-JWT_SECRET_KEY=your-secret-key
-JWT_ACCESS_TOKEN_EXPIRE_MINUTES=15
-JWT_REFRESH_TOKEN_EXPIRE_DAYS=7
-
-# 数据库配置
-AUTH_DB_URL=postgresql://user:pass@localhost/auth_db
-
-# Redis配置 (会话存储)
-REDIS_URL=redis://localhost:6379/0
-
-# 邮件配置
-SMTP_HOST=smtp.example.com
-SMTP_PORT=587
-SMTP_USER=noreply@example.com
-SMTP_PASSWORD=your-password
-
-# 短信配置
-SMS_PROVIDER=twilio
-SMS_API_KEY=your-api-key
-SMS_API_SECRET=your-api-secret
-```
-
-### 依赖服务
-
-- PostgreSQL (用户数据存储)
-- Redis (会话缓存)
-- SMTP服务 (邮件发送)
-- SMS网关 (短信发送)
+### 错误码
+| 错误码 | 状态码 | 描述 | 解决方案 |
+|--------|--------|------|----------|
+| {MODULE}_001 | 400 | 参数验证失败 | 检查请求参数 |
+| {MODULE}_002 | 404 | 资源不存在 | 确认资源ID |
+| {MODULE}_003 | 409 | 资源冲突 | 检查资源状态 |
 
 ## 测试策略
 
-### 单元测试
+### 测试覆盖率目标
+- **单元测试**: ≥ 85%
+- **集成测试**: ≥ 70%
+- **端到端测试**: 核心业务流程100%
 
-- 认证逻辑测试
-- 权限验证测试
-- 密码加密测试
-- JWT令牌测试
+### 测试类型
+```python
+# 单元测试示例
+class Test{Entity}Service:
+    def test_create_{entity}_success(self):
+        # 测试成功创建{实体}
+        pass
+    
+    def test_create_{entity}_validation_error(self):
+        # 测试验证错误
+        pass
 
-### 集成测试
+# 集成测试示例  
+class Test{Entity}API:
+    def test_{entity}_crud_workflow(self):
+        # 测试完整CRUD流程
+        pass
+```
 
-- API接口测试
-- 数据库集成测试
-- 缓存集成测试
-- 外部服务集成测试
+### 性能测试
+- **响应时间**: API响应时间 < 500ms
+- **并发处理**: 支持100并发请求
+- **数据量**: 支持100万条记录
 
-### 安全测试
+### 测试数据
+- **测试数据生成**: Factory Boy或自定义工厂
+- **数据清理**: 每个测试后清理测试数据
+- **Mock策略**: 外部依赖的Mock策略
 
-- 暴力破解测试
-- SQL注入测试
-- XSS攻击测试
-- CSRF攻击测试
+## 部署和运维
+
+### 环境要求
+- **开发环境**: 本地开发环境配置
+- **测试环境**: 测试环境配置要求
+- **生产环境**: 生产环境配置要求
+
+### 配置管理
+```python
+# 环境变量配置
+{MODULE}_DATABASE_URL=mysql://...
+{MODULE}_REDIS_URL=redis://...
+{MODULE}_LOG_LEVEL=INFO
+```
+
+### 监控指标
+- **业务指标**: 关键业务指标监控
+- **技术指标**: 响应时间、错误率等
+- **资源指标**: CPU、内存、数据库连接等
+
+### 告警规则
+- **错误率**: > 1% 触发告警
+- **响应时间**: > 1s 触发告警
+- **资源使用**: > 80% 触发告警
+
+## 安全考虑
+
+### 认证授权
+- **身份认证**: JWT Token验证
+- **权限控制**: 基于角色的访问控制
+- **API安全**: Rate Limiting、CORS等
+
+### 数据安全
+- **数据加密**: 敏感数据加密存储
+- **传输安全**: HTTPS传输
+- **输入验证**: 严格的输入验证
+
+### 审计日志
+- **操作日志**: 记录关键操作
+- **访问日志**: 记录API访问
+- **安全日志**: 记录安全相关事件
+
+## 性能优化
+
+### 缓存策略
+- **应用缓存**: Redis缓存热点数据
+- **数据库缓存**: 查询结果缓存
+- **CDN缓存**: 静态资源缓存
+
+### 数据库优化
+- **索引优化**: 关键字段索引
+- **查询优化**: SQL查询优化
+- **连接池**: 数据库连接池配置
+
+### 扩展性设计
+- **水平扩展**: 支持多实例部署
+- **垂直扩展**: 资源配置优化
+- **降级策略**: 服务降级机制
+
+## 问题和风险
+
+### 已知问题
+| 问题ID | 描述 | 优先级 | 状态 | 解决方案 |
+|--------|------|--------|------|----------|
+| {MODULE}-001 | 问题描述 | 高 | 🔄 处理中 | 解决方案 |
+
+### 技术风险
+- **风险1**: 风险描述和缓解措施
+- **风险2**: 风险描述和缓解措施
+
+### 技术债务
+- **债务1**: 技术债务描述和还债计划
+- **债务2**: 技术债务描述和还债计划
+
+## 开发计划
+
+### 里程碑
+- **M1**: 基础功能开发 (预计: {日期})
+- **M2**: 完整功能实现 (预计: {日期})
+- **M3**: 性能优化 (预计: {日期})
+
+### 任务分解
+- [ ] 任务1 (负责人: {姓名}, 预计: {日期})
+- [ ] 任务2 (负责人: {姓名}, 预计: {日期})
+- [ ] 任务3 (负责人: {姓名}, 预计: {日期})
 
 ## 相关文档
 
-- [API标准规范](../architecture/api-standards.md)
+### 架构文档
+- [系统架构总览](../architecture/overview.md)
+- [API设计规范](../architecture/api-standards.md)
 - [数据模型规范](../architecture/data-models.md)
-- [安全架构](../architecture/security.md)
-- [监控告警](../operations/monitoring.md)
+
+### 开发文档
+- [开发规范](../development/development-standards.md)
+- [测试指南](../development/testing.md)
+- [部署指南](../operations/deployment.md)
+
+### 需求文档
+- [业务需求](../requirements/business.md)
+- [功能需求](../requirements/functional.md)
+
+### 其他模块
+- [依赖模块1](../modules/{module1}/overview.md)
+- [依赖模块2](../modules/{module2}/overview.md)
+
+---
+
+📝 **模板使用说明**:
+1. 复制此模板创建新的模块文档
+2. 替换所有 `{变量}` 为实际值
+3. 删除不适用的章节
+4. 根据模块特点调整章节内容
+5. 保持文档及时更新
+

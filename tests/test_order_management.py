@@ -534,7 +534,7 @@ class TestOrderAPI:
             "shipping_address": "Test Address"
         }
         
-        response = client.post("/api/v1/orders/", json=order_data)
+        response = client.post("/api/v1/order-management/orders", json=order_data)
         assert response.status_code == 403  # 禁止访问（未授权）
 
     # 注意：完整的API测试需要认证Mock，这里只测试基础结构

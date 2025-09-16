@@ -84,7 +84,7 @@ app/
 - 用户数据的CRUD操作
 使用说明：
 - 导入：from app.modules.user_auth import router
-- 路由前缀：/api/v1/auth
+- 路由前缀：/api/v1/user-auth
 - 认证要求：部分接口需要JWT认证
 依赖模块：
 - app.shared.models.User: 用户数据模型

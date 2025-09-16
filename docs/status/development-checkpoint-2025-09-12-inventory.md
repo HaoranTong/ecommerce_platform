@@ -76,24 +76,24 @@ API端点: 14个 (库存查询+预占管理+扣减调整+历史记录)
 #### 3. **API路由层**
 ```
 库存查询类 (3个端点):
-GET  /api/v1/inventory/{product_id}           # 获取商品库存
-POST /api/v1/inventory/batch                  # 批量获取库存  
-GET  /api/v1/inventory/low-stock              # 低库存商品
+GET  /api/v1/inventory-management/{product_id}           # 获取商品库存
+POST /api/v1/inventory-management/batch                  # 批量获取库存  
+GET  /api/v1/inventory-management/low-stock              # 低库存商品
 
 库存预占类 (4个端点):
-POST   /api/v1/inventory/reserve/cart         # 购物车预占
-POST   /api/v1/inventory/reserve/order        # 订单预占
-DELETE /api/v1/inventory/reserve/cart         # 释放购物车预占
-DELETE /api/v1/inventory/reserve/order/{id}   # 释放订单预占
+POST   /api/v1/inventory-management/reserve/cart         # 购物车预占
+POST   /api/v1/inventory-management/reserve/order        # 订单预占
+DELETE /api/v1/inventory-management/reserve/cart         # 释放购物车预占
+DELETE /api/v1/inventory-management/reserve/order/{id}   # 释放订单预占
 
 库存操作类 (4个端点):
-POST /api/v1/inventory/deduct                 # 库存扣减
-PUT  /api/v1/inventory/{id}/adjust            # 库存调整
-PUT  /api/v1/inventory/{id}/threshold         # 设置预警阈值
-POST /api/v1/inventory/cleanup/expired-reservations # 清理过期预占
+POST /api/v1/inventory-management/deduct                 # 库存扣减
+PUT  /api/v1/inventory-management/{id}/adjust            # 库存调整
+PUT  /api/v1/inventory-management/{id}/threshold         # 设置预警阈值
+POST /api/v1/inventory-management/cleanup/expired-reservations # 清理过期预占
 
 库存记录类 (1个端点):
-GET /api/v1/inventory/{id}/transactions       # 库存变动历史
+GET /api/v1/inventory-management/{id}/transactions       # 库存变动历史
 ```
 
 ### 🛡️ 安全与权限控制

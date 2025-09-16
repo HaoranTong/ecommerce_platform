@@ -41,37 +41,41 @@ graph LR
 ```
 业务概念层（连字符）: user-auth, shopping-cart, product-catalog
 ├── 文档目录: docs/modules/user-auth/
-├── API路由: /api/user-auth/login
+├── API前缀: /api/v1/user-auth/ (在main.py中设置)
 └── 配置文件: user-auth.yaml
 
 技术实现层（下划线）: user_auth, shopping_cart, product_catalog  
 ├── 代码目录: app/modules/user_auth/
-├── 文件名: user_auth_router.py, user_auth_service.py
+├── 文件名: router.py, service.py, models.py
+├── 路由端点: /login, /register, /me (在router.py中定义)
 ├── 函数名: authenticate_user(), register_user()
 └── 类名: UserAuthService, UserAuthRouter
+
+最终API路径 = API前缀 + 路由端点
+例如: /api/v1/user-auth/ + /login = /api/v1/user-auth/login
 ```
 
 #### 模块核心名称定义
-| 业务概念名 | 技术实现名 | 中文名称 | API路径前缀 | 代码目录 |
+| 业务概念名 | 技术实现名 | 中文名称 | API端点模式 | 代码目录 |
 |------------|------------|----------|-------------|----------|
-| `user-auth` | `user_auth` | 用户认证模块 | `/api/v1/user-auth/` | `app/modules/user_auth/` |
-| `shopping-cart` | `shopping_cart` | 购物车模块 | `/api/v1/shopping-cart/` | `app/modules/shopping_cart/` |
-| `product-catalog` | `product_catalog` | 商品管理模块 | `/api/v1/product-catalog/` | `app/modules/product_catalog/` |
-| `order-management` | `order_management` | 订单管理模块 | `/api/v1/order-management/` | `app/modules/order_management/` |
-| `payment-service` | `payment_service` | 支付服务模块 | `/api/v1/payment-service/` | `app/modules/payment_service/` |
-| `batch-traceability` | `batch_traceability` | 批次溯源模块 | `/api/v1/batch-traceability/` | `app/modules/batch_traceability/` |
-| `logistics-management` | `logistics_management` | 物流管理模块 | `/api/v1/logistics-management/` | `app/modules/logistics_management/` |
-| `member-system` | `member_system` | 会员系统模块 | `/api/v1/member-system/` | `app/modules/member_system/` |
-| `distributor-management` | `distributor_management` | 分销商管理模块 | `/api/v1/distributor-management/` | `app/modules/distributor_management/` |
-| `marketing-campaigns` | `marketing_campaigns` | 营销活动模块 | `/api/v1/marketing-campaigns/` | `app/modules/marketing_campaigns/` |
-| `social-features` | `social_features` | 社交功能模块 | `/api/v1/social-features/` | `app/modules/social_features/` |
-| `inventory-management` | `inventory_management` | 库存管理模块 | `/api/v1/inventory-management/` | `app/modules/inventory_management/` |
-| `notification-service` | `notification_service` | 通知服务模块 | `/api/v1/notification-service/` | `app/modules/notification_service/` |
-| `supplier-management` | `supplier_management` | 供应商管理模块 | `/api/v1/supplier-management/` | `app/modules/supplier_management/` |
-| `recommendation-system` | `recommendation_system` | 推荐系统模块 | `/api/v1/recommendation-system/` | `app/modules/recommendation_system/` |
-| `customer-service-system` | `customer_service_system` | 客服系统模块 | `/api/v1/customer-service-system/` | `app/modules/customer_service_system/` |
-| `risk-control-system` | `risk_control_system` | 风控系统模块 | `/api/v1/risk-control-system/` | `app/modules/risk_control_system/` |
-| `data-analytics-platform` | `data_analytics_platform` | 数据分析模块 | `/api/v1/data-analytics-platform/` | `app/modules/data_analytics_platform/` |
+| `user-auth` | `user_auth` | 用户认证模块 | `/auth/*` | `app/modules/user_auth/` |
+| `shopping-cart` | `shopping_cart` | 购物车模块 | `/cart/*` | `app/modules/shopping_cart/` |
+| `product-catalog` | `product_catalog` | 商品管理模块 | `/products/*` | `app/modules/product_catalog/` |
+| `order-management` | `order_management` | 订单管理模块 | `/orders/*` | `app/modules/order_management/` |
+| `payment-service` | `payment_service` | 支付服务模块 | `/payments/*` | `app/modules/payment_service/` |
+| `batch-traceability` | `batch_traceability` | 批次溯源模块 | `/traceability/*` | `app/modules/batch_traceability/` |
+| `logistics-management` | `logistics_management` | 物流管理模块 | `/logistics/*` | `app/modules/logistics_management/` |
+| `member-system` | `member_system` | 会员系统模块 | `/members/*` | `app/modules/member_system/` |
+| `distributor-management` | `distributor_management` | 分销商管理模块 | `/distributors/*` | `app/modules/distributor_management/` |
+| `marketing-campaigns` | `marketing_campaigns` | 营销活动模块 | `/campaigns/*` | `app/modules/marketing_campaigns/` |
+| `social-features` | `social_features` | 社交功能模块 | `/social/*` | `app/modules/social_features/` |
+| `inventory-management` | `inventory_management` | 库存管理模块 | `/inventory/*` | `app/modules/inventory_management/` |
+| `notification-service` | `notification_service` | 通知服务模块 | `/notifications/*` | `app/modules/notification_service/` |
+| `supplier-management` | `supplier_management` | 供应商管理模块 | `/suppliers/*` | `app/modules/supplier_management/` |
+| `recommendation-system` | `recommendation_system` | 推荐系统模块 | `/recommendations/*` | `app/modules/recommendation_system/` |
+| `customer-service-system` | `customer_service_system` | 客服系统模块 | `/support/*` | `app/modules/customer_service_system/` |
+| `risk-control-system` | `risk_control_system` | 风控系统模块 | `/risk/*` | `app/modules/risk_control_system/` |
+| `data-analytics-platform` | `data_analytics_platform` | 数据分析模块 | `/analytics/*` | `app/modules/data_analytics_platform/` |
 | `application-core` | `application_core` | 应用核心模块 | - | `app/core/` |
 | `database-core` | `database_core` | 数据库核心模块 | - | `app/core/database/` |
 | `base-models` | `base_models` | 基础模型模块 | - | `app/shared/base_models.py` |
@@ -134,9 +138,54 @@ images = [
 
 ## 🌐 API命名规范
 
+### FastAPI路由架构说明
+
+**重要：使用完整模块名称作为API端点前缀**
+
+#### 核心规则
+```
+API端点格式: /完整模块名/{资源}/{操作}
+完整模块名 = 业务概念名（连字符格式）
+最终API路径 = /api/v1/完整模块名/{资源}/{操作}
+```
+
+#### 实现模式
+```python
+# main.py - 全局路由注册（统一前缀）
+app.include_router(user_router, prefix="/api/v1", tags=["用户认证"])
+app.include_router(product_router, prefix="/api/v1", tags=["商品管理"])
+app.include_router(order_router, prefix="/api/v1", tags=["订单管理"])
+
+# modules/user_auth/router.py - 使用完整模块名
+@router.post("/user-auth/register")   # 实际路径: /api/v1/user-auth/register
+@router.post("/user-auth/login")      # 实际路径: /api/v1/user-auth/login
+@router.get("/user-auth/me")          # 实际路径: /api/v1/user-auth/me
+
+# modules/product_catalog/router.py - 使用完整模块名
+@router.post("/product-catalog/products")     # 实际路径: /api/v1/product-catalog/products
+@router.get("/product-catalog/categories")    # 实际路径: /api/v1/product-catalog/categories
+@router.post("/product-catalog/brands")       # 实际路径: /api/v1/product-catalog/brands
+
+# modules/order_management/router.py - 使用完整模块名
+@router.post("/order-management/orders")          # 实际路径: /api/v1/order-management/orders
+@router.get("/order-management/orders/{order_id}") # 实际路径: /api/v1/order-management/orders/{order_id}
+```
+
+#### 命名规则原则
+1. **禁止简化**：不得将模块名任意简化（如user-auth不能简化为auth）
+2. **完整映射**：API端点必须与业务概念名完全对应
+3. **避免冲突**：通过完整模块名确保API路径唯一性
+4. **架构一致**：API路径与代码目录结构保持映射关系
+
+#### 优势说明
+- ✅ **零歧义**：完全消除命名冲突和歧义
+- ✅ **架构清晰**：API路径直接反映模块边界
+- ✅ **维护友好**：新成员可快速理解API结构
+- ✅ **扩展安全**：新模块不会与现有API冲突
+
 ### RESTful API路径规则
 ```
-{base_url}/api/{module_name}/{resource}[/{resource_id}][/{sub_resource}]
+{base_url}/api/v1/{module_name}/{resource}[/{resource_id}][/{sub_resource}]
 ```
 
 ### 标准API端点模式

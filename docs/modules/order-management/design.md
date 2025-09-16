@@ -1,514 +1,254 @@
 <!--
 文档说明：
-- 内容：订单管理模块的技术设计文档，包括数据模型、API接口、业务流程设计
-- 使用方法：开发订单模块时的技术指导文档，架构设计的具体实现
-- 更新方法：技术设计变更时更新，需要架构师确认
-- 引用关系：被implementation.md引用，引用requirements.md和架构文档
-- 更新频率：设计调整时
+- 内容：模块技术设计文档模板
+- 作用：记录技术设计决策、架构选择、实现方案
+- 使用方法：基于需求文档进行技术设计，记录设计理由
 -->
 
-# 订单管理模块技术设计
+# order-management模块 - 技术设计文档
 
-📝 **状态**: 🔄 设计中  
-📅 **创建日期**: 2025-01-27  
-👤 **负责人**: 技术架构师  
-🔄 **最后更新**: 2025-01-27  
-📋 **版本**: v1.0.0  
+📅 **创建日期**: 2025-09-16  
+👤 **设计者**: {技术负责人}  
+✅ **评审状态**: {设计中|待评审|已评审|已确认}  
+🔄 **最后更新**: 2025-09-16  
 
 ## 设计概述
 
-### 技术栈选择
-- **后端框架**: FastAPI + Python 3.11
-- **数据库**: MySQL 8.0 (主数据库)
-- **缓存**: Redis 7.0 (会话、购物车缓存)
-- **ORM**: SQLAlchemy + Alembic
-- **认证**: JWT Token
-- **API文档**: OpenAPI 3.0
+### 设计目标
+- {设计目标1}
+- {设计目标2}
+- {设计目标3}
 
-### 模块架构
-```
-app/modules/order_management/
-├── models.py          # 数据模型定义
-├── schemas.py         # API请求响应模型
-├── service.py         # 业务逻辑层
-├── router.py          # API路由层
-├── dependencies.py    # 依赖注入
-└── __init__.py        # 模块初始化
-```
+### 设计原则
+- **单一职责**: {如何体现}
+- **开放封闭**: {如何实现}
+- **依赖倒置**: {依赖关系设计}
 
-## 数据模型设计
+### 关键设计决策
+| 决策点 | 选择方案 | 理由 | 替代方案 |
+|--------|----------|------|----------|
+| {决策1} | {选择方案} | {选择理由} | {其他方案} |
+| {决策2} | {选择方案} | {选择理由} | {其他方案} |
 
-### 核心数据实体
+## 系统架构设计
 
-#### 1. 订单主表 (orders)
-```python
-from sqlalchemy import Column, Integer, String, DECIMAL, Text, DateTime, func, ForeignKey
-from sqlalchemy.orm import relationship
-## 数据模型设计
-
-### 依赖导入
-```python
-from sqlalchemy import Column, Integer, String, Text, Numeric, DateTime, ForeignKey
-from sqlalchemy.sql import func
-from sqlalchemy.orm import relationship
-from app.core.database import Base
+### 整体架构
+```mermaid
+graph TB
+    A[API层] --> B[业务逻辑层]
+    B --> C[数据访问层]
+    C --> D[数据存储层]
 ```
 
-### 数据表结构
-
-#### 1. 订单主表 (orders)
-```python
-
-class Order(Base):
-    __tablename__ = 'orders'
-    
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    order_number = Column(String(32), unique=True, nullable=False, index=True)
-    user_id = Column(Integer, ForeignKey('users.id'), nullable=False, index=True)
-    
-    # 订单状态
-    status = Column(String(20), nullable=False, default='pending')
-    
-    # 金额信息
-    subtotal = Column(Numeric(10, 2), nullable=False, default=0.00)
-    shipping_fee = Column(Numeric(10, 2), nullable=False, default=0.00)
-    discount_amount = Column(Numeric(10, 2), nullable=False, default=0.00)
-    total_amount = Column(Numeric(10, 2), nullable=False, default=0.00)
-    
-    # 收货信息
-    shipping_address = Column(Text, nullable=True)
-    shipping_method = Column(String(50), default='standard')
-    
-    # 备注
-    notes = Column(Text, nullable=True)
-    remark = Column(Text, nullable=True)  # 内部备注
-    
-    # 时间节点
-    paid_at = Column(DateTime, nullable=True)
-    shipped_at = Column(DateTime, nullable=True)
-    delivered_at = Column(DateTime, nullable=True)
-    
-    # 审计字段
-    created_at = Column(DateTime, default=func.now(), nullable=False)
-    updated_at = Column(DateTime, default=func.now(), onupdate=func.now(), nullable=False)
-    
-    # 关系映射
-    user = relationship("User", back_populates="orders")
-    order_items = relationship("OrderItem", back_populates="order", cascade="all, delete-orphan")
+### 模块内部架构
+```
+{模块名}/
+├── router.py           # API路由层
+├── service.py          # 业务逻辑层
+├── repository.py       # 数据访问层
+├── models.py           # 数据模型层
+├── schemas.py          # 数据传输对象
+├── dependencies.py     # 依赖注入
+└── utils.py            # 工具函数
 ```
 
-#### 2. 订单商品表 (order_items)
-```python
-class OrderItem(Base):
-    __tablename__ = 'order_items'
-    
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    order_id = Column(Integer, ForeignKey('orders.id'), nullable=False, index=True)
-    product_id = Column(Integer, ForeignKey('products.id'), nullable=False, index=True)
-    sku_id = Column(Integer, ForeignKey('skus.id'), nullable=False, index=True)
-    
-    # 商品快照信息
-    sku_code = Column(String(100), nullable=False)
-    product_name = Column(String(200), nullable=False)
-    sku_name = Column(String(200), nullable=False)
-    
-    # 数量和价格
-    quantity = Column(Integer, nullable=False)
-    unit_price = Column(Numeric(10, 2), nullable=False)
-    total_price = Column(Numeric(10, 2), nullable=False)
-    
-    # 审计字段
-    created_at = Column(DateTime, default=func.now(), nullable=False)
-    
-    # 关系映射
-    order = relationship("Order", back_populates="order_items")
-```
+### 层次职责
+- **API层**: {职责描述}
+- **业务层**: {职责描述}
+- **数据层**: {职责描述}
 
-#### 3. 订单状态历史表 (order_status_history)
-```python
-class OrderStatusHistory(Base):
-    __tablename__ = 'order_status_history'
-    
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    order_id = Column(Integer, ForeignKey('orders.id'), nullable=False, index=True)
-    old_status = Column(String(20), nullable=True)
-    new_status = Column(String(20), nullable=False)
-    remark = Column(Text, nullable=True)
-    operator_id = Column(Integer, ForeignKey('users.id'), nullable=True)
-    created_at = Column(DateTime, default=func.now(), nullable=False)
-    
-    # 关系映射
-    order = relationship("Order")
-    operator = relationship("User")
-```
+## 数据库设计
 
-### 数据库索引设计
+### 表结构设计
 ```sql
--- 订单表索引
-CREATE INDEX idx_orders_user_status ON orders(user_id, status);
-CREATE INDEX idx_orders_status_created ON orders(status, created_at);
-CREATE INDEX idx_orders_number ON orders(order_number);
+-- {表名1}
+CREATE TABLE {table_name1} (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    -- 字段定义
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
 
--- 订单商品表索引
-CREATE INDEX idx_order_items_order ON order_items(order_id);
-CREATE INDEX idx_order_items_product ON order_items(product_id);
-CREATE INDEX idx_order_items_sku ON order_items(sku_id);
-
--- 状态历史表索引
-CREATE INDEX idx_status_history_order ON order_status_history(order_id, created_at);
+-- {表名2}
+CREATE TABLE {table_name2} (
+    -- 表结构
+);
 ```
 
-## API接口设计
+### 索引设计
+| 表名 | 索引名 | 索引字段 | 索引类型 | 用途 |
+|------|--------|----------|----------|------|
+| {表名} | {索引名} | {字段列表} | {BTREE/UNIQUE} | {查询场景} |
 
-### 接口规范
-遵循RESTful设计原则和OpenAPI 3.0标准
+### 数据关系
+- **一对多**: {关系描述}
+- **多对多**: {关系描述}
+- **外键约束**: {约束说明}
 
-#### 1. 订单创建
-```http
-POST /orders
-Content-Type: application/json
-Authorization: Bearer <token>
+## API设计
 
-{
-  "items": [
-    {
-      "product_id": 123,
-      "sku_id": 456,
-      "quantity": 2
-    }
-  ],
-  "shipping_address": {
-    "recipient": "张三",
-    "phone": "13800138000",
-    "address": "北京市朝阳区xxx"
-  },
-  "notes": "请小心轻放"
-}
-```
+### API架构
+- **基础路径**: `/api/v1/order-management/`
+- **认证方式**: JWT Bearer Token
+- **数据格式**: JSON
 
-**响应格式**:
+### 端点设计
+| 方法 | 路径 | 功能 | 请求参数 | 响应格式 |
+|------|------|------|----------|----------|
+| POST | `/api/v1/order-management/{resource}` | {功能} | {参数} | {响应} |
+| GET | `/api/v1/order-management/{resource}` | {功能} | {参数} | {响应} |
+
+### 错误处理设计
 ```json
 {
-  "success": true,
-  "code": 201,
-  "message": "订单创建成功",
-  "data": {
-    "id": 789,
-    "order_number": "ORD20250127100001",
-    "status": "pending",
-    "total_amount": 199.98,
-    "items": [...],
-    "created_at": "2025-01-27T10:00:00Z"
-  },
-  "metadata": {
-    "request_id": "req_123456",
-    "timestamp": "2025-01-27T10:00:00Z"
-  }
+    "error": {
+        "code": "MODULE_ERROR_001",
+        "message": "错误描述",
+        "details": {}
+    }
 }
 ```
 
-#### 2. 订单列表查询
-```http
-GET /orders?status=pending&page=1&size=20
-Authorization: Bearer <token>
-```
+## 业务逻辑设计
 
-#### 3. 订单详情查询
-```http
-GET /orders/{order_id}
-Authorization: Bearer <token>
-```
-
-#### 4. 订单状态更新
-```http
-PATCH /orders/{order_id}/status
-Content-Type: application/json
-Authorization: Bearer <admin_token>
-
-{
-  "status": "shipped",
-  "remark": "已通过顺丰快递发货"
-}
-```
-
-#### 5. 订单取消
-```http
-DELETE /orders/{order_id}
-Authorization: Bearer <token>
-```
-
-### 权限控制设计
-| 接口 | 普通用户 | 管理员 | 说明 |
-|------|---------|--------|------|
-| 创建订单 | ✅ (仅自己) | ✅ (任意用户) | 用户只能为自己下单 |
-| 查询订单 | ✅ (仅自己) | ✅ (所有订单) | 数据隔离 |
-| 更新状态 | ❌ | ✅ | 仅管理员可操作 |
-| 取消订单 | ✅ (仅自己) | ✅ (任意订单) | 用户可取消自己的订单 |
-
-## 业务流程设计
-
-### 订单创建流程
+### 核心业务流程
 ```mermaid
 sequenceDiagram
-    participant User
-    participant API
-    participant OrderService  
-    participant InventoryService
-    participant Database
+    participant C as Client
+    participant A as API
+    participant S as Service
+    participant R as Repository
+    participant D as Database
     
-    User->>API: POST /orders
-    API->>API: 验证用户权限
-    API->>OrderService: create_order()
-    OrderService->>OrderService: 验证商品信息
-    OrderService->>InventoryService: 检查库存
-    InventoryService-->>OrderService: 库存充足
-    OrderService->>Database: 开始事务
-    OrderService->>Database: 创建订单
-    OrderService->>Database: 创建订单项
-    OrderService->>InventoryService: 扣减库存
-    OrderService->>Database: 提交事务
-    OrderService-->>API: 订单创建成功
-    API-->>User: 返回订单信息
+    C->>A: 请求
+    A->>S: 业务处理
+    S->>R: 数据操作
+    R->>D: SQL查询
+    D-->>R: 返回数据
+    R-->>S: 数据对象
+    S-->>A: 业务结果
+    A-->>C: API响应
 ```
 
-### 订单状态流转
+### 业务规则实现
+- **规则1**: {实现方式}
+- **规则2**: {实现方式}
+
+### 状态机设计
 ```mermaid
 stateDiagram-v2
-    [*] --> pending: 创建订单
-    pending --> paid: 支付成功
-    pending --> cancelled: 用户取消/超时
-    paid --> shipped: 商家发货
-    paid --> cancelled: 退款取消
-    shipped --> delivered: 确认收货
-    shipped --> returned: 申请退货
-    delivered --> returned: 申请售后
-    cancelled --> [*]
-    delivered --> [*]
-    returned --> [*]
+    [*] --> 状态1
+    状态1 --> 状态2: 条件1
+    状态2 --> 状态3: 条件2
+    状态3 --> [*]
 ```
 
-### 库存管理集成
-```python
-# 库存扣减逻辑
-async def create_order_with_inventory(order_data, db: Session):
-    # 开始数据库事务
-    with db.begin():
-        # 1. 验证库存
-        for item in order_data.items:
-            inventory = inventory_service.check_stock(item.sku_id, item.quantity)
-            if not inventory.sufficient:
-                raise InsufficientStockError(f"SKU {item.sku_id} 库存不足")
-        
-        # 2. 创建订单
-        order = Order(**order_data.dict())
-        db.add(order)
-        db.flush()  # 获取订单ID
-        
-        # 3. 创建订单项并扣减库存
-        for item in order_data.items:
-            # 创建订单项
-            order_item = OrderItem(
-                order_id=order.id,
-                **item.dict()
-            )
-            db.add(order_item)
-            
-            # 扣减库存
-            inventory_service.reduce_stock(item.sku_id, item.quantity)
-        
-        # 4. 提交事务
-        db.commit()
-        
-    return order
-```
+## 集成设计
 
-## 错误处理设计
+### 模块依赖
+- **依赖模块1**: {依赖内容和接口}
+- **依赖模块2**: {依赖内容和接口}
 
-### 错误类型定义
-```python
-class OrderError(Exception):
-    """订单相关错误基类"""
-    pass
+### 外部服务集成
+| 服务名 | 集成方式 | 用途 | 容错机制 |
+|--------|----------|------|----------|
+| {服务1} | {REST/MQ} | {用途} | {容错方案} |
+| {服务2} | {REST/MQ} | {用途} | {容错方案} |
 
-class InsufficientStockError(OrderError):
-    """库存不足错误"""
-    pass
+### 事件设计
+- **发布事件**: {事件列表和格式}
+- **订阅事件**: {事件列表和处理}
 
-class InvalidOrderStatusError(OrderError):
-    """无效订单状态错误"""
-    pass
-
-class OrderNotFoundError(OrderError):
-    """订单不存在错误"""
-    pass
-
-class PermissionDeniedError(OrderError):
-    """权限不足错误"""
-    pass
-```
-
-### 错误响应格式
-```json
-{
-  "success": false,
-  "code": 400,
-  "message": "库存不足",
-  "error": {
-    "type": "INSUFFICIENT_STOCK",
-    "details": [
-      {
-        "sku_id": 456,
-        "requested": 5,
-        "available": 2
-      }
-    ]
-  },
-  "metadata": {
-    "request_id": "req_123456",
-    "timestamp": "2025-01-27T10:00:00Z"
-  }
-}
-```
-
-## 性能优化设计
+## 性能设计
 
 ### 缓存策略
-```python
-# Redis缓存配置
-CACHE_CONFIG = {
-    "order_details": {
-        "ttl": 300,  # 5分钟
-        "key_pattern": "order:detail:{order_id}"
-    },
-    "user_orders": {
-        "ttl": 60,   # 1分钟
-        "key_pattern": "user:orders:{user_id}:{page}"
-    }
-}
-```
+- **应用缓存**: Redis缓存{缓存内容}
+- **查询缓存**: 缓存{查询结果}
+- **缓存失效**: {失效策略}
 
 ### 数据库优化
-1. **连接池配置**: 最大连接数50，最小连接数10
-2. **查询优化**: 使用合适的索引，避免全表扫描
-3. **批量操作**: 订单项批量插入，减少数据库交互
-4. **分页查询**: 使用LIMIT/OFFSET进行分页
+- **查询优化**: {优化策略}
+- **连接池**: {配置方案}
+- **读写分离**: {是否需要}
 
-### 并发控制
-```python
-# 使用Redis分布式锁防止重复下单
-async def create_order_with_lock(user_id: int, order_data: OrderCreateRequest):
-    lock_key = f"order:create:{user_id}"
-    
-    async with redis_client.lock(lock_key, timeout=30):
-        # 检查是否有重复订单
-        existing = await check_duplicate_order(user_id, order_data)
-        if existing:
-            raise DuplicateOrderError("订单已存在")
-        
-        # 创建订单
-        return await create_order(order_data)
-```
+### 异步处理
+- **异步任务**: {任务类型}
+- **队列设计**: {队列方案}
 
 ## 安全设计
 
-### 权限验证
-```python
-# 订单所有权验证
-def verify_order_ownership(order_id: int, current_user: User):
-    if current_user.role in ['admin', 'super_admin']:
-        return True
-    
-    order = get_order_by_id(order_id)
-    if not order:
-        raise OrderNotFoundError("订单不存在")
-    
-    if order.user_id != current_user.id:
-        raise PermissionDeniedError("无权访问此订单")
-    
-    return True
-```
+### 认证授权
+- **认证方式**: JWT Token
+- **权限控制**: RBAC模型
+- **API安全**: 接口防护措施
 
-### 数据验证
-```python
-# 输入数据验证
-class OrderCreateRequest(BaseModel):
-    items: List[OrderItemRequest] = Field(..., min_items=1, max_items=50)
-    shipping_address: ShippingAddressRequest
-    notes: Optional[str] = Field(None, max_length=500)
-    
-    @validator('items')
-    def validate_items(cls, v):
-        # 验证商品项不重复
-        sku_ids = [item.sku_id for item in v]
-        if len(sku_ids) != len(set(sku_ids)):
-            raise ValueError('订单不能包含重复的SKU')
-        return v
-```
+### 数据安全
+- **敏感数据**: {加密方案}
+- **数据脱敏**: {脱敏规则}
+- **审计日志**: {日志内容}
 
-## 监控和日志
+### 输入验证
+- **参数校验**: Pydantic模型验证
+- **SQL注入**: 参数化查询
+- **XSS防护**: 输出编码
 
-### 关键指标监控
-- 订单创建成功率
-- 平均订单处理时间
-- 库存扣减准确率
-- API响应时间
+## 可扩展性设计
 
-### 日志记录
-```python
-# 结构化日志
-import structlog
+### 水平扩展
+- **无状态设计**: {如何实现}
+- **负载均衡**: {方案选择}
+- **数据分片**: {是否需要}
 
-logger = structlog.get_logger()
+### 垂直扩展
+- **资源配置**: {配置建议}
+- **性能监控**: {监控指标}
 
-# 订单操作日志
-logger.info(
-    "order_created",
-    order_id=order.id,
-    user_id=order.user_id,
-    total_amount=order.total_amount,
-    items_count=len(order.items)
-)
+### 降级策略
+- **限流**: {限流策略}
+- **熔断**: {熔断条件}
+- **降级**: {降级方案}
 
-# 状态变更日志
-logger.info(
-    "order_status_changed",
-    order_id=order.id,
-    old_status=old_status,
-    new_status=new_status,
-    operator_id=current_user.id
-)
-```
+## 监控设计
 
-## 扩展性考虑
+### 业务监控
+- **业务指标**: {监控指标}
+- **告警规则**: {告警条件}
 
-### 模块扩展点
-1. **支付集成**: 预留支付回调接口
-2. **物流集成**: 预留发货通知接口
-3. **营销活动**: 预留优惠券应用接口
-4. **批次溯源**: 预留农产品溯源集成
+### 技术监控
+- **性能指标**: 响应时间、QPS、错误率
+- **资源指标**: CPU、内存、磁盘
+- **日志监控**: 错误日志、访问日志
 
-### 配置化设计
-```python
-# 订单配置
-ORDER_CONFIG = {
-    "auto_cancel_minutes": 30,        # 自动取消时间
-    "max_items_per_order": 50,        # 单订单最大商品数
-    "default_shipping_fee": 0.00,     # 默认运费
-    "free_shipping_threshold": 99.00, # 免运费门槛
-}
-```
+## 测试策略
 
----
+### 单元测试
+- **测试覆盖**: 业务逻辑层100%覆盖
+- **测试框架**: pytest
+- **Mock策略**: {Mock方案}
 
-## 版本历史
+### 集成测试
+- **测试范围**: API接口测试
+- **测试环境**: {环境配置}
+- **测试数据**: {数据准备}
 
-| 版本 | 日期 | 变更说明 | 负责人 |
+### 性能测试
+- **压测目标**: {性能目标}
+- **测试场景**: {测试用例}
+
+## 实施计划
+
+### 开发阶段
+1. **阶段1**: 数据模型和API设计 ({时间})
+2. **阶段2**: 核心业务逻辑实现 ({时间})
+3. **阶段3**: 集成测试和优化 ({时间})
+
+### 风险控制
+- **技术风险**: {风险和缓解}
+- **进度风险**: {风险和缓解}
+- **质量风险**: {风险和缓解}
+
+## 变更记录
+
+| 日期 | 版本 | 变更内容 | 变更人 |
 |------|------|----------|--------|
-| v1.0.0 | 2025-01-27 | 初版技术设计，定义核心数据模型和API | 技术架构师 |
-
-## 相关文档
-
-- [订单模块需求规范](requirements.md) - 业务需求定义
-- [系统架构总览](../../architecture/overview.md) - 整体技术架构
-- [API设计标准](../../standards/api-standards.md) - API规范标准
-- [数据库设计规范](../../standards/database-standards.md) - 数据库设计标准
+| 2025-09-16 | v1.0 | 初始设计 | {姓名} |
