@@ -9,8 +9,8 @@
 - 用户认证和权限校验
 使用说明：
 - 导入：from app.modules.shopping_cart.router import router
-- 在main.py中注册：app.include_router(router, prefix="/api/v1/cart", tags=["购物车"])
-- API前缀：/api/v1/cart/
+- 在main.py中注册：app.include_router(router, tags=["购物车"])
+- API端点：/shopping-cart/ (完整模块名前缀，统一在main.py设置API版本前缀)
 依赖模块：
 - fastapi: Web框架和路由装饰器
 - app.modules.shopping_cart.service: 业务逻辑服务层
@@ -45,7 +45,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["购物车"])
 
 
-@router.post("/items", 
+@router.post("/shopping-cart/items", 
              response_model=CartResponse,
              status_code=status.HTTP_200_OK,
              summary="添加商品到购物车",
@@ -107,7 +107,7 @@ async def add_item_to_cart(
         )
 
 
-@router.get("", 
+@router.get("/shopping-cart/cart", 
             response_model=CartResponse,
             summary="获取购物车内容", 
             description="获取当前用户购物车的完整内容，包括商品详情和价格计算")
@@ -165,7 +165,7 @@ async def get_cart(
         )
 
 
-@router.put("/items/{item_id}", 
+@router.put("/shopping-cart/items/{item_id}", 
             response_model=CartResponse,
             summary="更新商品数量",
             description="更新购物车中指定商品的数量")
@@ -216,7 +216,7 @@ async def update_item_quantity(
         )
 
 
-@router.delete("/items/{item_id}",
+@router.delete("/shopping-cart/items/{item_id}",
                response_model=SuccessResponse,
                summary="删除单个商品",
                description="从购物车删除指定的商品项")
@@ -260,7 +260,7 @@ async def delete_cart_item(
         )
 
 
-@router.delete("/items",
+@router.delete("/shopping-cart/items",
                response_model=SuccessResponse, 
                summary="批量删除商品",
                description="批量删除购物车中的多个商品项")
@@ -305,7 +305,7 @@ async def batch_delete_items(
         )
 
 
-@router.delete("",
+@router.delete("/shopping-cart/cart",
                response_model=SuccessResponse,
                summary="清空购物车", 
                description="清空当前用户的整个购物车")
@@ -348,7 +348,7 @@ async def clear_cart(
 
 # ==================== 健康检查端点 ====================
 
-@router.get("/health",
+@router.get("/shopping-cart/health",
             summary="购物车服务健康检查",
             description="检查购物车服务的运行状态",
             include_in_schema=False)  # 不在API文档中显示
