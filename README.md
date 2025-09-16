@@ -145,6 +145,14 @@ gunicorn app.main:app -w 4 -k uvicorn.workers.UvicornWorker
 本项目采用 MIT 许可证 - 查看 [LICENSE](LICENSE) 文件了解详情。
 ## � 文档导航
 
+### 🎯 核心开发文档 (优先查阅)
+- [🗓️ **开发计划速览**](DEVELOPMENT_PLAN.md) - **6期迭代计划快速导航** ⭐
+- [📋 **完整开发计划**](docs/requirements/functional.md#迭代计划) - 详细迭代规划和功能优先级
+- [📋 功能需求规范](docs/requirements/functional.md) - 详细功能需求与业务规则
+- [🏗️ 系统架构设计](docs/architecture/overview.md) - 技术架构与设计原则
+- [📦 业务模块文档](docs/modules/) - 19个完整模块设计文档
+
+### 📚 完整文档导航
 - [📋 项目文档](docs/) - 完整技术文档中心
 - [🏗️ 系统架构](docs/architecture/) - 架构设计与技术选型  
 - [📦 功能模块](docs/modules/) - 业务模块设计文档 (19个完整模块)
