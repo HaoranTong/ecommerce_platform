@@ -450,3 +450,68 @@ class PaymentService:
             count += 1
         
         return count
+
+
+# 创建服务实例
+payment_service = PaymentService()
+
+# 支付号生成器
+class PaymentNumberGenerator:
+    """支付单号生成器"""
+    
+    @staticmethod
+    def generate_payment_no() -> str:
+        """生成支付单号"""
+        return PaymentService.generate_payment_no()
+
+payment_number_generator = PaymentNumberGenerator()
+
+# 支付验证器
+class PaymentValidator:
+    """支付验证器"""
+    
+    @staticmethod
+    def validate_payment_amount(amount: Decimal, order_amount: Decimal) -> bool:
+        """验证支付金额"""
+        return amount == order_amount and amount > 0
+    
+    @staticmethod
+    def validate_payment_method(method: str) -> bool:
+        """验证支付方式"""
+        return method in PaymentService.PAYMENT_METHODS
+
+payment_validator = PaymentValidator()
+
+# 微信支付服务（简化版）
+class WechatPayService:
+    """微信支付服务"""
+    
+    def __init__(self):
+        self.app_id = "wx_demo_app_id"  # 演示用
+        self.mch_id = "demo_mch_id"     # 演示用
+    
+    def create_unified_order(self, payment_no: str, amount: Decimal, description: str) -> dict:
+        """创建统一下单"""
+        # 这里是演示实现，实际需要调用微信API
+        return {
+            "code_url": f"https://demo.qrcode.url/{payment_no}",
+            "prepay_id": f"prepay_{payment_no}",
+            "trade_type": "NATIVE"
+        }
+    
+    def verify_callback(self, callback_data: dict) -> bool:
+        """验证回调签名"""
+        # 演示实现，实际需要验证微信签名
+        return True
+    
+    def process_callback(self, xml_data: str) -> dict:
+        """处理回调数据"""
+        # 演示实现，实际需要解析XML
+        return {
+            "return_code": "SUCCESS",
+            "result_code": "SUCCESS",
+            "out_trade_no": "demo_payment_no",
+            "transaction_id": "demo_transaction_id"
+        }
+
+wechat_pay_service = WechatPayService()

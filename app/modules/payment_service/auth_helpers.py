@@ -7,9 +7,11 @@ from typing import Optional
 from fastapi import HTTPException, status, Depends
 from sqlalchemy.orm import Session
 
-from app.database import get_db
-from app.data_models import User, Order, Payment
-from app.auth import get_current_active_user, get_current_admin_user, require_ownership
+from app.core.database import get_db
+from app.modules.user_auth.models import User
+from app.modules.order_management.models import Order
+from app.modules.payment_service.models import Payment
+from app.core.auth import get_current_active_user, get_current_admin_user
 
 
 async def verify_payment_ownership(
