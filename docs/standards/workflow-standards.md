@@ -78,7 +78,7 @@ pip install -r requirements.txt
 # app/models.py
 class Product(Base):
     __tablename__ = 'products'
-    id = Column(BigInteger, primary_key=True)
+    id = Column(Integer, primary_key=True)
     name = Column(String(200), nullable=False)
     # ... 完整字段定义
 
