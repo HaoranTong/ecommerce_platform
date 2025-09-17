@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, ConfigDict
 from typing import Optional, List, Dict, Any
 from datetime import datetime
 from decimal import Decimal
@@ -40,8 +40,7 @@ class UserRead(BaseModel):
     wx_openid: Optional[str] = None
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class Token(BaseModel):
@@ -79,8 +78,7 @@ class CartSummary(BaseModel):
     total_quantity: int  # 总数量
     total_amount: Decimal  # 总金额
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class TokenRefresh(BaseModel):
@@ -117,8 +115,7 @@ class CategoryRead(BaseModel):
     is_active: bool
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class CategoryTreeRead(BaseModel):
@@ -130,8 +127,7 @@ class CategoryTreeRead(BaseModel):
     created_at: datetime
     children: List['CategoryTreeRead'] = []
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # 商品相关 Schema
@@ -180,8 +176,7 @@ class ProductRead(BaseModel):
     created_at: datetime
     updated_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # 订单项 Schema
@@ -199,8 +194,7 @@ class OrderItemRead(BaseModel):
     unit_price: Decimal
     total_price: Decimal
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # 订单相关 Schema
@@ -238,8 +232,7 @@ class OrderRead(BaseModel):
     # 包含订单项
     order_items: List[OrderItemRead] = []
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class OrderStatusUpdate(BaseModel):
@@ -261,8 +254,7 @@ class CertificateRead(BaseModel):
     serial: str
     description: Optional[str] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # 支付相关 Schema - V1.0 Mini-MVP
@@ -311,8 +303,7 @@ class PaymentRead(BaseModel):
     refunded_at: Optional[datetime] = None
     description: Optional[str] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class PaymentListResponse(BaseModel):
@@ -347,8 +338,7 @@ class RefundRead(BaseModel):
     operator_id: Optional[int] = None
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class PaymentStats(BaseModel):
