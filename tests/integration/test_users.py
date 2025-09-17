@@ -40,11 +40,11 @@ client = TestClient(app)
 
 
 def test_create_and_list_user():
-    r = client.post('/api/users', json={'username': 'testu', 'email': 'testu@example.com'})
+    r = client.post('/api/v1/user-auth/users', json={'username': 'testu', 'email': 'testu@example.com'})
     assert r.status_code == 201
     data = r.json()
     assert data['username'] == 'testu'
-    r2 = client.get('/api/users')
+    r2 = client.get('/api/v1/user-auth/users')
     assert r2.status_code == 200
     users = r2.json()
     assert any(u['username'] == 'testu' for u in users)

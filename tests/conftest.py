@@ -25,10 +25,17 @@ from app.modules.user_auth.models import User, Role, Permission, UserRole, RoleP
 # 库存管理模块模型
 from app.modules.inventory_management.models import InventoryStock, InventoryReservation, InventoryTransaction
 
+# 订单管理模块模型
+from app.modules.order_management.models import Order, OrderItem, OrderStatusHistory
+
+# 支付服务模块模型  
+from app.modules.payment_service.models import Payment, Refund
+
 # 测试数据库配置 - 符合testing-standards.md标准
 UNIT_TEST_DATABASE_URL = "sqlite:///:memory:"  # 单元测试：内存数据库
 SMOKE_TEST_DATABASE_URL = "sqlite:///./tests/smoke_test.db"  # 烟雾测试：文件数据库
-INTEGRATION_TEST_DATABASE_URL = "mysql+pymysql://test_user:test_pass@localhost:3307/test_ecommerce"  # 集成测试：MySQL
+# Integration Test Database Configuration (MySQL Docker)
+INTEGRATION_TEST_DATABASE_URL = "mysql+pymysql://root:rootpass@localhost:3307/ecommerce_platform"
 
 # ========== 单元测试配置 ==========
 @pytest.fixture(scope="function")
@@ -57,6 +64,49 @@ def unit_test_db(unit_test_engine):
         yield database
     finally:
         database.close()
+
+# 添加测试隔离机制 - 符合testing-standards.md第896-902行要求
+@pytest.fixture(autouse=True)
+def clean_database_after_test(unit_test_db):
+    """每个测试后自动清理数据库 - 确保测试隔离"""
+    yield
+    # 清理所有测试数据，按照外键依赖顺序删除
+    try:
+        # 1. 先清理关联表
+        unit_test_db.query(OrderItem).delete()
+        unit_test_db.query(OrderStatusHistory).delete()
+        unit_test_db.query(Refund).delete()
+        unit_test_db.query(Payment).delete()
+        unit_test_db.query(Order).delete()
+        
+        # 2. 清理用户相关
+        unit_test_db.query(RolePermission).delete()
+        unit_test_db.query(UserRole).delete()
+        unit_test_db.query(Session).delete()
+        
+        # 3. 清理基础数据
+        unit_test_db.query(User).delete()
+        unit_test_db.query(Permission).delete()
+        unit_test_db.query(Role).delete()
+        
+        # 4. 清理产品相关
+        unit_test_db.query(InventoryTransaction).delete()
+        unit_test_db.query(InventoryReservation).delete()
+        unit_test_db.query(InventoryStock).delete()
+        unit_test_db.query(SKUAttribute).delete()
+        unit_test_db.query(ProductAttribute).delete()
+        unit_test_db.query(ProductImage).delete()
+        unit_test_db.query(ProductTag).delete()
+        unit_test_db.query(SKU).delete()
+        unit_test_db.query(Product).delete()
+        unit_test_db.query(Brand).delete()
+        unit_test_db.query(Category).delete()
+        
+        unit_test_db.commit()
+    except Exception as e:
+        unit_test_db.rollback()
+        # 忽略清理错误，避免影响测试结果
+        pass
 
 @pytest.fixture(scope="function")
 def unit_test_client(unit_test_engine, mock_admin_user):
@@ -165,15 +215,34 @@ def smoke_test_client(smoke_test_db, mock_admin_user):
 # ========== 集成测试配置 ==========
 @pytest.fixture(scope="session")
 def integration_test_engine():
-    """集成测试数据库引擎（MySQL）"""
-    # 这里假设MySQL测试容器已经启动
-    # 实际使用时需要docker-compose或脚本管理
+    """集成测试数据库引擎（使用现有MySQL Docker容器）"""
+    print("🐳 使用现有MySQL容器进行集成测试...")
+    
     try:
         engine = create_engine(INTEGRATION_TEST_DATABASE_URL)
+        
+        # 确保导入所有模型以创建完整的数据库schema
+        from app.modules.user_auth.models import User, Role, Permission, UserRole, RolePermission, Session
+        from app.modules.product_catalog.models import Category, Brand, Product, SKU, ProductAttribute, SKUAttribute, ProductImage, ProductTag
+        from app.modules.shopping_cart.models import Cart, CartItem
+        from app.modules.order_management.models import Order, OrderItem
+        from app.modules.payment_service.models import Payment, Refund
+        
+        # 创建所有表
         Base.metadata.create_all(bind=engine)
+        print("✅ MySQL集成测试数据库已准备完成")
         yield engine
-    except Exception as e:
-        pytest.skip(f"MySQL测试数据库不可用: {e}")
+    finally:
+        # 清理测试数据但保留表结构
+        print("🧹 清理测试数据...")
+        try:
+            with engine.begin() as conn:
+                # 删除所有表的数据，但保留表结构
+                for table in reversed(Base.metadata.sorted_tables):
+                    conn.execute(table.delete())
+        except Exception as e:
+            print(f"清理数据时出错: {e}")
+        engine.dispose()
 
 @pytest.fixture(scope="function")
 def integration_test_db(integration_test_engine):

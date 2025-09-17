@@ -41,18 +41,18 @@ graph LR
 ```
 业务概念层（连字符）: user-auth, shopping-cart, product-catalog
 ├── 文档目录: docs/modules/user-auth/
-├── API前缀: /api/v1/user-auth/ (在main.py中设置)
+├── API前缀: /api/v1/ (在main.py中设置)
 └── 配置文件: user-auth.yaml
 
 技术实现层（下划线）: user_auth, shopping_cart, product_catalog  
 ├── 代码目录: app/modules/user_auth/
 ├── 文件名: router.py, service.py, models.py
-├── 路由端点: /login, /register, /me (在router.py中定义)
+├── 路由端点: /user-auth/login, /user-auth/register, /user-auth/me (在router.py中定义)
 ├── 函数名: authenticate_user(), register_user()
 └── 类名: UserAuthService, UserAuthRouter
 
 最终API路径 = API前缀 + 路由端点
-例如: /api/v1/user-auth/ + /login = /api/v1/user-auth/login
+例如: /api/v1/ + /user-auth/login = /api/v1/user-auth/login
 ```
 
 #### 模块核心名称定义
@@ -277,11 +277,11 @@ stock_quantity = 20                # quantity 后缀表示库存
 ### 参数命名规则
 ```python
 # API路径参数
-@router.get("/products/{product_id}")
+@router.get("/product-catalog/products/{product_id}")
 async def get_product(product_id: int):
 
 # 查询参数  
-@router.get("/products")
+@router.get("/product-catalog/products")
 async def get_products(
     skip: int = 0,              # 分页跳过数量
     limit: int = 100,           # 分页限制数量  

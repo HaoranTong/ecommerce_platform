@@ -12,11 +12,13 @@
 """
 
 import uuid
+import json
 from typing import Optional, List, Dict, Any
 from decimal import Decimal
 from datetime import datetime, timedelta
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy import func
 from fastapi import HTTPException, status
 
 from app.modules.user_auth.models import User
@@ -238,7 +240,13 @@ class PaymentService:
             payment.external_transaction_id = external_transaction_id
         
         if payment_data:
-            payment.payment_data.update(payment_data)
+            # 处理JSON字段：如果payment_data已存在，合并数据；否则直接设置
+            if payment.payment_data:
+                existing_data = json.loads(payment.payment_data)
+                existing_data.update(payment_data)
+                payment.payment_data = json.dumps(existing_data)
+            else:
+                payment.payment_data = json.dumps(payment_data)
         
         # 根据支付状态更新订单状态
         if new_status == 'completed':
@@ -370,14 +378,14 @@ class PaymentService:
         
         # 计算总金额
         total_amount = query.filter(Payment.status == 'completed').with_entities(
-            db.func.sum(Payment.amount)
+            func.sum(Payment.amount)
         ).scalar() or 0
         
         # 按支付方式统计
         payment_methods = db.query(
             Payment.payment_method,
-            db.func.count(Payment.id).label('count'),
-            db.func.sum(Payment.amount).label('amount')
+            func.count(Payment.id).label('count'),
+            func.sum(Payment.amount).label('amount')
         ).join(Order)
         
         if user_id:

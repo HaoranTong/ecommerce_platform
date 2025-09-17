@@ -17,6 +17,7 @@ from app.modules.inventory_management.models import (
     InventoryStock, InventoryReservation, InventoryTransaction,
     TransactionType, ReservationType
 )
+from app.modules.product_catalog.models import Product, SKU, Category
 
 
 class TestInventoryStockAPI:
@@ -25,8 +26,32 @@ class TestInventoryStockAPI:
     def test_get_sku_inventory_success(self, integration_test_client, integration_test_db):
         """测试获取SKU库存信息 - 成功场景"""
         # Arrange - 创建测试数据
+        # 1. 创建分类
+        category = Category(name="测试分类", sort_order=1)
+        integration_test_db.add(category)
+        integration_test_db.commit()
+        integration_test_db.refresh(category)
+        
+        # 2. 创建商品
+        product = Product(name="测试商品", category_id=category.id, status="published")
+        integration_test_db.add(product)
+        integration_test_db.commit()
+        integration_test_db.refresh(product)
+        
+        # 3. 创建SKU
+        sku = SKU(
+            sku_code="INT-TEST-SKU-001", 
+            product_id=product.id,
+            price=100.0,
+            is_active=True
+        )
+        integration_test_db.add(sku)
+        integration_test_db.commit()
+        integration_test_db.refresh(sku)
+        
+        # 4. 创建库存记录
         test_stock = InventoryStock(
-            sku_id="INT-TEST-SKU-001",
+            sku_id=sku.id,  # 使用实际的SKU ID
             total_quantity=100,
             available_quantity=80,
             reserved_quantity=20,
@@ -38,7 +63,7 @@ class TestInventoryStockAPI:
         integration_test_db.refresh(test_stock)
         
         # Act - 调用API
-        response = integration_test_client.get(f"/api/inventory/stock/{test_stock.sku_id}")
+        response = integration_test_client.get(f"/api/v1/inventory-management/stock/{test_stock.sku_id}")
         
         # Assert
         assert response.status_code == 200
