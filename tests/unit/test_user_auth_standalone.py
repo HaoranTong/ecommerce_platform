@@ -10,7 +10,7 @@ import sys
 import os
 from datetime import datetime, timedelta
 from sqlalchemy import create_engine, Column, String, Boolean, Integer, DateTime, Text, ForeignKey
-from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
 from sqlalchemy.sql import func
 

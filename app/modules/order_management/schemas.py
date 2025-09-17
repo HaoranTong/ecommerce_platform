@@ -11,7 +11,7 @@
 - 订单状态历史：状态变更审计模式
 """
 
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator, ConfigDict
 from typing import Optional, List, Dict, Any, Union, Generic, TypeVar
 
 T = TypeVar('T')
@@ -24,8 +24,7 @@ from enum import Enum
 
 class BaseSchema(BaseModel):
     """订单管理模块基础模式类"""
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
         
 class TimestampMixin(BaseModel):
     """时间戳混入类"""
@@ -88,7 +87,8 @@ class OrderItemRequest(BaseSchema):
     sku_id: int = Field(..., gt=0, description="SKU ID")
     quantity: int = Field(..., gt=0, le=999, description="购买数量")
     
-    @validator('quantity')
+    @field_validator('quantity')
+    @classmethod
     def validate_quantity(cls, v):
         if v <= 0:
             raise ValueError('商品数量必须大于0')
@@ -115,8 +115,7 @@ class OrderItemResponse(BaseSchema):
     
     created_at: datetime
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # ============ 收货地址相关模式 ============
@@ -136,11 +135,12 @@ class ShippingAddressResponse(ShippingAddressRequest):
 
 class OrderCreateRequest(BaseSchema):
     """订单创建请求模式，符合api-spec.md规范"""
-    items: List[OrderItemRequest] = Field(..., min_items=1, max_items=50, description="订单商品列表")
+    items: List[OrderItemRequest] = Field(..., min_length=1, max_length=50, description="订单商品列表")
     shipping_address: ShippingAddressRequest = Field(..., description="收货地址")
     notes: Optional[str] = Field(None, max_length=500, description="订单备注")
     
-    @validator('items')
+    @field_validator('items')
+    @classmethod
     def validate_items_unique(cls, v):
         """验证订单不能包含重复的SKU"""
         sku_ids = [item.sku_id for item in v]
@@ -178,16 +178,14 @@ class OrderResponse(BaseSchema, TimestampMixin):
     # 备注信息
     notes: Optional[str] = None
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class OrderDetailResponse(OrderResponse):
     """订单详情响应模式，包含订单项和状态历史"""
     items: List[OrderItemResponse] = []
     status_history: List['OrderStatusHistoryResponse'] = []
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class OrderListQueryParams(BaseSchema):
     """订单列表查询参数"""
@@ -208,8 +206,7 @@ class OrderStatusHistoryResponse(BaseSchema):
     operator_id: Optional[int] = None
     created_at: datetime
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # ============ 错误响应模式 ============
