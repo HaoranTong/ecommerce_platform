@@ -83,10 +83,6 @@ class User(Base, TimestampMixin, SoftDeleteMixin):
     # 关系定义
     user_roles = relationship("UserRole", back_populates="user", cascade="all, delete-orphan", foreign_keys="UserRole.user_id")
     sessions = relationship("Session", back_populates="user", cascade="all, delete-orphan")
-    # 订单关系 - 使用字符串形式避免循环导入
-    orders = relationship("Order", back_populates="user")
-    # 支付关系 - 使用字符串形式避免循环导入
-    payments = relationship("Payment", back_populates="user")
 
     def __repr__(self):
         return f"<User(id={self.id}, username='{self.username}', email='{self.email}')>"

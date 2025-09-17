@@ -66,11 +66,12 @@ class Order(Base):
     created_at = Column(DateTime, default=func.now(), nullable=False, comment='创建时间')
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now(), nullable=False, comment='更新时间')
     
-    # 关系映射
-    user = relationship("User", back_populates="orders")
+    # 关系映射 - 使用单向关系避免跨模块依赖问题
+    user = relationship("User")
     order_items = relationship("OrderItem", back_populates="order", cascade="all, delete-orphan")
     status_history = relationship("OrderStatusHistory", back_populates="order", cascade="all, delete-orphan")
-    payments = relationship("Payment", back_populates="order")
+    # 支付关系 - 移除避免跨模块依赖问题
+    # payments = relationship("Payment")  # 在单模块测试时不可用
     
     def __repr__(self):
         return f"<Order(id={self.id}, order_number='{self.order_number}', status='{self.status}')>"

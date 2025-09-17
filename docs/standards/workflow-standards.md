@@ -66,9 +66,9 @@ pip install -r requirements.txt
 ```
 
 #### 2.2 代码开发标准
-- [ ] **数据模型** - 在 `app/models.py` 中定义 SQLAlchemy 模型
-- [ ] **API路由** - 在 `app/api/{module}_routes.py` 中实现路由
-- [ ] **数据验证** - 在 `app/api/schemas.py` 中定义 Pydantic 模式
+- [ ] **数据模型** - 在 `app/modules/{module}/models.py` 中定义 SQLAlchemy 模型
+- [ ] **API路由** - 在 `app/modules/{module}/router.py` 中实现路由
+- [ ] **数据验证** - 在 `app/modules/{module}/schemas.py` 中定义 Pydantic 模式
 - [ ] **业务逻辑** - 在 `app/services/` 中实现服务层
 - [ ] **错误处理** - 统一异常处理和错误响应
 
@@ -88,8 +88,8 @@ class ProductCreateRequest(BaseModel):
     price: Decimal = Field(..., gt=0)
     # ... 完整验证规则
 
-# app/api/product_routes.py
-@router.post("/products", response_model=ProductResponse)
+# app/modules/product_catalog/router.py
+@router.post("/product-catalog/products", response_model=ProductResponse)
 async def create_product(product_data: ProductCreateRequest):
     # 完整的业务逻辑实现
     pass
@@ -346,7 +346,7 @@ def create_product(db: Session, product_data: ProductCreateRequest) -> Product:
 ### API设计规范
 ```python
 # 正确的API设计示例
-@router.post("/products", response_model=ProductResponse, status_code=201)
+@router.post("/product-catalog/products", response_model=ProductResponse, status_code=201)
 async def create_product(
     product_data: ProductCreateRequest,
     current_user: User = Depends(get_current_user),

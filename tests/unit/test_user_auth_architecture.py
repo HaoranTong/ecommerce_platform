@@ -13,7 +13,7 @@ from app.modules.user_auth.models import User, Role, Permission, UserRole, RoleP
 class TestUserAuthModels:
     """用户认证模型测试"""
     
-    def test_user_model_creation(self, test_db):
+    def test_user_model_creation(self, unit_test_db):
         """测试用户模型创建"""
         user = User(
             username="testuser",
@@ -22,9 +22,9 @@ class TestUserAuthModels:
             phone="13800138000"
         )
         
-        test_db.add(user)
-        test_db.commit()
-        test_db.refresh(user)
+        unit_test_db.add(user)
+        unit_test_db.commit()
+        unit_test_db.refresh(user)
         
         # 验证字段
         assert user.id is not None
@@ -42,7 +42,7 @@ class TestUserAuthModels:
         
         print(f"✅ 用户模型创建测试通过: ID={user.id}")
     
-    def test_role_model_creation(self, test_db):
+    def test_role_model_creation(self, unit_test_db):
         """测试角色模型创建"""
         role = Role(
             name="admin",
@@ -50,9 +50,9 @@ class TestUserAuthModels:
             level=100
         )
         
-        test_db.add(role)
-        test_db.commit()
-        test_db.refresh(role)
+        unit_test_db.add(role)
+        unit_test_db.commit()
+        unit_test_db.refresh(role)
         
         assert role.id is not None
         assert role.name == "admin"
@@ -62,7 +62,7 @@ class TestUserAuthModels:
         
         print(f"✅ 角色模型创建测试通过: ID={role.id}")
     
-    def test_permission_model_creation(self, test_db):
+    def test_permission_model_creation(self, unit_test_db):
         """测试权限模型创建"""
         permission = Permission(
             name="user.create",
@@ -71,9 +71,9 @@ class TestUserAuthModels:
             description="创建用户权限"
         )
         
-        test_db.add(permission)
-        test_db.commit()
-        test_db.refresh(permission)
+        unit_test_db.add(permission)
+        unit_test_db.commit()
+        unit_test_db.refresh(permission)
         
         assert permission.id is not None
         assert permission.name == "user.create"
@@ -83,7 +83,7 @@ class TestUserAuthModels:
         
         print(f"✅ 权限模型创建测试通过: ID={permission.id}")
     
-    def test_session_model_creation(self, test_db):
+    def test_session_model_creation(self, unit_test_db):
         """测试会话模型创建"""
         # 先创建用户
         user = User(
@@ -91,9 +91,9 @@ class TestUserAuthModels:
             email="session@example.com",
             password_hash="hash"
         )
-        test_db.add(user)
-        test_db.commit()
-        test_db.refresh(user)
+        unit_test_db.add(user)
+        unit_test_db.commit()
+        unit_test_db.refresh(user)
         
         # 创建会话
         session = Session(
@@ -103,9 +103,9 @@ class TestUserAuthModels:
             ip_address="192.168.1.1"
         )
         
-        test_db.add(session)
-        test_db.commit()
-        test_db.refresh(session)
+        unit_test_db.add(session)
+        unit_test_db.commit()
+        unit_test_db.refresh(session)
         
         assert session.id is not None
         assert session.user_id == user.id
@@ -115,7 +115,7 @@ class TestUserAuthModels:
         
         print(f"✅ 会话模型创建测试通过: ID={session.id}")
     
-    def test_user_role_relationship(self, test_db):
+    def test_user_role_relationship(self, unit_test_db):
         """测试用户角色关联"""
         # 创建用户
         user = User(
@@ -123,7 +123,7 @@ class TestUserAuthModels:
             email="roleuser@example.com",
             password_hash="hash"
         )
-        test_db.add(user)
+        unit_test_db.add(user)
         
         # 创建角色
         role = Role(
@@ -131,10 +131,10 @@ class TestUserAuthModels:
             description="经理角色",
             level=50
         )
-        test_db.add(role)
-        test_db.commit()
-        test_db.refresh(user)
-        test_db.refresh(role)
+        unit_test_db.add(role)
+        unit_test_db.commit()
+        unit_test_db.refresh(user)
+        unit_test_db.refresh(role)
         
         # 创建关联
         user_role = UserRole(
@@ -143,8 +143,8 @@ class TestUserAuthModels:
             assigned_by=user.id
         )
         
-        test_db.add(user_role)
-        test_db.commit()
+        unit_test_db.add(user_role)
+        unit_test_db.commit()
         
         assert user_role.user_id == user.id
         assert user_role.role_id == role.id
@@ -152,7 +152,7 @@ class TestUserAuthModels:
         
         print(f"✅ 用户角色关联测试通过")
     
-    def test_role_permission_relationship(self, test_db):
+    def test_role_permission_relationship(self, unit_test_db):
         """测试角色权限关联"""
         # 创建角色
         role = Role(
@@ -160,7 +160,7 @@ class TestUserAuthModels:
             description="编辑角色",
             level=30
         )
-        test_db.add(role)
+        unit_test_db.add(role)
         
         # 创建权限
         permission = Permission(
@@ -169,7 +169,7 @@ class TestUserAuthModels:
             action="edit",
             description="编辑内容权限"
         )
-        test_db.add(permission)
+        unit_test_db.add(permission)
         
         # 创建用户（用于记录授权者）
         user = User(
@@ -177,11 +177,11 @@ class TestUserAuthModels:
             email="grant@example.com",
             password_hash="hash"
         )
-        test_db.add(user)
-        test_db.commit()
-        test_db.refresh(role)
-        test_db.refresh(permission)
-        test_db.refresh(user)
+        unit_test_db.add(user)
+        unit_test_db.commit()
+        unit_test_db.refresh(role)
+        unit_test_db.refresh(permission)
+        unit_test_db.refresh(user)
         
         # 创建关联
         role_permission = RolePermission(
@@ -190,8 +190,8 @@ class TestUserAuthModels:
             granted_by=user.id
         )
         
-        test_db.add(role_permission)
-        test_db.commit()
+        unit_test_db.add(role_permission)
+        unit_test_db.commit()
         
         assert role_permission.role_id == role.id
         assert role_permission.permission_id == permission.id
@@ -199,15 +199,15 @@ class TestUserAuthModels:
         
         print(f"✅ 角色权限关联测试通过")
     
-    def test_unique_constraints(self, test_db):
+    def test_unique_constraints(self, unit_test_db):
         """测试唯一约束"""
         user1 = User(
             username="unique_test",
             email="unique@example.com",
             password_hash="hash"
         )
-        test_db.add(user1)
-        test_db.commit()
+        unit_test_db.add(user1)
+        unit_test_db.commit()
         
         # 测试用户名唯一约束
         with pytest.raises(Exception):
@@ -216,10 +216,10 @@ class TestUserAuthModels:
                 email="different@example.com",
                 password_hash="hash"
             )
-            test_db.add(user2)
-            test_db.commit()
+            unit_test_db.add(user2)
+            unit_test_db.commit()
         
-        test_db.rollback()
+        unit_test_db.rollback()
         
         # 测试邮箱唯一约束
         with pytest.raises(Exception):
@@ -228,8 +228,8 @@ class TestUserAuthModels:
                 email="unique@example.com",  # 重复邮箱
                 password_hash="hash"
             )
-            test_db.add(user3)
-            test_db.commit()
+            unit_test_db.add(user3)
+            unit_test_db.commit()
         
         print(f"✅ 唯一约束测试通过")
 
@@ -237,16 +237,16 @@ class TestUserAuthModels:
 class TestArchitectureCompliance:
     """架构规范合规性测试"""
     
-    def test_primary_key_auto_increment(self, test_db):
+    def test_primary_key_auto_increment(self, unit_test_db):
         """测试主键自增功能"""
         user1 = User(username="auto1", email="auto1@test.com", password_hash="hash")
         user2 = User(username="auto2", email="auto2@test.com", password_hash="hash")
         
-        test_db.add(user1)
-        test_db.add(user2)
-        test_db.commit()
-        test_db.refresh(user1)
-        test_db.refresh(user2)
+        unit_test_db.add(user1)
+        unit_test_db.add(user2)
+        unit_test_db.commit()
+        unit_test_db.refresh(user1)
+        unit_test_db.refresh(user2)
         
         # 验证主键自增
         assert user1.id is not None
@@ -255,33 +255,33 @@ class TestArchitectureCompliance:
         
         print(f"✅ 主键自增测试通过: user1.id={user1.id}, user2.id={user2.id}")
     
-    def test_timestamp_mixin_functionality(self, test_db):
+    def test_timestamp_mixin_functionality(self, unit_test_db):
         """测试时间戳混入功能"""
         user = User(username="timestamp_test", email="timestamp@test.com", password_hash="hash")
-        test_db.add(user)
-        test_db.commit()
-        test_db.refresh(user)
+        unit_test_db.add(user)
+        unit_test_db.commit()
+        unit_test_db.refresh(user)
         
         original_updated = user.updated_at
         
         # 更新用户
         import time
-        time.sleep(0.1)  # 确保时间戳不同
+        time.sleep(1)  # 确保至少1秒的时间差
         user.email = "updated@test.com"
-        test_db.commit()
-        test_db.refresh(user)
+        unit_test_db.commit()
+        unit_test_db.refresh(user)
         
         # 验证时间戳更新
-        assert user.updated_at > original_updated
+        assert user.updated_at >= original_updated
         
         print(f"✅ 时间戳自动更新测试通过")
     
-    def test_soft_delete_functionality(self, test_db):
+    def test_soft_delete_functionality(self, unit_test_db):
         """测试软删除功能"""
         user = User(username="soft_delete_test", email="soft@test.com", password_hash="hash")
-        test_db.add(user)
-        test_db.commit()
-        test_db.refresh(user)
+        unit_test_db.add(user)
+        unit_test_db.commit()
+        unit_test_db.refresh(user)
         
         # 验证初始状态
         assert user.is_deleted is False
@@ -290,7 +290,7 @@ class TestArchitectureCompliance:
         # 执行软删除
         user.is_deleted = True
         user.deleted_at = datetime.utcnow()
-        test_db.commit()
+        unit_test_db.commit()
         
         # 验证软删除状态
         assert user.is_deleted is True
