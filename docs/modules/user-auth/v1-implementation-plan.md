@@ -34,7 +34,7 @@
 ```
 认证模块 V1.0:
 ├── app/auth.py                 # 核心认证逻辑 ✅
-├── app/api/user_routes.py      # 用户API端点 ✅
+├── app/modules/user_auth/router.py      # 用户API端点 ✅
 ├── app/middleware/auth.py      # 认证中间件 🔄
 └── app/models.py               # User模型 ✅
 ```
@@ -70,12 +70,12 @@ from fastapi import Depends, HTTPException
 from app.auth import get_current_active_user, get_current_admin_user
 
 # 保护普通用户API
-@router.get("/api/carts")
+@router.get("/shopping-cart/carts")
 async def get_cart(user: User = Depends(get_current_active_user)):
     pass
 
 # 保护管理员API  
-@router.post("/api/products")
+@router.post("/product-catalog/products")
 async def create_product(user: User = Depends(get_current_admin_user)):
     pass
 ```
@@ -94,30 +94,30 @@ async def create_product(user: User = Depends(get_current_admin_user)):
 
 ### 公开端点 (无需认证)
 ```
-GET  /api/products          # 商品列表
-GET  /api/products/{id}     # 商品详情  
-GET  /api/categories        # 分类列表
-POST /api/auth/register     # 用户注册
-POST /api/auth/login        # 用户登录
+GET  /api/v1/product-catalog/products          # 商品列表
+GET  /api/v1/product-catalog/products/{id}     # 商品详情  
+GET  /api/v1/product-catalog/categories        # 分类列表
+POST /api/v1/user-auth/register     # 用户注册
+POST /api/v1/user-auth/login        # 用户登录
 ```
 
 ### 用户端点 (需要登录)
 ```
-GET  /api/auth/me          # 当前用户信息
-PUT  /api/auth/me          # 更新用户信息
-GET  /api/carts            # 购物车
-POST /api/carts/items      # 添加到购物车
-GET  /api/orders           # 用户订单
-POST /api/orders           # 创建订单
+GET  /api/v1/user-auth/me          # 当前用户信息
+PUT  /api/v1/user-auth/me          # 更新用户信息
+GET  /api/v1/shopping-cart/carts            # 购物车
+POST /api/v1/shopping-cart/carts/items      # 添加到购物车
+GET  /api/v1/order-management/orders           # 用户订单
+POST /api/v1/order-management/orders           # 创建订单
 ```
 
 ### 管理员端点 (需要管理员权限)
 ```
-POST /api/products         # 创建商品
-PUT  /api/products/{id}    # 更新商品
-DELETE /api/products/{id}  # 删除商品
-GET  /api/auth/users       # 用户列表
-PUT  /api/orders/{id}/status # 更新订单状态
+POST /api/v1/product-catalog/products         # 创建商品
+PUT  /api/v1/product-catalog/products/{id}    # 更新商品
+DELETE /api/v1/product-catalog/products/{id}  # 删除商品
+GET  /api/v1/user-auth/users       # 用户列表
+PUT  /api/v1/order-management/orders/{id}/status # 更新订单状态
 ```
 
 ## 🔧 实现细节

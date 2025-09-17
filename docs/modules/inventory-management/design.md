@@ -129,8 +129,8 @@
 
 | 字段名 | 类型 | 约束 | 描述 |
 |--------|------|------|------|
-| id | UUID | PK | 主键ID |
-| sku_id | String(100) | UK, NOT NULL | SKU标识符 |
+| id | Integer | PK, AUTO_INCREMENT | 主键ID |
+| sku_id | Integer | FK, NOT NULL, UK | 关联的SKU ID (引用 skus.id) |
 | total_quantity | Integer | NOT NULL, ≥0 | 总库存数量 |
 | available_quantity | Integer | Computed | 可用库存 = 总库存 - 预占库存 |
 | reserved_quantity | Integer | NOT NULL, ≥0 | 预占库存数量 |
@@ -149,8 +149,8 @@
 
 | 字段名 | 类型 | 约束 | 描述 |
 |--------|------|------|------|
-| id | UUID | PK | 主键ID |
-| sku_id | String(100) | FK, NOT NULL | 关联的SKU ID |
+| id | Integer | PK, AUTO_INCREMENT | 主键ID |
+| sku_id | Integer | FK, NOT NULL | 关联的SKU ID (引用 skus.id) |
 | reservation_type | Enum | NOT NULL | 预占类型 (cart/order) |
 | reference_id | String(100) | NOT NULL | 关联业务ID |
 | quantity | Integer | NOT NULL, >0 | 预占数量 |
@@ -169,8 +169,8 @@
 
 | 字段名 | 类型 | 约束 | 描述 |
 |--------|------|------|------|
-| id | UUID | PK | 主键ID |
-| sku_id | String(100) | FK, NOT NULL | 关联的SKU ID |
+| id | Integer | PK, AUTO_INCREMENT | 主键ID |
+| sku_id | Integer | FK, NOT NULL | 关联的SKU ID (引用 skus.id) |
 | transaction_type | Enum | NOT NULL | 事务类型 |
 | quantity_change | Integer | NOT NULL | 数量变化 |
 | quantity_before | Integer | NOT NULL | 变更前数量 |

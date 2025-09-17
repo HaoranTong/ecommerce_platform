@@ -46,9 +46,9 @@ from app.main import app
 class TestOrderModels:
     """订单模型测试类"""
     
-    def test_order_creation(self, unit_test_db):
+    def test_order_creation(self, integration_test_db):
         """测试订单创建"""
-        db = unit_test_db
+        db = integration_test_db
         
         # 创建测试用户
         user = User(
@@ -84,9 +84,9 @@ class TestOrderModels:
         assert order.created_at is not None
         assert order.updated_at is not None
 
-    def test_order_item_creation(self, unit_test_db):
+    def test_order_item_creation(self, integration_test_db):
         """测试订单商品项创建"""
-        db = unit_test_db
+        db = integration_test_db
         
         # 创建测试数据
         user = User(username="test_user", email="test@example.com",
@@ -157,9 +157,9 @@ class TestOrderModels:
         assert order_item.unit_price == Decimal("50.00")
         assert order_item.total_price == Decimal("100.00")
 
-    def test_order_status_history_creation(self, unit_test_db):
+    def test_order_status_history_creation(self, integration_test_db):
         """测试订单状态历史记录创建"""
-        db = unit_test_db
+        db = integration_test_db
         
         # 创建测试数据
         user = User(username="test_user", email="test@example.com",
@@ -220,14 +220,14 @@ class TestOrderService:
     """订单服务层测试类"""
     
     @pytest.fixture
-    def order_service(self, unit_test_db):
+    def order_service(self, integration_test_db):
         """订单服务实例"""
-        return OrderService(db=unit_test_db)
+        return OrderService(db=integration_test_db)
     
     @pytest.fixture
-    def test_user(self, unit_test_db):
+    def test_user(self, integration_test_db):
         """测试用户"""
-        db = unit_test_db
+        db = integration_test_db
         user = User(
             username="test_user",
             email="test@example.com",
@@ -239,9 +239,9 @@ class TestOrderService:
         return user
     
     @pytest.fixture
-    def test_product_data(self, unit_test_db):
+    def test_product_data(self, integration_test_db):
         """测试商品数据"""
-        db = unit_test_db
+        db = integration_test_db
         
         category = Category(name="Test Category", is_active=True, sort_order=1)
         db.add(category)
