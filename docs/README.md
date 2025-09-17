@@ -1,9 +1,6 @@
 # 项目文档中心
 
-电商平台技术文档导├── 🔗 shared/               # 共享组件文档
-│   ├── README.md            # 共享组件导航
-│   └── base-models/         # 基础数据模型
-├── 📦 modules/              # 业务功能模块文档架构设计、API规范、开发指南等核心文档。
+电商平台技术文档导航，包含系统架构设计、API规范、开发指南等核心文档。
 
 ## 📁 目录结构
 
@@ -109,3 +106,6 @@ docs/
 - [需求分析文档](requirements/README.md) - 业务和功能需求
 - [项目状态总览](status/README.md) - 当前项目进展
 - [里程碑追踪](status/milestones.md) - 重要节点记录
+
+### 归档备份
+- [文档归档](_archive/README.md) - 已清理的废弃文档和事件Schema

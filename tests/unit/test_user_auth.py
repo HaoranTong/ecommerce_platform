@@ -18,36 +18,10 @@ from app.core.auth import (
     reset_failed_attempts
 )
 
-# 单元测试数据库配置（SQLite内存）
-UNIT_TEST_DATABASE_URL = "sqlite:///:memory:"
-
-@pytest.fixture(scope="function")
-def test_engine():
-    """测试数据库引擎"""
-    engine = create_engine(
-        UNIT_TEST_DATABASE_URL, 
-        connect_args={"check_same_thread": False}
-    )
-    Base.metadata.create_all(bind=engine)
-    yield engine
-    engine.dispose()
-
-@pytest.fixture(scope="function")
-def test_db(test_engine):
-    """测试数据库会话"""
-    TestingSessionLocal = sessionmaker(
-        autocommit=False, 
-        autoflush=False, 
-        bind=test_engine
-    )
-    session = TestingSessionLocal()
-    try:
-        yield session
-    finally:
-        session.close()
+# 注释：使用 conftest.py 中的标准 fixture
 
 @pytest.fixture
-def test_user(test_db):
+def test_user(unit_test_db):
     """测试用户"""
     user = User(
         username="testuser",
@@ -58,9 +32,9 @@ def test_user(test_db):
         status="active",
         failed_login_attempts=0
     )
-    test_db.add(user)
-    test_db.commit()
-    test_db.refresh(user)
+    unit_test_db.add(user)
+    unit_test_db.commit()
+    unit_test_db.refresh(user)
     return user
 
 class TestAccountLocking:
@@ -72,19 +46,19 @@ class TestAccountLocking:
         assert test_user.failed_login_attempts == 0
         assert test_user.locked_until is None
     
-    def test_increment_failed_attempts(self, test_db, test_user):
+    def test_increment_failed_attempts(self, unit_test_db, test_user):
         """测试增加失败次数"""
         initial_attempts = test_user.failed_login_attempts
-        increment_failed_attempts(test_db, test_user)
+        increment_failed_attempts(unit_test_db, test_user)
         
         assert test_user.failed_login_attempts == initial_attempts + 1
         assert test_user.status == "active"  # 未达到锁定阈值
     
-    def test_account_locked_after_max_attempts(self, test_db, test_user):
+    def test_account_locked_after_max_attempts(self, unit_test_db, test_user):
         """测试达到最大失败次数后账户被锁定"""
         # 模拟5次失败登录
         for _ in range(5):
-            increment_failed_attempts(test_db, test_user)
+            increment_failed_attempts(unit_test_db, test_user)
         
         assert test_user.failed_login_attempts == 5
         assert test_user.status == "locked"
@@ -98,14 +72,14 @@ class TestAccountLocking:
         
         assert not is_account_locked(test_user)
     
-    def test_reset_failed_attempts_on_successful_login(self, test_db, test_user):
+    def test_reset_failed_attempts_on_successful_login(self, unit_test_db, test_user):
         """测试成功登录重置失败次数"""
         # 设置一些失败次数
         test_user.failed_login_attempts = 3
-        test_db.commit()
+        unit_test_db.commit()
         
         # 重置失败次数
-        reset_failed_attempts(test_db, test_user)
+        reset_failed_attempts(unit_test_db, test_user)
         
         assert test_user.failed_login_attempts == 0
         assert test_user.locked_until is None
@@ -138,7 +112,7 @@ class TestPasswordSecurity:
 class TestUserModel:
     """用户模型测试"""
     
-    def test_user_creation(self, test_db):
+    def test_user_creation(self, unit_test_db):
         """测试用户创建"""
         user = User(
             username="newuser",
@@ -148,9 +122,9 @@ class TestUserModel:
             role="user"
         )
         
-        test_db.add(user)
-        test_db.commit()
-        test_db.refresh(user)
+        unit_test_db.add(user)
+        unit_test_db.commit()
+        unit_test_db.refresh(user)
         
         assert user.id is not None
         assert user.username == "newuser"

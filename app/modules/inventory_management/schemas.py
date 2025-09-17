@@ -28,10 +28,13 @@ Schema分类：
 最后修改：2025-09-15
 """
 
+# 标准库导入
 from datetime import datetime
-from typing import List, Optional, Union
-from pydantic import BaseModel, Field, validator
 from enum import Enum
+from typing import List, Optional, Union
+
+# 第三方库导入
+from pydantic import BaseModel, Field, field_validator, ConfigDict
 
 
 class TransactionTypeEnum(str, Enum):
@@ -60,7 +63,7 @@ class AdjustmentTypeEnum(str, Enum):
 
 class SKUInventoryBase(BaseModel):
     """SKU库存基础信息"""
-    sku_id: str = Field(..., description="SKU唯一标识符")
+    sku_id: int = Field(..., description="SKU唯一标识符")
     available_quantity: int = Field(ge=0, description="可用库存数量")
     reserved_quantity: int = Field(ge=0, description="预占库存数量") 
     total_quantity: int = Field(ge=0, description="总库存数量")
@@ -70,7 +73,7 @@ class SKUInventoryBase(BaseModel):
 
 class SKUInventoryCreate(BaseModel):
     """创建SKU库存"""
-    sku_id: str = Field(..., description="SKU ID")
+    sku_id: int = Field(..., description="SKU ID")
     initial_quantity: int = Field(ge=0, description="初始库存数量")
     warning_threshold: int = Field(default=10, ge=0, description="库存预警阈值")
     critical_threshold: int = Field(default=5, ge=0, description="库存严重不足阈值")
@@ -90,19 +93,19 @@ class SKUInventoryRead(SKUInventoryBase):
     is_critical_stock: bool = Field(description="是否库存严重不足")
     is_out_of_stock: bool = Field(description="是否缺货")
     is_active: bool = Field(description="是否启用库存管理")
-    last_updated: datetime = Field(description="最后更新时间")
+    updated_at: datetime = Field(description="最后更新时间")
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # ============ 批量操作 Schemas ============
 
 class BatchInventoryQuery(BaseModel):
     """批量库存查询"""
-    sku_ids: List[str] = Field(..., description="SKU ID列表")
+    sku_ids: List[int] = Field(..., description="SKU ID列表")
 
-    @validator('sku_ids')
+    @field_validator('sku_ids')
+    @classmethod
     def validate_sku_ids(cls, v):
         if not v:
             raise ValueError('sku_ids不能为空')
@@ -113,21 +116,20 @@ class BatchInventoryQuery(BaseModel):
 
 class SKUInventorySimple(BaseModel):
     """简化的SKU库存信息"""
-    sku_id: str
+    sku_id: int
     available_quantity: int
     reserved_quantity: int
     total_quantity: int
     is_low_stock: bool
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # ============ 库存预占 Schemas ============
 
 class ReservationItem(BaseModel):
     """预占商品项"""
-    sku_id: str = Field(..., description="SKU ID")
+    sku_id: int = Field(..., description="SKU ID")
     quantity: int = Field(gt=0, description="预占数量")
 
 
@@ -138,7 +140,8 @@ class ReserveRequest(BaseModel):
     items: List[ReservationItem] = Field(..., description="预占商品列表")
     expires_minutes: int = Field(default=30, ge=1, le=1440, description="预占有效期（分钟）")
 
-    @validator('items')
+    @field_validator('items')
+    @classmethod
     def validate_items(cls, v):
         if not v:
             raise ValueError('items不能为空')
@@ -149,7 +152,7 @@ class ReserveRequest(BaseModel):
 
 class ReservationItemResponse(BaseModel):
     """预占商品响应项"""
-    sku_id: str
+    sku_id: int
     reserved_quantity: int
     available_after_reserve: int
 
@@ -171,7 +174,7 @@ class ReleaseReservationRequest(BaseModel):
 
 class DeductItem(BaseModel):
     """扣减商品项"""
-    sku_id: str = Field(..., description="SKU ID")
+    sku_id: int = Field(..., description="SKU ID")
     quantity: int = Field(gt=0, description="扣减数量")
     reservation_id: Optional[str] = Field(None, description="对应的预占记录ID")
 
@@ -181,7 +184,8 @@ class InventoryDeductRequest(BaseModel):
     order_id: str = Field(..., description="订单ID")
     items: List[DeductItem] = Field(..., description="扣减商品列表")
 
-    @validator('items')
+    @field_validator('items')
+    @classmethod
     def validate_items(cls, v):
         if not v:
             raise ValueError('items不能为空')
@@ -190,7 +194,7 @@ class InventoryDeductRequest(BaseModel):
 
 class DeductItemResponse(BaseModel):
     """扣减响应项"""
-    sku_id: str
+    sku_id: int
     deducted_quantity: int
     remaining_quantity: int
 
@@ -203,7 +207,7 @@ class DeductResponse(BaseModel):
 
 class InventoryAdjustment(BaseModel):
     """库存调整请求"""
-    sku_id: str = Field(..., description="SKU ID")
+    sku_id: int = Field(..., description="SKU ID")
     adjustment_type: AdjustmentTypeEnum = Field(..., description="调整类型")
     quantity: int = Field(gt=0, description="调整数量")
     reason: str = Field(..., description="调整原因")
@@ -212,7 +216,7 @@ class InventoryAdjustment(BaseModel):
 
 class AdjustmentResponse(BaseModel):
     """调整响应"""
-    sku_id: str
+    sku_id: int
     old_quantity: int
     new_quantity: int
     adjustment_quantity: int
@@ -226,23 +230,23 @@ class ThresholdUpdate(BaseModel):
     warning_threshold: int = Field(ge=0, description="库存预警阈值")
     critical_threshold: int = Field(ge=0, description="库存严重不足阈值")
 
-    @validator('critical_threshold')
-    def validate_thresholds(cls, v, values):
-        if 'warning_threshold' in values and v > values['warning_threshold']:
+    @field_validator('critical_threshold')
+    @classmethod
+    def validate_thresholds(cls, v, info):
+        if info.data.get('warning_threshold') and v > info.data['warning_threshold']:
             raise ValueError('critical_threshold不能大于warning_threshold')
         return v
 
 
 class LowStockItem(BaseModel):
     """低库存商品项"""
-    sku_id: str
+    sku_id: int
     current_quantity: int
     warning_threshold: int
     critical_threshold: int
     level: str = Field(description="预警级别: warning/critical")
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class LowStockQuery(BaseModel):
@@ -256,24 +260,23 @@ class LowStockQuery(BaseModel):
 
 class InventoryTransactionRead(BaseModel):
     """库存变动记录"""
-    transaction_id: str
-    sku_id: str
+    id: int
+    sku_id: int
     transaction_type: TransactionTypeEnum
     quantity_change: int
     quantity_before: int
     quantity_after: int
     reason: Optional[str]
-    reference: Optional[str]
+    reference_id: Optional[str]
     operator_id: Optional[int]
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class TransactionQuery(BaseModel):
     """变动记录查询参数"""
-    sku_ids: Optional[List[str]] = Field(None, description="SKU ID列表")
+    sku_ids: Optional[List[int]] = Field(None, description="SKU ID列表")
     transaction_types: Optional[List[TransactionTypeEnum]] = Field(None, description="变动类型列表")
     operator_id: Optional[int] = Field(None, description="操作人ID")
     start_date: Optional[str] = Field(None, description="开始日期")
@@ -284,7 +287,7 @@ class TransactionQuery(BaseModel):
 
 class TransactionSearchResponse(BaseModel):
     """变动记录搜索响应"""
-    sku_id: str
+    sku_id: int
     total: int
     logs: List[InventoryTransactionRead]
 
@@ -299,7 +302,7 @@ class CleanupResponse(BaseModel):
 
 class ConsistencyCheckItem(BaseModel):
     """一致性检查项"""
-    sku_id: str
+    sku_id: int
     issue: str
     suggested_action: str
 
@@ -361,7 +364,7 @@ class InventoryEvent(BaseModel):
 
 class StockReservedEvent(BaseModel):
     """库存预占事件"""
-    sku_id: str
+    sku_id: int
     quantity: int
     reservation_id: str
     user_id: Optional[str] = None
@@ -369,21 +372,21 @@ class StockReservedEvent(BaseModel):
 
 class StockReleasedEvent(BaseModel):
     """库存释放事件"""
-    sku_id: str
+    sku_id: int
     quantity: int
     reservation_id: str
 
 
 class StockDeductedEvent(BaseModel):
     """库存扣减事件"""
-    sku_id: str
+    sku_id: int
     quantity: int
     order_id: str
 
 
 class StockAdjustedEvent(BaseModel):
     """库存调整事件"""
-    sku_id: str
+    sku_id: int
     old_quantity: int
     new_quantity: int
     adjustment_type: AdjustmentTypeEnum
@@ -392,7 +395,7 @@ class StockAdjustedEvent(BaseModel):
 
 class LowStockWarningEvent(BaseModel):
     """库存不足预警事件"""
-    sku_id: str
+    sku_id: int
     current_quantity: int
     threshold: int
     level: str  # warning/critical

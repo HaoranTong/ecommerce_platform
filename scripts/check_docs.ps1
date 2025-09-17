@@ -106,7 +106,7 @@ function Test-ModuleDocumentCompleteness {
     }
 }
 
-function Check-AllModulesCompleteness {
+function Test-AllModulesCompleteness {
     $modulesPath = "docs\modules"
     
     if (-not (Test-Path $modulesPath)) {
@@ -206,7 +206,7 @@ foreach ($doc in $DocumentConfig.CoreDocs) {
 
 # 模块文档完整性检查
 if ($CheckModuleCompleteness) {
-    Check-AllModulesCompleteness
+    Test-AllModulesCompleteness
 }
 
 # 检查文档结构一致性

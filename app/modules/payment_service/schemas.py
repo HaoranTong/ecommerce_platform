@@ -17,12 +17,12 @@
 - decimal: 金额字段类型
 """
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, ConfigDict
 from typing import Optional, List, Dict, Any
 from datetime import datetime
 from decimal import Decimal
 from enum import Enum
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, field_validator, ConfigDict
 
 
 # ============ 枚举定义 ============
@@ -130,8 +130,7 @@ class PaymentRead(BaseModel):
     paid_at: Optional[datetime] = None
     failed_at: Optional[datetime] = None
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class PaymentDetail(PaymentRead):
@@ -204,8 +203,7 @@ class RefundRead(BaseModel):
     operator_note: Optional[str] = None
     processed_at: Optional[datetime] = None
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class RefundDetail(RefundRead):
@@ -279,13 +277,13 @@ class PaymentAnalysis(BaseModel):
 
 class PaymentBatch(BaseModel):
     """支付批量操作模式"""
-    payment_ids: List[int] = Field(..., min_items=1, description="支付ID列表")
+    payment_ids: List[int] = Field(..., min_length=1, description="支付ID列表")
     action: str = Field(..., pattern="^(export|cancel|retry)$", description="操作类型")
     params: Optional[Dict[str, Any]] = Field(None, description="操作参数")
 
 
 class RefundBatch(BaseModel):
     """退款批量操作模式"""
-    refund_ids: List[int] = Field(..., min_items=1, description="退款ID列表")
+    refund_ids: List[int] = Field(..., min_length=1, description="退款ID列表")
     action: str = Field(..., pattern="^(approve|reject|process)$", description="操作类型")
     params: Optional[Dict[str, Any]] = Field(None, description="操作参数")

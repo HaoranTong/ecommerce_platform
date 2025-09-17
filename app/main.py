@@ -103,6 +103,10 @@ app.include_router(order_router, prefix="/api/v1", tags=["订单管理"])
 
 # 注册购物车模块路由
 from app.modules.shopping_cart.router import router as cart_router
-app.include_router(cart_router, prefix="/api/v1/cart", tags=["购物车"])
+app.include_router(cart_router, prefix="/api/v1", tags=["购物车"])
+
+# 注册库存管理模块路由
+from app.modules.inventory_management.router import router as inventory_router
+app.include_router(inventory_router, prefix="/api/v1", tags=["库存管理"])
 
 # TODO: 其他模块路由按需添加

@@ -29,15 +29,25 @@
 最后修改：2025-09-15
 """
 
+# 标准库导入
 import uuid
 from datetime import datetime, timedelta, timezone
 from typing import List, Optional, Dict, Any
+
+# 第三方库导入
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 
+# 本地应用导入
 from .models import (
     InventoryStock, InventoryReservation, InventoryTransaction,
     TransactionType, ReservationType, AdjustmentType
+)
+from .schemas import (
+    ReservationItem, DeductItem, ReservationResponse, ReservationItemResponse,
+    DeductResponse, DeductItemResponse, AdjustmentResponse, SKUInventoryRead,
+    LowStockItem, ConsistencyCheckItem, ConsistencyCheckResponse, CleanupResponse,
+    TransactionQuery, TransactionSearchResponse, InventoryTransactionRead
 )
 
 
@@ -53,7 +63,7 @@ class InventoryService:
 
     # ============ 基础库存管理 ============
 
-    def get_sku_inventory(self, sku_id: str) -> Optional[Dict]:
+    def get_sku_inventory(self, sku_id: int) -> Optional[SKUInventoryRead]:
         """获取SKU库存信息"""
         inventory = self.db.query(InventoryStock).filter(
             InventoryStock.sku_id == sku_id
@@ -62,69 +72,46 @@ class InventoryService:
         if not inventory:
             return None
             
-        return {
-            "id": inventory.id,
-            "sku_id": inventory.sku_id,
-            "total_quantity": inventory.total_quantity,
-            "available_quantity": inventory.available_quantity,
-            "reserved_quantity": inventory.reserved_quantity,
-            "warning_threshold": inventory.warning_threshold,
-            "critical_threshold": inventory.critical_threshold,
-            "is_low_stock": inventory.is_low_stock,
-            "is_critical_stock": inventory.is_critical_stock,
-            "is_out_of_stock": inventory.is_out_of_stock,
-            "is_active": inventory.is_active,
-            "last_updated": inventory.updated_at
-        }
+        return SKUInventoryRead.model_validate(inventory)
 
-    def get_batch_inventory(self, sku_ids: List[str]) -> List[Dict]:
+    def get_batch_inventory(self, sku_ids: List[int]) -> List[SKUInventoryRead]:
         """批量获取SKU库存信息"""
         inventories = self.db.query(InventoryStock).filter(
             InventoryStock.sku_id.in_(sku_ids),
             InventoryStock.is_active == True
         ).all()
         
-        results = []
-        for inv in inventories:
-            results.append({
-                "sku_id": inv.sku_id,
-                "available_quantity": inv.available_quantity,
-                "reserved_quantity": inv.reserved_quantity,
-                "total_quantity": inv.total_quantity,
-                "is_low_stock": inv.is_low_stock
-            })
-        
-        return results
+        return [SKUInventoryRead.model_validate(inv) for inv in inventories]
 
-    def create_sku_inventory(self, inventory_data: Dict) -> Dict:
+    def create_sku_inventory(self, inventory_data) -> Dict:
         """创建SKU库存记录"""
         # 检查是否已存在
         existing = self.db.query(InventoryStock).filter(
-            InventoryStock.sku_id == inventory_data["sku_id"]
+            InventoryStock.sku_id == inventory_data.sku_id
         ).first()
         
         if existing:
-            raise ValueError(f"SKU {inventory_data['sku_id']} 的库存记录已存在")
+            raise ValueError(f"SKU {inventory_data.sku_id} 的库存记录已存在")
         
         # 创建库存记录
         inventory = InventoryStock(
-            sku_id=inventory_data["sku_id"],
-            total_quantity=inventory_data["initial_quantity"],
-            available_quantity=inventory_data["initial_quantity"],
+            sku_id=inventory_data.sku_id,
+            total_quantity=inventory_data.initial_quantity,
+            available_quantity=inventory_data.initial_quantity,
             reserved_quantity=0,
-            warning_threshold=inventory_data.get("warning_threshold", 10),
-            critical_threshold=inventory_data.get("critical_threshold", 5)
+            warning_threshold=getattr(inventory_data, "warning_threshold", 10),
+            critical_threshold=getattr(inventory_data, "critical_threshold", 5)
         )
         
         self.db.add(inventory)
         
         # 记录初始库存事务
         transaction = InventoryTransaction(
-            sku_id=inventory_data["sku_id"],
+            sku_id=inventory_data.sku_id,
             transaction_type=TransactionType.RESTOCK,
-            quantity_change=inventory_data["initial_quantity"],
+            quantity_change=inventory_data.initial_quantity,
             quantity_before=0,
-            quantity_after=inventory_data["initial_quantity"],
+            quantity_after=inventory_data.initial_quantity,
             reference_type="initial",
             reference_id="system_init",
             reason="初始库存创建"
@@ -134,7 +121,7 @@ class InventoryService:
         
         try:
             self.db.commit()
-            return self.get_sku_inventory(inventory_data["sku_id"])
+            return self.get_sku_inventory(inventory_data.sku_id)
         except IntegrityError as e:
             self.db.rollback()
             raise ValueError(f"创建库存记录失败: {str(e)}")
@@ -145,10 +132,10 @@ class InventoryService:
         self,
         reservation_type: ReservationType,
         reference_id: str,
-        items: List[Dict],
+        items: List[ReservationItem],
         expires_minutes: int,
         user_id: int
-    ) -> Dict:
+    ) -> ReservationResponse:
         """预占库存"""
         reservation_id = str(uuid.uuid4())
         expires_at = datetime.now(timezone.utc) + timedelta(minutes=expires_minutes)
@@ -156,8 +143,8 @@ class InventoryService:
         
         try:
             for item in items:
-                sku_id = item["sku_id"]
-                quantity = item["quantity"]
+                sku_id = item.sku_id
+                quantity = item.quantity
                 
                 # 获取库存记录
                 inventory = self.db.query(InventoryStock).filter(
@@ -186,19 +173,19 @@ class InventoryService:
                 )
                 self.db.add(reservation)
                 
-                reserved_items.append({
-                    "sku_id": sku_id,
-                    "reserved_quantity": quantity,
-                    "available_after_reserve": inventory.available_quantity
-                })
+                reserved_items.append(ReservationItemResponse(
+                    sku_id=sku_id,
+                    reserved_quantity=quantity,
+                    available_after_reserve=inventory.available_quantity
+                ))
             
             self.db.commit()
             
-            return {
-                "reservation_id": reservation_id,
-                "expires_at": expires_at,
-                "reserved_items": reserved_items
-            }
+            return ReservationResponse(
+                reservation_id=reservation_id,
+                expires_at=expires_at,
+                reserved_items=reserved_items
+            )
             
         except Exception as e:
             self.db.rollback()
@@ -240,17 +227,17 @@ class InventoryService:
     async def deduct_inventory(
         self,
         order_id: str,
-        items: List[Dict],
+        items: List[DeductItem],
         operator_id: int
-    ) -> Dict:
+    ) -> DeductResponse:
         """扣减库存（实际出库）"""
         deducted_items = []
         
         try:
             for item in items:
-                sku_id = item["sku_id"]
-                quantity = item["quantity"]
-                reservation_id = item.get("reservation_id")
+                sku_id = item.sku_id
+                quantity = item.quantity
+                reservation_id = item.reservation_id
                 
                 # 获取库存记录
                 inventory = self.db.query(InventoryStock).filter(
@@ -281,18 +268,18 @@ class InventoryService:
                     for reservation in reservations:
                         reservation.is_active = False
                 
-                deducted_items.append({
-                    "sku_id": sku_id,
-                    "deducted_quantity": quantity,
-                    "remaining_quantity": inventory.total_quantity
-                })
+                deducted_items.append(DeductItemResponse(
+                    sku_id=sku_id,
+                    deducted_quantity=quantity,
+                    remaining_quantity=inventory.total_quantity
+                ))
             
             self.db.commit()
             
-            return {
-                "order_id": order_id,
-                "deducted_items": deducted_items
-            }
+            return DeductResponse(
+                order_id=order_id,
+                deducted_items=deducted_items
+            )
             
         except Exception as e:
             self.db.rollback()
@@ -324,6 +311,70 @@ class InventoryService:
             self.db.rollback()
             raise
 
+    async def adjust_inventory(
+        self,
+        sku_id: int,
+        adjustment_type: AdjustmentType,
+        quantity: int,
+        reason: str,
+        reference: str,
+        operator_id: int
+    ) -> Dict:
+        """调整库存"""
+        inventory = self.db.query(InventoryStock).filter(
+            InventoryStock.sku_id == sku_id,
+            InventoryStock.is_active == True
+        ).with_for_update().first()
+        
+        if not inventory:
+            raise ValueError(f"SKU {sku_id} 不存在或未启用库存管理")
+        
+        try:
+            # 根据调整类型更新库存
+            old_quantity = inventory.total_quantity
+            if adjustment_type == AdjustmentType.INCREASE:
+                inventory.total_quantity += quantity
+                inventory.available_quantity += quantity
+                transaction_type = TransactionType.RESTOCK
+            elif adjustment_type == AdjustmentType.DECREASE:
+                if inventory.available_quantity < quantity:
+                    raise ValueError(f"可用库存不足，当前: {inventory.available_quantity}, 需要: {quantity}")
+                inventory.total_quantity -= quantity
+                inventory.available_quantity -= quantity
+                transaction_type = TransactionType.ADJUST
+            elif adjustment_type == AdjustmentType.SET:
+                inventory.total_quantity = quantity
+                inventory.available_quantity = quantity - inventory.reserved_quantity
+                quantity = abs(quantity - old_quantity)  # 记录变化量
+                transaction_type = TransactionType.ADJUST
+            
+            # 创建变动记录
+            transaction = InventoryTransaction(
+                sku_id=sku_id,
+                transaction_type=transaction_type,
+                quantity_change=quantity,
+                reference_id=reference,
+                operator_id=operator_id,
+                reason=reason,
+                quantity_before=inventory.total_quantity - (quantity if adjustment_type == AdjustmentType.INCREASE else -quantity),
+                quantity_after=inventory.total_quantity
+            )
+            self.db.add(transaction)
+            
+            self.db.commit()
+            
+            return AdjustmentResponse(
+                sku_id=sku_id,
+                old_quantity=old_quantity,
+                new_quantity=inventory.total_quantity,
+                adjustment_quantity=abs(quantity),
+                transaction_id=str(transaction.id) if transaction.id else "pending"
+            )
+            
+        except Exception:
+            self.db.rollback()
+            raise
+
     # 添加向后兼容的方法（用于现有代码调用）
     def get_or_create_inventory(self, sku_id: str) -> Dict:
         """获取或创建库存记录（同步方法）"""
@@ -338,3 +389,161 @@ class InventoryService:
                 "available_quantity": 0,
                 "reserved_quantity": 0
             }
+
+    def get_low_stock_skus(self, query_or_threshold = None) -> List[LowStockItem]:
+        """获取低库存SKU列表"""
+        db_query = self.db.query(InventoryStock).filter(
+            InventoryStock.is_active == True
+        )
+        
+        # 检查参数类型
+        if query_or_threshold is not None:
+            if hasattr(query_or_threshold, 'level'):
+                # 是LowStockQuery对象
+                if query_or_threshold.level == "warning":
+                    db_query = db_query.filter(
+                        InventoryStock.available_quantity < InventoryStock.warning_threshold
+                    )
+                elif query_or_threshold.level == "critical":
+                    db_query = db_query.filter(
+                        InventoryStock.available_quantity < InventoryStock.critical_threshold
+                    )
+            else:
+                # 是数值阈值
+                db_query = db_query.filter(
+                    InventoryStock.available_quantity < query_or_threshold
+                )
+        else:
+            # 使用预警阈值
+            db_query = db_query.filter(
+                InventoryStock.available_quantity < InventoryStock.warning_threshold
+            )
+        
+        results = db_query.all()
+        return [
+            LowStockItem(
+                sku_id=inv.sku_id,
+                current_quantity=inv.available_quantity,
+                warning_threshold=inv.warning_threshold,
+                critical_threshold=inv.critical_threshold,
+                level="critical" if inv.available_quantity < inv.critical_threshold else "warning"
+            )
+            for inv in results
+        ]
+
+    def check_inventory_consistency(self) -> ConsistencyCheckResponse:
+        """检查库存数据一致性"""
+        inconsistent_records = []
+        
+        # 查询所有活跃库存
+        inventories = self.db.query(InventoryStock).filter(
+            InventoryStock.is_active == True
+        ).all()
+        
+        for inventory in inventories:
+            issues = []
+            
+            # 检查数量一致性：total = available + reserved
+            if inventory.total_quantity != (inventory.available_quantity + inventory.reserved_quantity):
+                issues.append("数量不一致")
+            
+            # 检查阈值合理性：critical <= warning
+            if inventory.critical_threshold > inventory.warning_threshold:
+                issues.append("阈值设置不合理")
+            
+            # 检查负数
+            if inventory.available_quantity < 0 or inventory.reserved_quantity < 0:
+                issues.append("存在负数")
+            
+            if issues:
+                inconsistent_records.append(ConsistencyCheckItem(
+                    sku_id=inventory.sku_id,
+                    issue="; ".join(issues),
+                    suggested_action="检查库存数据并进行手动调整"
+                ))
+        
+        return ConsistencyCheckResponse(
+            total_skus=len(inventories),
+            inconsistent_skus=len(inconsistent_records),
+            details=inconsistent_records
+        )
+
+    def cleanup_expired_reservations(self) -> CleanupResponse:
+        """清理过期预占"""
+        now = datetime.now(timezone.utc)
+        
+        # 查询过期预占
+        expired_reservations = self.db.query(InventoryReservation).filter(
+            InventoryReservation.expires_at < now,
+            InventoryReservation.is_active == True
+        ).all()
+        
+        cleaned_count = 0
+        total_quantity_released = 0
+        
+        for reservation in expired_reservations:
+            # 释放库存
+            inventory = self.db.query(InventoryStock).filter(
+                InventoryStock.sku_id == reservation.sku_id
+            ).first()
+            
+            if inventory:
+                inventory.available_quantity += reservation.quantity
+                inventory.reserved_quantity -= reservation.quantity
+                total_quantity_released += reservation.quantity
+            
+            # 标记预占为非活跃
+            reservation.is_active = False
+            cleaned_count += 1
+        
+        try:
+            self.db.commit()
+            return CleanupResponse(
+                cleaned_reservations=cleaned_count,
+                released_quantity=total_quantity_released
+            )
+        except Exception:
+            self.db.rollback()
+            raise
+
+    def get_transaction_logs(self, query: TransactionQuery) -> TransactionSearchResponse:
+        """获取库存变动记录"""
+        db_query = self.db.query(InventoryTransaction)
+        
+        # 应用查询条件
+        if query.sku_ids:
+            db_query = db_query.filter(InventoryTransaction.sku_id.in_(query.sku_ids))
+        
+        if query.transaction_types:
+            # 转换枚举值
+            types = [getattr(TransactionType, t.name.upper()) for t in query.transaction_types]
+            db_query = db_query.filter(InventoryTransaction.transaction_type.in_(types))
+            
+        if query.operator_id:
+            db_query = db_query.filter(InventoryTransaction.operator_id == query.operator_id)
+            
+        # 按创建时间倒序
+        db_query = db_query.order_by(InventoryTransaction.created_at.desc())
+        
+        # 计算总数
+        total = db_query.count()
+        
+        # 应用分页
+        results = db_query.offset(query.offset).limit(query.limit).all()
+        
+        # 转换为Response对象
+        transaction_reads = [InventoryTransactionRead.model_validate(t) for t in results]
+        
+        # 如果查询指定了单个SKU，返回该SKU的信息
+        if query.sku_ids and len(query.sku_ids) == 1:
+            sku_id = query.sku_ids[0]
+        elif results:
+            sku_id = results[0].sku_id
+        else:
+            sku_id = 0
+            
+        return TransactionSearchResponse(
+            sku_id=sku_id,
+            total=total,
+            logs=transaction_reads
+        )

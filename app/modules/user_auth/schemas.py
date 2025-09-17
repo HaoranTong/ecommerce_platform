@@ -15,16 +15,17 @@
 - pydantic: 数据验证和字段定义
 """
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, ConfigDict
 from typing import Optional
 from datetime import datetime
 
 # 模块内独立定义基础schemas，遵循模块化单体架构原则
 class BaseSchema(BaseModel):
     """用户认证模块基础模式类"""
-    class Config:
-        from_attributes = True
-        arbitrary_types_allowed = True
+    model_config = ConfigDict(
+        from_attributes=True,
+        arbitrary_types_allowed=True
+    )
 
 class TimestampSchema(BaseSchema):
     """包含时间戳的基础模式"""

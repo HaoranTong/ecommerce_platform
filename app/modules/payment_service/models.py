@@ -60,10 +60,12 @@ class Payment(Base, TimestampMixin):
     paid_at = Column(DateTime, nullable=True)
     failed_at = Column(DateTime, nullable=True)
     
-    # 关系映射
-    order = relationship("Order", back_populates="payments")
-    user = relationship("User", back_populates="payments")
+    # 关系映射 - 符合架构设计的单向依赖链：Payment -> Order -> User
+    order = relationship("Order")
     refunds = relationship("Refund", back_populates="payment", cascade="all, delete-orphan")
+    
+    # 注意：根据架构设计，Payment通过Order间接关联User
+    # 访问用户信息使用：payment.order.user
     
     # 索引优化
     __table_args__ = (
