@@ -15,7 +15,7 @@
 创建时间：2025-09-16
 最后修改：2025-09-16
 """
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator, ConfigDict
 from typing import List, Optional
 from decimal import Decimal
 from datetime import datetime
@@ -59,9 +59,10 @@ class UpdateQuantityRequest(BaseModel):
 
 class BatchDeleteRequest(BaseModel):
     """批量删除商品请求模型"""
-    item_ids: List[int] = Field(..., min_items=1, description="要删除的商品项ID列表")
+    item_ids: List[int] = Field(..., min_length=1, description="要删除的商品项ID列表")
     
-    @validator('item_ids')
+    @field_validator('item_ids')
+    @classmethod
     def validate_item_ids(cls, v):
         if not all(item_id > 0 for item_id in v):
             raise ValueError('所有商品项ID必须大于0')
