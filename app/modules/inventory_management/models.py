@@ -28,11 +28,15 @@
 最后修改：2025-09-15
 """
 
+# 标准库导入
+import enum
 from datetime import datetime, timezone
+
+# 第三方库导入
 from sqlalchemy import Column, Integer, String, DateTime, Boolean, ForeignKey, Text, Enum as SqlEnum, Index
 from sqlalchemy.orm import relationship
-import enum
 
+# 本地应用导入
 from app.shared.base_models import BaseModel
 
 

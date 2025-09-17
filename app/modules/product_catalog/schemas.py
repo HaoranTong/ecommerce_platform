@@ -13,7 +13,7 @@
 - 统一API响应格式
 """
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, ConfigDict
 from typing import Optional, List, Dict, Any
 from datetime import datetime
 from decimal import Decimal
@@ -21,9 +21,10 @@ from decimal import Decimal
 # 模块内独立定义基础schemas，遵循模块化单体架构原则
 class BaseSchema(BaseModel):
     """商品管理模块基础模式类"""
-    class Config:
-        from_attributes = True
-        arbitrary_types_allowed = True
+    model_config = ConfigDict(
+        from_attributes=True,
+        arbitrary_types_allowed=True
+    )
 
 class TimestampSchema(BaseSchema):
     """包含时间戳的基础模式"""
@@ -350,7 +351,7 @@ class ProductPublic(BaseSchema):
 
 class ProductBatch(BaseSchema):
     """商品批量操作模式"""
-    product_ids: List[int] = Field(..., min_items=1, description="商品ID列表")
+    product_ids: List[int] = Field(..., min_length=1, description="商品ID列表")
     action: str = Field(..., pattern="^(activate|deactivate|delete|update_category)$", description="操作类型")
     params: Optional[Dict[str, Any]] = Field(None, description="操作参数")
 
