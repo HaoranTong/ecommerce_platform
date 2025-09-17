@@ -109,4 +109,8 @@ app.include_router(cart_router, prefix="/api/v1", tags=["购物车"])
 from app.modules.inventory_management.router import router as inventory_router
 app.include_router(inventory_router, prefix="/api/v1", tags=["库存管理"])
 
+# 注册支付服务模块路由
+from app.modules.payment_service.router import router as payment_router
+app.include_router(payment_router, prefix="/api/v1", tags=["支付服务"])
+
 # TODO: 其他模块路由按需添加
