@@ -179,13 +179,13 @@ app/
 ```python
 # app/core/database.py
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy import Column, BigInteger, DateTime, func
+from sqlalchemy import Column, Integer, DateTime, func
 
 Base = declarative_base()
 
 # app/shared/models.py
 from app.core.database import Base
-from sqlalchemy import Column, BigInteger, DateTime, func
+from sqlalchemy import Column, Integer, DateTime, func
 
 class TimestampMixin:
     """时间戳混入"""
@@ -196,7 +196,7 @@ class BaseModel(Base):
     """基础模型类"""
     __abstract__ = True
     
-    id = Column(BigInteger, primary_key=True, index=True)
+    id = Column(Integer, primary_key=True, index=True)
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
     
@@ -280,12 +280,12 @@ class ModelRegistry:
 # app/modules/user_auth/models.py
 from app.core.database import Base
 from app.shared.models import TimestampMixin, SoftDeleteMixin
-from sqlalchemy import Column, String, Boolean, BigInteger, DateTime
+from sqlalchemy import Column, String, Boolean, Integer, DateTime
 
 class User(Base, TimestampMixin, SoftDeleteMixin):
     __tablename__ = 'users'
     
-    id = Column(BigInteger, primary_key=True, index=True)
+    id = Column(Integer, primary_key=True, index=True)
     username = Column(String(50), unique=True, nullable=False)
     email = Column(String(200), unique=True, nullable=False)
     password_hash = Column(String(255), nullable=False)
@@ -383,7 +383,7 @@ graph TB
 
 ```erDiagram
     User {
-        bigint id PK
+        int id PK
         string username UK
         string email UK
         string password_hash
@@ -399,20 +399,20 @@ graph TB
     }
     
     Category {
-        bigint id PK
+        int id PK
         string name
-        bigint parent_id FK
+        int parent_id FK
         int sort_order
         boolean is_active
         datetime created_at
     }
     
     Product {
-        bigint id PK
+        int id PK
         string name
         text description
-        bigint brand_id FK
-        bigint category_id FK
+        int brand_id FK
+        int category_id FK
         string status
         datetime published_at
         string seo_title
@@ -428,8 +428,8 @@ graph TB
     }
     
     SKU {
-        bigint id PK
-        bigint product_id FK
+        int id PK
+        int product_id FK
         string sku_code UK
         string name
         decimal price
@@ -443,9 +443,9 @@ graph TB
     }
     
     Order {
-        bigint id PK
+        int id PK
         string order_no UK
-        bigint user_id FK
+        int user_id FK
         string status
         decimal subtotal
         decimal shipping_fee
@@ -461,9 +461,9 @@ graph TB
     }
     
     OrderItem {
-        bigint id PK
-        bigint order_id FK
-        bigint product_id FK
+        int id PK
+        int order_id FK
+        int product_id FK
         string product_name
         string product_sku
         int quantity
@@ -473,7 +473,7 @@ graph TB
     }
     
     Certificate {
-        bigint id PK
+        int id PK
         string name
         string issuer
         string serial UK
@@ -515,7 +515,7 @@ graph TB
 
 | 字段名 | 类型 | 约束 | 描述 | 示例 |
 |--------|------|------|------|------|
-| `id` | BigInteger | PK, Index | 用户唯一标识 | `1001` |
+| `id` | Integer | PK, Index | 用户唯一标识 | `1001` |
 | `username` | String(50) | UK, Not Null | 用户名 | `"john_doe"` |
 | `email` | String(200) | UK, Not Null | 邮箱地址 | `"john@example.com"` |
 | `password_hash` | String(255) | Not Null | 密码哈希值 | `"$2b$12$..."` |
@@ -553,9 +553,9 @@ orders = relationship("Order", back_populates="user")
 
 | 字段名 | 类型 | 约束 | 描述 | 示例 |
 |--------|------|------|------|------|
-| `id` | BigInteger | PK, Index | 分类唯一标识 | `101` |
+| `id` | Integer | PK, Index | 分类唯一标识 | `101` |
 | `name` | String(100) | Not Null | 分类名称 | `"电子产品"` |
-| `parent_id` | BigInteger | FK, Nullable | 父分类ID | `100` |
+| `parent_id` | Integer | FK, Nullable | 父分类ID | `100` |
 | `sort_order` | Integer | Default 0 | 排序权重 | `10` |
 | `is_active` | Boolean | Default True | 分类激活状态 | `true` |
 | `created_at` | DateTime | Server Default | 创建时间 | `2025-09-11 10:00:00` |
@@ -583,11 +583,11 @@ products = relationship("Product", back_populates="category")
 
 | 字段名 | 类型 | 约束 | 描述 | 示例 |
 |--------|------|------|------|------|
-| `id` | BigInteger | PK, Index | 商品唯一标识 | `2001` |
+| `id` | Integer | PK, Index | 商品唯一标识 | `2001` |
 | `name` | String(200) | Not Null | 商品名称 | `"iPhone 15 Pro"` |
 | `sku` | String(100) | UK, Not Null | 商品编码 | `"IPH15P-128G-TIT"` |
 | `description` | Text | Nullable | 商品描述 | `"最新款苹果手机..."` |
-| `category_id` | BigInteger | FK, Nullable | 分类ID | `101` |
+| `category_id` | Integer | FK, Nullable | 分类ID | `101` |
 | `price` | DECIMAL(10,2) | Not Null, Default 0.00 | 商品价格 | `9999.00` |
 | `stock_quantity` | Integer | Not Null, Default 0 | 库存数量 | `50` |
 | `status` | String(20) | Not Null, Default 'active' | 商品状态 | `"active"` |
@@ -643,9 +643,9 @@ __table_args__ = (
 
 | 字段名 | 类型 | 约束 | 描述 | 示例 |
 |--------|------|------|------|------|
-| `id` | BigInteger | PK, Index | 订单唯一标识 | `3001` |
+| `id` | Integer | PK, Index | 订单唯一标识 | `3001` |
 | `order_no` | String(32) | UK, Not Null | 订单编号 | `"ORD20250911100001"` |
-| `user_id` | BigInteger | FK, Not Null | 用户ID | `1001` |
+| `user_id` | Integer | FK, Not Null | 用户ID | `1001` |
 | `status` | String(20) | Not Null, Default 'pending' | 订单状态 | `"paid"` |
 | `subtotal` | DECIMAL(10,2) | Not Null, Default 0.00 | 商品小计 | `9999.00` |
 | `shipping_fee` | DECIMAL(10,2) | Not Null, Default 0.00 | 运费 | `15.00` |
@@ -711,10 +711,10 @@ __table_args__ = (
 
 | 字段名 | 类型 | 约束 | 描述 | 示例 |
 |--------|------|------|------|------|
-| `id` | BigInteger | PK, Index | 订单项唯一标识 | `4001` |
-| `order_id` | BigInteger | FK, Not Null | 订单ID | `3001` |
-| `product_id` | BigInteger | FK, Not Null | 商品ID | `2001` |
-| `sku_id` | BigInteger | FK, Not Null | SKU ID | `5001` |
+| `id` | Integer | PK, Index | 订单项唯一标识 | `4001` |
+| `order_id` | Integer | FK, Not Null | 订单ID | `3001` |
+| `product_id` | Integer | FK, Not Null | 商品ID | `2001` |
+| `sku_id` | Integer | FK, Not Null | SKU ID | `5001` |
 | `product_name` | String(200) | Not Null | 商品名称快照 | `"iPhone 15 Pro"` |
 | `sku_code` | String(100) | Not Null | SKU代码快照 | `"IPH15P-128G-TIT"` |
 | `sku_name` | String(200) | Not Null | SKU名称快照 | `"iPhone 15 Pro 128GB 钛金色"` |
@@ -757,7 +757,7 @@ __table_args__ = (
 
 | 字段名 | 类型 | 约束 | 描述 | 示例 |
 |--------|------|------|------|------|
-| `id` | BigInteger | PK, Index | 证书唯一标识 | `5001` |
+| `id` | Integer | PK, Index | 证书唯一标识 | `5001` |
 | `name` | String(200) | Not Null | 证书名称 | `"ISO 9001质量管理体系认证"` |
 | `issuer` | String(200) | Nullable | 颁发机构 | `"中国质量认证中心"` |
 | `serial` | String(200) | UK, Not Null | 证书编号 | `"CQC20250911001"` |
@@ -780,7 +780,7 @@ __table_args__ = (
 
 ### 2. 数据类型选择
 
-- **主键**: BigInteger，自增
+- **主键**: Integer，自增
 - **字符串**: String(length)，根据实际需求设置长度
 - **文本**: Text，大文本内容
 - **价格**: DECIMAL(10,2)，确保精度
