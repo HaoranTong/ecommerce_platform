@@ -90,19 +90,37 @@ class TestMemberSystemAPIIntegration:
         app.dependency_overrides[get_db] = override_get_db
         app.dependency_overrides[get_current_user] = override_get_current_user
 
-        # 模拟会员服务返回
+        # 模拟会员服务返回 - 符合 MemberWithDetails schema
         mock_member_info = {
-            "member_info": {
-                "member_code": "M202509180001",
+            "member_id": "1",
+            "user_id": 1,
+            "level": {
+                "level_id": 1,
                 "level_name": "注册会员",
-                "total_spent": Decimal("150.00"),
-                "join_date": "2025-09-18",
-                "status": 1
+                "level_code": "BASIC",
+                "discount_rate": 1.0,
+                "point_multiplier": 1.0
             },
-            "point_summary": {
-                "current_points": 100,
-                "total_earned": 200,
-                "total_used": 100
+            "points": {
+                "total_points": 200,
+                "available_points": 100,
+                "frozen_points": 0,
+                "expiring_points": 0,
+                "expiring_date": None
+            },
+            "statistics": {
+                "total_spent": 150.0,
+                "total_orders": 5,
+                "join_date": "2025-09-18",
+                "last_active": None
+            },
+            "benefits": {
+                "free_shipping": False,
+                "birthday_gift": False,
+                "priority_service": False,
+                "exclusive_events": False,
+                "points_multiplier": False,
+                "custom_service": False
             }
         }
 
@@ -117,18 +135,23 @@ class TestMemberSystemAPIIntegration:
             assert response.status_code == 200
             data = response.json()
             
-            # 验证响应结构和字段名 - 必须与实际API响应一致
-            assert "member_info" in data
-            assert "point_summary" in data
+            # 验证响应结构和字段名 - 符合 MemberWithDetails schema
+            assert "data" in data  # APIResponse结构
+            member_data = data["data"]
             
-            member_info = data["member_info"]
-            assert member_info["member_code"] == "M202509180001"
-            assert member_info["level_name"] == "注册会员"
+            assert "member_id" in member_data
+            assert "user_id" in member_data
+            assert "level" in member_data
+            assert "points" in member_data
+            assert "statistics" in member_data
+            assert "benefits" in member_data
             
-            point_summary = data["point_summary"]
-            assert point_summary["current_points"] == 100
-            assert point_summary["total_earned"] == 200
-            assert point_summary["total_used"] == 100
+            # 验证具体字段值
+            assert member_data["member_id"] == "1"
+            assert member_data["user_id"] == 1
+            assert member_data["level"]["level_name"] == "注册会员"
+            assert member_data["points"]["total_points"] == 200
+            assert member_data["points"]["available_points"] == 100
 
         # 清理依赖覆盖
         app.dependency_overrides.clear()

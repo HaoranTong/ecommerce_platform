@@ -56,8 +56,8 @@ async def get_current_active_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
     
-    # 检查用户状态
-    if not current_user.get("is_active", True):
+    # 检查用户状态（假设User对象有is_active属性）
+    if hasattr(current_user, 'is_active') and not getattr(current_user, 'is_active', True):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="用户账户已被禁用"
@@ -67,7 +67,7 @@ async def get_current_active_user(
 
 
 def get_user_id_from_token(
-    current_user: Dict[str, Any] = Depends(get_current_active_user)
+    current_user = Depends(get_current_active_user)
 ) -> int:
     """
     从JWT Token中提取用户ID
@@ -81,7 +81,15 @@ def get_user_id_from_token(
     Raises:
         HTTPException: 当用户ID不存在时
     """
-    user_id = current_user.get("sub") or current_user.get("user_id") or current_user.get("id")
+    # 处理用户对象，尝试获取ID
+    user_id = None
+    if hasattr(current_user, 'id'):
+        user_id = current_user.id
+    elif hasattr(current_user, 'user_id'):
+        user_id = current_user.user_id
+    elif isinstance(current_user, dict):
+        user_id = current_user.get("sub") or current_user.get("user_id") or current_user.get("id")
+    
     if not user_id:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

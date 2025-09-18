@@ -28,7 +28,7 @@ from decimal import Decimal
 from enum import Enum
 
 # 第三方库
-from pydantic import BaseModel, Field, validator, root_validator
+from pydantic import BaseModel, Field, field_validator, model_validator, ConfigDict
 
 
 # ================== 枚举类型定义 ==================
@@ -90,19 +90,17 @@ class ParticipationStatus(str, Enum):
 class BaseSchema(BaseModel):
     """基础模式类"""
     
-    class Config:
-        # 启用ORM模式，支持SQLAlchemy模型
-        orm_mode = True
+    model_config = ConfigDict(
+        # 启用从属性模式，支持SQLAlchemy模型
+        from_attributes=True,
         # 使用枚举值而非枚举名
-        use_enum_values = True
+        use_enum_values=True,
         # 允许通过字段别名进行填充
-        allow_population_by_field_name = True
-        # JSON编码器配置
-        json_encoders = {
-            datetime: lambda v: v.isoformat(),
-            date: lambda v: v.isoformat(),
-            Decimal: lambda v: float(v),
-        }
+        populate_by_name=True,
+        # 序列化配置
+        ser_json_timedelta='iso8601',
+        ser_json_bytes='base64'
+    )
 
 
 # ================== 会员相关模式 ==================
@@ -117,7 +115,8 @@ class MemberBase(BaseSchema):
         default_factory=dict, description="用户偏好设置"
     )
     
-    @validator('birthday')
+    @field_validator('birthday')
+    @classmethod
     def validate_birthday(cls, v):
         """验证生日日期"""
         if v and v > date.today():
@@ -133,7 +132,8 @@ class MemberCreate(MemberBase):
         ..., description="会员昵称，必填", min_length=1, max_length=50
     )
     
-    @validator('preferences')
+    @field_validator('preferences')
+    @classmethod
     def validate_preferences(cls, v):
         """验证偏好设置"""
         if v is None:
@@ -205,17 +205,18 @@ class PointTransactionBase(BaseSchema):
         None, description="交易描述", max_length=200
     )
     
-    @validator('points')
-    def validate_points(cls, v, values):
-        """验证积分数量"""
+    @model_validator(mode='after')
+    def validate_points_and_type(self):
+        """验证积分数量和交易类型的一致性"""
+        v = self.points
         if v == 0:
             raise ValueError('积分数量不能为0')
-        transaction_type = values.get('transaction_type')
+        transaction_type = self.transaction_type
         if transaction_type == TransactionType.EARN and v <= 0:
             raise ValueError('获得积分必须为正数')
         if transaction_type == TransactionType.USE and v >= 0:
             raise ValueError('使用积分必须为负数')
-        return v
+        return self
 
 
 class PointTransactionCreate(PointTransactionBase):
@@ -324,13 +325,12 @@ class MemberActivityBase(BaseSchema):
         default_factory=dict, description="参与规则"
     )
     
-    @validator('end_time')
-    def validate_end_time(cls, v, values):
-        """验证结束时间"""
-        start_time = values.get('start_time')
-        if start_time and v <= start_time:
+    @model_validator(mode='after')
+    def validate_time_range(self):
+        """验证时间范围"""
+        if self.start_time and self.end_time and self.end_time <= self.start_time:
             raise ValueError('结束时间必须晚于开始时间')
-        return v
+        return self
 
 
 class MemberActivityCreate(MemberActivityBase):
