@@ -435,22 +435,31 @@ class TestSecurity:
 
 #### 会员等级数据
 ```sql
-INSERT INTO membership_levels (level_name, level_code, required_spent, discount_rate) VALUES
-('注册会员', 'BASIC', 0, 1.0),
-('铜牌会员', 'BRONZE', 500, 0.95),
-('银牌会员', 'SILVER', 2000, 0.9),
-('金牌会员', 'GOLD', 5000, 0.85),
-('钻石会员', 'DIAMOND', 10000, 0.8);
+INSERT INTO member_levels (level_name, min_points, discount_rate, benefits) VALUES
+('注册会员', 0, 1.000, '{"point_multiplier": 1.0, "free_shipping_threshold": 99}'),
+('铜牌会员', 500, 0.950, '{"point_multiplier": 1.2, "free_shipping_threshold": 79}'),
+('银牌会员', 2000, 0.900, '{"point_multiplier": 1.5, "free_shipping_threshold": 59}'),
+('金牌会员', 5000, 0.850, '{"point_multiplier": 1.8, "free_shipping_threshold": 39}'),
+('钻石会员', 10000, 0.800, '{"point_multiplier": 2.0, "free_shipping_threshold": 0}');
 ```
 
 #### 测试会员数据
 ```sql
-INSERT INTO members (member_code, user_id, level_id, total_spent, available_points) VALUES
-('M20250917001', 1001, 1, 0, 0),           -- 新注册会员
-('M20250917002', 1002, 2, 750, 750),       -- 铜牌会员
-('M20250917003', 1003, 3, 2500, 1200),     -- 银牌会员  
-('M20250917004', 1004, 4, 6000, 3000),     -- 金牌会员
-('M20250917005', 1005, 5, 15000, 5000);    -- 钻石会员
+INSERT INTO member_profiles (member_code, user_id, level_id, total_spent, join_date, status) VALUES
+('M20250917001', 1001, 1, 0.00, '2025-09-17', 1),           -- 新注册会员
+('M20250917003', 1003, 3, 2500.00, '2025-07-20', 1),       -- 银牌会员  
+('M20250917004', 1004, 4, 6000.00, '2025-06-10', 1),       -- 金牌会员
+('M20250917005', 1005, 5, 15000.00, '2025-05-01', 1);      -- 钻石会员
+```
+
+#### 积分账户测试数据
+```sql
+INSERT INTO member_points (user_id, level_id, current_points, total_earned, total_used) VALUES
+(1001, 1, 0, 0, 0),           -- 新注册会员
+(1002, 2, 750, 1000, 250),    -- 铜牌会员
+(1003, 3, 1200, 3000, 1800),  -- 银牌会员
+(1004, 4, 3000, 8000, 5000),  -- 金牌会员
+(1005, 5, 5000, 20000, 15000); -- 钻石会员
 ```
 
 ### 2. 性能测试数据
@@ -472,20 +481,22 @@ async def prepare_performance_test_data():
         }
         members_data.append(member_data)
     
-    await batch_insert_members(members_data)
+    await batch_insert_member_profiles(members_data)
     
     # 创建100万积分交易记录
     transactions_data = []
     for i in range(1000000):
         transaction_data = {
-            "member_id": random.randint(1, 100000),
-            "transaction_type": random.choice(["EARN", "USE"]),
-            "points": random.randint(1, 1000),
+            "user_id": random.randint(10001, 110000),
+            "transaction_type": random.choice(["earn", "use", "expire"]),
+            "points_change": random.randint(-1000, 1000),
+            "reference_type": random.choice(["order", "review", "manual"]),
+            "status": "completed",
             "created_at": fake.date_time_between("-1y", "now")
         }
         transactions_data.append(transaction_data)
     
-    await batch_insert_transactions(transactions_data)
+    await batch_insert_point_transactions(transactions_data)
 ```
 
 ## 测试执行计划
