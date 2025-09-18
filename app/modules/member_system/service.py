@@ -89,25 +89,31 @@ class MemberService:
             # 获取积分统计
             point_summary = self._get_point_summary(user_id)
             
-            # 构建完整档案
+            # 构建符合 MemberWithDetails schema 的完整档案
             profile_data = {
-                "member_id": member.id,
-                "member_code": member.member_code,
+                "member_id": str(member.id),  # 转为字符串
                 "user_id": member.user_id,
                 "level": {
                     "level_id": level_info.id,
                     "level_name": level_info.level_name,
-                    "min_points": level_info.min_points,
-                    "discount_rate": float(level_info.discount_rate)
+                    "level_code": level_info.level_code,
+                    "discount_rate": float(level_info.discount_rate),
+                    "point_multiplier": float(level_info.point_multiplier)
                 },
                 "points": point_summary,
-                "profile": {
+                "statistics": {
                     "total_spent": float(member.total_spent),
+                    "total_orders": 0,  # 需要从订单系统获取
                     "join_date": member.join_date.isoformat(),
-                    "last_active": member.last_active_at.isoformat() if member.last_active_at else None,
-                    "birthday": member.birthday.isoformat() if member.birthday else None,
-                    "preferences": member.preferences,
-                    "status": member.status
+                    "last_active": member.last_active_at.isoformat() if member.last_active_at else None
+                },
+                "benefits": {
+                    "free_shipping": level_info.benefits.get("free_shipping", False) if level_info.benefits else False,
+                    "birthday_gift": level_info.benefits.get("birthday_gift", False) if level_info.benefits else False,
+                    "priority_service": level_info.benefits.get("priority_service", False) if level_info.benefits else False,
+                    "exclusive_events": level_info.benefits.get("exclusive_events", False) if level_info.benefits else False,
+                    "points_multiplier": level_info.benefits.get("points_multiplier", False) if level_info.benefits else False,
+                    "custom_service": level_info.benefits.get("custom_service", False) if level_info.benefits else False
                 }
             }
             
@@ -189,20 +195,30 @@ class MemberService:
             
             if not member_points:
                 return {
-                    "current_points": 0,
-                    "total_earned": 0,
-                    "total_used": 0
+                    "total_points": 0,
+                    "available_points": 0,
+                    "frozen_points": 0,
+                    "expiring_points": 0,
+                    "expiring_date": None
                 }
             
             return {
-                "current_points": member_points.current_points,
-                "total_earned": member_points.total_earned,
-                "total_used": member_points.total_used
+                "total_points": member_points.total_earned,
+                "available_points": member_points.current_points,
+                "frozen_points": 0,  # 需要添加冻结积分逻辑
+                "expiring_points": 0,  # 需要添加过期积分逻辑
+                "expiring_date": None
             }
             
         except Exception as e:
             logger.error(f"获取积分统计失败: user_id={user_id}, error={e}")
-            return {"current_points": 0, "total_earned": 0, "total_used": 0}
+            return {
+                "total_points": 0,
+                "available_points": 0,
+                "frozen_points": 0,
+                "expiring_points": 0,
+                "expiring_date": None
+            }
 
     def _create_member_points(self, user_id: int, level_id: int):
         """创建积分账户"""
