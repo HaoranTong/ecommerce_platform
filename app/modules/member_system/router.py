@@ -55,9 +55,14 @@ from app.modules.member_system.schemas import (
     # 枚举类型
     BenefitType, EventType, ActivityStatus
 )
-from app.core.database import get_db
-from app.core.auth import get_current_user, get_current_admin_user
+from app.core.auth import get_current_admin_user
 from app.modules.user_auth.models import User
+from .dependencies import (
+    get_member_service_dep, get_point_service_dep, 
+    get_benefit_service_dep, get_event_service_dep,
+    get_current_active_user, get_user_id_from_token,
+    validate_points_transaction, validate_member_data
+)
 
 # 配置日志
 logger = logging.getLogger(__name__)
@@ -72,34 +77,17 @@ router = APIRouter(
 )
 
 
-# ================== 依赖函数 ==================
-
-def get_current_member_service(db: Session = Depends(get_db)) -> MemberService:
-    """获取会员服务依赖"""
-    return get_member_service(db)
-
-
-def get_current_point_service(db: Session = Depends(get_db)) -> PointService:
-    """获取积分服务依赖"""
-    return get_point_service(db)
-
-
-def get_current_benefit_service(db: Session = Depends(get_db)) -> BenefitService:
-    """获取权益服务依赖"""
-    return get_benefit_service(db)
-
-
-def get_current_event_service(db: Session = Depends(get_db)) -> EventService:
-    """获取活动服务依赖"""
-    return get_event_service(db)
+# ================== 依赖函数已迁移到dependencies.py ==================
+# 注意：所有依赖注入函数现在都在 .dependencies 模块中定义
+# 使用 get_member_service_dep, get_point_service_dep 等替代
 
 
 # ================== 会员信息管理 API ==================
 
 @router.get("/member-system/profile", response_model=MemberProfileResponse, summary="获取会员信息")
 async def get_member_profile(
-    current_user: User = Depends(get_current_user),
-    member_service: MemberService = Depends(get_current_member_service)
+    user_id: int = Depends(get_user_id_from_token),
+    member_service: MemberService = Depends(get_member_service_dep)
 ) -> MemberProfileResponse:
     """
     获取当前用户的完整会员信息
@@ -117,7 +105,7 @@ async def get_member_profile(
             - 500: 服务器内部错误
     """
     try:
-        member_profile = member_service.get_member_profile(current_user.id)
+        member_profile = member_service.get_member_profile(user_id)
         
         if not member_profile:
             return MemberProfileResponse(
@@ -135,7 +123,7 @@ async def get_member_profile(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"获取会员档案失败: user_id={current_user.id}, error={str(e)}")
+        logger.error(f"获取会员档案失败: user_id={user_id}, error={str(e)}")
         return MemberProfileResponse(
             code=500,
             message="获取会员信息失败",
@@ -146,8 +134,8 @@ async def get_member_profile(
 @router.put("/member-system/profile", response_model=APIResponse, summary="更新会员信息")
 async def update_member_profile(
     update_data: MemberUpdate,
-    current_user: User = Depends(get_current_user),
-    member_service: MemberService = Depends(get_current_member_service)
+    user_id: int = Depends(get_user_id_from_token),
+    member_service: MemberService = Depends(get_member_service_dep)
 ) -> APIResponse:
     """
     更新会员可修改的基础信息
@@ -168,7 +156,7 @@ async def update_member_profile(
             - 500: 服务器内部错误
     """
     try:
-        updated_member = member_service.update_member_profile(current_user.id, update_data)
+        updated_member = member_service.update_member_profile(user_id, update_data)
         
         return APIResponse(
             code=200,
@@ -185,7 +173,7 @@ async def update_member_profile(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"更新会员信息失败: user_id={current_user.id}, error={str(e)}")
+        logger.error(f"更新会员信息失败: user_id={user_id}, error={str(e)}")
         return APIResponse(
             code=500,
             message="更新会员信息失败",
@@ -196,8 +184,8 @@ async def update_member_profile(
 @router.post("/member-system/register", response_model=APIResponse, summary="注册成为会员")
 async def register_member(
     member_data: MemberCreate,
-    current_user: User = Depends(get_current_user),
-    member_service: MemberService = Depends(get_current_member_service)
+    user_id: int = Depends(get_user_id_from_token),
+    member_service: MemberService = Depends(get_member_service_dep)
 ) -> APIResponse:
     """
     用户注册成为会员
@@ -218,7 +206,7 @@ async def register_member(
             - 500: 服务器内部错误
     """
     try:
-        new_member = member_service.create_member(current_user.id, member_data)
+        new_member = member_service.create_member(user_id, member_data)
         
         return APIResponse(
             code=200,
@@ -233,7 +221,7 @@ async def register_member(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"会员注册失败: user_id={current_user.id}, error={str(e)}")
+        logger.error(f"会员注册失败: user_id={user_id}, error={str(e)}")
         return APIResponse(
             code=500,
             message="会员注册失败",
@@ -245,7 +233,7 @@ async def register_member(
 
 @router.get("/member-system/levels", response_model=APIResponse, summary="获取等级列表")
 async def get_membership_levels(
-    member_service: MemberService = Depends(get_current_member_service)
+    member_service: MemberService = Depends(get_member_service_dep)
 ) -> APIResponse:
     """
     获取所有会员等级信息和权益对比
@@ -302,7 +290,7 @@ async def manual_upgrade_level(
         "operator": "admin001"
     }),
     admin_user: User = Depends(get_current_admin_user),
-    member_service: MemberService = Depends(get_current_member_service)
+    member_service: MemberService = Depends(get_member_service_dep)
 ) -> APIResponse:
     """
     管理员手动调整用户会员等级
@@ -411,8 +399,8 @@ async def get_point_transactions(
     transaction_type: Optional[str] = Query(None, description="交易类型过滤"),
     start_date: Optional[date] = Query(None, description="开始日期"),
     end_date: Optional[date] = Query(None, description="结束日期"),
-    current_user: User = Depends(get_current_user),
-    point_service: PointService = Depends(get_current_point_service)
+    user_id: int = Depends(get_user_id_from_token),
+    point_service: PointService = Depends(get_point_service_dep)
 ) -> APIResponse:
     """
     获取用户积分收支明细记录
@@ -435,7 +423,7 @@ async def get_point_transactions(
         from sqlalchemy import and_, desc
         
         query = point_service.db.query(PointTransaction).filter(
-            PointTransaction.user_id == current_user.id
+            PointTransaction.user_id == user_id
         )
         
         # 应用过滤条件
@@ -474,7 +462,7 @@ async def get_point_transactions(
         
         # 计算积分汇总
         member_service = get_member_service(point_service.db)
-        point_summary = member_service._calculate_point_summary(current_user.id)
+        point_summary = member_service._calculate_point_summary(user_id)
         
         return APIResponse(
             code=200,
@@ -496,7 +484,7 @@ async def get_point_transactions(
         )
         
     except Exception as e:
-        logger.error(f"获取积分明细失败: user_id={current_user.id}, error={str(e)}")
+        logger.error(f"获取积分明细失败: user_id={user_id}, error={str(e)}")
         return APIResponse(
             code=500,
             message="获取积分明细失败",
@@ -512,8 +500,8 @@ async def earn_points(
         "reference_id": "ORD123456",
         "description": "购物获得积分"
     }),
-    current_user: User = Depends(get_current_user),
-    point_service: PointService = Depends(get_current_point_service)
+    user_id: int = Depends(get_user_id_from_token),
+    point_service: PointService = Depends(get_point_service_dep)
 ) -> PointTransactionResponse:
     """
     用户获得积分
@@ -537,7 +525,7 @@ async def earn_points(
         
         # 执行积分获取
         transaction = point_service.earn_points(
-            user_id=current_user.id,
+            user_id=user_id,
             points=points,
             event_type=event_type,
             reference_id=reference_id,
@@ -561,7 +549,7 @@ async def earn_points(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"积分获取失败: user_id={current_user.id}, error={str(e)}")
+        logger.error(f"积分获取失败: user_id={user_id}, error={str(e)}")
         return PointTransactionResponse(
             code=500,
             message="积分获取失败",
@@ -577,8 +565,8 @@ async def use_points(
         "reference_id": "ORD123457",
         "description": "积分抵扣"
     }),
-    current_user: User = Depends(get_current_user),
-    point_service: PointService = Depends(get_current_point_service)
+    user_id: int = Depends(get_user_id_from_token),
+    point_service: PointService = Depends(get_point_service_dep)
 ) -> PointTransactionResponse:
     """
     用户使用积分
@@ -602,7 +590,7 @@ async def use_points(
         
         # 执行积分使用
         transaction = point_service.use_points(
-            user_id=current_user.id,
+            user_id=user_id,
             points=points,
             event_type=event_type,
             reference_id=reference_id,
@@ -625,7 +613,7 @@ async def use_points(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"积分使用失败: user_id={current_user.id}, error={str(e)}")
+        logger.error(f"积分使用失败: user_id={user_id}, error={str(e)}")
         return PointTransactionResponse(
             code=500,
             message="积分使用失败",
@@ -635,8 +623,8 @@ async def use_points(
 
 @router.get("/member-system/points/summary", response_model=APIResponse, summary="获取积分汇总")
 async def get_point_summary(
-    current_user: User = Depends(get_current_user),
-    point_service: PointService = Depends(get_current_point_service)
+    user_id: int = Depends(get_user_id_from_token),
+    point_service: PointService = Depends(get_point_service_dep)
 ) -> APIResponse:
     """
     获取用户积分汇总信息
@@ -648,7 +636,7 @@ async def get_point_summary(
     """
     try:
         member_service = get_member_service(point_service.db)
-        point_summary = member_service._calculate_point_summary(current_user.id)
+        point_summary = member_service._calculate_point_summary(user_id)
         
         return APIResponse(
             code=200,
@@ -657,7 +645,7 @@ async def get_point_summary(
         )
         
     except Exception as e:
-        logger.error(f"获取积分汇总失败: user_id={current_user.id}, error={str(e)}")
+        logger.error(f"获取积分汇总失败: user_id={user_id}, error={str(e)}")
         return APIResponse(
             code=500,
             message="获取积分汇总失败",
@@ -676,8 +664,8 @@ async def redeem_points(
             "address": "北京市朝阳区xxx街道xxx号"
         }
     }),
-    current_user: User = Depends(get_current_user),
-    point_service: PointService = Depends(get_current_point_service)
+    user_id: int = Depends(get_user_id_from_token),
+    point_service: PointService = Depends(get_point_service_dep)
 ) -> APIResponse:
     """
     使用积分兑换指定商品或权益
@@ -717,7 +705,7 @@ async def redeem_points(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"积分兑换失败: user_id={current_user.id}, error={str(e)}")
+        logger.error(f"积分兑换失败: user_id={user_id}, error={str(e)}")
         return APIResponse(
             code=500,
             message="积分兑换失败",
@@ -729,9 +717,9 @@ async def redeem_points(
 
 @router.get("/member-system/benefits/available", response_model=APIResponse, summary="获取可用权益")
 async def get_available_benefits(
-    current_user: User = Depends(get_current_user),
-    member_service: MemberService = Depends(get_current_member_service),
-    benefit_service: BenefitService = Depends(get_current_benefit_service)
+    user_id: int = Depends(get_user_id_from_token),
+    member_service: MemberService = Depends(get_member_service_dep),
+    benefit_service: BenefitService = Depends(get_benefit_service_dep)
 ) -> APIResponse:
     """
     获取当前会员可用的所有权益
@@ -742,7 +730,7 @@ async def get_available_benefits(
         APIResponse: 可用权益列表
     """
     try:
-        member = member_service.get_member_by_user_id(current_user.id)
+        member = member_service.get_member_by_user_id(user_id)
         if not member:
             raise HTTPException(status_code=404, detail="会员信息不存在")
         
@@ -787,7 +775,7 @@ async def get_available_benefits(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"获取可用权益失败: user_id={current_user.id}, error={str(e)}")
+        logger.error(f"获取可用权益失败: user_id={user_id}, error={str(e)}")
         return APIResponse(
             code=500,
             message="获取可用权益失败",
@@ -798,8 +786,8 @@ async def get_available_benefits(
 @router.get("/member-system/benefits/eligibility/{benefit_type}", response_model=APIResponse, summary="检查权益资格")
 async def check_benefit_eligibility(
     benefit_type: BenefitType = Path(..., description="权益类型"),
-    current_user: User = Depends(get_current_user),
-    benefit_service: BenefitService = Depends(get_current_benefit_service)
+    user_id: int = Depends(get_user_id_from_token),
+    benefit_service: BenefitService = Depends(get_benefit_service_dep)
 ) -> APIResponse:
     """
     检查用户特定权益的资格
@@ -814,7 +802,7 @@ async def check_benefit_eligibility(
     """
     try:
         eligibility = benefit_service.check_benefit_eligibility(
-            user_id=current_user.id,
+            user_id=user_id,
             benefit_type=benefit_type.value
         )
         
@@ -827,7 +815,7 @@ async def check_benefit_eligibility(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"检查权益资格失败: user_id={current_user.id}, benefit_type={benefit_type}, error={str(e)}")
+        logger.error(f"检查权益资格失败: user_id={user_id}, benefit_type={benefit_type}, error={str(e)}")
         return APIResponse(
             code=500,
             message="检查权益资格失败",
@@ -843,8 +831,8 @@ async def use_benefit(
         "description": "订单免运费",
         "benefit_value": 15.00
     }),
-    current_user: User = Depends(get_current_user),
-    benefit_service: BenefitService = Depends(get_current_benefit_service)
+    user_id: int = Depends(get_user_id_from_token),
+    benefit_service: BenefitService = Depends(get_benefit_service_dep)
 ) -> BenefitUsageResponse:
     """
     使用会员权益
@@ -869,7 +857,7 @@ async def use_benefit(
         # 使用权益
         from decimal import Decimal
         usage_record = benefit_service.use_benefit(
-            user_id=current_user.id,
+            user_id=user_id,
             benefit_type=benefit_type,
             reference_id=reference_id,
             description=description,
@@ -892,7 +880,7 @@ async def use_benefit(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"使用权益失败: user_id={current_user.id}, error={str(e)}")
+        logger.error(f"使用权益失败: user_id={user_id}, error={str(e)}")
         return BenefitUsageResponse(
             code=500,
             message="使用权益失败",
@@ -907,8 +895,8 @@ async def get_benefit_usage_history(
     end_date: Optional[date] = Query(None, description="结束日期"),
     page: int = Query(1, ge=1, description="页码"),
     limit: int = Query(20, ge=1, le=100, description="每页数量"),
-    current_user: User = Depends(get_current_user),
-    benefit_service: BenefitService = Depends(get_current_benefit_service)
+    user_id: int = Depends(get_user_id_from_token),
+    benefit_service: BenefitService = Depends(get_benefit_service_dep)
 ) -> APIResponse:
     """
     获取权益使用历史记录
@@ -931,7 +919,7 @@ async def get_benefit_usage_history(
         end_datetime = datetime.combine(end_date, datetime.max.time()) if end_date else None
         
         usage_history = benefit_service.get_benefit_usage_history(
-            user_id=current_user.id,
+            user_id=user_id,
             benefit_type=benefit_type.value if benefit_type else None,
             start_date=start_datetime,
             end_date=end_datetime,
@@ -946,7 +934,7 @@ async def get_benefit_usage_history(
         )
         
     except Exception as e:
-        logger.error(f"获取权益使用历史失败: user_id={current_user.id}, error={str(e)}")
+        logger.error(f"获取权益使用历史失败: user_id={user_id}, error={str(e)}")
         return APIResponse(
             code=500,
             message="获取权益使用历史失败",
@@ -956,8 +944,8 @@ async def get_benefit_usage_history(
 
 @router.get("/member-system/benefits/status", response_model=APIResponse, summary="获取权益状态")
 async def get_benefit_status(
-    current_user: User = Depends(get_current_user),
-    member_service: MemberService = Depends(get_current_member_service)
+    user_id: int = Depends(get_user_id_from_token),
+    member_service: MemberService = Depends(get_member_service_dep)
 ) -> APIResponse:
     """
     获取用户当前的权益状态
@@ -968,7 +956,7 @@ async def get_benefit_status(
         APIResponse: 权益状态信息
     """
     try:
-        member = member_service.get_member_by_user_id(current_user.id)
+        member = member_service.get_member_by_user_id(user_id)
         if not member:
             raise HTTPException(status_code=404, detail="会员信息不存在")
         
@@ -983,7 +971,7 @@ async def get_benefit_status(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"获取权益状态失败: user_id={current_user.id}, error={str(e)}")
+        logger.error(f"获取权益状态失败: user_id={user_id}, error={str(e)}")
         return APIResponse(
             code=500,
             message="获取权益状态失败",
@@ -997,7 +985,7 @@ async def get_benefit_status(
 async def create_activity(
     activity_data: MemberActivityCreate,
     admin_user: User = Depends(get_current_admin_user),
-    event_service: EventService = Depends(get_current_event_service)
+    event_service: EventService = Depends(get_event_service_dep)
 ) -> APIResponse:
     """
     创建会员活动（管理员专用）
@@ -1050,8 +1038,8 @@ async def create_activity(
 @router.post("/member-system/activities/{activity_id}/join", response_model=ActivityParticipationResponse, summary="参与活动")
 async def join_activity(
     activity_id: int = Path(..., description="活动ID"),
-    current_user: User = Depends(get_current_user),
-    event_service: EventService = Depends(get_current_event_service)
+    user_id: int = Depends(get_user_id_from_token),
+    event_service: EventService = Depends(get_event_service_dep)
 ) -> ActivityParticipationResponse:
     """
     用户参与会员活动
@@ -1066,7 +1054,7 @@ async def join_activity(
     """
     try:
         participation = event_service.join_activity(
-            user_id=current_user.id,
+            user_id=user_id,
             activity_id=activity_id
         )
         
@@ -1084,7 +1072,7 @@ async def join_activity(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"参与活动失败: user_id={current_user.id}, activity_id={activity_id}, error={str(e)}")
+        logger.error(f"参与活动失败: user_id={user_id}, activity_id={activity_id}, error={str(e)}")
         return ActivityParticipationResponse(
             code=500,
             message="参与活动失败",
@@ -1097,8 +1085,8 @@ async def get_my_activities(
     status: Optional[ActivityStatus] = Query(None, description="活动状态过滤"),
     page: int = Query(1, ge=1, description="页码"),
     limit: int = Query(20, ge=1, le=100, description="每页数量"),
-    current_user: User = Depends(get_current_user),
-    event_service: EventService = Depends(get_current_event_service)
+    user_id: int = Depends(get_user_id_from_token),
+    event_service: EventService = Depends(get_event_service_dep)
 ) -> APIResponse:
     """
     获取用户参与的活动列表
@@ -1115,7 +1103,7 @@ async def get_my_activities(
     """
     try:
         activities = event_service.get_user_activities(
-            user_id=current_user.id,
+            user_id=user_id,
             status=status.value if status else None,
             page=page,
             limit=limit
@@ -1128,7 +1116,7 @@ async def get_my_activities(
         )
         
     except Exception as e:
-        logger.error(f"获取用户活动失败: user_id={current_user.id}, error={str(e)}")
+        logger.error(f"获取用户活动失败: user_id={user_id}, error={str(e)}")
         return APIResponse(
             code=500,
             message="获取用户活动失败",
@@ -1142,7 +1130,7 @@ async def get_activities(
     activity_type: Optional[str] = Query(None, description="活动类型过滤"),
     page: int = Query(1, ge=1, description="页码"),
     limit: int = Query(20, ge=1, le=100, description="每页数量"),
-    event_service: EventService = Depends(get_current_event_service)
+    event_service: EventService = Depends(get_event_service_dep)
 ) -> APIResponse:
     """
     获取可参与的活动列表
