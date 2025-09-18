@@ -37,6 +37,7 @@
 - **类型说明**：INTEGER，支持21亿记录，满足大多数业务场景需求
 - **兼容性考虑**：确保在SQLite、PostgreSQL、MySQL等数据库中的一致性行为
 - **扩展策略**：超大规模数据采用分库分表，而非单表大主键策略
+- **⚠️ 重要提醒**：所有表主键必须使用 INTEGER，禁止使用 BIGINT
 
 ### 外键字段  
 - 格式：`{表名}_id`
@@ -119,14 +120,14 @@ Base = declarative_base()  # 禁止重复定义
 ### 模型定义规范
 ```python
 # 标准模型定义模板
-from sqlalchemy import Column, String, Boolean, BigInteger, DateTime, func
+from sqlalchemy import Column, String, Boolean, Integer, DateTime, func
 from app.core.database import Base
 
 class User(Base):
     __tablename__ = 'users'  # 必须定义表名
     
-    # 主键字段 (使用BigInteger)
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    # 主键字段 (使用INTEGER - 统一标准)
+    id = Column(Integer, primary_key=True, autoincrement=True)
     
     # 业务字段
     username = Column(String(50), unique=True, nullable=False, index=True)
@@ -147,8 +148,8 @@ from sqlalchemy.orm import relationship
 class Order(Base):
     __tablename__ = 'orders'
     
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
-    user_id = Column(BigInteger, ForeignKey('users.id'), nullable=False, index=True)
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False, index=True)
     
     # 关系定义
     user = relationship("User", back_populates="orders")
@@ -179,7 +180,7 @@ from app.modules.product_catalog.models import Product
 
 class Order(Base):
     __tablename__ = 'orders'
-    user_id = Column(BigInteger, ForeignKey('users.id'))
+    user_id = Column(Integer, ForeignKey('users.id'))
     # 关系定义中直接使用字符串引用
     user = relationship("User")  # 字符串引用，避免循环导入
 ```
@@ -243,12 +244,12 @@ def db_transaction(db: Session):
 ### 标准表结构
 ```sql
 CREATE TABLE products (
-    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    id INT PRIMARY KEY AUTO_INCREMENT,
     name VARCHAR(255) NOT NULL,
     description TEXT,
     price DECIMAL(10,2) NOT NULL,
     stock_quantity INT NOT NULL DEFAULT 0,
-    category_id BIGINT,
+    category_id INT,
     status ENUM('active', 'inactive') DEFAULT 'active',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,

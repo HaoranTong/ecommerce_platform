@@ -42,7 +42,7 @@ def get_db():
 
 ### app/shared/mixins.py (新增)
 ```python
-from sqlalchemy import Column, BigInteger, DateTime, func
+from sqlalchemy import Column, Integer, DateTime, func
 from app.core.database import Base
 
 class TimestampMixin:
@@ -54,7 +54,7 @@ class BaseModel(Base):
     """通用基础模型"""
     __abstract__ = True
     
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    id = Column(Integer, primary_key=True, autoincrement=True)
     created_at = Column(DateTime, default=func.now(), nullable=False)
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now(), nullable=False)
 ```
@@ -127,7 +127,7 @@ from app.modules.user_auth.models import User
 class Order(BaseModel):
     __tablename__ = 'orders'
     
-    user_id = Column(BigInteger, ForeignKey('users.id'), nullable=False)
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
     
     # 关系定义
     user = relationship("User", back_populates="orders")
