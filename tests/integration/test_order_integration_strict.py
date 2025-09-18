@@ -62,8 +62,8 @@ class TestOrderManagementIntegration:
     @pytest.fixture(scope="class")
     def integration_db_session(self):
         """集成测试数据库会话 - 基于实际模型创建表"""
-        # 使用内存SQLite数据库
-        engine = create_engine("sqlite:///:memory:")
+        # 使用集成测试MySQL数据库
+        engine = create_engine("mysql+pymysql://root:test_password@localhost:3308/ecommerce_platform_test")
         
         # 🔍 验证：基于实际模型导入创建表
         from app.modules.user_auth.models import Base

@@ -90,10 +90,22 @@ class TestInventoryStockAPI:
     def test_get_batch_inventory_success(self, integration_test_client, integration_test_db):
         """测试批量获取SKU库存信息"""
         # Arrange - 创建多个测试数据
-        test_skus = ["BATCH-SKU-001", "BATCH-SKU-002", "BATCH-SKU-003"]
-        for i, sku_id in enumerate(test_skus):
+        test_sku_ids = []
+        for i in range(3):
+            # 首先创建SKU
+            sku = SKU(
+                sku_code=f"BATCH-SKU-{i+1:03d}",
+                product_id=101,  # 假设存在的product_id
+                price=100.0 + i * 10,
+                is_active=True
+            )
+            integration_test_db.add(sku)
+            integration_test_db.flush()
+            test_sku_ids.append(sku.id)
+            
+            # 然后创建库存记录
             stock = InventoryStock(
-                sku_id=sku_id,
+                sku_id=sku.id,  # 使用整数ID
                 total_quantity=50 + i * 25,
                 available_quantity=40 + i * 20,
                 reserved_quantity=10 + i * 5
@@ -102,7 +114,7 @@ class TestInventoryStockAPI:
         integration_test_db.commit()
         
         # Act
-        request_data = {"sku_ids": test_skus}
+        request_data = {"sku_ids": test_sku_ids}
         response = integration_test_client.post("/api/inventory/stock/batch", json=request_data)
         
         # Assert
@@ -111,7 +123,7 @@ class TestInventoryStockAPI:
         assert len(data) == 3
         
         for i, item in enumerate(data):
-            assert item["sku_id"] == test_skus[i]
+            assert item["sku_id"] == test_sku_ids[i]
             assert item["total_quantity"] == 50 + i * 25
             assert item["available_quantity"] == 40 + i * 20
 
@@ -149,10 +161,18 @@ class TestInventoryCreateAPI:
     
     def test_create_sku_inventory_duplicate_should_fail(self, integration_test_client, integration_test_db):
         """测试创建重复SKU库存记录 - 应该失败"""
-        # Arrange - 先创建一个库存记录
-        existing_sku = "DUPLICATE-TEST-SKU"
+        # Arrange - 先创建SKU和库存记录
+        sku = SKU(
+            sku_code="DUPLICATE-TEST-SKU",
+            product_id=101,
+            price=100.0,
+            is_active=True
+        )
+        integration_test_db.add(sku)
+        integration_test_db.flush()
+        
         existing_stock = InventoryStock(
-            sku_id=existing_sku,
+            sku_id=sku.id,  # 使用整数ID
             total_quantity=100,
             available_quantity=100
         )
@@ -161,7 +181,7 @@ class TestInventoryCreateAPI:
         
         # Act - 尝试创建重复记录
         inventory_data = {
-            "sku_id": existing_sku,
+            "sku_id": sku.id,  # 使用整数ID
             "initial_quantity": 50
         }
         response = integration_test_client.post("/api/inventory/stock", json=inventory_data)
@@ -224,9 +244,18 @@ class TestInventoryReservationAPI:
     
     def test_reserve_inventory_insufficient_stock(self, integration_test_client, integration_test_db):
         """测试库存预占 - 库存不足"""
-        # Arrange
+        # Arrange - 先创建SKU
+        sku = SKU(
+            sku_code="LOW-STOCK-SKU",
+            product_id=101,
+            price=100.0,
+            is_active=True
+        )
+        integration_test_db.add(sku)
+        integration_test_db.flush()
+        
         stock = InventoryStock(
-            sku_id="LOW-STOCK-SKU",
+            sku_id=sku.id,  # 使用整数ID
             total_quantity=10,
             available_quantity=5,  # 可用库存很少
             reserved_quantity=5
@@ -237,7 +266,7 @@ class TestInventoryReservationAPI:
         # Act - 尝试预占过多库存
         reserve_data = {
             "items": [
-                {"sku_id": "LOW-STOCK-SKU", "quantity": 10}  # 超出可用量
+                {"sku_id": sku.id, "quantity": 10}  # 超出可用量，使用整数ID
             ],
             "reservation_type": "cart",
             "reference_id": "cart_insufficient_test"

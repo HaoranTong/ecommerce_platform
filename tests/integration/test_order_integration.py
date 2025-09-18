@@ -39,7 +39,7 @@ class TestOrderIntegration:
     def integration_db_session(self):
         """集成测试数据库会话"""
         # 使用内存SQLite数据库进行测试
-        engine = create_engine("sqlite:///:memory:")
+        engine = create_engine("mysql+pymysql://root:test_password@localhost:3308/ecommerce_platform_test")
         
         # 导入所有模型并创建表
         from app.modules.user_auth.models import Base

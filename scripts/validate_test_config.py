@@ -167,7 +167,7 @@ def validate_integration_test_config():
     
     try:
         # MySQL连接URL
-        mysql_url = "mysql+pymysql://test_user:test_pass@localhost:3307/test_ecommerce"
+        mysql_url = "mysql+pymysql://root:test_password@localhost:3308/ecommerce_platform_test"
         
         try:
             import pymysql

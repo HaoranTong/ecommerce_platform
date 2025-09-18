@@ -52,7 +52,7 @@ class TestUserAuthIntegration:
     @pytest.fixture(scope="class")
     def auth_db_session(self):
         """认证测试数据库会话"""
-        engine = create_engine("sqlite:///:memory:")
+        engine = create_engine("mysql+pymysql://root:test_password@localhost:3308/ecommerce_platform_test")
         
         # 基于实际模型创建表
         from app.modules.user_auth.models import Base

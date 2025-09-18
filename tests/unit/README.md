@@ -2,26 +2,32 @@
 
 本目录包含所有模块的单元测试文件，专注于测试单个模块或组件的功能。
 
-## 测试覆盖范围
+## 📁 重组后的标准化目录结构
 
-### 认证与用户管理
-- `test_auth.py` - 认证系统核心功能测试
-- `test_user_auth.py` - 用户认证流程测试
-- `test_user_auth_complete.py` - 用户认证完整测试套件
+按照 testing-standards.md 规范，测试文件已重新组织为三层结构：
 
-### 数据模型与关系
-- `test_data_models_relationships.py` - 数据模型关系测试
+### test_models/ - 模型层单元测试
+- `test_inventory_models.py` - 库存管理模型测试
+- `test_product_catalog_models.py` - 产品目录模型测试  
 - `test_models_sqlite.py` - SQLite数据库模型测试
+- `test_data_models_relationships.py` - 数据模型关系测试
 
-### 核心服务
-- `test_inventory_api.py` - 库存API功能测试
-- `test_payment_service.py` - 支付服务功能测试
-- `test_notification_service.py` - 通知服务功能测试
+### test_services/ - 服务层单元测试  
+- `test_member_service.py` - 会员服务功能测试
+- `test_point_service.py` - 积分服务功能测试
+- `test_benefit_service.py` - 权益服务功能测试
+- `test_inventory_service_simple.py` - 库存服务测试
 
-### 专项功能测试
-- `test_user_auth_architecture.py` - 用户认证架构测试
+### test_utils/ - 工具类单元测试
+- (待添加工具类测试文件)
+
+### 模块级独立测试 (根目录)
 - `test_user_auth_standalone.py` - 独立用户认证测试
-- `test_security_logging.py` - 安全日志功能测试
+- `test_inventory_management_standalone.py` - 库存管理独立测试
+- `test_order_management_standalone.py` - 订单管理独立测试
+- `test_payment_service_standalone.py` - 支付服务独立测试
+- `test_quality_control_standalone.py` - 质量控制独立测试
+- `test_shopping_cart_standalone.py` - 购物车独立测试
 
 ## 测试运行方式
 

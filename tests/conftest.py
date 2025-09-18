@@ -35,7 +35,7 @@ from app.modules.payment_service.models import Payment, Refund
 UNIT_TEST_DATABASE_URL = "sqlite:///:memory:"  # 单元测试：内存数据库
 SMOKE_TEST_DATABASE_URL = "sqlite:///./tests/smoke_test.db"  # 烟雾测试：文件数据库
 # Integration Test Database Configuration (MySQL Docker)
-INTEGRATION_TEST_DATABASE_URL = "mysql+pymysql://root:rootpass@localhost:3307/ecommerce_platform"
+INTEGRATION_TEST_DATABASE_URL = "mysql+pymysql://root:test_password@localhost:3308/ecommerce_platform_test"
 
 # ========== 单元测试配置 ==========
 @pytest.fixture(scope="function")

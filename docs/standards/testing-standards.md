@@ -111,12 +111,22 @@ def test_add_to_cart_out_of_stock()     # 添加无库存商品到购物车
 ```
 ```
 tests/
-├── unit/                    # 单元测试
-│   ├── test_models/         # 模型测试
-│   ├── test_services/       # 服务测试
-│   └── test_utils/          # 工具测试
+├── unit/                    # 单元测试 (已按标准重组)
+│   ├── test_models/         # 模型测试 ✅ 已实现
+│   │   ├── test_inventory_models.py
+│   │   ├── test_product_catalog_models.py
+│   │   ├── test_models_sqlite.py
+│   │   └── test_data_models_relationships.py
+│   ├── test_services/       # 服务测试 ✅ 已实现
+│   │   ├── test_member_service.py
+│   │   ├── test_point_service.py
+│   │   ├── test_benefit_service.py
+│   │   └── test_inventory_service_simple.py
+│   ├── test_utils/          # 工具测试 ✅ 已创建
+│   └── [模块级独立测试文件] # *_standalone.py 文件
 ├── integration/             # 集成测试
 │   ├── test_api/            # API集成测试
+│   │   └── test_member_api_integration.py
 │   ├── test_database/       # 数据库集成测试
 │   └── test_cart_system.ps1 # 购物车系统测试脚本
 ├── e2e/                     # 端到端测试

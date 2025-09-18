@@ -10,21 +10,31 @@ tests/
 ├── conftest_standalone.py          # 独立测试配置
 ├── inventory_test_utils.py         # 库存测试工具
 ├── smoke_test.db                   # 烟雾测试数据库
-├── unit/                           # 单元测试目录
-│   ├── test_models/                # 模型单元测试
-│   │   └── test_inventory_models.py
-│   ├── test_services/              # 服务单元测试
-│   │   ├── test_inventory_service.py
-│   │   └── test_inventory_service_fixed.py
-│   ├── test_data_models_relationships.py
-│   ├── test_inventory_architecture.py
-│   ├── test_models_sqlite.py
-│   ├── test_payment_service.py
-│   ├── test_product_catalog_models.py
-│   ├── test_user_auth.py
-│   ├── test_user_auth_architecture.py
-│   ├── test_user_auth_complete.py
-│   └── test_user_auth_standalone.py
+├── unit/                           # 单元测试目录 (已完成标准化重组 ✅)
+│   ├── test_models/                # 模型单元测试 (8个文件)
+│   │   ├── test_inventory_models.py
+│   │   ├── test_inventory_architecture.py
+│   │   ├── test_product_catalog_models.py
+│   │   ├── test_models_sqlite.py
+│   │   ├── test_data_models_relationships.py
+│   │   ├── test_user_auth.py
+│   │   ├── test_user_auth_architecture.py
+│   │   └── test_user_auth_complete.py
+│   ├── test_services/              # 服务单元测试 (6个文件)
+│   │   ├── test_member_service.py
+│   │   ├── test_point_service.py
+│   │   ├── test_benefit_service.py
+│   │   ├── test_inventory_service_simple.py (✅ Pydantic V2已修复)
+│   │   ├── test_payment_service.py
+│   │   └── test_payment_service_fixed.py
+│   ├── test_utils/                 # 工具单元测试 (待扩展)
+│   └── [独立测试文件] (5个*_standalone.py文件)
+│       ├── test_inventory_management_standalone.py
+│       ├── test_order_management_standalone.py
+│       ├── test_payment_service_standalone.py
+│       ├── test_quality_control_standalone.py
+│       ├── test_shopping_cart_standalone.py
+│       └── test_user_auth_standalone.py
 ├── integration/                    # 集成测试目录
 │   ├── test_api/                   # API集成测试
 │   │   └── test_inventory_integration.py

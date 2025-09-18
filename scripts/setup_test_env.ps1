@@ -1,6 +1,15 @@
 # 测试环境检查和启动脚本
 # 根据 testing-standards.md 标准执行完整的测试环境准备和验证
 
+# 强制执行sku_id数据类型检查
+Write-Host "🔍 执行强制性sku_id数据类型检查..."
+& "$PSScriptRoot/check_sku_id_types.ps1"
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "❌ sku_id数据类型检查失败，测试被阻止!" -ForegroundColor Red
+    exit 1
+}
+Write-Host "✅ sku_id数据类型检查通过" -ForegroundColor Green
+
 <#
 .SYNOPSIS
     测试环境检查和启动脚本
@@ -200,16 +209,37 @@ function Setup-IntegrationTestEnvironment {
         return $true
     }
     
-    # 启动MySQL测试容器
-    Write-ColorMessage "启动MySQL测试容器..." "Info"
-    try {
-        & docker run -d --name mysql_test `
-            -e MYSQL_ROOT_PASSWORD=test_root_pass `
-            -e MYSQL_DATABASE=test_ecommerce `
-            -e MYSQL_USER=test_user `
-            -e MYSQL_PASSWORD=test_pass `
-            -p 3307:3306 `
-            mysql:8.0
+    # 检查MySQL测试容器是否已存在
+    Write-ColorMessage "检查MySQL测试容器..." "Info"
+    $existingContainer = & docker ps -q --filter "name=mysql_test" 2>$null
+    
+    if ($existingContainer) {
+        Write-ColorMessage "MySQL测试容器已存在且运行中，验证连接..." "Success"
+        # 验证容器端口配置
+        $containerPort = & docker port mysql_test 3306 2>$null
+        if ($containerPort -match "3307$") {
+            Write-ColorMessage "容器端口配置正确 (3307:3306)" "Success"
+        } else {
+            Write-ColorMessage "警告：容器端口配置可能不匹配，当前: $containerPort" "Warning"
+        }
+        $script:DockerStarted = $true
+    } else {
+        # 检查是否有停止的容器
+        $stoppedContainer = & docker ps -aq --filter "name=mysql_test" 2>$null
+        if ($stoppedContainer) {
+            Write-ColorMessage "启动已存在的MySQL测试容器..." "Info"
+            & docker start mysql_test
+        } else {
+            # 启动新的MySQL测试容器
+            Write-ColorMessage "创建新的MySQL测试容器..." "Info"
+            & docker run -d --name mysql_test `
+                -e MYSQL_ROOT_PASSWORD=test_root_pass `
+                -e MYSQL_DATABASE=test_ecommerce `
+                -e MYSQL_USER=test_user `
+                -e MYSQL_PASSWORD=test_pass `
+                -p 3307:3306 `
+                mysql:8.0
+        }
         
         if ($LASTEXITCODE -eq 0) {
             $script:DockerStarted = $true
@@ -225,7 +255,7 @@ function Setup-IntegrationTestEnvironment {
                 
                 # 测试连接
                 try {
-                    & python -c "import pymysql; pymysql.connect(host='localhost', port=3307, user='test_user', password='test_pass', database='test_ecommerce')"
+                    & python -c "import pymysql; pymysql.connect(host='localhost', port=3308, user='test_user', password='test_pass', database='test_ecommerce')"
                     if ($LASTEXITCODE -eq 0) {
                         Write-ColorMessage "MySQL数据库连接成功" "Success"
                         return $true
