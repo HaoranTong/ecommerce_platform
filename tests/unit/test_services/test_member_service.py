@@ -150,8 +150,11 @@ class TestMemberService:
         mock_level = Mock()
         mock_level.id = 1
         mock_level.level_name = "Silver"
+        mock_level.level_code = "SILVER"
         mock_level.min_points = 100
         mock_level.discount_rate = 0.05  # 真实数值而不是Mock
+        mock_level.point_multiplier = 1.5  # 添加必需的积分倍数
+        mock_level.benefits = {}  # 添加权益配置
         
         # 创建Mock积分信息
         mock_member_point = Mock()
@@ -180,30 +183,33 @@ class TestMemberService:
         # 执行测试
         result = member_service.get_member_profile(1)
 
-        # 验证结果 - 使用实际返回结构
+        # 验证结果 - 符合 MemberWithDetails 结构
         assert result is not None
-        assert "member_code" in result
+        assert "member_id" in result
+        assert "user_id" in result
         assert "level" in result
         assert "points" in result
-        assert "profile" in result
+        assert "statistics" in result
+        assert "benefits" in result
         
         # 验证基本会员信息
-        assert result["member_code"] == sample_member_profile.member_code
-        assert result["member_id"] == sample_member_profile.id
+        assert result["member_id"] == str(sample_member_profile.id)
         assert result["user_id"] == sample_member_profile.user_id
         
         # 验证等级信息
         level_info = result["level"]
         assert level_info["level_id"] == 1
         assert level_info["level_name"] == "Silver"
-        assert level_info["min_points"] == 100
+        assert level_info["level_code"] == "SILVER"
         assert level_info["discount_rate"] == 0.05
+        assert level_info["point_multiplier"] == 1.5
 
-        # 验证积分信息字段 - 使用实际字段名
+        # 验证积分信息字段 - 使用新的 PointSummary 结构
         points_info = result["points"]
-        assert points_info["current_points"] == 100
-        assert points_info["total_earned"] == 200
-        assert points_info["total_used"] == 100
+        assert points_info["total_points"] == 200
+        assert points_info["available_points"] == 100
+        assert points_info["frozen_points"] == 0
+        assert points_info["expiring_points"] == 0
 
     def test_create_member_success(self, member_service, mock_db, sample_member_level):
         """
@@ -288,10 +294,11 @@ class TestMemberService:
         # 执行测试
         result = member_service._get_point_summary(1)
 
-        # 验证结果 - 确保字段名称与实际模型一致
-        assert result["current_points"] == 150
-        assert result["total_earned"] == 300
-        assert result["total_used"] == 150
+        # 验证结果 - 使用新的 PointSummary 字段结构
+        assert result["total_points"] == 300
+        assert result["available_points"] == 150
+        assert result["frozen_points"] == 0
+        assert result["expiring_points"] == 0
 
     def test_get_point_summary_no_points(self, member_service, mock_db):
         """
@@ -306,10 +313,11 @@ class TestMemberService:
         # 执行测试
         result = member_service._get_point_summary(1)
 
-        # 验证默认值
-        assert result["current_points"] == 0
-        assert result["total_earned"] == 0
-        assert result["total_used"] == 0
+        # 验证默认值 - 使用新的 PointSummary 字段结构
+        assert result["total_points"] == 0
+        assert result["available_points"] == 0
+        assert result["frozen_points"] == 0
+        assert result["expiring_points"] == 0
 
     def test_create_member_points_success(self, member_service, mock_db):
         """
