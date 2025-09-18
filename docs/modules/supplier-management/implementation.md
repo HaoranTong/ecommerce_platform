@@ -109,7 +109,7 @@ from app.shared.base_models import BaseModel, TimestampMixin
 class {Entity}(BaseModel, TimestampMixin):
     __tablename__ = '{table_name}'
     
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String(200), nullable=False, index=True)
     # 其他字段
     
@@ -181,7 +181,7 @@ class External{Service}Client:
 # alembic/versions/{timestamp}_{module}_init.py
 def upgrade():
     op.create_table('{table_name}',
-        sa.Column('id', sa.BigInteger(), nullable=False),
+        sa.Column('id', sa.Integer(), nullable=False),
         sa.Column('name', sa.String(200), nullable=False),
         # 其他字段
         sa.PrimaryKeyConstraint('id')
