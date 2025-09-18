@@ -38,6 +38,7 @@ from app.modules.member_system.service import (
     get_benefit_service, get_event_service,
     MemberService, PointService, BenefitService, EventService
 )
+from app.modules.member_system.models import MemberLevel
 from app.modules.member_system.schemas import (
     # 会员相关
     MemberCreate, MemberUpdate, MemberRead, MemberWithDetails,
@@ -734,8 +735,10 @@ async def get_available_benefits(
         if not member:
             raise HTTPException(status_code=404, detail="会员信息不存在")
         
-        # 获取等级信息
-        level = member_service.get_membership_level(member.level_id)
+        # 获取等级信息 - 直接查询数据库
+        level = member_service.db.query(MemberLevel).filter(
+            MemberLevel.id == member.level_id
+        ).first()
         if not level:
             raise HTTPException(status_code=404, detail="会员等级信息不存在")
         
