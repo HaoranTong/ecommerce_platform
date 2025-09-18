@@ -371,3 +371,26 @@ python scripts/validate_test_config.py
 - [开发工作流程](../docs/development/workflow.md)
 - [环境配置说明](../docs/operations/environment.md)
 - [测试指南](../docs/development/testing.md)
+
+## 新增文件
+
+- `ai-checkpoint.ps1` - AI检查点辅助验证脚本，支持29种检查卡片类型
+- `check_code_standards.ps1` - 代码标准验证工具，检查文件头、函数文档、注释密度
+- `check_database_schema.ps1` - 数据库模式检查脚本
+- `check_sku_id_types.ps1` - SKU ID数据类型检查工具
+- `create_module_docs.ps1` - 模块文档创建脚本
+- `create_module_files.ps1` - 模块文件结构创建脚本
+- `create_module_readme.ps1` - 模块README文档创建脚本
+- `fix_sku_id_errors.ps1` - SKU ID错误修复工具
+- `fix_sku_id_types.ps1` - SKU ID类型修复工具
+- `generate_test_template.py` - 测试模板生成工具
+- `quick_structure_check.ps1` - 快速项目结构检查脚本
+- `rebuild_database.ps1` - 数据库重建脚本
+- `reset_database.ps1` - 数据库重置脚本
+- `sync_readme.ps1` - README文档同步自动化工具
+- `test_product_system.ps1` - 产品系统测试脚本
+- `validate_pydantic_v2.py` - Pydantic V2合规性验证工具
+- `verify_inventory_module.py` - 库存管理模块验证脚本
+
+*注: 以上工具均包含完整的PowerShell帮助块或Python文档字符串*
+

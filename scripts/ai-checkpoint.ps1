@@ -46,41 +46,41 @@ function Invoke-CheckpointCard {
     
     switch ($CardType) {
         # 需求分析类 (REQ)
-        "REQ-001" { Check-BusinessRequirements $ModuleName }
-        "REQ-002" { Check-FunctionalRequirements $ModuleName }
-        "REQ-003" { Check-NonFunctionalRequirements $ModuleName }
+        "REQ-001" { Test-BusinessRequirements $ModuleName }
+        "REQ-002" { Test-FunctionalRequirements $ModuleName }
+        "REQ-003" { Test-NonFunctionalRequirements $ModuleName }
         
         # 架构设计类 (ARCH)  
-        "ARCH-001" { Check-SystemArchitecture $ModuleName }
-        "ARCH-002" { Check-ModuleArchitecture $ModuleName }
-        "ARCH-003" { Check-DataArchitecture $ModuleName }
+        "ARCH-001" { Test-SystemArchitecture $ModuleName }
+        "ARCH-002" { Test-ModuleArchitecture $ModuleName }
+        "ARCH-003" { Test-DataArchitecture $ModuleName }
         
         # 开发实施类 (DEV)
-        "DEV-001" { Check-ModuleDocumentation $ModuleName }
-        "DEV-002" { Check-EnvironmentSetup $ModuleName }
-        "DEV-003" { Check-DataModelImplementation $ModuleName $FilePath }
-        "DEV-004" { Check-APIRouteImplementation $ModuleName $FilePath }
-        "DEV-005" { Check-BusinessLogicImplementation $ModuleName $FilePath }
-        "DEV-006" { Check-SecurityImplementation $ModuleName $FilePath }
-        "DEV-007" { Check-ErrorHandlingImplementation $ModuleName $FilePath }
-        "DEV-008" { Check-CodeQuality $ModuleName $FilePath }
-        "DEV-009" { Check-CodeStandards $ModuleName $FilePath }
+        "DEV-001" { Test-ModuleDocumentation $ModuleName }
+        "DEV-002" { Test-EnvironmentSetup $ModuleName }
+        "DEV-003" { Test-DataModelImplementation $ModuleName $FilePath }
+        "DEV-004" { Test-APIRouteImplementation $ModuleName $FilePath }
+        "DEV-005" { Test-BusinessLogicImplementation $ModuleName $FilePath }
+        "DEV-006" { Test-SecurityImplementation $ModuleName $FilePath }
+        "DEV-007" { Test-ErrorHandlingImplementation $ModuleName $FilePath }
+        "DEV-008" { Test-CodeQuality $ModuleName $FilePath }
+        "DEV-009" { Test-CodeStandards $ModuleName $FilePath }
         
         # 测试验证类 (TEST)
-        "TEST-001" { Check-TestEnvironment $ModuleName }
-        "TEST-002" { Check-UnitTests $ModuleName $FilePath }
-        "TEST-003" { Check-IntegrationTests $ModuleName $FilePath }
-        "TEST-004" { Check-APITests $ModuleName $FilePath }
-        "TEST-005" { Check-PerformanceTests $ModuleName $TestLevel }
-        "TEST-006" { Check-SecurityTests $ModuleName $TestLevel }
+        "TEST-001" { Test-TestEnvironment $ModuleName }
+        "TEST-002" { Test-UnitTests $ModuleName $FilePath }
+        "TEST-003" { Test-IntegrationTests $ModuleName $FilePath }
+        "TEST-004" { Test-APITests $ModuleName $FilePath }
+        "TEST-005" { Test-PerformanceTests $ModuleName $TestLevel }
+        "TEST-006" { Test-SecurityTests $ModuleName $TestLevel }
         
         # 文档同步类 (DOC)
-        "DOC-001" { Check-CodeDocumentation $ModuleName $FilePath }
-        "DOC-002" { Check-APIDocumentation $ModuleName }
-        "DOC-003" { Check-ArchitectureDocumentation $ModuleName }
-        "DOC-004" { Check-DeploymentDocumentation $ModuleName }
-        "DOC-005" { Check-DocumentSync $DirectoryPath }
-        "DOC-006" { Check-ToolDocumentation $FilePath }
+        "DOC-001" { Test-CodeDocumentation $ModuleName $FilePath }
+        "DOC-002" { Test-APIDocumentation $ModuleName }
+        "DOC-003" { Test-ArchitectureDocumentation $ModuleName }
+        "DOC-004" { Test-DeploymentDocumentation $ModuleName }
+        "DOC-005" { Test-DocumentSync $DirectoryPath }
+        "DOC-006" { Test-ToolDocumentation $FilePath }
         
         default {
             Write-Host "⚠️  检查卡片 $CardType 尚未实现" -ForegroundColor Yellow
@@ -90,7 +90,7 @@ function Invoke-CheckpointCard {
 }
 
 # 需求分析检查函数
-function Check-BusinessRequirements($ModuleName) {
+function Test-BusinessRequirements($ModuleName) {
     Write-Host "📋 业务需求理解验证 - $ModuleName" -ForegroundColor Yellow
     
     $RequirementsDoc = "docs/requirements/business.md"
@@ -106,7 +106,7 @@ function Check-BusinessRequirements($ModuleName) {
     }
 }
 
-function Check-FunctionalRequirements($ModuleName) {
+function Test-FunctionalRequirements($ModuleName) {
     Write-Host "📋 功能需求分析验证 - $ModuleName" -ForegroundColor Yellow
     
     $ModuleDoc = "docs/modules/$ModuleName/README.md"
@@ -128,7 +128,7 @@ function Check-FunctionalRequirements($ModuleName) {
     }
 }
 
-function Check-NonFunctionalRequirements($ModuleName) {
+function Test-NonFunctionalRequirements($ModuleName) {
     Write-Host "📋 非功能需求确认 - $ModuleName" -ForegroundColor Yellow
     
     $NFRDoc = "docs/requirements/non-functional.md"
@@ -149,7 +149,7 @@ function Check-NonFunctionalRequirements($ModuleName) {
 }
 
 # 架构设计检查函数  
-function Check-SystemArchitecture($ModuleName) {
+function Test-SystemArchitecture($ModuleName) {
     Write-Host "📋 系统架构设计验证 - $ModuleName" -ForegroundColor Yellow
     
     $ArchDoc = "docs/architecture/overview.md"
@@ -160,7 +160,7 @@ function Check-SystemArchitecture($ModuleName) {
     }
 }
 
-function Check-ModuleArchitecture($ModuleName) {
+function Test-ModuleArchitecture($ModuleName) {
     Write-Host "📋 模块架构设计验证 - $ModuleName" -ForegroundColor Yellow
     
     $ModuleArchDoc = "docs/architecture/module-architecture.md"
@@ -174,7 +174,7 @@ function Check-ModuleArchitecture($ModuleName) {
     }
 }
 
-function Check-DataArchitecture($ModuleName) {
+function Test-DataArchitecture($ModuleName) {
     Write-Host "📋 数据架构设计验证 - $ModuleName" -ForegroundColor Yellow
     
     $DataArchDoc = "docs/architecture/data-models.md"
@@ -196,7 +196,7 @@ function Check-DataArchitecture($ModuleName) {
 }
 
 # 开发实施检查函数
-function Check-ModuleDocumentation($ModuleName) {
+function Test-ModuleDocumentation($ModuleName) {
     Write-Host "📋 模块文档完整性验证 - $ModuleName" -ForegroundColor Yellow
     
     $RequiredDocs = @(
@@ -213,7 +213,7 @@ function Check-ModuleDocumentation($ModuleName) {
     }
 }
 
-function Check-EnvironmentSetup($ModuleName) {
+function Test-EnvironmentSetup($ModuleName) {
     Write-Host "📋 环境与工具准备验证 - $ModuleName" -ForegroundColor Yellow
     
     $EnvFiles = @("requirements.txt", "docker-compose.yml", ".env.example")
@@ -227,7 +227,7 @@ function Check-EnvironmentSetup($ModuleName) {
     }
 }
 
-function Check-DataModelImplementation($ModuleName, $FilePath) {
+function Test-DataModelImplementation($ModuleName, $FilePath) {
     Write-Host "📋 数据模型实现验证 - $ModuleName" -ForegroundColor Yellow
     
     $ModelFile = if ($FilePath) { $FilePath } else { "app/modules/$ModuleName/models.py" }
@@ -263,7 +263,7 @@ function Check-DataModelImplementation($ModuleName, $FilePath) {
     }
 }
 
-function Check-APIRouteImplementation($ModuleName, $FilePath) {
+function Test-APIRouteImplementation($ModuleName, $FilePath) {
     Write-Host "📋 API路由实现验证 - $ModuleName" -ForegroundColor Yellow
     
     $RouteFile = if ($FilePath) { $FilePath } else { "app/modules/$ModuleName/routes.py" }
@@ -290,7 +290,7 @@ function Check-APIRouteImplementation($ModuleName, $FilePath) {
     }
 }
 
-function Check-BusinessLogicImplementation($ModuleName, $FilePath) {
+function Test-BusinessLogicImplementation($ModuleName, $FilePath) {
     Write-Host "📋 业务逻辑实现验证 - $ModuleName" -ForegroundColor Yellow
     
     $ServiceFile = if ($FilePath) { $FilePath } else { "app/modules/$ModuleName/service.py" }
@@ -314,7 +314,7 @@ function Check-BusinessLogicImplementation($ModuleName, $FilePath) {
     }
 }
 
-function Check-SecurityImplementation($ModuleName, $FilePath) {
+function Test-SecurityImplementation($ModuleName, $FilePath) {
     Write-Host "📋 安全控制实现验证 - $ModuleName" -ForegroundColor Yellow
     
     $ModuleFiles = Get-ChildItem "app/modules/$ModuleName" -Filter "*.py" -Recurse
@@ -336,7 +336,7 @@ function Check-SecurityImplementation($ModuleName, $FilePath) {
     }
 }
 
-function Check-ErrorHandlingImplementation($ModuleName, $FilePath) {
+function Test-ErrorHandlingImplementation($ModuleName, $FilePath) {
     Write-Host "📋 错误处理实现验证 - $ModuleName" -ForegroundColor Yellow
     
     $ModuleFiles = Get-ChildItem "app/modules/$ModuleName" -Filter "*.py" -Recurse
@@ -356,7 +356,7 @@ function Check-ErrorHandlingImplementation($ModuleName, $FilePath) {
     }
 }
 
-function Check-CodeQuality($ModuleName, $FilePath) {
+function Test-CodeQuality($ModuleName, $FilePath) {
     Write-Host "📋 代码质量验证 - $ModuleName" -ForegroundColor Yellow
     
     # 检查代码格式化
@@ -366,6 +366,7 @@ function Check-CodeQuality($ModuleName, $FilePath) {
         Write-Host "   ✅ 代码格式化正确" -ForegroundColor Green
     } else {
         Write-Host "   ❌ 代码格式需要调整" -ForegroundColor Red
+        if ($BlackResult) { Write-Host "      详情: $BlackResult" -ForegroundColor Gray }
     }
     
     # 检查导入排序
@@ -375,11 +376,12 @@ function Check-CodeQuality($ModuleName, $FilePath) {
         Write-Host "   ✅ 导入排序正确" -ForegroundColor Green
     } else {
         Write-Host "   ❌ 导入排序需要调整" -ForegroundColor Red
+        if ($IsortResult) { Write-Host "      详情: $IsortResult" -ForegroundColor Gray }
     }
 }
 
 # 测试验证检查函数
-function Check-TestEnvironment($ModuleName) {
+function Test-TestEnvironment($ModuleName) {
     Write-Host "📋 测试环境配置验证 - $ModuleName" -ForegroundColor Yellow
     
     $TestConfigs = @("conftest.py", "tests/conftest.py", "tests/conftest_standalone.py")
@@ -398,7 +400,7 @@ function Check-TestEnvironment($ModuleName) {
     }
 }
 
-function Check-UnitTests($ModuleName, $FilePath) {
+function Test-UnitTests($ModuleName, $FilePath) {
     Write-Host "📋 单元测试验证 - $ModuleName" -ForegroundColor Yellow
     
     $TestPattern = "tests/**/test_*$ModuleName*.py"
@@ -416,7 +418,7 @@ function Check-UnitTests($ModuleName, $FilePath) {
     }
 }
 
-function Check-IntegrationTests($ModuleName, $FilePath) {
+function Test-IntegrationTests($ModuleName, $FilePath) {
     Write-Host "📋 集成测试验证 - $ModuleName" -ForegroundColor Yellow
     
     $IntegrationPath = "tests/integration"
@@ -430,7 +432,7 @@ function Check-IntegrationTests($ModuleName, $FilePath) {
     }
 }
 
-function Check-APITests($ModuleName, $FilePath) {
+function Test-APITests($ModuleName, $FilePath) {
     Write-Host "📋 API测试验证 - $ModuleName" -ForegroundColor Yellow
     
     $APITestFiles = Get-ChildItem "tests" -Filter "*api*" -Recurse -ErrorAction SilentlyContinue
@@ -448,7 +450,7 @@ function Check-APITests($ModuleName, $FilePath) {
     }
 }
 
-function Check-PerformanceTests($ModuleName, $TestLevel) {
+function Test-PerformanceTests($ModuleName, $TestLevel) {
     Write-Host "📋 性能测试验证 - $ModuleName ($TestLevel)" -ForegroundColor Yellow
     
     $PerfPath = "tests/performance"
@@ -459,7 +461,7 @@ function Check-PerformanceTests($ModuleName, $TestLevel) {
     }
 }
 
-function Check-SecurityTests($ModuleName, $TestLevel) {
+function Test-SecurityTests($ModuleName, $TestLevel) {
     Write-Host "📋 安全测试验证 - $ModuleName ($TestLevel)" -ForegroundColor Yellow
     
     $SecPath = "tests/security"
@@ -471,7 +473,7 @@ function Check-SecurityTests($ModuleName, $TestLevel) {
 }
 
 # 文档同步检查函数
-function Check-CodeDocumentation($ModuleName, $FilePath) {
+function Test-CodeDocumentation($ModuleName, $FilePath) {
     Write-Host "📋 代码文档同步验证 - $ModuleName" -ForegroundColor Yellow
     
     $ModuleFiles = Get-ChildItem "app/modules/$ModuleName" -Filter "*.py" -Recurse
@@ -494,7 +496,7 @@ function Check-CodeDocumentation($ModuleName, $FilePath) {
     }
 }
 
-function Check-APIDocumentation($ModuleName) {
+function Test-APIDocumentation($ModuleName) {
     Write-Host "📋 API文档更新验证 - $ModuleName" -ForegroundColor Yellow
     
     $APIDoc = "docs/modules/$ModuleName/api-spec.md"
@@ -505,7 +507,7 @@ function Check-APIDocumentation($ModuleName) {
     }
 }
 
-function Check-ArchitectureDocumentation($ModuleName) {
+function Test-ArchitectureDocumentation($ModuleName) {
     Write-Host "📋 架构文档维护验证 - $ModuleName" -ForegroundColor Yellow
     
     $ArchDocs = @(
@@ -525,7 +527,7 @@ function Check-ArchitectureDocumentation($ModuleName) {
     }
 }
 
-function Check-DeploymentDocumentation($ModuleName) {
+function Test-DeploymentDocumentation($ModuleName) {
     Write-Host "📋 部署文档完善验证 - $ModuleName" -ForegroundColor Yellow
     
     $DeployDocs = @(
@@ -544,7 +546,7 @@ function Check-DeploymentDocumentation($ModuleName) {
 }
 
 # 新增检查函数
-function Check-CodeStandards($ModuleName, $FilePath) {
+function Test-CodeStandards($ModuleName, $FilePath) {
     Write-Host "📋 代码规范完备性验证 - $ModuleName" -ForegroundColor Yellow
     
     $CheckFiles = @()
@@ -609,7 +611,7 @@ function Check-CodeStandards($ModuleName, $FilePath) {
     }
 }
 
-function Check-DocumentSync($DirectoryPath) {
+function Test-DocumentSync($DirectoryPath) {
     Write-Host "📋 文档目录同步验证 - $DirectoryPath" -ForegroundColor Yellow
     
     if (-not $DirectoryPath) {
@@ -658,7 +660,7 @@ function Check-DocumentSync($DirectoryPath) {
     }
 }
 
-function Check-ToolDocumentation($FilePath) {
+function Test-ToolDocumentation($FilePath) {
     Write-Host "📋 工具文档完整性验证 - $FilePath" -ForegroundColor Yellow
     
     if (-not $FilePath) {

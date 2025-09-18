@@ -79,20 +79,17 @@ function Write-ColorOutput {
     }
 }
 
-function Check-ApiNaming {
+function Test-ApiNaming {
     Write-ColorOutput "🌐 检查API命名规范..." "Blue"
     
     $violations = @()
     
     # 检查主路由文件的前缀设置
     $mainRoutesFile = "app/api/main_routes.py"
-    $hasApiV1Prefix = $false
-    
     if (Test-Path $mainRoutesFile) {
         $mainContent = Get-Content $mainRoutesFile
         $prefixLines = $mainContent | Select-String -Pattern "prefix.*api.*v1"
         if ($prefixLines) {
-            $hasApiV1Prefix = $true
             Write-ColorOutput "✅ 发现正确的API前缀设置: /api/v1" "Green"
         }
     }
@@ -162,7 +159,7 @@ function Check-ApiNaming {
     return $violations
 }
 
-function Check-DatabaseNaming {
+function Test-DatabaseNaming {
     Write-ColorOutput "🗄️ 检查数据库命名规范..." "Blue"
     
     $violations = @()
@@ -194,8 +191,11 @@ function Check-DatabaseNaming {
         # 检查字段名定义
         $fields = $content | Select-String -Pattern "Column\s*\("
         foreach ($field in $fields) {
-            $lineContent = $field.Line
-            # 这里可以添加更详细的字段名检查
+            # 检查字段命名规范
+            if ($field.Line -match "Column\s*\(\s*(\w+)") {
+                $fieldType = $matches[1]
+                Write-Verbose "检查字段类型: $fieldType 在行 $($field.LineNumber)"
+            }
         }
     }
     
@@ -242,7 +242,7 @@ function Check-DatabaseNaming {
     return $violations
 }
 
-function Check-DocumentationNaming {
+function Test-DocumentationNaming {
     Write-ColorOutput "📚 检查文档命名规范..." "Blue"
     
     $violations = @()
@@ -300,7 +300,7 @@ function Check-DocumentationNaming {
     return $violations
 }
 
-function Check-CodeNaming {
+function Test-CodeNaming {
     Write-ColorOutput "💻 检查代码命名规范..." "Blue"
     
     $violations = @()
@@ -391,22 +391,22 @@ $allViolations = @()
 
 switch ($CheckType.ToLower()) {
     "api" {
-        $allViolations += Check-ApiNaming
+        $allViolations += Test-ApiNaming
     }
     "database" {
-        $allViolations += Check-DatabaseNaming
+        $allViolations += Test-DatabaseNaming
     }
     "docs" {
-        $allViolations += Check-DocumentationNaming
+        $allViolations += Test-DocumentationNaming
     }
     "code" {
-        $allViolations += Check-CodeNaming
+        $allViolations += Test-CodeNaming
     }
     "all" {
-        $allViolations += Check-ApiNaming
-        $allViolations += Check-DatabaseNaming
-        $allViolations += Check-DocumentationNaming
-        $allViolations += Check-CodeNaming
+        $allViolations += Test-ApiNaming
+        $allViolations += Test-DatabaseNaming
+        $allViolations += Test-DocumentationNaming
+        $allViolations += Test-CodeNaming
     }
     default {
         Write-ColorOutput "❌ 未知的检查类型: $CheckType" "Red"
