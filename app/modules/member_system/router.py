@@ -56,7 +56,7 @@ from app.modules.member_system.schemas import (
     BenefitType, EventType, ActivityStatus
 )
 from app.core.database import get_db
-from app.core.auth import get_current_user, require_admin
+from app.core.auth import get_current_user, get_current_admin_user
 from app.modules.user_auth.models import User
 
 # 配置日志
@@ -301,7 +301,7 @@ async def manual_upgrade_level(
         "reason": "客服手动调整",
         "operator": "admin001"
     }),
-    admin_user: User = Depends(require_admin),
+    admin_user: User = Depends(get_current_admin_user),
     member_service: MemberService = Depends(get_current_member_service)
 ) -> APIResponse:
     """
@@ -996,7 +996,7 @@ async def get_benefit_status(
 @router.post("/member-system/activities", response_model=APIResponse, summary="创建会员活动")
 async def create_activity(
     activity_data: MemberActivityCreate,
-    admin_user: User = Depends(require_admin),
+    admin_user: User = Depends(get_current_admin_user),
     event_service: EventService = Depends(get_current_event_service)
 ) -> APIResponse:
     """
