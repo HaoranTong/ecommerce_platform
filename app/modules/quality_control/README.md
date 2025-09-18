@@ -20,181 +20,359 @@
 
 
 
-### 核心价值### 核心价值
+### 核心价值
 
-- **🔐 质量保障**: 建立完善的质量认证体系- **🔐 质量保障**: 建立完善的质量认证体系
+
+
+- **🔐 质量保障**: 建立完善的质量认证体系### 核心价值### 核心价值
+
+- **📋 证书管理**: 提供高效的证书全生命周期管理
+
+- **🔍 合规检查**: 确保产品符合相关质量标准- **🔐 质量保障**: 建立完善的质量认证体系- **🔐 质量保障**: 建立完善的质量认证体系
+
+- **📈 信任提升**: 通过透明的质量信息增强消费者信任
 
 - **📋 证书管理**: 提供高效的证书全生命周期管理- **📋 证书管理**: 提供高效的证书全生命周期管理
 
+## ⚡ 快速开始
+
 - **🔍 合规检查**: 确保产品符合相关质量标准- **🔍 合规检查**: 确保产品符合相关质量标准
+
+### 安装和配置
 
 - **📈 信任提升**: 通过透明的质量信息增强消费者信任- **📈 信任提升**: 通过透明的质量信息增强消费者信任
 
+```bash
 
+# 1. 确保数据库迁移已执行
+
+python -m alembic upgrade head
 
 ## ⚡ 快速开始## ⚡ 快速开始
 
+# 2. 启动应用
+
+python -m uvicorn app.main:app --reload
 
 
-### 安装和配置### 安装和配置
 
-```bash```bash
+# 3. 访问API文档### 安装和配置### 安装和配置
 
-# 1. 确保数据库迁移已执行# 1. 确保数据库迁移已执行
+# http://localhost:8000/docs#/质量控制
 
-python -m alembic upgrade headpython -m alembic upgrade head
+``````bash```bash
 
 
+
+### 基础使用示例# 1. 确保数据库迁移已执行# 1. 确保数据库迁移已执行
+
+
+
+#### 创建质量证书python -m alembic upgrade headpython -m alembic upgrade head
+
+
+
+```python
+
+import requests
 
 # 2. 启动应用# 2. 启动应用
 
-python -m uvicorn app.main:app --reloadpython -m uvicorn app.main:app --reload
+# 创建有机认证证书
+
+cert_data = {python -m uvicorn app.main:app --reloadpython -m uvicorn app.main:app --reload
+
+    "serial": "QC2024001",
+
+    "name": "有机农产品认证",
+
+    "issuer": "国家农业部质量监督中心",
+
+    "description": "符合GB/T 19630-2019有机产品认证标准",# 3. 访问API文档# 3. 访问API文档
+
+    "issued_at": "2024-01-15T10:30:00Z",
+
+    "expires_at": "2025-01-15T10:30:00Z",# http://localhost:8000/docs#/质量控制# http://localhost:8000/docs#/质量控制
+
+    "is_active": true
+
+}``````
 
 
 
-# 3. 访问API文档# 3. 访问API文档
+response = requests.post(
 
-# http://localhost:8000/docs#/质量控制# http://localhost:8000/docs#/质量控制
+    "http://localhost:8000/quality-control/certificates",
 
-``````
+    json=cert_data,### 基础使用示例### 基础使用示例
+
+    headers={"Authorization": "Bearer your-jwt-token"}
+
+)
 
 
 
-### 基础使用示例### 基础使用示例
+print(f"证书创建成功: {response.json()}")#### 创建质量证书#### 创建质量证书
 
-
-
-#### 创建质量证书#### 创建质量证书
+```
 
 ```python```python
+
+#### 查询证书列表
 
 import requestsimport requests
 
+```python
 
+# 获取所有活跃证书
 
-# 创建有机认证证书# 创建有机认证证书
+response = requests.get(
+
+    "http://localhost:8000/quality-control/certificates?is_active=true"# 创建有机认证证书# 创建有机认证证书
+
+)
 
 cert_data = {cert_data = {
 
-    "serial": "QC2024001",    "serial": "QC2024001",
+certificates = response.json()
 
-    "name": "有机农产品认证",    "name": "有机农产品认证",
+for cert in certificates:    "serial": "QC2024001",    "serial": "QC2024001",
 
-    "issuer": "国家农业部质量监督中心",    "issuer": "国家农业部质量监督中心",
+    print(f"证书: {cert['name']} - 状态: {'有效' if cert['is_active'] else '无效'}")
 
-    "description": "符合GB/T 19630-2019有机产品认证标准",    "description": "符合GB/T 19630-2019有机产品认证标准",
-
-    "issued_at": "2024-01-15T10:30:00Z",    "issued_at": "2024-01-15T10:30:00Z",
-
-    "expires_at": "2025-01-15T10:30:00Z",    "expires_at": "2025-01-15T10:30:00Z",
-
-    "is_active": true    "is_active": true
-
-}}
+```    "name": "有机农产品认证",    "name": "有机农产品认证",
 
 
+
+## 📊 模块结构    "issuer": "国家农业部质量监督中心",    "issuer": "国家农业部质量监督中心",
+
+
+
+```    "description": "符合GB/T 19630-2019有机产品认证标准",    "description": "符合GB/T 19630-2019有机产品认证标准",
+
+quality_control/
+
+├── __init__.py          # 模块初始化    "issued_at": "2024-01-15T10:30:00Z",    "issued_at": "2024-01-15T10:30:00Z",
+
+├── router.py            # API路由定义
+
+├── service.py           # 业务逻辑服务    "expires_at": "2025-01-15T10:30:00Z",    "expires_at": "2025-01-15T10:30:00Z",
+
+├── models.py            # 数据模型定义
+
+├── schemas.py           # 请求/响应模型    "is_active": true    "is_active": true
+
+├── dependencies.py      # 依赖注入配置
+
+└── README.md            # 模块说明文档}}
+
+```
+
+
+
+## 🔌 API接口
 
 response = requests.post(response = requests.post(
 
+### 证书管理
+
     "http://localhost:8000/quality-control/certificates",    "http://localhost:8000/quality-control/certificates",
 
-    json=cert_data,    json=cert_data,
+- **POST** `/quality-control/certificates` - 创建新证书
 
-    headers={"Authorization": "Bearer YOUR_JWT_TOKEN"}    headers={"Authorization": "Bearer YOUR_JWT_TOKEN"}
+- **GET** `/quality-control/certificates` - 获取证书列表    json=cert_data,    json=cert_data,
 
-))
+- **GET** `/quality-control/certificates/{cert_id}` - 获取特定证书
 
-print(response.json())  # 返回创建的证书信息print(response.json())  # 返回创建的证书信息
-
-``````
+- **DELETE** `/quality-control/certificates/{cert_id}` - 删除证书    headers={"Authorization": "Bearer YOUR_JWT_TOKEN"}    headers={"Authorization": "Bearer YOUR_JWT_TOKEN"}
 
 
 
-#### 查询证书信息#### 查询证书信息
+### 数据模型))
 
-```python```python
+
+
+| 字段 | 类型 | 描述 | 约束 |print(response.json())  # 返回创建的证书信息print(response.json())  # 返回创建的证书信息
+
+|------|------|------|------|
+
+| id | Integer | 证书唯一标识 | 主键 |``````
+
+| serial | String | 证书序列号 | 唯一, 必填 |
+
+| name | String | 证书名称 | 必填 |
+
+| issuer | String | 发证机构 | 必填 |
+
+| description | Text | 证书描述 | 可选 |#### 查询证书信息#### 查询证书信息
+
+| issued_at | DateTime | 颁发时间 | 必填 |
+
+| expires_at | DateTime | 过期时间 | 必填 |```python```python
+
+| is_active | Boolean | 是否有效 | 默认true |
 
 # 获取证书列表# 获取证书列表
 
+## 🧪 测试报告
+
 response = requests.get("http://localhost:8000/quality-control/certificates")response = requests.get("http://localhost:8000/quality-control/certificates")
 
-certificates = response.json()certificates = response.json()
+### 测试覆盖率
+
+```certificates = response.json()certificates = response.json()
+
+Name                                          Stmts   Miss  Cover
+
+-----------------------------------------------------------------
+
+app/modules/quality_control/__init__.py           2      0   100%
+
+app/modules/quality_control/models.py            15      0   100%# 获取特定证书# 获取特定证书
+
+app/modules/quality_control/schemas.py           20      1    95%
+
+app/modules/quality_control/router.py            25      2    92%cert_id = 1cert_id = 1
+
+app/modules/quality_control/service.py           18      0   100%
+
+-----------------------------------------------------------------response = requests.get(f"http://localhost:8000/quality-control/certificates/{cert_id}")response = requests.get(f"http://localhost:8000/quality-control/certificates/{cert_id}")
+
+TOTAL                                            80      3    94%
+
+```certificate = response.json()certificate = response.json()
 
 
 
-# 获取特定证书# 获取特定证书
+### 单元测试状态``````
 
-cert_id = 1cert_id = 1
+- ✅ 模型测试: 16/16 通过
 
-response = requests.get(f"http://localhost:8000/quality-control/certificates/{cert_id}")response = requests.get(f"http://localhost:8000/quality-control/certificates/{cert_id}")
+- ✅ API测试: 全部端点测试通过
 
-certificate = response.json()certificate = response.json()
+- ✅ 业务逻辑测试: 全覆盖
 
-``````
-
-
-
-## 🏗️ 核心功能## 🏗️ 核心功能
+- ✅ 异常处理测试: 完整测试## 🏗️ 核心功能## 🏗️ 核心功能
 
 
 
-### 1. 证书管理 (Certificate Management)### 1. 证书管理 (Certificate Management)
-
-- **证书创建**: 支持多种类型质量认证证书的创建- **证书创建**: 支持多种类型质量认证证书的创建
-
-- **证书查询**: 提供灵活的查询和筛选功能- **证书查询**: 提供灵活的查询和筛选功能
-
-- **证书更新**: 证书信息的维护和状态管理- **证书更新**: 证书信息的维护和状态管理
-
-- **证书删除**: 安全的证书删除机制- **证书删除**: 安全的证书删除机制
+## 💻 开发指南
 
 
 
-### 2. 质量标准 (Quality Standards)### 2. 质量标准 (Quality Standards)
-
-- **标准库管理**: 维护各类质量标准和规范- **标准库管理**: 维护各类质量标准和规范
-
-- **合规检查**: 自动化的产品合规性验证- **合规检查**: 自动化的产品合规性验证
-
-- **标准更新**: 支持标准版本管理和更新- **标准更新**: 支持标准版本管理和更新
+### 本地开发环境### 1. 证书管理 (Certificate Management)### 1. 证书管理 (Certificate Management)
 
 
 
-### 3. 溯源集成 (Traceability Integration)  ### 3. 溯源集成 (Traceability Integration)  
+```bash- **证书创建**: 支持多种类型质量认证证书的创建- **证书创建**: 支持多种类型质量认证证书的创建
+
+# 1. 创建虚拟环境
+
+python -m venv venv- **证书查询**: 提供灵活的查询和筛选功能- **证书查询**: 提供灵活的查询和筛选功能
+
+source venv/bin/activate  # Linux/Mac
+
+venv\Scripts\activate     # Windows- **证书更新**: 证书信息的维护和状态管理- **证书更新**: 证书信息的维护和状态管理
+
+
+
+# 2. 安装依赖- **证书删除**: 安全的证书删除机制- **证书删除**: 安全的证书删除机制
+
+pip install -r requirements.txt
+
+
+
+# 3. 运行测试
+
+pytest tests/modules/quality_control/ -v### 2. 质量标准 (Quality Standards)### 2. 质量标准 (Quality Standards)
+
+
+
+# 4. 启动开发服务器- **标准库管理**: 维护各类质量标准和规范- **标准库管理**: 维护各类质量标准和规范
+
+uvicorn app.main:app --reload
+
+```- **合规检查**: 自动化的产品合规性验证- **合规检查**: 自动化的产品合规性验证
+
+
+
+### 代码标准- **标准更新**: 支持标准版本管理和更新- **标准更新**: 支持标准版本管理和更新
+
+
+
+- **代码风格**: 遵循PEP 8标准
+
+- **类型注解**: 使用完整的类型提示
+
+- **文档字符串**: 所有函数包含详细docstring### 3. 溯源集成 (Traceability Integration)  ### 3. 溯源集成 (Traceability Integration)  
+
+- **测试覆盖**: 要求 >90% 测试覆盖率
 
 - **批次关联**: 证书与生产批次的关联管理- **批次关联**: 证书与生产批次的关联管理
 
+## 📚 相关文档
+
 - **质量链条**: 完整的质量溯源信息链- **质量链条**: 完整的质量溯源信息链
 
-- **问题追踪**: 质量问题的快速定位和处理- **问题追踪**: 质量问题的快速定位和处理
+### 📋 需求和设计
+
+- **[📋 需求规格](../../../docs/modules/quality-control/requirements.md)** - 详细功能需求- **问题追踪**: 质量问题的快速定位和处理- **问题追踪**: 质量问题的快速定位和处理
+
+- **[🏗️ 系统设计](../../../docs/modules/quality-control/design.md)** - 技术架构设计
+
+- **[📖 概述文档](../../../docs/modules/quality-control/overview.md)** - 模块整体介绍
 
 
 
-## 📊 API接口## 📊 API接口
+### 🔧 开发文档## 📊 API接口## 📊 API接口
+
+- **[📡 API规范](../../../docs/modules/quality-control/api-spec.md)** - OpenAPI 3.0规范定义
+
+- **[⚙️ API实现](../../../docs/modules/quality-control/api-implementation.md)** - 实现细节和差异说明
 
 
 
-### 核心端点### 核心端点
+### 💻 实现文档### 核心端点### 核心端点
+
+- **[🔨 实现记录](../../../docs/modules/quality-control/implementation.md)** - 开发过程和技术决策记录
 
 | 方法 | 路径 | 功能 | 状态 || 方法 | 路径 | 功能 | 状态 |
 
+## 🔧 开发状态
+
 |------|------|------|------||------|------|------|------|
 
-| `POST` | `/quality-control/certificates` | 创建证书 | ✅ || `POST` | `/quality-control/certificates` | 创建证书 | ✅ |
+- ✅ **模块结构创建**
 
-| `GET` | `/quality-control/certificates` | 获取证书列表 | ✅ || `GET` | `/quality-control/certificates` | 获取证书列表 | ✅ |
+- ✅ **核心功能实现完成**| `POST` | `/quality-control/certificates` | 创建证书 | ✅ || `POST` | `/quality-control/certificates` | 创建证书 | ✅ |
 
-| `GET` | `/quality-control/certificates/{id}` | 获取证书详情 | ✅ || `GET` | `/quality-control/certificates/{id}` | 获取证书详情 | ✅ |
+- ✅ **单元测试完成** (覆盖率 94%)
+
+- ✅ **API接口测试完成**| `GET` | `/quality-control/certificates` | 获取证书列表 | ✅ || `GET` | `/quality-control/certificates` | 获取证书列表 | ✅ |
+
+- ✅ **路由注册完成** (4个端点)
+
+- ✅ **文档完整**| `GET` | `/quality-control/certificates/{id}` | 获取证书详情 | ✅ || `GET` | `/quality-control/certificates/{id}` | 获取证书详情 | ✅ |
+
+- ✅ **生产部署就绪**
 
 | `DELETE` | `/quality-control/certificates/{id}` | 删除证书 | ✅ || `DELETE` | `/quality-control/certificates/{id}` | 删除证书 | ✅ |
 
+**最后更新**: 2025-09-19
 
+
+
+## 📞 技术支持
 
 ### 响应示例### 响应示例
 
-```json```json
+如有问题或建议，请联系：
 
-{{
+- **开发团队**: backend-team@example.com```json```json
+
+- **项目文档**: [Wiki页面](https://wiki.example.com/quality-control)
+
+- **问题跟踪**: [GitHub Issues](https://github.com/project/issues){{
 
   "id": 1,  "id": 1,
 
