@@ -33,6 +33,10 @@ from app.modules.inventory_management.models import (
 from app.modules.order_management.models import (
     Order, OrderItem, OrderStatusHistory
 )  # 订单管理模型
+from app.modules.member_system.models import (
+    MembershipLevel, Member, MembershipBenefit, PointTransaction, 
+    MemberActivity, ActivityParticipation, BenefitUsage, SystemConfig
+)  # 会员系统模型
 
 # 设置target_metadata为Base的metadata
 target_metadata = Base.metadata

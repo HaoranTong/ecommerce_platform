@@ -113,4 +113,8 @@ app.include_router(inventory_router, prefix="/api/v1", tags=["库存管理"])
 from app.modules.payment_service.router import router as payment_router
 app.include_router(payment_router, prefix="/api/v1", tags=["支付服务"])
 
+# 注册会员系统模块路由
+from app.modules.member_system.router import router as member_system_router
+app.include_router(member_system_router, prefix="/api/v1", tags=["会员系统"])
+
 # TODO: 其他模块路由按需添加
