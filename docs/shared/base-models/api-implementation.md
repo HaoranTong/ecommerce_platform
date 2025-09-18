@@ -45,7 +45,7 @@ app/
 ### 基础模型类
 ```python
 # app/core/database.py
-from sqlalchemy import Column, BigInteger, DateTime, create_engine
+from sqlalchemy import Column, Integer, DateTime, create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.sql import func
@@ -66,12 +66,12 @@ def get_db():
 
 # app/shared/models.py
 from app.core.database import Base
-from sqlalchemy import Column, BigInteger, DateTime, func
+from sqlalchemy import Column, Integer, DateTime, func
 
 class BaseModel(Base):
     __abstract__ = True
     
-    id = Column(BigInteger, primary_key=True, index=True)
+    id = Column(Integer, primary_key=True, index=True)
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
 ```
@@ -79,13 +79,13 @@ class BaseModel(Base):
 ### 用户模型实现
 ```python
 # app/modules/user_auth/models.py
-from sqlalchemy import Column, String, Boolean, BigInteger
+from sqlalchemy import Column, String, Boolean, Integer
 from app.core.database import Base
 
 class User(Base):
     __tablename__ = "users"
     
-    id = Column(BigInteger, primary_key=True, index=True)
+    id = Column(Integer, primary_key=True, index=True)
     username = Column(String(50), unique=True, index=True, nullable=False)
     email = Column(String(100), unique=True, index=True, nullable=False)
     hashed_password = Column(String(100), nullable=False)
@@ -96,19 +96,19 @@ class User(Base):
 ### 商品模型实现
 ```python
 # app/modules/product_catalog/models.py
-from sqlalchemy import Column, String, Text, DECIMAL, Integer, BigInteger, ForeignKey
+from sqlalchemy import Column, String, Text, DECIMAL, Integer, ForeignKey
 from sqlalchemy.orm import relationship
 from app.core.database import Base
 
 class Product(Base):
     __tablename__ = "products"
     
-    id = Column(BigInteger, primary_key=True, index=True)
+    id = Column(Integer, primary_key=True, index=True)
     name = Column(String(200), nullable=False, index=True)
     description = Column(Text)
     price = Column(DECIMAL(10, 2), nullable=False)
     stock_quantity = Column(Integer, default=0)
-    category_id = Column(BigInteger, ForeignKey("categories.id"))
+    category_id = Column(Integer, ForeignKey("categories.id"))
     
     # 关联关系
     category = relationship("Category", back_populates="products")
