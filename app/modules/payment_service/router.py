@@ -189,7 +189,7 @@ async def wechat_payment_callback(
     注意：此端点不需要用户认证，但需要验证微信签名
     """
     # TODO: 实现微信签名验证
-    # verify_wechat_signature(callback_data.dict(), request.headers.get('Wechatpay-Signature'))
+    # verify_wechat_signature(callback_data.model_dump(), request.headers.get('Wechatpay-Signature'))
     
     # 根据商户订单号查找支付单
     payment = db.query(Payment).filter(
@@ -223,7 +223,7 @@ async def wechat_payment_callback(
     
     # 记录回调信息
     payment.callback_received_at = datetime.utcnow()
-    payment.callback_data = str(callback_data.dict())  # 简化存储，生产环境需要加密
+    payment.callback_data = str(callback_data.model_dump())  # 简化存储，生产环境需要加密
     
     db.commit()
     

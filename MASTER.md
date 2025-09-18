@@ -9,82 +9,108 @@
 
 此文档专为AI开发人员设计，用于确保开发过程严格遵循规范。
 
-## 🚨 前10条强制规则 (90%违规预防)
+## 🤖 AI强制工作流程启动检查
 
-1. **禁止不读文档就操作** - 任何操作前必须read_file相关规范
-2. **禁止随意命名** - 命名前必须检查docs/standards/naming-conventions.md
-3. **禁止重复创建文档** - 创建前必须grep_search 关键词 docs/
-4. **禁止不一致的API设计** - 必须检查docs/standards/api-standards.md
-5. **禁止代码与文档不同步** - 修改代码必须同时更新文档
-6. **禁止违反文档结构规范** - 必须检查docs/standards/document-standards.md
-7. **禁止跳过检查点** - 触发条件时必须执行验证流程
-8. **禁止不确认数据库字段** - 必须检查docs/standards/database-standards.md
-9. **禁止不了解现有架构** - 必须读取模块overview.md全文，还要阅读整个架构目录下的其他技术文档
-10. **禁止不记录检查过程** - 必须记录验证结果和引用条款
-11. **禁止不使用自动检查脚本** - 必须执行scripts目录中的检查脚本
+### 每次对话开始必须执行以下自检：
+□ 已完整读取 MASTER.md 全文
+□ 已识别当前任务类型和触发的检查点
+□ 已确认需要执行的检查卡片类型  
+□ 已承诺在制定TODO时自动嵌入对应检查点
 
-## 📋 检查点触发条件
+### TODO制定强制规则：
+制定任何TODO任务时必须按以下格式嵌入检查点：
+- 开发任务后 → 添加 [CHECK:DEV-xxx]
+- 测试任务后 → 添加 [CHECK:TEST-xxx]
+- 文档任务后 → 添加 [CHECK:DOC-xxx] 
+- 模型操作后 → 添加 [CHECK:MODEL-xxx]
 
-### 主检查点 (必触发)
-- 接收新任务 → 任务相关文档阅读检查点 + 执行 .\scripts\check_docs.ps1
-- 开始编码 → 设计规范确认检查点 + 执行 .\scripts\check_naming_compliance.ps1
-- 提交代码 → 代码文档同步检查点 + 执行 .\scripts\check_naming_compliance.ps1
+### 违规后果：
+未执行启动检查或TODO中缺少检查点 → 立即停止工作，重新开始
 
-### 辅助检查点 (条件触发)
-- create_file docs/* → 文档结构规范检查点 + 执行 .\scripts\check_docs.ps1
-- create_file *.py → 代码开发强制检查点 + 执行 .\scripts\check_naming_compliance.ps1 -CheckType code
-- create_file *_routes.py → API设计标准检查点 + 执行 .\scripts\check_naming_compliance.ps1 -CheckType api
-- create_file test_*.py → 测试代码强制文档检查点 + 自动选择测试策略
-- 操作models.py → 数据库设计规范检查点 + 执行 .\scripts\check_naming_compliance.ps1 -CheckType database
-- 任何命名操作 → 命名规范检查点 + 执行 .\scripts\check_naming_compliance.ps1
-- 创建类/函数/变量 → 代码开发检查清单 + 执行 .\scripts\check_naming_compliance.ps1 -CheckType code
-- 设计数据库表/字段 → 数据库命名检查点 + 执行 .\scripts\check_naming_compliance.ps1 -CheckType database
-- 开始测试会话 → ⚠️ **强制测试环境检查点** + 必须执行 .\scripts\check_test_env.ps1
+## 🚨 核心强制规则 (完整覆盖版)
 
-## 🔍 检查点执行格式
-🔍 检查点触发：[操作类型]
-📋 必须验证：read_file [文档路径] [起始行] [结束行]
-✅ 验证确认：[具体规则内容]
-🚫 执行操作：[具体操作描述]
+1. **文档驱动开发** - 必须先有完整文档才能开始编码实现
+2. **数据模型一致性** - 模型定义与使用必须类型匹配，禁止类型不一致
+3. **架构规范遵循** - 必须遵循系统架构和模块设计规范
+4. **接口标准统一** - API设计必须符合RESTful和响应格式标准  
+5. **测试完整覆盖** - 功能实现必须有对应的完整测试验证
+6. **安全控制必备** - 涉及数据和权限的操作必须有安全验证
+7. **错误处理完善** - 所有业务逻辑必须有完整的异常处理机制
+8. **文档同步强制** - 创建/重命名/删除文档或代码时必须同步更新同级README
+9. **工具文档完整** - 新增工具必须同步更新使用说明和相关文档
+10. **代码规范完备** - 文件头部、函数说明、代码注释必须符合标准格式
 
-## 📁 标准规范文档引用
-- docs/standards/naming-conventions.md - 所有命名规则
-- docs/standards/api-standards.md - API设计规范  
-- docs/standards/document-standards.md - 文档结构规范
+## 📋 检查点路由表 (完整版-24卡片)
+
+### 需求分析类 (REQ)
+- **项目启动** → [CHECK:REQ-001] 业务需求理解验证
+- **功能规划** → [CHECK:REQ-002] 功能需求分析验证
+- **架构设计前** → [CHECK:REQ-003] 非功能需求确认
+
+### 架构设计类 (ARCH)  
+- **系统架构设计** → [CHECK:ARCH-001] 系统架构设计验证
+- **模块架构规划** → [CHECK:ARCH-002] 模块架构设计验证
+- **数据架构设计** → [CHECK:ARCH-003] 数据架构设计验证
+
+### 开发实施类 (DEV)
+- **编码前准备** → [CHECK:DEV-001] 模块文档完整性验证
+- **环境配置** → [CHECK:DEV-002] 环境与工具准备验证
+- **操作models.py** → [CHECK:DEV-003] 数据模型实现验证
+- **创建*_routes.py** → [CHECK:DEV-004] API路由实现验证
+- **实现service.py** → [CHECK:DEV-005] 业务逻辑实现验证
+- **安全功能开发** → [CHECK:DEV-006] 安全控制实现验证
+- **异常处理实现** → [CHECK:DEV-007] 错误处理实现验证
+- **代码提交前** → [CHECK:DEV-008] 代码质量验证
+
+### 测试验证类 (TEST)
+- **开始测试会话** → [CHECK:TEST-001] 测试环境配置验证
+- **编写单元测试** → [CHECK:TEST-002] 单元测试验证
+- **跨模块测试** → [CHECK:TEST-003] 集成测试验证
+- **接口测试** → [CHECK:TEST-004] API测试验证
+- **性能压力测试** → [CHECK:TEST-005] 性能测试验证
+- **安全测试** → [CHECK:TEST-006] 安全测试验证
+
+### 文档同步类 (DOC)
+- **代码完成后** → [CHECK:DOC-001] 代码文档同步验证
+- **API变更后** → [CHECK:DOC-002] API文档更新验证
+- **架构调整后** → [CHECK:DOC-003] 架构文档维护验证
+- **部署变更后** → [CHECK:DOC-004] 部署文档完善验证
+- **文件操作后** → [CHECK:DOC-005] 文档目录同步验证
+- **工具创建后** → [CHECK:DOC-006] 工具文档完整性验证
+
+## 🎯 检查卡片详情
+详细验证步骤 → `docs/standards/checkpoint-cards.md`
+辅助检查脚本 → `scripts/ai-checkpoint.ps1 -CardType [卡片编号]`
+
+## 📁 标准规范文档引用 (完整版)
+
+### 需求与架构
+- docs/requirements/functional.md - 功能需求规范
+- docs/requirements/business.md - 业务需求规范  
+- docs/architecture/overview.md - 技术架构总览
+- docs/architecture/module-architecture.md - 模块架构设计
+- docs/architecture/data-models.md - 数据模型设计
+- docs/architecture/security.md - 安全架构设计
+
+### 开发流程与规范
+- docs/development/README.md - 开发流程指南
+- docs/development/testing-setup.md - 测试环境配置
+- docs/standards/naming-conventions.md - 命名规范
+- docs/standards/api-standards.md - API设计规范
 - docs/standards/database-standards.md - 数据库设计规范
 - docs/standards/code-standards.md - 代码组织规范
 - docs/standards/testing-standards.md - 测试规范
+- docs/standards/document-standards.md - 文档结构规范
 - docs/standards/workflow-standards.md - 工作流程规范
-- docs/standards/code-development-checklist.md - 代码开发检查清单
 
-## ⚡ 条件分支执行
-IF 制定开发计划 THEN 强制检查 docs/requirements/functional.md#迭代计划 + docs/status/milestones.md + 确认现有计划状态后再制定
-IF 讨论开发规划 THEN 强制阅读 docs/requirements/functional.md (完整) + docs/architecture/module-architecture.md + docs/analysis/ 下所有分析报告
-IF 创建新模块 THEN 检查 docs/templates/module-template.md
-IF create_file *.py THEN 执行 docs/standards/code-development-checklist.md + .\scripts\check_naming_compliance.ps1 -CheckType code
-IF create_file *_routes.py THEN 检查 docs/standards/api-standards.md + .\scripts\check_naming_compliance.ps1 -CheckType api
-IF 操作models.py THEN 确认 docs/standards/database-standards.md + .\scripts\check_naming_compliance.ps1 -CheckType database
-IF create_file test_*.py THEN 强制检查 docs/standards/testing-standards.md + 强制阅读所有相关模块技术文档 + 验证模型字段和方法存在性 + 自动选择测试类型
-IF 创建文档 THEN 检查 docs/standards/document-standards.md + .\scripts\check_docs.ps1
-IF 命名实体 THEN 确认 docs/standards/naming-conventions.md + .\scripts\check_naming_compliance.ps1
-IF 编写测试 THEN 强制检查 docs/standards/testing-standards.md + 强制阅读被测试模块的所有技术文档 + 验证模型字段和API方法的实际存在性 + 验证测试环境配置
-IF 修改流程 THEN 检查 docs/standards/workflow-standards.md
-IF 开始工作会话 THEN 执行 .\scripts\check_naming_compliance.ps1 + .\scripts\check_docs.ps1
-IF 开始测试会话 THEN ⚠️ **强制测试环境检查流程**:
-   1. **必须先执行**: .\scripts\check_test_env.ps1 (30秒快速检查)
-   2. **标准执行流程**: .\scripts\setup_test_env.ps1 -TestType [unit|smoke|integration|all]
-   3. **故障排查工具**: python scripts/validate_test_config.py (仅在问题时使用)
-   4. **禁止直接执行**: pytest 命令 (必须通过标准工具)
+## ⚡ 快速执行脚本
+- 启动检查: `scripts/check_docs.ps1 + scripts/check_naming_compliance.ps1`
+- 测试环境: `scripts/check_test_env.ps1` (强制执行)
+- 卡片验证: `scripts/ai-checkpoint.ps1 -CardType [编号]`
+- 文档同步: `scripts/sync_readme.ps1` (文件操作后强制执行)
+- 代码规范: `scripts/check_code_standards.ps1` (提交前强制执行)
 
-## 📄 README同步触发
-IF create_file app/modules/* THEN 更新对应模块README.md
-IF 修改main.py THEN 检查根目录README.md快速开始部分
-IF create_file docs/* THEN 更新对应目录README.md
-IF 修改启动脚本 THEN 更新根目录README.md
-IF 添加新API THEN 更新相关模块README.md
-IF 创建新目录 THEN 创建该目录README.md并更新父目录README.md
-IF 删除目录 THEN 更新父目录README.md移除该目录说明
-IF 重命名目录 THEN 更新所有相关README.md中的目录引用
+
 
 ## 🚫 违规后果
 1. 立即停止当前操作

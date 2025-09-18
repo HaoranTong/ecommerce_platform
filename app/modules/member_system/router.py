@@ -284,11 +284,16 @@ async def get_membership_levels(
 
 @router.post("/member-system/levels/upgrade", response_model=APIResponse, summary="手动升级会员等级")
 async def manual_upgrade_level(
-    upgrade_data: Dict[str, Any] = Body(..., example={
-        "user_id": 1001,
-        "target_level_id": 4,
-        "reason": "客服手动调整",
-        "operator": "admin001"
+    upgrade_data: Dict[str, Any] = Body(..., examples={
+        "upgrade_request": {
+            "summary": "会员等级升级示例",
+            "value": {
+                "user_id": 1001,
+                "target_level_id": 4,
+                "reason": "客服手动调整",
+                "operator": "admin001"
+            }
+        }
     }),
     admin_user: User = Depends(get_current_admin_user),
     member_service: MemberService = Depends(get_member_service_dep)
@@ -495,11 +500,16 @@ async def get_point_transactions(
 
 @router.post("/member-system/points/earn", response_model=PointTransactionResponse, summary="获得积分")
 async def earn_points(
-    earn_data: Dict[str, Any] = Body(..., example={
-        "points": 100,
-        "event_type": "PURCHASE",
-        "reference_id": "ORD123456",
-        "description": "购物获得积分"
+    earn_data: Dict[str, Any] = Body(..., examples={
+        "earn_points_request": {
+            "summary": "积分获得示例",
+            "value": {
+                "points": 100,
+                "event_type": "PURCHASE", 
+                "reference_id": "ORD123456",
+                "description": "购物获得积分"
+            }
+        }
     }),
     user_id: int = Depends(get_user_id_from_token),
     point_service: PointService = Depends(get_point_service_dep)
@@ -560,11 +570,16 @@ async def earn_points(
 
 @router.post("/member-system/points/use", response_model=PointTransactionResponse, summary="使用积分")
 async def use_points(
-    use_data: Dict[str, Any] = Body(..., example={
-        "points": 50,
-        "event_type": "REDEMPTION",
-        "reference_id": "ORD123457",
-        "description": "积分抵扣"
+    use_data: Dict[str, Any] = Body(..., examples={
+        "use_points_request": {
+            "summary": "积分使用示例", 
+            "value": {
+                "points": 50,
+                "event_type": "REDEMPTION",
+                "reference_id": "ORD123457",
+                "description": "积分抵扣"
+            }
+        }
     }),
     user_id: int = Depends(get_user_id_from_token),
     point_service: PointService = Depends(get_point_service_dep)
@@ -656,13 +671,18 @@ async def get_point_summary(
 
 @router.post("/member-system/points/redeem", response_model=APIResponse, summary="积分兑换商品")
 async def redeem_points(
-    redeem_data: Dict[str, Any] = Body(..., example={
-        "redemption_item_id": "GIFT001",
-        "quantity": 1,
-        "delivery_address": {
-            "name": "张三",
-            "phone": "13800138000", 
-            "address": "北京市朝阳区xxx街道xxx号"
+    redeem_data: Dict[str, Any] = Body(..., examples={
+        "redeem_request": {
+            "summary": "积分兑换示例",
+            "value": {
+                "redemption_item_id": "GIFT001",
+                "quantity": 1,
+                "delivery_address": {
+                    "name": "张三",
+                    "phone": "13800138000", 
+                    "address": "北京市朝阳区xxx街道xxx号"
+                }
+            }
         }
     }),
     user_id: int = Depends(get_user_id_from_token),
@@ -828,11 +848,16 @@ async def check_benefit_eligibility(
 
 @router.post("/member-system/benefits/use", response_model=BenefitUsageResponse, summary="使用权益")
 async def use_benefit(
-    usage_data: Dict[str, Any] = Body(..., example={
-        "benefit_type": "free_shipping",
-        "reference_id": "ORD123456",
-        "description": "订单免运费",
-        "benefit_value": 15.00
+    usage_data: Dict[str, Any] = Body(..., examples={
+        "benefit_usage_request": {
+            "summary": "权益使用示例",
+            "value": {
+                "benefit_type": "free_shipping",
+                "reference_id": "ORD123456", 
+                "description": "订单免运费",
+                "benefit_value": 15.00
+            }
+        }
     }),
     user_id: int = Depends(get_user_id_from_token),
     benefit_service: BenefitService = Depends(get_benefit_service_dep)

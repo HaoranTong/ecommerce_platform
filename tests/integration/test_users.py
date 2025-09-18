@@ -8,12 +8,10 @@ from app.main import app
 from app.core.database import get_db, Base
 from app.modules.user_auth.models import User
 
-# use in-memory sqlite for fast tests
-SQLITE_URL = "sqlite+pysqlite:///:memory:"
+# 集成测试使用MySQL Docker容器
+INTEGRATION_TEST_DATABASE_URL = "mysql+pymysql://root:test_password@localhost:3308/ecommerce_platform_test"
 engine = create_engine(
-    SQLITE_URL,
-    connect_args={"check_same_thread": False},
-    poolclass=StaticPool,
+    INTEGRATION_TEST_DATABASE_URL,
     future=True,
 )
 TestingSessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)

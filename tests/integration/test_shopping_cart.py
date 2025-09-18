@@ -33,21 +33,20 @@ from app.modules.shopping_cart.schemas import AddItemRequest, UpdateQuantityRequ
 from app.modules.shopping_cart.service import CartService
 from app.shared.base_models import Base
 
-# 单元测试数据库配置（SQLite内存数据库）
-UNIT_TEST_DATABASE_URL = "sqlite:///:memory:"
+# 集成测试数据库配置（MySQL Docker容器）
+INTEGRATION_TEST_DATABASE_URL = "mysql+pymysql://root:test_password@localhost:3308/ecommerce_platform_test"
 
 
-@pytest.fixture(scope="function")
+@pytest.fixture(scope="function")  
 def test_engine():
     """
-    测试数据库引擎
+    集成测试数据库引擎
     
-    创建内存SQLite数据库，用于单元测试的数据隔离。
-    每个测试函数使用独立的数据库实例，确保测试间无干扰。
+    使用MySQL Docker容器，用于集成测试的真实环境模拟。
+    每个测试函数使用独立的事务，确保测试间无干扰。
     """
     engine = create_engine(
-        UNIT_TEST_DATABASE_URL, 
-        connect_args={"check_same_thread": False}
+        INTEGRATION_TEST_DATABASE_URL
     )
     # 创建所有表结构
     Base.metadata.create_all(bind=engine)

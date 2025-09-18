@@ -54,7 +54,7 @@ class TestInventoryManagementIntegration:
     @pytest.fixture(scope="class")
     def inventory_db_session(self):
         """库存测试数据库会话"""
-        engine = create_engine("sqlite:///:memory:")
+        engine = create_engine("mysql+pymysql://root:test_password@localhost:3308/ecommerce_platform_test")
         
         # 基于实际模型创建表
         from app.core.database import Base
