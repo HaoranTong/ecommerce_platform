@@ -1,7 +1,7 @@
 import sys
 from pathlib import Path
 import pytest
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 from fastapi.testclient import TestClient
 
@@ -237,9 +237,18 @@ def integration_test_engine():
         print("🧹 清理测试数据...")
         try:
             with engine.begin() as conn:
+                # 禁用外键检查
+                conn.execute(text("SET FOREIGN_KEY_CHECKS = 0"))
+                
                 # 删除所有表的数据，但保留表结构
                 for table in reversed(Base.metadata.sorted_tables):
                     conn.execute(table.delete())
+                    # 重置MySQL自增ID
+                    conn.execute(text(f"ALTER TABLE {table.name} AUTO_INCREMENT = 1"))
+                
+                # 重新启用外键检查
+                conn.execute(text("SET FOREIGN_KEY_CHECKS = 1"))
+                
         except Exception as e:
             print(f"清理数据时出错: {e}")
         engine.dispose()
@@ -258,6 +267,47 @@ def integration_test_db(integration_test_engine):
     finally:
         database.rollback()
         database.close()
+
+# 添加集成测试数据隔离机制
+@pytest.fixture(autouse=True)
+def clean_integration_test_data(request, integration_test_engine):
+    """集成测试每个测试后自动清理数据库 - 确保测试隔离"""
+    # 只对集成测试生效
+    if not any(marker.name == 'integration' for marker in request.node.iter_markers()):
+        yield
+        return
+    
+    yield  # 运行测试
+    
+    # 测试后清理数据
+    try:
+        with integration_test_engine.begin() as conn:
+            # 禁用外键检查
+            conn.execute(text("SET FOREIGN_KEY_CHECKS = 0"))
+            
+            # 按照依赖顺序清理数据
+            cleanup_tables = [
+                'order_items', 'order_status_history', 'refunds', 'payments', 'orders',
+                'role_permissions', 'user_roles', 'sessions', 'users', 'permissions', 'roles',
+                'inventory_transactions', 'inventory_reservations', 'inventory_stocks',
+                'sku_attributes', 'product_attributes', 'product_images', 'product_tags',
+                'skus', 'products', 'brands', 'categories'
+            ]
+            
+            for table_name in cleanup_tables:
+                try:
+                    conn.execute(text(f"DELETE FROM {table_name}"))
+                    conn.execute(text(f"ALTER TABLE {table_name} AUTO_INCREMENT = 1"))
+                except Exception as table_error:
+                    # 表可能不存在，忽略错误
+                    pass
+            
+            # 重新启用外键检查
+            conn.execute(text("SET FOREIGN_KEY_CHECKS = 1"))
+            
+    except Exception as e:
+        print(f"集成测试数据清理出错: {e}")
+        # 不抛出异常，避免影响测试结果
 
 @pytest.fixture(scope="function")
 def integration_test_client(integration_test_db, mock_admin_user):

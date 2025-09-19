@@ -266,6 +266,32 @@
 □ SQL注入防护验证
 □ 权限控制测试通过
 
+### TEST-007: 测试阶段完成验证
+**触发条件**: 模块测试完成、代码保护提交前
+**检查重点**: 测试覆盖率、代码质量、文件清理、提交准备
+**精准导航**:
+1. **测试覆盖率** → `docs/standards/testing-standards.md` 第15-40行覆盖率要求
+2. **代码质量** → `docs/standards/code-standards.md` 第15-35行质量标准
+3. **文件管理** → `docs/standards/workflow-standards.md` 第100-130行提交规范
+4. **状态文档** → `docs/status/module-status.md` 状态同步验证
+
+**验证清单**:
+□ 单元测试通过率达到100%
+□ 集成测试通过率达到预设目标(≥85%)
+□ 所有测试文件语法正确，无编译错误
+□ 清理__pycache__目录和临时文件
+□ 检查文件保存位置是否正确
+□ 更新模块状态文档
+□ 验证测试脚本的文件路径和导入正确
+□ 确认测试数据隔离和清理机制
+□ 代码提交前执行完整性检查
+
+**强制执行脚本**:
+- `scripts/clean_temp_files.ps1` - 清理临时文件
+- `scripts/check_file_locations.ps1` - 检查文件位置
+- `scripts/update_module_status.ps1` - 更新状态文档
+- `scripts/pre_commit_check.ps1` - 提交前检查
+
 ## 📚 文档类检查卡片 (DOC)
 
 ### DOC-001: 架构文档完整性

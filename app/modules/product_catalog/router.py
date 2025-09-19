@@ -119,6 +119,7 @@ async def list_products(
     search: Optional[str] = Query(None, description="搜索商品名称或描述"),
     category_id: Optional[int] = Query(None, description="按分类筛选"),
     brand_id: Optional[int] = Query(None, description="按品牌筛选"),
+    status: Optional[str] = Query(None, description="按状态筛选（draft, published, archived）"),
     db: Session = Depends(get_db)
 ):
     """获取商品列表，支持分页和筛选"""
@@ -133,6 +134,8 @@ async def list_products(
         query = query.filter(Product.category_id == category_id)
     if brand_id is not None:
         query = query.filter(Product.brand_id == brand_id)
+    if status is not None:
+        query = query.filter(Product.status == status)
     
     products = query.all()
     return products

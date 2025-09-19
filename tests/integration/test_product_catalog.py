@@ -15,6 +15,32 @@
 
 import pytest
 from decimal import Decimal
+import uuid
+import random
+
+
+def generate_unique_brand_name(base_name):
+    """生成唯一品牌名称避免重复键错误"""
+    suffix = str(uuid.uuid4())[:8]
+    return f"{base_name}_{suffix}"
+
+
+def generate_unique_sku_code(base_code):
+    """生成唯一SKU编码避免重复键错误"""
+    suffix = random.randint(1000, 9999)
+    return f"{base_code}_{suffix}"
+
+
+def generate_unique_category_name(base_name):
+    """生成唯一分类名称避免重复键错误"""
+    suffix = str(uuid.uuid4())[:6]
+    return f"{base_name}_{suffix}"
+
+
+def generate_unique_slug(base_slug):
+    """生成唯一slug避免重复键错误"""
+    suffix = str(uuid.uuid4())[:8]
+    return f"{base_slug}_{suffix}"
 
 from app.modules.product_catalog.models import (
     Product, Category, Brand, SKU, ProductAttribute, ProductImage, ProductTag
@@ -33,13 +59,14 @@ from app.modules.product_catalog.schemas import (
 
 # ============ 模型测试 ============
 
+@pytest.mark.integration
 class TestCategoryModel:
     """分类模型测试"""
 
     def test_create_category_success(self, integration_test_db):
         """测试成功创建分类"""
         category = Category(
-            name="电子产品",
+            name=generate_unique_category_name("电子产品"),
             sort_order=1,
             is_active=True
         )
@@ -48,7 +75,7 @@ class TestCategoryModel:
         integration_test_db.refresh(category)
         
         assert category.id is not None
-        assert category.name == "电子产品"
+        assert "电子产品_" in category.name
         assert category.sort_order == 1
         assert category.is_active is True
         assert category.created_at is not None
@@ -57,24 +84,24 @@ class TestCategoryModel:
     def test_category_hierarchy(self, integration_test_db):
         """测试分类层次结构"""
         # 创建父分类
-        parent = Category(name="数码产品", sort_order=1)
+        parent = Category(name=generate_unique_category_name("数码产品"), sort_order=1)
         integration_test_db.add(parent)
         integration_test_db.commit()
         integration_test_db.refresh(parent)
         
         # 创建子分类
-        child = Category(name="手机", parent_id=parent.id, sort_order=1)
+        child = Category(name=generate_unique_category_name("手机"), parent_id=parent.id, sort_order=1)
         integration_test_db.add(child)
         integration_test_db.commit()
         integration_test_db.refresh(child)
         
         assert child.parent_id == parent.id
         assert len(parent.children) == 1
-        assert parent.children[0].name == "手机"
+        assert "手机_" in parent.children[0].name
 
     def test_category_soft_delete(self, integration_test_db):
         """测试分类软删除"""
-        category = Category(name="测试分类")
+        category = Category(name=generate_unique_category_name("测试分类"))
         integration_test_db.add(category)
         integration_test_db.commit()
         
@@ -86,14 +113,16 @@ class TestCategoryModel:
         assert category.deleted_at is not None
 
 
+@pytest.mark.integration
 class TestBrandModel:
     """品牌模型测试"""
 
     def test_create_brand_success(self, integration_test_db):
         """测试成功创建品牌"""
+        brand_name = generate_unique_brand_name("苹果")
         brand = Brand(
-            name="苹果",
-            slug="apple",
+            name=brand_name,
+            slug=generate_unique_slug("apple"),
             description="Apple Inc. 科技公司",
             is_active=True
         )
@@ -102,14 +131,15 @@ class TestBrandModel:
         integration_test_db.refresh(brand)
         
         assert brand.id is not None
-        assert brand.name == "苹果"
-        assert brand.slug == "apple"
+        assert brand.name == brand_name
+        assert "apple_" in brand.slug
         assert brand.is_active is True
 
     def test_brand_unique_constraints(self, integration_test_db):
         """测试品牌唯一性约束"""
-        brand1 = Brand(name="华为", slug="huawei")
-        brand2 = Brand(name="华为", slug="huawei-2")
+        brand_name = generate_unique_brand_name("华为")
+        brand1 = Brand(name=brand_name, slug=generate_unique_slug("huawei"))
+        brand2 = Brand(name=brand_name, slug=generate_unique_slug("huawei_2"))
         
         integration_test_db.add(brand1)
         integration_test_db.commit()
@@ -120,22 +150,24 @@ class TestBrandModel:
             integration_test_db.commit()
 
 
+@pytest.mark.integration
 class TestProductModel:
     """商品模型测试"""
 
     def test_create_product_success(self, integration_test_db):
         """测试成功创建商品"""
         # 创建品牌和分类
-        brand = Brand(name="小米", slug="xiaomi")
-        category = Category(name="手机")
+        brand = Brand(name=generate_unique_brand_name("小米"), slug=generate_unique_slug("xiaomi"))
+        category = Category(name=generate_unique_category_name("手机"))
         integration_test_db.add_all([brand, category])
         integration_test_db.commit()
         integration_test_db.refresh(brand)
         integration_test_db.refresh(category)
         
         # 创建商品
+        product_name = "小米13 Pro"
         product = Product(
-            name="小米13 Pro",
+            name=product_name,
             description="小米13 Pro 高端旗舰手机",
             brand_id=brand.id,
             category_id=category.id,
@@ -150,7 +182,7 @@ class TestProductModel:
         integration_test_db.refresh(product)
         
         assert product.id is not None
-        assert product.name == "小米13 Pro"
+        assert product.name == product_name
         assert product.brand_id == brand.id
         assert product.category_id == category.id
         assert product.status == "published"
@@ -158,8 +190,9 @@ class TestProductModel:
     def test_product_relationships(self, integration_test_db):
         """测试商品关系"""
         # 创建品牌和分类
-        brand = Brand(name="华为", slug="huawei")
-        category = Category(name="笔记本")
+        brand_name = generate_unique_brand_name("华为")
+        brand = Brand(name=brand_name, slug=generate_unique_slug("huawei"))
+        category = Category(name=generate_unique_category_name("笔记本"))
         integration_test_db.add_all([brand, category])
         integration_test_db.commit()
         integration_test_db.refresh(brand)
@@ -177,8 +210,8 @@ class TestProductModel:
         integration_test_db.refresh(product)
         
         # 验证关系
-        assert product.brand.name == "华为"
-        assert product.category.name == "笔记本"
+        assert product.brand.name == brand_name
+        assert "笔记本_" in product.category.name
         assert brand.products[0].name == "华为MateBook"
         assert category.products[0].name == "华为MateBook"
 
@@ -212,6 +245,7 @@ class TestProductModel:
         assert product.sort_order == 5
 
 
+@pytest.mark.integration
 class TestSKUModel:
     """SKU模型测试"""
 
@@ -224,9 +258,10 @@ class TestSKUModel:
         integration_test_db.refresh(product)
         
         # 创建SKU
+        sku_code = generate_unique_sku_code("TEST")
         sku = SKU(
             product_id=product.id,
-            sku_code="TEST-001",
+            sku_code=sku_code,
             name="测试SKU",
             price=Decimal("99.99"),
             cost_price=Decimal("50.00"),
@@ -238,7 +273,7 @@ class TestSKUModel:
         integration_test_db.refresh(sku)
         
         assert sku.id is not None
-        assert sku.sku_code == "TEST-001"
+        assert sku.sku_code == sku_code
         assert sku.price == Decimal("99.99")
         assert sku.cost_price == Decimal("50.00")
         assert sku.product_id == product.id
@@ -250,8 +285,9 @@ class TestSKUModel:
         integration_test_db.commit()
         integration_test_db.refresh(product)
         
-        sku1 = SKU(product_id=product.id, sku_code="UNIQUE-001", price=Decimal("10.00"))
-        sku2 = SKU(product_id=product.id, sku_code="UNIQUE-001", price=Decimal("20.00"))
+        sku_code = generate_unique_sku_code("UNIQUE")
+        sku1 = SKU(product_id=product.id, sku_code=sku_code, price=Decimal("10.00"))
+        sku2 = SKU(product_id=product.id, sku_code=sku_code, price=Decimal("20.00"))
         
         integration_test_db.add(sku1)
         integration_test_db.commit()
@@ -261,6 +297,7 @@ class TestSKUModel:
             integration_test_db.commit()
 
 
+@pytest.mark.integration
 class TestProductAttributeModel:
     """商品属性模型测试"""
 
@@ -290,6 +327,7 @@ class TestProductAttributeModel:
 
 # ============ API测试 ============
 
+@pytest.mark.integration
 class TestCategoryAPI:
     """分类API测试"""
 
@@ -320,32 +358,36 @@ class TestCategoryAPI:
         assert data[0]["name"] == "测试分类"
 
 
+@pytest.mark.integration
 class TestBrandAPI:
     """品牌API测试"""
 
     def test_create_brand_api(self, integration_test_client):
         """测试创建品牌API"""
+        brand_name = generate_unique_brand_name("小米")
+        brand_slug = generate_unique_slug("xiaomi")
         brand_data = {
-            "name": "小米",
-            "slug": "xiaomi",
+            "name": brand_name,
+            "slug": brand_slug,
             "description": "小米科技",
             "is_active": True
         }
         response = integration_test_client.post("/api/v1/product-catalog/brands", json=brand_data)
         assert response.status_code == 201
         data = response.json()
-        assert data["name"] == "小米"
-        assert data["slug"] == "xiaomi"
+        assert data["name"] == brand_name
+        assert data["slug"] == brand_slug
 
 
+@pytest.mark.integration
 class TestProductAPI:
     """商品API测试"""
 
     def test_create_product_api(self, integration_test_client, integration_test_db):
         """测试创建商品API"""
         # 首先创建品牌和分类
-        brand = Brand(name="苹果", slug="apple")
-        category = Category(name="手机")
+        brand = Brand(name=generate_unique_brand_name("苹果"), slug=generate_unique_slug("apple"))
+        category = Category(name=generate_unique_category_name("手机"))
         integration_test_db.add_all([brand, category])
         integration_test_db.commit()
         integration_test_db.refresh(brand)
@@ -430,13 +472,14 @@ class TestProductAPI:
 
 # ============ 业务逻辑测试 ============
 
+@pytest.mark.integration
 class TestProductBusiness:
     """商品业务逻辑测试"""
 
     def test_product_search_by_category(self, integration_test_client, integration_test_db):
         """测试按分类搜索商品"""
         # 创建分类和商品
-        category = Category(name="笔记本电脑")
+        category = Category(name=generate_unique_category_name("笔记本电脑"))
         integration_test_db.add(category)
         integration_test_db.commit()
         integration_test_db.refresh(category)
@@ -454,7 +497,7 @@ class TestProductBusiness:
     def test_product_search_by_brand(self, integration_test_client, integration_test_db):
         """测试按品牌搜索商品"""
         # 创建品牌和商品
-        brand = Brand(name="联想", slug="lenovo")
+        brand = Brand(name=generate_unique_brand_name("联想"), slug=generate_unique_slug("lenovo"))
         integration_test_db.add(brand)
         integration_test_db.commit()
         integration_test_db.refresh(brand)

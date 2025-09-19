@@ -1,0 +1,16 @@
+[tool.pytest.ini_options]
+markers = [
+    "integration: marks tests as integration tests (requires database)",
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "api: marks tests as API tests",
+    "unit: marks tests as unit tests"
+]
+testpaths = ["tests"]
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    "--strict-markers",
+    "--tb=short",
+    "--disable-warnings"
+]
