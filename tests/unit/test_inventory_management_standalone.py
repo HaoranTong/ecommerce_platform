@@ -20,6 +20,7 @@ if project_root not in sys.path:
 
 # 独立导入，避免循环依赖
 from app.core.database import Base
+from tests.factories.test_data_factory import StandardTestDataFactory, TestDataValidator
 
 
 class TestInventoryModels:

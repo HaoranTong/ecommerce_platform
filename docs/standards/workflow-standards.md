@@ -249,8 +249,8 @@ python scripts\validate_test_config.py
 .\scripts\check_docs.ps1 -CheckModuleCompleteness
 # 确保显示: 📈 整体完成率: 100%
 
-# 2. 运行所有测试
-pytest tests/ -v
+# 2. 运行所有测试 (使用标准脚本)
+.\scripts\setup_test_env.ps1 -TestType all
 
 # 3. 检查代码质量
 # (如果配置了flake8等工具)

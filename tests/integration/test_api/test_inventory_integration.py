@@ -14,6 +14,7 @@ from datetime import datetime, timedelta, timezone
 import json
 
 from app.modules.inventory_management.models import (
+from tests.factories.test_data_factory import StandardTestDataFactory, TestDataValidator
     InventoryStock, InventoryReservation, InventoryTransaction,
     TransactionType, ReservationType
 )
@@ -284,7 +285,7 @@ class TestInventoryReservationAPI:
         """测试释放库存预占 - 成功场景"""
         # Arrange - 创建库存和预占记录
         stock = InventoryStock(
-            sku_id="RELEASE-TEST-SKU",
+            sku_id=test_sku.id  # 🔧 修复：使用SKU对象的ID,
             total_quantity=100,
             available_quantity=70,
             reserved_quantity=30
@@ -293,7 +294,7 @@ class TestInventoryReservationAPI:
         integration_test_db.commit()
         
         reservation = InventoryReservation(
-            sku_id="RELEASE-TEST-SKU",
+            sku_id=test_sku.id  # 🔧 修复：使用SKU对象的ID,
             reserved_quantity=15,
             reservation_type=ReservationType.CART,
             reference_id="cart_to_release",
@@ -337,7 +338,7 @@ class TestInventoryDeductAPI:
         """测试库存扣减 - 成功场景"""
         # Arrange - 创建有预占的库存
         stock = InventoryStock(
-            sku_id="DEDUCT-TEST-SKU",
+            sku_id=test_sku.id  # 🔧 修复：使用SKU对象的ID,
             total_quantity=100,
             available_quantity=50,
             reserved_quantity=50
@@ -387,7 +388,7 @@ class TestInventoryAdjustmentAPI:
         """测试库存调整 - 增加库存"""
         # Arrange
         stock = InventoryStock(
-            sku_id="ADJUST-INCREASE-SKU",
+            sku_id=test_sku.id  # 🔧 修复：使用SKU对象的ID,
             total_quantity=100,
             available_quantity=80,
             reserved_quantity=20
@@ -423,7 +424,7 @@ class TestInventoryAdjustmentAPI:
         """测试库存调整 - 减少库存"""
         # Arrange
         stock = InventoryStock(
-            sku_id="ADJUST-DECREASE-SKU",
+            sku_id=test_sku.id  # 🔧 修复：使用SKU对象的ID,
             total_quantity=100,
             available_quantity=80,
             reserved_quantity=20
@@ -496,7 +497,7 @@ class TestInventoryQueryAPI:
         """测试获取库存事务历史"""
         # Arrange - 创建库存和事务记录
         stock = InventoryStock(
-            sku_id="TRANSACTION-TEST-SKU",
+            sku_id=test_sku.id  # 🔧 修复：使用SKU对象的ID,
             total_quantity=100,
             available_quantity=100
         )
@@ -512,7 +513,7 @@ class TestInventoryQueryAPI:
         
         for tx_type, quantity, ref_type, ref_id in transactions_data:
             transaction = InventoryTransaction(
-                sku_id="TRANSACTION-TEST-SKU",
+                sku_id=test_sku.id  # 🔧 修复：使用SKU对象的ID,
                 transaction_type=tx_type,
                 quantity=quantity,
                 reference_type=ref_type,

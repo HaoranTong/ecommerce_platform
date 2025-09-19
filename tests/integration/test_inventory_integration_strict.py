@@ -27,6 +27,7 @@ from datetime import datetime, timedelta
 
 # 基于实际项目结构的正确导入
 from app.main import app
+from tests.factories.test_data_factory import StandardTestDataFactory, TestDataValidator
 from app.core.database import get_db
 from app.modules.inventory_management.models import (
     InventoryStock, InventoryTransaction, InventoryReservation, 

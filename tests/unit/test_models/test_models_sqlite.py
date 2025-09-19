@@ -12,6 +12,7 @@ import os
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
 from app.core.database import Base
+from tests.factories.test_data_factory import StandardTestDataFactory, TestDataValidator
 from app.modules.user_auth.models import User
 from app.modules.product_catalog.models import Product, Category
 from app.modules.order_management.models import Order, OrderItem

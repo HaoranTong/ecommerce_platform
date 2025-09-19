@@ -6,6 +6,7 @@ import pytest
 
 try:
     from app.modules.user_auth.models import User
+from tests.factories.test_data_factory import StandardTestDataFactory, TestDataValidator
     from app.modules.product_catalog.models import Product
     from app.modules.order_management.models import Order, OrderItem
     from app.modules.shopping_cart.models import Cart, CartItem

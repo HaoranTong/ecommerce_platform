@@ -1,5 +1,6 @@
 import pytest
 from app.modules.product_catalog.models import Category
+from tests.factories.test_data_factory import StandardTestDataFactory, TestDataValidator
 
 
 def test_create_category(integration_test_client):

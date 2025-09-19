@@ -18,6 +18,7 @@ from fastapi import status
 
 # 导入应用和依赖
 from app.main import app
+from tests.factories.test_data_factory import StandardTestDataFactory, TestDataValidator
 from app.core.database import get_db
 from app.modules.user_auth.models import User
 from app.modules.product_catalog.models import Category, Brand, Product, SKU

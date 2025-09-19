@@ -28,6 +28,7 @@ import jwt
 
 # 基于实际项目结构的正确导入
 from app.main import app
+from tests.factories.test_data_factory import StandardTestDataFactory, TestDataValidator
 from app.core.database import get_db
 from app.core.auth import create_access_token, create_refresh_token, decode_token, get_password_hash, verify_password
 from app.modules.user_auth.models import User

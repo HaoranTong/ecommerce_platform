@@ -43,6 +43,7 @@ def generate_unique_slug(base_slug):
     return f"{base_slug}_{suffix}"
 
 from app.modules.product_catalog.models import (
+from tests.factories.test_data_factory import StandardTestDataFactory, TestDataValidator
     Product, Category, Brand, SKU, ProductAttribute, ProductImage, ProductTag
 )
 from app.modules.product_catalog.schemas import (

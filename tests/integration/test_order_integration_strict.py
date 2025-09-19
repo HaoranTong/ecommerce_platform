@@ -33,6 +33,7 @@ from datetime import datetime, timedelta
 
 # 项目导入 - 基于实际文档验证的导入路径
 from app.main import app
+from tests.factories.test_data_factory import StandardTestDataFactory, TestDataValidator
 from app.core.database import get_db
 from app.modules.user_auth.models import User
 from app.modules.product_catalog.models import Category, Brand, Product, SKU

@@ -21,6 +21,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from app.core.database import Base
+from tests.factories.test_data_factory import StandardTestDataFactory, TestDataValidator
 from app.modules.payment_service.models import Payment, Refund
 from app.modules.payment_service.service import PaymentService, WechatPayService
 

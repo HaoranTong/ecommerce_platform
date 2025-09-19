@@ -14,6 +14,7 @@ from typing import Dict, Any
 
 # 导入实际的应用和依赖
 from app.main import app
+from tests.factories.test_data_factory import StandardTestDataFactory, TestDataValidator
 from app.modules.user_auth.models import User
 from app.modules.member_system.models import (
     MemberProfile, MemberLevel, MemberPoint, PointTransaction

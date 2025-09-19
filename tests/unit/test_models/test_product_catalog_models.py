@@ -11,6 +11,7 @@ from decimal import Decimal
 from datetime import datetime
 
 from app.modules.product_catalog.models import (
+from tests.factories.test_data_factory import StandardTestDataFactory, TestDataValidator
     Category, Brand, Product, SKU, ProductAttribute
 )
 

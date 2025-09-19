@@ -1,15 +1,3 @@
-# 测试环境检查和启动脚本
-# 根据 testing-standards.md 标准执行完整的测试环境准备和验证
-
-# 强制执行sku_id数据类型检查
-Write-Host "🔍 执行强制性sku_id数据类型检查..."
-& "$PSScriptRoot/check_sku_id_types.ps1"
-if ($LASTEXITCODE -ne 0) {
-    Write-Host "❌ sku_id数据类型检查失败，测试被阻止!" -ForegroundColor Red
-    exit 1
-}
-Write-Host "✅ sku_id数据类型检查通过" -ForegroundColor Green
-
 <#
 .SYNOPSIS
     测试环境检查和启动脚本
@@ -58,6 +46,18 @@ Param(
     [Parameter(Mandatory = $false)]
     [switch]$SetupOnly = $false
 )
+
+# 测试环境检查和启动脚本
+# 根据 testing-standards.md 标准执行完整的测试环境准备和验证
+
+# 强制执行sku_id数据类型检查
+Write-Host "🔍 执行强制性sku_id数据类型检查..."
+& "$PSScriptRoot/check_sku_id_types.ps1"
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "❌ sku_id数据类型检查失败，测试被阻止!" -ForegroundColor Red
+    exit 1
+}
+Write-Host "✅ sku_id数据类型检查通过" -ForegroundColor Green
 
 Set-StrictMode -Version Latest
 
@@ -122,7 +122,7 @@ function Test-EnvironmentConfiguration {
         if (Test-Path $validationScript) {
             Write-ColorMessage "运行测试配置验证脚本..." "Info"
             try {
-                $result = & python $validationScript
+                & python $validationScript | Out-Null
                 if ($LASTEXITCODE -eq 0) {
                     Write-ColorMessage "测试环境配置验证通过" "Success"
                     return $true
@@ -146,7 +146,7 @@ function Test-EnvironmentConfiguration {
 }
 
 # 函数：设置单元测试环境
-function Setup-UnitTestEnvironment {
+function Initialize-UnitTestEnvironment {
     Write-ColorMessage "=== 设置单元测试环境 ===" "Info"
     
     # 单元测试使用SQLite内存数据库，无需外部服务
@@ -169,7 +169,7 @@ function Setup-UnitTestEnvironment {
 }
 
 # 函数：设置烟雾测试环境
-function Setup-SmokeTestEnvironment {
+function Initialize-SmokeTestEnvironment {
     Write-ColorMessage "=== 设置烟雾测试环境 ===" "Info"
     
     # 烟雾测试使用SQLite文件数据库
@@ -188,7 +188,7 @@ function Setup-SmokeTestEnvironment {
 }
 
 # 函数：设置集成测试环境
-function Setup-IntegrationTestEnvironment {
+function Initialize-IntegrationTestEnvironment {
     Write-ColorMessage "=== 设置集成测试环境 ===" "Info"
     
     # 检查Docker是否可用
@@ -217,8 +217,8 @@ function Setup-IntegrationTestEnvironment {
         Write-ColorMessage "MySQL测试容器已存在且运行中，验证连接..." "Success"
         # 验证容器端口配置
         $containerPort = & docker port mysql_test 3306 2>$null
-        if ($containerPort -match "3307$") {
-            Write-ColorMessage "容器端口配置正确 (3307:3306)" "Success"
+        if ($containerPort -match "3308$") {
+            Write-ColorMessage "容器端口配置正确 (3308:3306)" "Success"
         } else {
             Write-ColorMessage "警告：容器端口配置可能不匹配，当前: $containerPort" "Warning"
         }
@@ -237,7 +237,7 @@ function Setup-IntegrationTestEnvironment {
                 -e MYSQL_DATABASE=test_ecommerce `
                 -e MYSQL_USER=test_user `
                 -e MYSQL_PASSWORD=test_pass `
-                -p 3307:3306 `
+                -p 3308:3306 `
                 mysql:8.0
         }
         
@@ -273,10 +273,8 @@ function Setup-IntegrationTestEnvironment {
             return $false
         }
     }
-    catch {
-        Write-ColorMessage "启动MySQL容器时发生错误: $_" "Error"
-        return $false
-    }
+    
+    return $true
 }
 
 # 函数：运行测试
@@ -289,16 +287,20 @@ function Invoke-Tests {
     
     switch ($Type) {
         "unit" {
-            & python -m pytest tests/unit/ -v
+            Write-ColorMessage "执行单元测试 (SQLite内存数据库)..." "Info"
+            & python -m pytest tests/unit/ -v --tb=short
         }
         "smoke" {
-            & python -m pytest tests/ -k "smoke" -v
+            Write-ColorMessage "执行烟雾测试 (SQLite文件数据库)..." "Info"
+            & python -m pytest tests/smoke/ -v --tb=short
         }
         "integration" {
-            & python -m pytest tests/integration/ -v
+            Write-ColorMessage "执行集成测试 (MySQL Docker端口3308)..." "Info"
+            & python -m pytest tests/integration/ -v --tb=short
         }
         "all" {
-            & python -m pytest tests/ -v
+            Write-ColorMessage "执行完整测试套件..." "Info"
+            & python -m pytest tests/ -v --cov=app --cov-report=term --tb=short
         }
     }
     
@@ -312,7 +314,7 @@ function Invoke-Tests {
 }
 
 # 函数：清理环境
-function Cleanup-Environment {
+function Clear-TestEnvironment {
     Write-ColorMessage "=== 清理测试环境 ===" "Info"
     
     if ($script:DockerStarted) {
@@ -346,18 +348,18 @@ function Main {
         $setupSuccess = $false
         switch ($TestType) {
             "unit" {
-                $setupSuccess = Setup-UnitTestEnvironment
+                $setupSuccess = Initialize-UnitTestEnvironment
             }
             "smoke" {
-                $setupSuccess = Setup-SmokeTestEnvironment
+                $setupSuccess = Initialize-SmokeTestEnvironment
             }
             "integration" {
-                $setupSuccess = Setup-IntegrationTestEnvironment
+                $setupSuccess = Initialize-IntegrationTestEnvironment
             }
             "all" {
-                $setupSuccess = (Setup-UnitTestEnvironment) -and 
-                               (Setup-SmokeTestEnvironment) -and 
-                               (Setup-IntegrationTestEnvironment)
+                $setupSuccess = (Initialize-UnitTestEnvironment) -and 
+                               (Initialize-SmokeTestEnvironment) -and 
+                               (Initialize-IntegrationTestEnvironment)
             }
         }
         
@@ -388,7 +390,7 @@ function Main {
         
         # 清理环境（如果需要）
         if (-not $SetupOnly -and $TestType -eq "integration") {
-            Cleanup-Environment
+            Clear-TestEnvironment
         }
     }
     

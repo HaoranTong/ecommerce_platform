@@ -14,6 +14,7 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy.exc import IntegrityError
 
 from app.modules.inventory_management.models import (
+from tests.factories.test_data_factory import StandardTestDataFactory, TestDataValidator
     InventoryStock, InventoryReservation, InventoryTransaction,
     TransactionType, ReservationType, AdjustmentType
 )
@@ -155,7 +156,7 @@ class TestInventoryStock:
         """测试库存属性 - 紧急库存预警"""
         # Arrange
         stock = InventoryStock(
-            sku_id="TEST-SKU-004",
+            sku_id=test_sku.id  # 🔧 修复：使用SKU对象的ID,
             total_quantity=3,
             available_quantity=3,
             warning_threshold=10,
@@ -173,7 +174,7 @@ class TestInventoryStock:
         """测试库存属性 - 缺货状态"""
         # Arrange
         stock = InventoryStock(
-            sku_id="TEST-SKU-005",
+            sku_id=test_sku.id  # 🔧 修复：使用SKU对象的ID,
             total_quantity=0,
             available_quantity=0,
             warning_threshold=10,
@@ -191,7 +192,7 @@ class TestInventoryStock:
         """测试库存检查 - 库存充足"""
         # Arrange
         stock = InventoryStock(
-            sku_id="TEST-SKU-006",
+            sku_id=test_sku.id  # 🔧 修复：使用SKU对象的ID,
             total_quantity=100,
             available_quantity=80,
             reserved_quantity=20
@@ -208,7 +209,7 @@ class TestInventoryStock:
         """测试库存检查 - 库存不足"""
         # Arrange
         stock = InventoryStock(
-            sku_id="TEST-SKU-007",
+            sku_id=test_sku.id  # 🔧 修复：使用SKU对象的ID,
             total_quantity=100,
             available_quantity=30,
             reserved_quantity=70
@@ -230,7 +231,7 @@ class TestInventoryReservation:
         # Arrange
         # 先创建库存记录
         stock = InventoryStock(
-            sku_id="TEST-SKU-008",
+            sku_id=test_sku.id  # 🔧 修复：使用SKU对象的ID,
             total_quantity=100,
             available_quantity=100
         )
@@ -265,7 +266,7 @@ class TestInventoryReservation:
         # Arrange
         expired_time = datetime.now(timezone.utc) - timedelta(minutes=10)
         reservation = InventoryReservation(
-            sku_id="TEST-SKU-009",
+            sku_id=test_sku.id  # 🔧 修复：使用SKU对象的ID,
             quantity=5,
             reservation_type=ReservationType.ORDER,
             reference_id="order_456",
@@ -282,7 +283,7 @@ class TestInventoryReservation:
         # Arrange
         future_time = datetime.now(timezone.utc) + timedelta(hours=1)
         reservation = InventoryReservation(
-            sku_id="TEST-SKU-010",
+            sku_id=test_sku.id  # 🔧 修复：使用SKU对象的ID,
             quantity=5,
             reservation_type=ReservationType.ORDER,
             reference_id="order_789",
@@ -303,7 +304,7 @@ class TestInventoryTransaction:
         # Arrange
         # 先创建库存记录
         stock = InventoryStock(
-            sku_id="TEST-SKU-011",
+            sku_id=test_sku.id  # 🔧 修复：使用SKU对象的ID,
             total_quantity=100,
             available_quantity=100
         )
@@ -344,7 +345,7 @@ class TestInventoryTransaction:
         """测试不同类型的库存事务"""
         # Arrange
         stock = InventoryStock(
-            sku_id="TEST-SKU-012",
+            sku_id=test_sku.id  # 🔧 修复：使用SKU对象的ID,
             total_quantity=100,
             available_quantity=100
         )
@@ -406,7 +407,7 @@ class TestInventoryStockBusinessLogic:
         """测试调整库存数量 - 成功场景"""
         # Arrange
         stock = InventoryStock(
-            sku_id="TEST-SKU-013",
+            sku_id=test_sku.id  # 🔧 修复：使用SKU对象的ID,
             total_quantity=100,
             available_quantity=80,
             reserved_quantity=20
@@ -430,7 +431,7 @@ class TestInventoryStockBusinessLogic:
         """测试预占库存 - 成功场景"""
         # Arrange
         stock = InventoryStock(
-            sku_id="TEST-SKU-014",
+            sku_id=test_sku.id  # 🔧 修复：使用SKU对象的ID,
             total_quantity=100,
             available_quantity=100,
             reserved_quantity=0
@@ -452,7 +453,7 @@ class TestInventoryStockBusinessLogic:
         """测试预占库存 - 库存不足"""
         # Arrange
         stock = InventoryStock(
-            sku_id="TEST-SKU-015",
+            sku_id=test_sku.id  # 🔧 修复：使用SKU对象的ID,
             total_quantity=100,
             available_quantity=20,
             reserved_quantity=80
@@ -474,7 +475,7 @@ class TestInventoryStockBusinessLogic:
         """测试释放预占库存 - 成功场景"""
         # Arrange
         stock = InventoryStock(
-            sku_id="TEST-SKU-016",
+            sku_id=test_sku.id  # 🔧 修复：使用SKU对象的ID,
             total_quantity=100,
             available_quantity=70,
             reserved_quantity=30
@@ -496,7 +497,7 @@ class TestInventoryStockBusinessLogic:
         """测试释放预占库存 - 释放数量超出预占量"""
         # Arrange
         stock = InventoryStock(
-            sku_id="TEST-SKU-017",
+            sku_id=test_sku.id  # 🔧 修复：使用SKU对象的ID,
             total_quantity=100,
             available_quantity=80,
             reserved_quantity=20
@@ -518,7 +519,7 @@ class TestInventoryStockBusinessLogic:
         """测试扣减库存 - 成功场景"""
         # Arrange
         stock = InventoryStock(
-            sku_id="TEST-SKU-018",
+            sku_id=test_sku.id  # 🔧 修复：使用SKU对象的ID,
             total_quantity=100,
             available_quantity=50,
             reserved_quantity=50
@@ -540,7 +541,7 @@ class TestInventoryStockBusinessLogic:
         """测试扣减库存 - 预占量不足"""
         # Arrange
         stock = InventoryStock(
-            sku_id="TEST-SKU-019",
+            sku_id=test_sku.id  # 🔧 修复：使用SKU对象的ID,
             total_quantity=100,
             available_quantity=80,
             reserved_quantity=20

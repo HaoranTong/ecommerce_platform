@@ -29,9 +29,15 @@ from fastapi import HTTPException
 
 # 导入被测试的模块 - 按照强制检查清单验证字段存在性
 from app.modules.shopping_cart.models import Cart, CartItem
+from tests.factories.test_data_factory import StandardTestDataFactory, TestDataValidator
 from app.modules.shopping_cart.schemas import AddItemRequest, UpdateQuantityRequest, CartResponse
 from app.modules.shopping_cart.service import CartService
 from app.shared.base_models import Base
+
+# 导入所有相关模型确保表结构创建和外键关系正确 - [CHECK:TEST-001]
+from app.modules.user_auth.models import User
+from app.modules.product_catalog.models import Product, Category, SKU  
+from app.modules.inventory_management.models import InventoryStock
 
 # 集成测试数据库配置（MySQL Docker容器）
 INTEGRATION_TEST_DATABASE_URL = "mysql+pymysql://root:test_password@localhost:3308/ecommerce_platform_test"
@@ -84,6 +90,78 @@ def cart_service(test_db):
     用于测试购物车的所有业务逻辑操作。
     """
     return CartService(db=test_db, redis_client=None)
+
+
+@pytest.fixture(autouse=True, scope="function")
+def setup_test_data(test_db):
+    """
+    自动创建完整测试数据链 - [CHECK:TEST-001]
+    
+    修复原始测试的设计缺陷：购物车测试需要完整的数据依赖支持。
+    按照外键依赖顺序创建：User → Category → Product → SKU → InventoryStock
+    """
+    from sqlalchemy import text
+    
+    # 按反向依赖关系清理数据（避免外键约束冲突）
+    test_db.query(InventoryStock).delete()
+    test_db.query(SKU).delete() 
+    test_db.query(Product).delete()
+    test_db.query(Category).delete()
+    test_db.query(User).delete()
+    test_db.commit()
+    
+    # 重置AUTO_INCREMENT确保ID的一致性
+    test_db.execute(text("ALTER TABLE users AUTO_INCREMENT = 1"))
+    test_db.execute(text("ALTER TABLE categories AUTO_INCREMENT = 1"))  
+    test_db.execute(text("ALTER TABLE products AUTO_INCREMENT = 1"))
+    test_db.commit()
+    
+    # 1. 创建测试用户 (确保user_id=1存在)
+    user = User(
+        username="test_user_1",
+        email="test1@example.com", 
+        password_hash="hashed_password",
+        phone="13900139000",
+        is_active=True
+    )
+    test_db.add(user)
+    test_db.flush()
+    assert user.id == 1, f"Expected user.id=1, got {user.id}"
+    
+    # 2. 创建测试分类
+    category = Category(
+        name="测试分类",
+        description="购物车集成测试分类",
+        is_active=True
+    )
+    test_db.add(category)
+    test_db.flush()
+    
+    # 3. 创建测试商品
+    product = Product(
+        name="测试商品",
+        description="购物车集成测试商品",
+        category_id=category.id,
+        status="published"
+    )
+    test_db.add(product)
+    test_db.flush()
+    
+    # 4. 创建测试SKU (使用固定ID 12345用于测试兼容性)
+    test_db.execute(text("""
+        INSERT INTO skus (id, product_id, sku_code, price, cost_price, is_active, created_at, updated_at) 
+        VALUES (12345, :product_id, 'TEST_SKU_12345', 99.99, 59.99, true, NOW(), NOW())
+    """), {"product_id": product.id})
+    
+    # 5. 创建库存记录（包含所有必需字段）
+    test_db.execute(text("""
+        INSERT INTO inventory_stocks (sku_id, total_quantity, available_quantity, reserved_quantity, warning_threshold, critical_threshold, is_active, created_at, updated_at)
+        VALUES (12345, 1000, 1000, 0, 10, 5, true, NOW(), NOW())
+    """))
+    
+    test_db.commit()
+    
+    return {"user_id": user.id, "sku_id": 12345, "product_id": product.id}
 
 
 @pytest.fixture

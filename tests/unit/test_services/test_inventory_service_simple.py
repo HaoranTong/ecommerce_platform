@@ -8,6 +8,7 @@ from unittest.mock import Mock
 from datetime import datetime, timezone
 
 from app.modules.inventory_management.service import InventoryService
+from tests.factories.test_data_factory import StandardTestDataFactory, TestDataValidator
 from app.modules.inventory_management.models import ReservationType
 
 

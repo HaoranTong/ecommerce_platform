@@ -18,6 +18,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from app.main import app
+from tests.factories.test_data_factory import StandardTestDataFactory, TestDataValidator
 from app.core.database import get_db
 from app.modules.member_system.models import MemberLevel, MemberProfile, PointTransaction, MemberPoint
 from app.modules.user_auth.models import User

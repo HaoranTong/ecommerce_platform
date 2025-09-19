@@ -8,6 +8,7 @@ from datetime import datetime, timedelta
 
 # 只导入需要的模型，避免循环导入
 from app.modules.user_auth.models import User, Role, Permission, UserRole, RolePermission, Session
+from tests.factories.test_data_factory import StandardTestDataFactory, TestDataValidator
 
 
 class TestUserAuthModels:

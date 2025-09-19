@@ -13,6 +13,7 @@ from fastapi import HTTPException
 
 # 导入被测试的模型和服务
 from app.modules.order_management.models import Order, OrderItem, OrderStatusHistory, OrderStatus
+from tests.factories.test_data_factory import StandardTestDataFactory, TestDataValidator
 from app.modules.order_management.service import OrderService
 from app.modules.order_management.schemas import OrderCreateRequest, OrderStatusUpdateRequest, OrderItemRequest, ShippingAddressRequest
 

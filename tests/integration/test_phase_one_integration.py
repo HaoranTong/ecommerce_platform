@@ -19,6 +19,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from app.main import app
+from tests.factories.test_data_factory import StandardTestDataFactory, TestDataValidator
 from app.modules.user_auth.models import User
 from app.modules.product_catalog.models import Product, Category
 from app.modules.shopping_cart.models import Cart, CartItem
