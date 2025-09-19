@@ -14,6 +14,7 @@ from datetime import datetime
 
 # 导入实际的应用和依赖
 from app.main import app
+from tests.factories.test_data_factory import StandardTestDataFactory, TestDataValidator
 from app.core.database import get_db
 from app.core.auth import get_current_user
 from app.modules.user_auth.models import User

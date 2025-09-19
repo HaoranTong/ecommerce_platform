@@ -86,6 +86,27 @@ try {
         Write-Output "Server already running."
     }
 
+    # ========== 执行pytest烟雾测试 (新标准) ==========
+    Write-Output ""
+    Write-Output "=== Running pytest smoke tests ==="
+    try {
+        & python -m pytest tests/smoke/ -v --tb=short --no-header
+        if ($LASTEXITCODE -eq 0) {
+            Write-Output "✅ Pytest smoke tests passed"
+        } else {
+            Write-Error "❌ Pytest smoke tests failed (exit code: $LASTEXITCODE)"
+            $script:TestSuccess = $false
+        }
+    }
+    catch {
+        Write-Error "❌ Failed to run pytest smoke tests: $($_.Exception.Message)"
+        $script:TestSuccess = $false
+    }
+
+    # ========== 执行PowerShell API测试 (遗留兼容) ==========
+    Write-Output ""
+    Write-Output "=== Running legacy PowerShell API tests ==="
+    
     # perform a POST with a randomized username to avoid conflicts
     $rnd = Get-Random -Maximum 100000
     $payload = @{ 
@@ -122,11 +143,10 @@ try {
         Write-Output "GET $apiMe result: $(ConvertTo-Json $userInfo -Compress)"
         
         # 如果到达这里，说明测试成功
-        Write-Output "✅ Smoke test completed successfully"
-        $script:TestSuccess = $true
+        Write-Output "✅ Legacy PowerShell API tests completed successfully"
     }
     catch {
-        Write-Error "GET failed: $($_.Exception.Message)"
+        Write-Error "Legacy PowerShell API test failed: $($_.Exception.Message)"
         $script:TestSuccess = $false
     }
 

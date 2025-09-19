@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 
 # 导入库存管理相关模块
 from app.modules.inventory_management.models import (
+from tests.factories.test_data_factory import StandardTestDataFactory, TestDataValidator
     InventoryStock, InventoryReservation, InventoryTransaction,
     TransactionType, ReservationType, AdjustmentType
 )

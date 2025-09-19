@@ -14,6 +14,7 @@ from fastapi import HTTPException
 
 # 导入被测试的模块
 from app.modules.shopping_cart.models import Cart, CartItem
+from tests.factories.test_data_factory import StandardTestDataFactory, TestDataValidator
 from app.modules.shopping_cart.schemas import AddItemRequest, UpdateQuantityRequest, CartResponse
 from app.modules.shopping_cart.service import CartService
 from app.shared.base_models import Base

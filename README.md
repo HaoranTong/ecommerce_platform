@@ -50,8 +50,20 @@ ecommerce_platform/
 ├── 🛠️ scripts/                 # 自动化脚本
 ├── 📝 alembic/                 # 数据库迁移
 ├── 📊 logs/                    # 日志文件
-├── requirements.txt           # 项目依赖
-└── docker-compose.yml         # 容器配置
+├── 📋 根目录配置文件/           # 项目配置与工具
+│   ├── requirements.txt       # 生产环境依赖包
+│   ├── requirements_dev.txt   # 开发环境依赖包
+│   ├── pyproject.toml         # Python项目配置
+│   ├── alembic.ini            # 数据库迁移配置
+│   ├── docker-compose.yml     # 容器编排配置
+│   ├── start.ps1              # 项目启动脚本
+│   ├── dev_env.ps1           # 开发环境配置脚本
+│   ├── dev_tools.ps1         # 开发工具启动脚本
+│   ├── .env.example          # 环境变量配置模板
+│   ├── .gitignore            # Git忽略文件配置
+│   ├── .envrc                # 环境自动加载配置
+│   ├── .coverage             # 测试覆盖率配置
+│   └── MASTER.md             # AI开发规范控制文档
 ```
 
 ## 🚀 快速开始

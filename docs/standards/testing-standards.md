@@ -1,10 +1,11 @@
-# 测试策略与实施指南
+# 测试策略与实施指南 (统一标准版)
 
 ## 文档说明
-- **内容**：测试策略、测试框架、测试实施指南和最佳实践
+- **内容**：四层测试策略、测试框架配置、执行规范和质量标准
 - **使用者**：开发人员、测试人员、DevOps工程师
 - **更新频率**：随测试需求变化和框架升级更新
 - **关联文档**：[开发工作流程](workflow.md)、[编码标准](standards.md)、[MASTER工作流程](../MASTER.md)
+- **版本**：2025.09.19 - 统一四层测试策略标准版
 
 ## 🚨 强制性测试代码编写规范
 
@@ -45,32 +46,375 @@
 
 ---
 
-## 测试策略概览
+## 🎯 四层测试策略 (统一标准)
 
-### 测试金字塔
+### 测试金字塔分布
 ```
-     /\    E2E Tests (10%)
-    /  \   
-   /____\  Integration Tests (20%)
-  /______\  Unit Tests (70%)
+       /\      专项测试 (2%) - 性能/安全
+      /  \     
+     /____\    系统测试 (8%) - 烟雾/E2E  
+    /______\   集成测试 (20%) - API/数据库
+   /________\  单元测试 (70%) - Mock/SQLite
 ```
 
-### 测试层级定义
-- **单元测试 (Unit Tests)**：测试单个函数或类的功能
-- **集成测试 (Integration Tests)**：测试模块间的交互
-- **端到端测试 (E2E Tests)**：测试完整的用户场景
+### 四层测试定义
 
-## 测试脚本组织管理
+#### 1. 单元测试 (70%) - 快速反馈层
+- **test_models/**: 100% Mock测试 (纯业务逻辑)
+- **test_services/**: SQLite内存数据库 (数据交互)  
+- **\*_standalone.py**: SQLite内存数据库 (业务流程)
+- **目标**: 快速验证代码逻辑正确性，TDD开发支持
 
-### 测试脚本分类规范
+#### 2. 集成测试 (20%) - 质量保证层  
+- **tests/integration/test_api/**: HTTP API测试 + MySQL Docker
+- **tests/integration/test_database/**: 跨模块数据测试 + MySQL Docker
+- **目标**: 验证模块间集成，发现接口问题
 
-| 测试类型 | 存放位置 | 命名规范 | 执行方式 | 生命周期 |
-|---------|---------|---------|---------|---------|
-| **单元测试** | `tests/` | `test_*.py` | `pytest tests/` | 长期维护 |
-| **集成测试** | `tests/integration/` | `test_*_integration.py` | `pytest tests/integration/` | 长期维护 |
-| **端到端测试** | `tests/e2e/` | `test_*_e2e.py` | `pytest tests/e2e/` | 长期维护 |
-| **系统测试脚本** | `scripts/` | `*_test.ps1` | `.\scripts\*_test.ps1` | 长期维护 |
-| **临时调试脚本** | 根目录 | `test_*.py` | `python test_*.py` | 临时使用 |
+#### 3. 系统测试 (8%) - 部署验证层
+- **烟雾测试 (smoke)**: 基本功能验证 + SQLite文件数据库
+- **E2E测试**: 完整业务流程 + MySQL Docker  
+- **目标**: 验证系统整体可用性
+
+#### 4. 专项测试 (2%) - 特殊需求层
+- **性能测试**: 负载压力测试
+- **安全测试**: 渗透安全测试
+- **目标**: 非功能性需求验证
+
+## 🚨 强制测试策略规范
+
+### 数据库策略矩阵 (强制标准)
+**⚠️ 严格按照此矩阵执行，违规将导致测试架构混乱**
+
+| 测试位置 | Mock策略 | 数据库类型 | 数据持久化 | 使用场景 | 强制要求 |
+|---------|----------|-----------|------------|---------|----------|
+| **tests/unit/test_models/** | 100% Mock | 无数据库 | 不适用 | 纯业务逻辑验证 | 必须pytest-mock |
+| **tests/unit/test_services/** | 0% Mock | SQLite内存 | 测试间隔离 | 服务层数据交互 | 必须unit_test_db fixture |
+| **tests/unit/\*_standalone.py** | 0% Mock | SQLite内存 | 测试间隔离 | 完整业务流程 | 必须unit_test_db fixture |
+| **tests/smoke/** | 0% Mock | SQLite文件 | 会话内持久 | 部署后快速验证 | 必须smoke_test_db fixture |
+| **tests/integration/** | 0% Mock | MySQL Docker | 测试间清理 | 真实环境集成 | 必须mysql_integration_db |
+| **tests/e2e/** | 0% Mock | MySQL Docker | 测试间清理 | 生产环境模拟 | 必须mysql_e2e_db |
+
+### 分层测试实现规范
+
+#### 1. test_models/ → 100% Mock (纯逻辑测试)
+```python
+# ✅ 正确示例：完全Mock，专注业务逻辑
+def test_user_password_validation(mocker):
+    """测试用户密码验证逻辑，不涉及数据库"""
+    # 创建Mock对象
+    mock_user = mocker.Mock()
+    mock_user.password = "weak123"
+    
+    # 测试业务逻辑
+    validator = PasswordValidator(mock_user)
+    assert not validator.is_strong()
+    assert validator.get_weakness_reasons() == ["too_short", "no_special_char"]
+
+# ❌ 禁止：在test_models/中使用数据库
+def test_user_model_with_db(unit_test_db):  # 严禁使用
+    pass
+```
+
+#### 2. test_services/ → SQLite内存 (数据交互测试)
+```python  
+# ✅ 正确示例：服务层与数据库交互测试
+def test_user_service_create_and_query(unit_test_db):
+    """测试用户服务的数据库操作"""
+    service = UserService(unit_test_db)
+    
+    # 创建用户
+    user_data = {"email": "test@example.com", "password": "secure123"}
+    created_user = service.create_user(user_data)
+    
+    # 验证数据库交互
+    assert created_user.id is not None
+    assert created_user.email == user_data["email"]
+    
+    # 查询验证
+    found_user = service.get_user_by_email(user_data["email"])
+    assert found_user is not None
+    assert found_user.id == created_user.id
+
+# ❌ 禁止：在test_services/中使用Mock
+def test_service_with_mock(mocker):  # 违反规范
+    pass
+```
+
+#### 3. *_standalone.py → SQLite内存 (业务流程测试)
+```python
+# ✅ 正确示例：完整业务流程，验证数据一致性
+def test_shopping_cart_complete_workflow(unit_test_db):
+    """测试购物车完整业务流程"""
+    # 1. 准备测试数据
+    user = create_test_user(unit_test_db, email="customer@test.com")
+    product = create_test_product(unit_test_db, sku="PROD001", price=99.99)
+    
+    # 2. 执行业务流程
+    cart_service = ShoppingCartService(unit_test_db)
+    
+    # 添加商品到购物车
+    result = cart_service.add_item(user.id, product.sku, quantity=2)
+    assert result.success is True
+    
+    # 计算购物车总价
+    total = cart_service.calculate_total(user.id)
+    assert total == 199.98
+    
+    # 清空购物车
+    clear_result = cart_service.clear_cart(user.id)
+    assert clear_result.success is True
+    
+    # 验证数据一致性
+    cart_items = cart_service.get_cart_items(user.id)
+    assert len(cart_items) == 0
+```
+
+#### 4. tests/smoke/ → SQLite文件 (部署验证)
+```python
+# ✅ 烟雾测试：快速验证系统可用性
+def test_application_health_check():
+    """验证应用基本健康状态"""
+    response = requests.get("http://localhost:8000/health")
+    assert response.status_code == 200
+    assert response.json()["status"] == "healthy"
+
+def test_database_connection_smoke(smoke_test_db):
+    """验证数据库连接正常"""
+    # 简单的数据库连接测试
+    result = smoke_test_db.execute("SELECT 1 as test")
+    assert result.fetchone()[0] == 1
+```
+
+#### 5. tests/integration/ → MySQL Docker (集成验证)
+```python
+# ✅ 集成测试：真实环境模拟
+def test_user_registration_api_integration(api_client, mysql_integration_db):
+    """测试用户注册API完整集成"""
+    user_data = {
+        "email": "integration@test.com",
+        "username": "testuser",
+        "password": "SecurePass123"
+    }
+    
+    # HTTP API测试
+    response = api_client.post("/api/v1/users/register", json=user_data)
+    assert response.status_code == 201
+    
+    # 数据库验证
+    user_in_db = mysql_integration_db.query(User).filter(
+        User.email == user_data["email"]
+    ).first()
+    assert user_in_db is not None
+    assert user_in_db.username == user_data["username"]
+```
+
+## pytest-mock 统一使用标准
+
+### 强制使用pytest-mock (禁止unittest.mock)
+**⚠️ 项目统一使用pytest-mock，严禁混用unittest.mock**
+
+```python
+# ✅ 正确：pytest-mock统一语法
+def test_user_validation_logic(mocker):
+    """在test_models/中使用Mock测试纯逻辑"""
+    # 1. 创建Mock对象
+    mock_user = mocker.Mock()
+    mock_user.email = "test@example.com"
+    mock_user.age = 25
+    
+    # 2. Mock外部依赖
+    mock_email_service = mocker.patch('app.services.email_service.EmailService')
+    mock_email_service.return_value.is_valid.return_value = True
+    
+    # 3. 测试业务逻辑
+    validator = UserValidator(mock_user, mock_email_service)
+    assert validator.is_valid_user() is True
+
+# ❌ 严禁：unittest.mock (禁止导入和使用)  
+from unittest.mock import Mock, patch  # 绝对禁止
+```
+
+### Mock语法三种标准模式
+
+```python
+# 模式1：直接创建Mock对象 (适用于简单对象Mock)
+def test_with_mock_object(mocker):
+    mock_user = mocker.Mock()
+    mock_user.name = "testuser"
+    mock_user.get_profile.return_value = {"age": 25}
+
+# 模式2：patch模块/类 (适用于替换外部依赖)  
+def test_with_patch(mocker):
+    mock_service = mocker.patch('app.services.user_service.UserService')
+    mock_service.return_value.create_user.return_value = User(id=1)
+
+# 模式3：上下文管理器 (适用于临时Mock)
+def test_with_context_manager(mocker):
+    with mocker.patch('app.core.database.get_db') as mock_db:
+        mock_db.return_value = mocker.Mock()
+        # 测试逻辑
+```
+
+### Mock配置最佳实践
+
+```python
+# ✅ 正确：精确Mock配置
+def test_user_creation_with_email_validation(mocker):
+    # Mock外部邮件验证服务
+    mock_email_validator = mocker.patch('app.utils.validators.EmailValidator')
+    mock_email_validator.return_value.validate.return_value = True
+    
+    # Mock数据库操作（仅在test_models/中使用）
+    mock_db = mocker.Mock()
+    mock_db.add.return_value = None
+    mock_db.commit.return_value = None
+    
+    # 执行测试
+    service = UserService(mock_db)
+    result = service.create_user_with_validation("test@example.com")
+    
+    # 验证Mock调用
+    mock_email_validator.return_value.validate.assert_called_once_with("test@example.com")
+    mock_db.add.assert_called_once()
+    mock_db.commit.assert_called_once()
+
+# ❌ 错误：过度Mock或Mock配置错误
+def test_with_wrong_mock_usage(mocker):
+    # 错误1：Mock路径错误
+    mock_service = mocker.patch(some_variable)  # 应该是字符串路径
+    
+    # 错误2：不必要的Mock
+    mock_simple_function = mocker.patch('builtins.len')  # 过度Mock
+    
+    # 错误3：Mock配置不完整
+    mock_db = mocker.Mock()
+    # 忘记配置return_value，导致测试不稳定
+```
+
+## 数据库Fixture统一标准
+
+### 强制使用统一Fixture配置
+**⚠️ 严禁自定义数据库连接，必须使用标准Fixture**
+
+#### Fixture使用规范
+```python
+# ✅ 正确：使用标准Fixture
+def test_user_service_database_operations(unit_test_db):
+    """测试服务层数据库操作，使用SQLite内存"""
+    service = UserService(unit_test_db)
+    
+    user = User(email="test@example.com", username="testuser")
+    unit_test_db.add(user)
+    unit_test_db.commit()
+    unit_test_db.refresh(user)
+    
+    assert user.id is not None
+
+def test_integration_with_mysql(mysql_integration_db):
+    """集成测试使用MySQL Docker"""
+    user = User(email="integration@test.com")
+    mysql_integration_db.add(user)
+    mysql_integration_db.commit()
+    
+    assert user.id is not None
+
+# ❌ 严禁：自定义数据库连接
+def test_with_custom_database():
+    # 禁止自定义引擎
+    engine = create_engine("sqlite:///:memory:")  # 绝对禁止
+    # 禁止自定义会话
+    Session = sessionmaker(bind=engine)  # 绝对禁止
+```
+
+### SQLite vs MySQL 兼容性处理
+
+#### 兼容性策略
+```python
+# ✅ SQLite兼容层配置 (conftest.py中实现)
+@pytest.fixture(scope="function")
+def unit_test_db():
+    """SQLite内存数据库，兼容MySQL特性"""
+    engine = create_engine(
+        "sqlite:///:memory:",
+        connect_args={"check_same_thread": False}
+    )
+    
+    # 启用SQLite兼容功能
+    @event.listens_for(engine, "connect")  
+    def set_sqlite_pragma(dbapi_connection, connection_record):
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA foreign_keys=ON")  # 外键约束
+        cursor.execute("PRAGMA journal_mode=WAL")   # 并发性能
+        cursor.close()
+    
+    # 创建表结构
+    Base.metadata.create_all(bind=engine)
+    
+    # 创建会话
+    TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+    db = TestingSessionLocal()
+    
+    try:
+        yield db
+    finally:
+        db.close()
+        engine.dispose()
+```
+
+#### MySQL特定功能测试
+```python
+# ✅ 条件测试：仅MySQL环境执行
+@pytest.mark.skipif(DB_TYPE == "sqlite", reason="MySQL JSON功能测试")
+def test_mysql_json_field_operations(mysql_integration_db):
+    """测试MySQL JSON字段特定功能"""
+    user = User(
+        email="json@test.com",
+        profile_json={"preferences": {"theme": "dark", "language": "zh-CN"}}
+    )
+    mysql_integration_db.add(user)
+    mysql_integration_db.commit()
+    
+    # 测试JSON查询 (MySQL特有)
+    result = mysql_integration_db.query(User).filter(
+        User.profile_json['preferences']['theme'].astext == 'dark'
+    ).first()
+    assert result is not None
+```
+
+## 测试文件组织标准
+
+### 统一目录结构
+```
+tests/
+├── unit/                           # 单元测试 (70%)
+│   ├── test_models/               # Mock测试 - 纯业务逻辑
+│   ├── test_services/             # SQLite内存 - 数据交互
+│   ├── test_utils/                # Mock测试 - 工具函数
+│   └── *_standalone.py            # SQLite内存 - 业务流程
+├── smoke/                         # 烟雾测试 (4%)
+│   ├── test_health.py             # 健康检查
+│   └── test_basic_api.py          # 基本API验证
+├── integration/                   # 集成测试 (20%) 
+│   ├── test_api/                  # HTTP API集成测试
+│   └── test_database/             # 跨模块数据库测试
+├── e2e/                          # 端到端测试 (4%)
+│   ├── test_user_journey.py       # 用户完整流程
+│   └── test_order_journey.py      # 订单完整流程
+├── performance/                   # 性能测试 (1%)
+├── security/                      # 安全测试 (1%)
+└── conftest.py                    # 统一Fixture配置
+```
+
+### 测试文件分类执行规范
+
+| 测试分类 | 存放位置 | 数据库 | 执行命令 | 执行时机 | 时间要求 |
+|---------|---------|--------|---------|---------|----------|
+| **Mock单元测试** | `tests/unit/test_models/` | 无 | `pytest tests/unit/test_models/` | 代码提交前 | <30秒 |
+| **数据库单元测试** | `tests/unit/test_services/` | SQLite内存 | `pytest tests/unit/test_services/` | 代码提交前 | <1分钟 |
+| **业务流程测试** | `tests/unit/*_standalone.py` | SQLite内存 | `pytest tests/unit/*_standalone.py` | 代码提交前 | <2分钟 |
+| **烟雾测试** | `tests/smoke/` | SQLite文件 | `pytest tests/smoke/` | 部署后立即 | <30秒 |
+| **集成测试** | `tests/integration/` | MySQL Docker | `pytest tests/integration/` | 提交到主分支前 | <5分钟 |
+| **E2E测试** | `tests/e2e/` | MySQL Docker | `pytest tests/e2e/` | 发布前 | <10分钟 |
 
 ### 根目录测试脚本管理
 
@@ -135,145 +479,302 @@ tests/
 └── conftest.py              # pytest配置
 ```
 
-## 测试框架和工具
+## 测试框架技术栈
 
-### 主要测试框架
+### 核心测试框架 (强制使用)
 ```bash
-# 测试框架
-pytest              # 主要测试框架
-pytest-asyncio      # 异步测试支持
-pytest-cov          # 覆盖率报告
-pytest-mock         # Mock支持
+# 必需测试框架
+pytest>=7.0.0              # 主测试框架
+pytest-mock>=3.10.0        # Mock支持 (禁止unittest.mock)
+pytest-asyncio>=0.21.0     # 异步测试支持  
+pytest-cov>=4.0.0          # 覆盖率报告
 
-# API测试
-httpx               # HTTP客户端
-fastapi.testclient  # FastAPI测试客户端
+# API测试工具
+httpx>=0.24.0              # HTTP客户端 (集成测试)
+fastapi.testclient         # FastAPI测试客户端
 
-# 数据库测试
-pytest-alembic      # 数据库迁移测试
-sqlalchemy-utils    # 数据库测试工具
+# 数据库测试工具  
+SQLAlchemy>=2.0.0          # ORM框架
+pymysql>=1.0.0             # MySQL连接器 (集成测试)
+
+# 测试数据生成
+factory-boy>=3.2.0         # 测试数据工厂 (可选)
+Faker>=18.0.0              # 假数据生成 (可选)
 ```
 
-## 测试数据库配置策略
+### Docker环境配置 (集成测试必需)
+```yaml
+# docker-compose.yml - MySQL测试数据库配置
+services:
+  mysql_test:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: test_root_pass
+      MYSQL_DATABASE: ecommerce_platform_test  
+      MYSQL_USER: test_user
+      MYSQL_PASSWORD: test_pass
+    ports:
+      - "3308:3306"  # 注意：使用3308端口避免冲突
+    command: --default-authentication-plugin=mysql_native_password
+```
 
-### 🎯 数据库分离策略
-根据测试复杂度和环境需求，采用不同的数据库配置：
+## 统一数据库配置策略
 
-| 测试类型 | 数据库类型 | 配置方式 | 优势 | 使用场景 |
-|----------|-----------|----------|------|----------|
-| **单元测试** | SQLite内存 | `:memory:` | 速度极快，隔离性好 | 模型、服务逻辑测试 |
-| **烟雾测试** | SQLite文件 | `test.db` | 快速，无外部依赖 | 基础功能验证 |
-| **集成测试** | MySQL测试库 | Docker容器 | 真实环境，完整功能 | API、数据库交互测试 |
-| **E2E测试** | MySQL测试库 | Docker容器 | 生产环境模拟 | 完整业务流程测试 |
+### 数据库选择决策树
+```
+测试需要数据库? 
+├── NO → test_models/ (100% Mock测试)
+└── YES → 选择数据库类型
+    ├── 快速单元测试 → SQLite内存 (test_services/, *_standalone.py)
+    ├── 部署验证测试 → SQLite文件 (smoke/)
+    └── 真实环境测试 → MySQL Docker (integration/, e2e/)
+```
 
-### 🔧 测试环境配置
+### 标准数据库配置矩阵
 
-#### 单元测试 - SQLite内存数据库
+| 测试层级 | 数据库选择 | 连接配置 | 数据持久化 | 性能特点 | 适用场景 |
+|---------|-----------|----------|------------|----------|----------|
+| **Mock测试** | 无数据库 | N/A | 不适用 | 极快 (<1ms) | 纯逻辑验证 |
+| **SQLite内存** | `:memory:` | `sqlite:///:memory:` | 进程内隔离 | 很快 (<10ms) | 数据交互测试 |
+| **SQLite文件** | 临时文件 | `sqlite:///temp.db` | 会话内持久 | 快 (<50ms) | 部署验证 |
+| **MySQL Docker** | 容器数据库 | `mysql://test_user:test_pass@localhost:3308/test_db` | 测试间清理 | 中等 (<200ms) | 集成测试 |
+
+## conftest.py 标准配置
+
+### 统一Fixture定义 (精确配置)
 ```python
-# tests/conftest.py
+# tests/conftest.py - 标准配置，无需修改
+import sys
+import os
 import pytest
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
-from app.core.database import Base, get_db
+from sqlalchemy.pool import StaticPool
+from fastapi.testclient import TestClient
+
+# 确保项目路径
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
 from app.main import app
+from app.core.database import Base
 
-# 单元测试：SQLite内存数据库
-UNIT_TEST_DATABASE_URL = "sqlite:///:memory:"
-
+# ========== 1. 单元测试Fixture (SQLite内存) ==========
 @pytest.fixture(scope="function")
-def unit_test_engine():
-    """单元测试数据库引擎（内存）"""
+def unit_test_db():
+    """SQLite内存数据库，用于test_services/和*_standalone.py"""
     engine = create_engine(
-        UNIT_TEST_DATABASE_URL, 
-        connect_args={"check_same_thread": False}
+        "sqlite:///:memory:",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool  # 确保连接池稳定性
     )
+    
+    # SQLite兼容性配置
+    @event.listens_for(engine, "connect")
+    def set_sqlite_pragma(dbapi_connection, connection_record):
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA foreign_keys=ON")  # 启用外键约束
+        cursor.execute("PRAGMA journal_mode=WAL")   # 改善并发性能  
+        cursor.close()
+    
+    # 创建所有表
     Base.metadata.create_all(bind=engine)
-    yield engine
-    engine.dispose()
-
-@pytest.fixture(scope="function")
-def unit_test_db(unit_test_engine):
-    """单元测试数据库会话"""
-    TestingSessionLocal = sessionmaker(
-        autocommit=False, 
-        autoflush=False, 
-        bind=unit_test_engine
-    )
-    database = TestingSessionLocal()
+    
+    # 创建会话
+    TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+    db = TestingSessionLocal()
+    
     try:
-        yield database
+        yield db
     finally:
-        database.close()
-```
+        db.close()
+        engine.dispose()
 
-#### 烟雾测试 - SQLite文件数据库
-```python
-# 烟雾测试：SQLite文件数据库
-SMOKE_TEST_DATABASE_URL = "sqlite:///./tests/smoke_test.db"
-
-@pytest.fixture(scope="module")
-def smoke_test_engine():
-    """烟雾测试数据库引擎（文件）"""
-    engine = create_engine(
-        SMOKE_TEST_DATABASE_URL,
-        connect_args={"check_same_thread": False}
-    )
-    Base.metadata.create_all(bind=engine)
-    yield engine
-    # 清理测试数据但保留结构
-    Base.metadata.drop_all(bind=engine)
-    engine.dispose()
-
-@pytest.fixture(scope="function")
-def smoke_test_db(smoke_test_engine):
-    """烟雾测试数据库会话"""
-    TestingSessionLocal = sessionmaker(
-        autocommit=False,
-        autoflush=False, 
-        bind=smoke_test_engine
-    )
-    database = TestingSessionLocal()
-    try:
-        yield database
-    finally:
-        database.rollback()  # 回滚事务，保持数据清洁
-        database.close()
-```
-
-#### 集成测试 - MySQL Docker容器
-```python
-# 集成测试：MySQL Docker数据库
-INTEGRATION_TEST_DATABASE_URL = "mysql+pymysql://test_user:test_pass@localhost:3307/test_ecommerce"
-
+# ========== 2. 烟雾测试Fixture (SQLite文件) ==========  
 @pytest.fixture(scope="session")
-def integration_test_engine():
-    """集成测试数据库引擎（MySQL）"""
-    # 确保Docker容器已启动
+def smoke_test_db():
+    """SQLite文件数据库，用于tests/smoke/"""
+    db_file = "tests/smoke_test.db"
+    engine = create_engine(f"sqlite:///{db_file}")
+    
+    # 创建表结构
+    Base.metadata.create_all(bind=engine)
+    
+    TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+    db = TestingSessionLocal()
+    
+    try:
+        yield db
+    finally:
+        db.close()
+        engine.dispose()
+        # 清理文件
+        if os.path.exists(db_file):
+            os.remove(db_file)
+
+# ========== 3. 集成测试Fixture (MySQL Docker) ==========
+@pytest.fixture(scope="session") 
+def mysql_integration_db():
+    """MySQL Docker数据库，用于tests/integration/"""
     import subprocess
+    import time
+    
+    # 启动MySQL Docker容器
     subprocess.run([
-        "docker", "run", "-d", "--name", "mysql_test",
+        "docker", "run", "-d", "--name", "mysql_integration_test",
         "-e", "MYSQL_ROOT_PASSWORD=test_root_pass",
-        "-e", "MYSQL_DATABASE=test_ecommerce", 
-        "-e", "MYSQL_USER=test_user",
+        "-e", "MYSQL_DATABASE=ecommerce_platform_test",
+        "-e", "MYSQL_USER=test_user", 
         "-e", "MYSQL_PASSWORD=test_pass",
-        "-p", "3307:3306",
+        "-p", "3308:3306",  # 注意端口3308
         "mysql:8.0"
     ], check=False)
     
-    # 等待数据库启动
-    import time
-    time.sleep(10)
+    # 等待MySQL启动
+    time.sleep(15)
     
-    engine = create_engine(INTEGRATION_TEST_DATABASE_URL)
+    # 创建连接
+    engine = create_engine(
+        "mysql+pymysql://test_user:test_pass@localhost:3308/ecommerce_platform_test"
+    )
     Base.metadata.create_all(bind=engine)
-    yield engine
     
-    # 清理Docker容器
-    subprocess.run(["docker", "stop", "mysql_test"], check=False)
-    subprocess.run(["docker", "rm", "mysql_test"], check=False)
+    TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+    db = TestingSessionLocal()
+    
+    try:
+        yield db
+    finally:
+        db.close()
+        engine.dispose()
+        # 清理Docker容器
+        subprocess.run(["docker", "stop", "mysql_integration_test"], check=False)
+        subprocess.run(["docker", "rm", "mysql_integration_test"], check=False)
+
+# ========== 4. API测试客户端 ==========
+@pytest.fixture
+def api_client():
+    """FastAPI测试客户端，用于API集成测试"""
+    return TestClient(app)
+
+# ========== 5. 数据清理Fixture (自动执行) ==========
+@pytest.fixture(autouse=True)  
+def clean_database_after_test(unit_test_db):
+    """每个测试后自动清理数据库，确保测试隔离"""
+    yield
+    # 清理所有测试数据，按外键依赖顺序删除
+    try:
+        # 导入所有模型进行清理 
+        from app.modules.order_management.models import OrderItem, OrderStatusHistory, Order
+        from app.modules.payment_service.models import Refund, Payment  
+        from app.modules.user_auth.models import Session, UserRole, RolePermission, User, Role, Permission
+        from app.modules.inventory_management.models import InventoryTransaction, InventoryReservation, InventoryStock
+        from app.modules.product_catalog.models import SKUAttribute, ProductAttribute, ProductImage, ProductTag, SKU, Product, Brand, Category
+        
+        # 按依赖顺序清理
+        unit_test_db.query(OrderItem).delete()
+        unit_test_db.query(OrderStatusHistory).delete() 
+        unit_test_db.query(Refund).delete()
+        unit_test_db.query(Payment).delete()
+        unit_test_db.query(Order).delete()
+        
+        unit_test_db.query(RolePermission).delete()
+        unit_test_db.query(UserRole).delete()
+        unit_test_db.query(Session).delete()
+        unit_test_db.query(User).delete()
+        unit_test_db.query(Permission).delete()
+        unit_test_db.query(Role).delete()
+        
+        unit_test_db.query(InventoryTransaction).delete()
+        unit_test_db.query(InventoryReservation).delete()
+        unit_test_db.query(InventoryStock).delete()
+        
+        unit_test_db.query(SKUAttribute).delete()
+        unit_test_db.query(ProductAttribute).delete()
+        unit_test_db.query(ProductImage).delete()
+        unit_test_db.query(ProductTag).delete()
+        unit_test_db.query(SKU).delete()
+        unit_test_db.query(Product).delete()
+        unit_test_db.query(Brand).delete()
+        unit_test_db.query(Category).delete()
+        
+        unit_test_db.commit()
+    except Exception:
+        unit_test_db.rollback()
 ```
 
-### 🚀 测试环境工具和标准流程
+## 测试执行标准流程
+
+### 分层测试命令 (强制规范)
+
+#### 1. 单元测试执行 (日常开发)
+```bash
+# Mock单元测试 - 最快速验证
+pytest tests/unit/test_models/ -v --tb=short
+# 预期时间: <30秒, 覆盖率要求: >95%
+
+# 数据库单元测试 - 服务层验证  
+pytest tests/unit/test_services/ -v --tb=short
+# 预期时间: <1分钟, 覆盖率要求: >90%
+
+# 业务流程测试 - 端到端业务逻辑
+pytest tests/unit/*_standalone.py -v --tb=short  
+# 预期时间: <2分钟, 覆盖率要求: >85%
+
+# 所有单元测试
+pytest tests/unit/ -v --cov=app --cov-report=term
+# 预期时间: <3分钟, 总覆盖率要求: >90%
+```
+
+#### 2. 烟雾测试执行 (部署验证)
+```bash
+# 快速部署验证 - 关键功能检查
+pytest tests/smoke/ -v --tb=short
+# 预期时间: <30秒, 必须100%通过
+
+# 使用脚本执行 (推荐)
+.\scripts\smoke_test.ps1
+```
+
+#### 3. 集成测试执行 (提交前验证)
+```bash
+# 需要先启动MySQL Docker (端口3308)
+docker-compose up -d mysql_test
+
+# API集成测试
+pytest tests/integration/test_api/ -v --tb=short
+# 预期时间: <3分钟
+
+# 数据库集成测试  
+pytest tests/integration/test_database/ -v --tb=short
+# 预期时间: <2分钟
+
+# 所有集成测试
+pytest tests/integration/ -v
+# 预期时间: <5分钟, 必须100%通过
+```
+
+#### 4. 完整测试套件 (发布前验证)
+```bash
+# 完整测试流程 - 所有测试层级
+pytest tests/ -v --cov=app --cov-report=html --tb=short
+# 预期时间: <10分钟, 总覆盖率要求: >85%
+
+# 使用标准脚本 (推荐)
+.\scripts\integration_test.ps1
+```
+
+### 测试性能标准
+
+| 测试类型 | 时间要求 | 覆盖率要求 | 通过率要求 | 执行频率 |
+|---------|----------|-----------|-----------|----------|
+| **Mock单元测试** | <30秒 | >95% | 100% | 每次代码修改 |
+| **数据库单元测试** | <1分钟 | >90% | 100% | 每次提交前 |
+| **业务流程测试** | <2分钟 | >85% | 100% | 每次提交前 |
+| **烟雾测试** | <30秒 | N/A | 100% | 每次部署后 |
+| **集成测试** | <5分钟 | >80% | 100% | 提交到主分支前 |
+| **E2E测试** | <10分钟 | >70% | 100% | 发布前 |
 
 ## 🔧 测试环境工具 (强制使用)
 
@@ -496,15 +997,14 @@ tests/
 ```python
 # tests/unit/test_services/test_user_service.py
 import pytest
-from unittest.mock import Mock, patch
 from app.services.user_service import UserService
 from app.models.user import User
 
 class TestUserService:
     
     @pytest.fixture
-    def mock_db(self):
-        return Mock()
+    def mock_db(self, mocker):
+        return mocker.Mock()
     
     @pytest.fixture
     def user_service(self, mock_db):
@@ -530,10 +1030,10 @@ class TestUserService:
         mock_db.add.assert_called_once()
         mock_db.commit.assert_called_once()
     
-    def test_create_user_duplicate_email(self, user_service, mock_db):
+    def test_create_user_duplicate_email(self, user_service, mock_db, mocker):
         # Arrange
         user_data = {"email": "existing@example.com"}
-        mock_db.query.return_value.filter.return_value.first.return_value = Mock()
+        mock_db.query.return_value.filter.return_value.first.return_value = mocker.Mock()
         
         # Act & Assert
         with pytest.raises(ValueError, match="Email already exists"):
@@ -784,13 +1284,11 @@ class UserBehavior(HttpUser):
 ```python
 # tests/unit/test_external_services.py
 import pytest
-from unittest.mock import patch, Mock
 from app.services.payment_service import PaymentService
 
 class TestPaymentService:
     
-    @patch('app.services.payment_service.external_payment_api')
-    def test_process_payment_success(self, mock_payment_api):
+    def test_process_payment_success(self, mocker):
         # Arrange
         mock_payment_api.charge.return_value = {
             "status": "success",

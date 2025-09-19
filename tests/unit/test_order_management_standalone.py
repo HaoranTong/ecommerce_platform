@@ -21,6 +21,7 @@ if project_root not in sys.path:
 
 # 独立导入，避免循环依赖
 from app.core.database import Base
+from tests.factories.test_data_factory import StandardTestDataFactory, TestDataValidator
 
 
 class TestOrderModels:
@@ -347,7 +348,7 @@ class TestOrderDatabaseOperations:
         mock_item_instance = Mock()
         mock_item_instance.id = 1
         mock_item_instance.order_id = 1
-        mock_item_instance.sku_id = "SKU_001"
+        mock_item_instance.sku_id=sku.id  # 🔧 修复：使用整数ID而不是字符串
         mock_item_instance.quantity = 2
         
         mock_item_class.return_value = mock_item_instance
@@ -355,7 +356,7 @@ class TestOrderDatabaseOperations:
         # 测试创建订单项
         order_item = mock_item_class(
             order_id=1,
-            sku_id="SKU_001",
+            sku_id=sku.id  # 🔧 修复：使用整数ID而不是字符串,
             product_name="Test Product",
             quantity=2,
             unit_price=Decimal("99.99"),

@@ -1,26 +1,27 @@
 """
 Shopping Cart Module Standalone Unit Tests
 
-符合MASTER.md标准的独立单元测试，避免跨模块SQLAlchemy映射错误。
-使用模拟和内存数据库进行完全隔离的测试。
+符合MASTER.md标准的业务逻辑测试，使用真实数据库进行完整业务流程验证。
+按照统一测试策略：*_standalone.py → 100% 真实数据库 + pytest-mock
 """
 import sys
 import os
 import pytest
-from unittest.mock import Mock, patch, MagicMock
 from decimal import Decimal
 from datetime import datetime, timedelta
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import StaticPool
+from unittest.mock import Mock, MagicMock, patch
 
 # 添加项目根目录到Python路径
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-# 独立导入，避免循环依赖
-from app.core.database import Base
+# 导入模型和服务
+from app.modules.shopping_cart.models import CartItem
+from tests.factories.test_data_factory import StandardTestDataFactory, TestDataValidator
+from app.modules.user_auth.models import User
+from app.modules.product_catalog.models import SKU
+from app.modules.shopping_cart.service import CartService
 
 
 class TestShoppingCartModels:
@@ -277,7 +278,7 @@ class TestShoppingCartDatabaseOperations:
         mock_cart_item_instance = Mock()
         mock_cart_item_instance.id = 1
         mock_cart_item_instance.user_id = 1
-        mock_cart_item_instance.sku_id = "SKU_CRUD_001"
+        mock_cart_item_instance.sku_id=sku.id  # 🔧 修复：使用整数ID而不是字符串
         mock_cart_item_instance.quantity = 2
         mock_cart_item_instance.unit_price = Decimal("199.99")
         mock_cart_item_instance.total_price = Decimal("399.98")
@@ -287,7 +288,7 @@ class TestShoppingCartDatabaseOperations:
         # 测试创建购物车商品
         cart_item = mock_cart_item_class(
             user_id=1,
-            sku_id="SKU_CRUD_001",
+            sku_id=sku.id  # 🔧 修复：使用整数ID而不是字符串,
             quantity=2,
             unit_price=Decimal("199.99"),
             total_price=Decimal("399.98")

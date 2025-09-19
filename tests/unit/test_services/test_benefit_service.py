@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 
 # 导入实际的模型和服务 - 严格按照实际代码结构
 from app.modules.member_system.models import (
+from tests.factories.test_data_factory import StandardTestDataFactory, TestDataValidator
     MemberProfile, MemberLevel, MemberPoint
 )
 from app.modules.member_system.service import BenefitService, get_benefit_service

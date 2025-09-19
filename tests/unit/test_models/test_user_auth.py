@@ -10,6 +10,7 @@ from sqlalchemy.orm import sessionmaker
 
 # 直接导入认证模块的模型和函数，避免加载整个应用
 from app.modules.user_auth.models import Base, User
+from tests.factories.test_data_factory import StandardTestDataFactory, TestDataValidator
 from app.core.auth import (
     get_password_hash, 
     verify_password,
