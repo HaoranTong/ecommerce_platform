@@ -44,6 +44,7 @@ from fastapi import HTTPException, status
 
 from .models import Order, OrderItem, OrderStatusHistory, OrderStatus
 from .schemas import OrderCreateRequest, OrderItemRequest, ApiResponse
+from app.modules.inventory_management.schemas import ReservationItem
 from app.modules.user_auth.models import User
 from app.modules.product_catalog.models import Product, SKU
 from app.modules.inventory_management.service import InventoryService
@@ -151,10 +152,10 @@ class OrderService:
             # 准备预占数据
             reservation_items = []
             for item in items:
-                reservation_items.append({
-                    "sku_id": str(item.sku_id),
-                    "quantity": item.quantity
-                })
+                reservation_items.append(ReservationItem(
+                    sku_id=item.sku_id,
+                    quantity=item.quantity
+                ))
             
             # 调用库存服务预占库存
             reservation_result = await self.inventory_service.reserve_inventory(

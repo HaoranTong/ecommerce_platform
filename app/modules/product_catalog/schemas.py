@@ -78,8 +78,6 @@ class BrandUpdate(BaseSchema):
 class BrandRead(BrandBase, TimestampSchema):
     """品牌展示模式"""
     id: int
-    page: int
-    size: int
 
 
 # ============ 分类相关模式 ============
