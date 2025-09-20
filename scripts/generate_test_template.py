@@ -566,6 +566,341 @@ class IntelligentTestGenerator:
                 continue
             
         return merged
+        
+    def generate_intelligent_factories(self, module_name: str, models: Dict[str, ModelInfo]) -> str:
+        """智能生成Factory Boy类 [CHECK:TEST-002] [CHECK:DEV-009]
+        
+        基于模型分析结果自动生成Factory Boy工厂类，包括：
+        1. 智能推断字段数据类型和合理测试值  
+        2. 处理外键关系和唯一约束
+        3. 生成完整的测试数据工厂
+        
+        Args:
+            module_name: 模块名称
+            models: 模型分析结果
+            
+        Returns:
+            str: 生成的工厂类代码
+        """
+        print(f"🏭 开始生成智能测试数据工厂: {module_name}")
+        
+        # 获取模型导入路径
+        module_import_path = f"app.modules.{module_name}.models"
+        
+        # 生成工厂文件头部
+        factory_code = f'''"""
+智能生成的Factory Boy测试数据工厂 - {module_name}模块
+
+自动生成时间: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
+生成模型数量: {len(models)}
+智能特性: 
+- 自动推断字段类型和合理测试值
+- 处理外键关系和唯一约束  
+- 支持复杂业务场景数据创建
+
+符合标准:
+- [CHECK:TEST-002] Factory Boy测试数据标准
+- [CHECK:DEV-009] 代码生成质量标准
+
+使用示例:
+    from tests.factories.{module_name}_factories import *
+    
+    # 创建测试数据
+    user = UserFactory()
+    role = RoleFactory()
+    
+    # 创建关联数据
+    user_with_role = UserFactory(role=RoleFactory())
+"""
+
+import factory
+import factory.fuzzy
+from datetime import datetime, timedelta
+from decimal import Decimal
+from sqlalchemy.orm import Session
+
+from {module_import_path} import (
+    {', '.join(models.keys())}
+)
+
+
+'''
+
+        # 为每个模型生成Factory类
+        for model_name, model_info in models.items():
+            factory_class = self._generate_single_factory(model_name, model_info, models)
+            factory_code += factory_class + "\n\n"
+            
+        # 生成工厂管理器类
+        manager_class = self._generate_factory_manager(module_name, models)
+        factory_code += manager_class
+        
+        print(f"✅ 工厂生成完成，共{len(models)}个Factory类")
+        return factory_code
+        
+    def _generate_single_factory(self, model_name: str, model_info: ModelInfo, 
+                               all_models: Dict[str, ModelInfo]) -> str:
+        """生成单个模型的Factory类
+        
+        Args:
+            model_name: 模型名称
+            model_info: 模型信息
+            all_models: 所有模型信息，用于解析外键关系
+            
+        Returns:
+            str: Factory类代码
+        """
+        factory_name = f"{model_name}Factory"
+        
+        # 生成类定义
+        class_def = f'''class {factory_name}(factory.alchemy.SQLAlchemyModelFactory):
+    """智能生成的{model_name}工厂类"""
+    
+    class Meta:
+        model = {model_name}
+        sqlalchemy_session_persistence = "commit"
+'''
+
+        # 生成字段定义
+        field_definitions = []
+        
+        for field in model_info.fields:
+            if field.name in ['id'] and field.primary_key:
+                # 主键通常由数据库自动生成，跳过
+                continue
+                
+            field_def = self._generate_field_definition(field, model_info, all_models)
+            if field_def:
+                field_definitions.append(f"    {field_def}")
+        
+        # 添加字段定义到类中
+        if field_definitions:
+            class_def += "\n" + "\n".join(field_definitions) + "\n"
+        else:
+            class_def += "\n    pass\n"
+            
+        return class_def
+        
+    def _generate_field_definition(self, field: FieldInfo, model_info: ModelInfo, 
+                                 all_models: Dict[str, ModelInfo]) -> str:
+        """生成单个字段的Factory定义
+        
+        Args:
+            field: 字段信息
+            model_info: 当前模型信息
+            all_models: 所有模型信息
+            
+        Returns:
+            str: 字段定义代码
+        """
+        # 处理外键关系
+        if field.foreign_key:
+            return self._generate_foreign_key_definition(field, all_models)
+            
+        # 根据字段类型生成合适的Factory定义
+        if field.column_type.upper().startswith('VARCHAR') or field.python_type == 'str':
+            return self._generate_string_field_definition(field)
+        elif field.column_type.upper().startswith('INTEGER') or field.python_type == 'int':
+            return self._generate_integer_field_definition(field)
+        elif field.column_type.upper().startswith('BOOLEAN') or field.python_type == 'bool':
+            return self._generate_boolean_field_definition(field)
+        elif field.column_type.upper().startswith('DECIMAL') or field.python_type == 'Decimal':
+            return self._generate_decimal_field_definition(field)
+        elif field.column_type.upper().startswith('DATETIME') or field.python_type == 'datetime':
+            return self._generate_datetime_field_definition(field)
+        elif field.column_type.upper() == 'TEXT':
+            return self._generate_text_field_definition(field)
+        else:
+            # 默认处理
+            return self._generate_default_field_definition(field)
+            
+    def _generate_foreign_key_definition(self, field: FieldInfo, all_models: Dict[str, ModelInfo]) -> str:
+        """生成外键字段定义"""
+        # 尝试解析外键引用的模型
+        fk_parts = field.foreign_key.split('.')
+        if len(fk_parts) == 2:
+            table_name, column_name = fk_parts
+            # 找到对应的模型
+            target_model = None
+            for model_name, model_info in all_models.items():
+                if model_info.tablename == table_name:
+                    target_model = model_name
+                    break
+                    
+            if target_model:
+                # 处理潜在的循环依赖 - 对于某些关系使用LazyFunction
+                if self._has_circular_dependency(field.name, target_model):
+                    return f"{field.name} = factory.LazyFunction(lambda: 1)  # 避免循环依赖"
+                else:
+                    return f"{field.name} = factory.SubFactory({target_model}Factory)"
+        
+        # 如果无法解析，生成一个简单的整数外键
+        return f"{field.name} = factory.Sequence(lambda n: n + 1)"
+        
+    def _has_circular_dependency(self, field_name: str, target_model: str) -> bool:
+        """检查是否存在循环依赖"""
+        # 简单的循环依赖检测 - 可以根据需要扩展
+        circular_patterns = [
+            ('user_id', 'User'),
+            ('session_id', 'Session'),
+            ('granted_by', 'User')  # 通常granted_by会引用User，但User也可能有session
+        ]
+        
+        for pattern_field, pattern_model in circular_patterns:
+            if field_name == pattern_field and target_model == pattern_model:
+                return True
+        return False
+        
+    def _generate_string_field_definition(self, field: FieldInfo) -> str:
+        """生成字符串字段定义"""
+        field_name = field.name.lower()
+        
+        # 根据字段名推断合适的生成策略
+        if 'email' in field_name:
+            return f"{field.name} = factory.Sequence(lambda n: f'user{{n}}@example.com')"
+        elif 'username' in field_name or 'name' in field_name:
+            return f"{field.name} = factory.Sequence(lambda n: f'{field_name}_{{n}}')"
+        elif 'code' in field_name:
+            return f"{field.name} = factory.Sequence(lambda n: f'{field.name.upper()}_{{n:06d}}')"
+        elif 'description' in field_name:
+            return f"{field.name} = factory.Faker('text', max_nb_chars=200)"
+        elif 'title' in field_name:
+            return f"{field.name} = factory.Faker('sentence', nb_words=4)"
+        elif 'url' in field_name or 'link' in field_name:
+            return f"{field.name} = factory.Faker('url')"
+        elif 'phone' in field_name:
+            return f"{field.name} = factory.Faker('phone_number')"
+        elif 'address' in field_name:
+            return f"{field.name} = factory.Faker('address')"
+        elif 'password' in field_name:
+            return f"{field.name} = 'hashed_password_123'"
+        elif field.unique:
+            return f"{field.name} = factory.Sequence(lambda n: f'{field_name}_{{n}}')"
+        else:
+            # 默认字符串生成
+            max_length = self._extract_string_length(field.column_type)
+            if max_length and max_length <= 50:
+                return f"{field.name} = factory.Faker('word')"
+            else:
+                return f"{field.name} = factory.Faker('text', max_nb_chars={min(max_length or 200, 200)})"
+                
+    def _generate_integer_field_definition(self, field: FieldInfo) -> str:
+        """生成整数字段定义"""
+        if field.unique:
+            return f"{field.name} = factory.Sequence(lambda n: n + 1)"
+        else:
+            return f"{field.name} = factory.Faker('random_int', min=1, max=1000)"
+            
+    def _generate_boolean_field_definition(self, field: FieldInfo) -> str:
+        """生成布尔字段定义"""
+        field_name = field.name.lower()
+        
+        # 根据字段名推断默认值
+        if any(word in field_name for word in ['active', 'enabled', 'verified', 'valid']):
+            return f"{field.name} = True"
+        elif any(word in field_name for word in ['deleted', 'disabled', 'hidden']):
+            return f"{field.name} = False"
+        else:
+            return f"{field.name} = factory.Faker('boolean')"
+            
+    def _generate_decimal_field_definition(self, field: FieldInfo) -> str:
+        """生成Decimal字段定义"""
+        field_name = field.name.lower()
+        
+        if 'price' in field_name or 'cost' in field_name or 'amount' in field_name:
+            return f"{field.name} = factory.LazyAttribute(lambda obj: Decimal('99.99'))"
+        elif 'rate' in field_name or 'ratio' in field_name:
+            return f"{field.name} = factory.LazyAttribute(lambda obj: Decimal('0.1'))"
+        else:
+            return f"{field.name} = factory.LazyAttribute(lambda obj: Decimal('10.00'))"
+            
+    def _generate_datetime_field_definition(self, field: FieldInfo) -> str:
+        """生成datetime字段定义"""
+        field_name = field.name.lower()
+        
+        if 'created' in field_name:
+            return f"{field.name} = factory.LazyFunction(datetime.now)"
+        elif 'updated' in field_name or 'modified' in field_name:
+            return f"{field.name} = factory.LazyFunction(datetime.now)"
+        elif 'expired' in field_name or 'expires' in field_name:
+            return f"{field.name} = factory.LazyFunction(lambda: datetime.now() + timedelta(days=30))"
+        else:
+            return f"{field.name} = factory.Faker('date_time_this_year')"
+            
+    def _generate_text_field_definition(self, field: FieldInfo) -> str:
+        """生成TEXT字段定义"""
+        return f"{field.name} = factory.Faker('text', max_nb_chars=500)"
+        
+    def _generate_default_field_definition(self, field: FieldInfo) -> str:
+        """生成默认字段定义"""
+        if field.nullable:
+            return f"{field.name} = None"
+        else:
+            return f"{field.name} = factory.Faker('word')"
+            
+    def _extract_string_length(self, column_type: str) -> Optional[int]:
+        """从列类型字符串中提取长度限制"""
+        try:
+            if 'VARCHAR(' in column_type.upper():
+                start = column_type.upper().find('VARCHAR(') + 8
+                end = column_type.find(')', start)
+                return int(column_type[start:end])
+        except (ValueError, IndexError):
+            pass
+        return None
+        
+    def _generate_factory_manager(self, module_name: str, models: Dict[str, ModelInfo]) -> str:
+        """生成工厂管理器类，提供便捷的数据创建方法
+        
+        Args:
+            module_name: 模块名称
+            models: 模型信息
+            
+        Returns:
+            str: 工厂管理器代码
+        """
+        manager_class = f'''class {module_name.title().replace("_", "")}FactoryManager:
+    """智能生成的{module_name}模块工厂管理器
+    
+    提供便捷的测试数据创建方法和常见业务场景的数据组合
+    """
+    
+    @staticmethod
+    def setup_factories(session: Session):
+        """设置所有工厂的数据库会话"""
+'''
+
+        # 为每个工厂设置session
+        for model_name in models.keys():
+            factory_name = f"{model_name}Factory"
+            manager_class += f"        {factory_name}._meta.sqlalchemy_session = session\n"
+        
+        # 生成常用的数据创建方法
+        manager_class += f'''
+    @staticmethod
+    def create_sample_data(session: Session) -> dict:
+        """创建样本测试数据"""
+        {module_name.title().replace("_", "")}FactoryManager.setup_factories(session)
+        
+        data = {{}}
+'''
+
+        # 为每个模型生成样本数据
+        for model_name in models.keys():
+            factory_name = f"{model_name}Factory"
+            manager_class += f"        data['{model_name.lower()}'] = {factory_name}()\n"
+            
+        manager_class += '''        
+        session.commit()
+        return data
+        
+    @staticmethod
+    def create_test_scenario(session: Session, scenario: str = 'basic') -> dict:
+        """创建特定测试场景的数据"""
+        # 可以根据具体业务需求扩展不同场景
+        return ''' + f"{module_name.title().replace('_', '')}FactoryManager.create_sample_data(session)"
+
+        return manager_class
             
     def generate_tests(self, module_name: str, test_type: str = 'all', 
                       dry_run: bool = False, validate: bool = True) -> Dict[str, str]:
@@ -583,8 +918,15 @@ class IntelligentTestGenerator:
         # 1. 分析模型
         models = self.analyze_module_models(module_name)
         
-        # 2. 生成测试文件
+        # 2. 生成智能数据工厂 [CHECK:TEST-002]
+        factory_code = self.generate_intelligent_factories(module_name, models)
+        
+        # 3. 生成测试文件
         generated_files = {}
+        
+        # 添加工厂文件到生成结果
+        factory_file_path = f'tests/factories/{module_name}_factories.py'
+        generated_files[factory_file_path] = factory_code
         
         if test_type in ['all', 'unit']:
             unit_files = self._generate_unit_tests(module_name, models)
