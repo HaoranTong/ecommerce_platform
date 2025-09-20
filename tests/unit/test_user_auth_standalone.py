@@ -3,7 +3,7 @@ User_Auth 独立业务流程测试套件
 
 测试类型: 单元测试 (Standalone Business Flow)
 数据策略: SQLite内存数据库, unit_test_db fixture
-生成时间: 2025-09-20 09:38:07
+生成时间: 2025-09-20 21:34:33
 
 根据testing-standards.md第78-92行业务流程测试规范
 """

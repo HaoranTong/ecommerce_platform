@@ -105,7 +105,7 @@
 ### 开发流程与规范
 - docs/development/README.md - 开发流程指南
 - docs/development/testing-setup.md - 测试环境配置（增强版）
-- docs/development/checkpoint-cards.md - 检查点卡片系统（25张卡片）
+- docs/standards/checkpoint-cards.md - 检查点卡片系统（25张卡片）
 - docs/standards/naming-conventions.md - 命名规范
 - docs/standards/api-standards.md - API设计规范
 - docs/standards/database-standards.md - 数据库设计规范
