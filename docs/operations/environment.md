@@ -4,7 +4,7 @@
 - **内容**：环境变量配置、管理策略、安全策略、不同环境配置
 - **使用者**：开发团队、运维人员、部署管理员
 - **更新频率**：环境配置变更时更新
-- **关联文档**：[部署指南](deployment.md)、[开发工具](../development/tools.md)
+- **关联文档**：[部署指南](deployment.md)、[开发环境配置](../development/environment-setup.md)
 
 ---
 
@@ -440,6 +440,6 @@ redis-cli -h 127.0.0.1 -p 6379 ping
 
 ## 相关文档
 - [部署指南](deployment.md) - 生产环境部署配置
-- [开发工具](../development/tools.md) - 开发环境配置工具
+- [开发环境配置](../development/environment-setup.md) - 开发环境配置工具
 - [监控告警](monitoring.md) - 环境监控配置
 - [MASTER工作流程](../MASTER.md) - 环境配置检查点

@@ -118,7 +118,7 @@
 **触发条件**: 开始开发工作、环境配置
 **检查重点**: 开发环境、工具配置、脚本准备
 **精准导航**:
-1. **环境配置** → `docs/development/tools.md` 第545-600行开发工具配置
+1. **环境配置** → `docs/development/environment-setup.md` 开发环境配置指南
 2. **工作流程** → `docs/standards/workflow-standards.md` 第51-85行环境准备
 3. **脚本工具** → `docs/development/README.md` 第20-50行工具使用指南
 4. **强制检查** → `docs/standards/code-development-checklist.md` 第96-130行执行流程

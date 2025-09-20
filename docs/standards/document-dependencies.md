@@ -242,7 +242,7 @@ docs/
 
 ### 需要关注的问题
 - [ ] docs/modules/old-module/overview.md 存在无效引用
-- [ ] docs/development/tools.md 缺少标准引用
+- [x] docs/development/tools.md 已重构为environment-setup.md和scripts-usage-manual.md
 ```
 
 ## 📝 最佳实践
