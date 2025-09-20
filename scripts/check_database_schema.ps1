@@ -12,66 +12,8 @@ param(
     [switch]$Detailed = $false    # 详细输出
 )
 
-# 数据库架构检查配置
-$DatabaseConfig = @{
-    # 字段类型规范
-    FieldTypes = @{
-        "主键字段" = @{
-            Pattern = "id\s*=\s*Column\("
-            ValidTypes = @("Integer", "BigInteger")
-            RequiredAttributes = @("primary_key=True", "autoincrement=True")
-            ForbiddenAttributes = @("nullable=False")  # 主键默认不能为空
-        }
-        "外键字段" = @{
-            Pattern = "Column\(.*ForeignKey"
-            RequiredAttributes = @("ForeignKey\('[\w.]+'\)")
-            RecommendedAttributes = @("index=True")
-        }
-        "时间字段" = @{
-            Pattern = "(created_at|updated_at|deleted_at)\s*=\s*Column\("
-            ValidTypes = @("DateTime", "TIMESTAMP")
-            RequiredAttributes = @("default=")
-        }
-        "字符串字段" = @{
-            Pattern = "Column\(.*String"
-            RequiredAttributes = @("String\(\d+\)")  # 必须指定长度
-        }
-        "布尔字段" = @{
-            Pattern = "Column\(.*Boolean"
-            RecommendedAttributes = @("default=")
-        }
-    }
-    
-    # 表结构规范
-    TableRules = @{
-        "表名规范" = @{
-            Pattern = "__tablename__\s*=\s*['""]([^'""]+)['""]"
-            Rule = "^[a-z][a-z0-9_]*s?$"  # snake_case，建议复数
-        }
-        "必需字段" = @("id", "created_at", "updated_at")
-        "索引规范" = @{
-            "主键索引" = "primary_key=True"
-            "外键索引" = "index=True"
-            "唯一索引" = "unique=True"
-        }
-    }
-    
-    # 关系定义规范
-    RelationshipRules = @{
-        "外键命名" = "^[a-z][a-z0-9_]*_id$"
-        "反向引用" = "back_populates|backref"
-        "级联规则" = "cascade="
-    }
-    
-    # 常见错误模式
-    CommonIssues = @{
-        "主键nullable冲突" = "primary_key.*True.*nullable.*False|nullable.*False.*primary_key.*True"
-        "缺少长度的String" = "Column\(String\s*[,\)]"
-        "未索引的外键" = "ForeignKey\([^)]+\)(?![^,]*index\s*=\s*True)"
-        "缺少时间戳" = "class\s+\w+.*:"  # 需要进一步检查是否有created_at/updated_at
-        "硬编码默认值" = "default\s*=\s*['""](?!func\.)[^'""]*['""]"
-    }
-}
+# 数据库架构检查脚本 - 2025-09-20 修复版
+# 移除未使用的配置变量以符合PowerShell最佳实践
 
 function Write-ColorOutput {
     param([string]$Message, [string]$Color = "White")
@@ -93,7 +35,7 @@ function Write-ColorOutput {
     }
 }
 
-function Check-PrimaryKeyIssues {
+function Test-PrimaryKeyIssues {
     param([string]$FilePath, [array]$Content)
     
     $issues = @()
@@ -148,7 +90,7 @@ function Check-PrimaryKeyIssues {
     return $issues
 }
 
-function Check-ForeignKeyIssues {
+function Test-ForeignKeyIssues {
     param([string]$FilePath, [array]$Content)
     
     $issues = @()
@@ -192,7 +134,7 @@ function Check-ForeignKeyIssues {
     return $issues
 }
 
-function Check-StringFieldIssues {
+function Test-StringFieldIssues {
     param([string]$FilePath, [array]$Content)
     
     $issues = @()
@@ -221,7 +163,7 @@ function Check-StringFieldIssues {
     return $issues
 }
 
-function Check-TimestampFields {
+function Test-TimestampFields {
     param([string]$FilePath, [array]$Content)
     
     $issues = @()
@@ -319,7 +261,7 @@ function Check-TimestampFields {
     return $issues
 }
 
-function Check-TableNaming {
+function Test-TableNaming {
     param([string]$FilePath, [array]$Content)
     
     $issues = @()
@@ -362,7 +304,7 @@ function Check-TableNaming {
     return $issues
 }
 
-function Check-DatabaseModule {
+function Test-DatabaseModule {
     param([string]$ModulePath, [string]$ModuleName)
     
     Write-ColorOutput "🔍 检查模块: $ModuleName" "Cyan"
@@ -377,11 +319,11 @@ function Check-DatabaseModule {
     $allIssues = @()
     
     # 执行各项检查
-    $allIssues += Check-PrimaryKeyIssues -FilePath $modelFile -Content $content
-    $allIssues += Check-ForeignKeyIssues -FilePath $modelFile -Content $content
-    $allIssues += Check-StringFieldIssues -FilePath $modelFile -Content $content
-    $allIssues += Check-TimestampFields -FilePath $modelFile -Content $content
-    $allIssues += Check-TableNaming -FilePath $modelFile -Content $content
+    $allIssues += Test-PrimaryKeyIssues -FilePath $modelFile -Content $content
+    $allIssues += Test-ForeignKeyIssues -FilePath $modelFile -Content $content
+    $allIssues += Test-StringFieldIssues -FilePath $modelFile -Content $content
+    $allIssues += Test-TimestampFields -FilePath $modelFile -Content $content
+    $allIssues += Test-TableNaming -FilePath $modelFile -Content $content
     
     if ($allIssues.Count -eq 0) {
         Write-ColorOutput "  ✅ 未发现问题" "Green"
@@ -413,7 +355,7 @@ function Main {
         # 检查指定模块
         $modulePath = "app/modules/$ModuleName"
         if (Test-Path $modulePath) {
-            $allIssues += Check-DatabaseModule -ModulePath $modulePath -ModuleName $ModuleName
+            $allIssues += Test-DatabaseModule -ModulePath $modulePath -ModuleName $ModuleName
         } else {
             Write-ColorOutput "❌ 模块不存在: $ModuleName" "Red"
             exit 1
@@ -423,7 +365,7 @@ function Main {
         $modules = Get-ChildItem -Path "app/modules" -Directory
         
         foreach ($module in $modules) {
-            $allIssues += Check-DatabaseModule -ModulePath $module.FullName -ModuleName $module.Name
+            $allIssues += Test-DatabaseModule -ModulePath $module.FullName -ModuleName $module.Name
         }
         
         # 检查共享模型
@@ -432,10 +374,10 @@ function Main {
             Write-ColorOutput "🔍 检查共享模型文件" "Cyan"
             $content = Get-Content $sharedModelsPath
             $sharedIssues = @()
-            $sharedIssues += Check-PrimaryKeyIssues -FilePath $sharedModelsPath -Content $content
-            $sharedIssues += Check-ForeignKeyIssues -FilePath $sharedModelsPath -Content $content
-            $sharedIssues += Check-StringFieldIssues -FilePath $sharedModelsPath -Content $content
-            $sharedIssues += Check-TableNaming -FilePath $sharedModelsPath -Content $content
+            $sharedIssues += Test-PrimaryKeyIssues -FilePath $sharedModelsPath -Content $content
+            $sharedIssues += Test-ForeignKeyIssues -FilePath $sharedModelsPath -Content $content
+            $sharedIssues += Test-StringFieldIssues -FilePath $sharedModelsPath -Content $content
+            $sharedIssues += Test-TableNaming -FilePath $sharedModelsPath -Content $content
             
             $allIssues += $sharedIssues
             

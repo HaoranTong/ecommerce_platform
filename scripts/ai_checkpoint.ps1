@@ -16,8 +16,8 @@ AI检查点辅助验证脚本
 具体文件路径 (可选，用于精确检查)
 
 .EXAMPLE
-scripts/ai-checkpoint.ps1 -CardType DEV-001 -ModuleName inventory_management
-scripts/ai-checkpoint.ps1 -CardType TEST-001 -FilePath "tests/unit/test_models/test_inventory.py"
+scripts/ai_checkpoint.ps1 -CardType DEV-001 -ModuleName inventory_management
+scripts/ai_checkpoint.ps1 -CardType TEST-001 -FilePath "tests/unit/test_models/test_inventory.py"
 #>
 
 param(
