@@ -78,7 +78,7 @@ try {
                 $retryCount = 0
                 do {
                     try {
-                        $testConnection = docker exec mysql_integration_test mysql -utest_user -ptest_pass -e "SELECT 1;" test_ecommerce 2>$null
+                        docker exec mysql_integration_test mysql -utest_user -ptest_pass -e "SELECT 1;" test_ecommerce 2>$null | Out-Null
                         if ($LASTEXITCODE -eq 0) {
                             Write-Output "✅ 数据库连接验证成功"
                             break

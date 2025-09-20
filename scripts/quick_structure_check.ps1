@@ -8,7 +8,7 @@ function Write-ColorOutput {
     Write-Host $Message -ForegroundColor $Color
 }
 
-function Check-AppStructure {
+function Test-AppStructure {
     Write-ColorOutput "🔍 检查app目录结构..." "Blue"
     
     $issues = @()
@@ -58,7 +58,7 @@ function Check-AppStructure {
 Write-ColorOutput "🚀 开始架构合规性检查..." "Yellow"
 Write-ColorOutput "检查类型: $CheckType" "Gray"
 
-$allIssues = Check-AppStructure
+$allIssues = Test-AppStructure
 
 if ($allIssues.Count -eq 0) {
     Write-ColorOutput "✅ 架构结构检查通过！" "Green"

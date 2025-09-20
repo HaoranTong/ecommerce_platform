@@ -118,7 +118,7 @@ function Get-TemplateVariables {
     }
 }
 
-function Replace-TemplateVariables {
+function Update-TemplateVariables {
     param(
         [string]$Content,
         [hashtable]$Variables
@@ -131,7 +131,7 @@ function Replace-TemplateVariables {
     return $result
 }
 
-function Create-ModuleDirectory {
+function New-ModuleDirectory {
     param([string]$ModuleName)
     
     $moduleDir = "docs\modules\$ModuleName"
@@ -146,7 +146,7 @@ function Create-ModuleDirectory {
     return $moduleDir
 }
 
-function Create-DocumentFromTemplate {
+function New-DocumentFromTemplate {
     param(
         [string]$ModuleDir,
         [hashtable]$DocInfo,
@@ -182,7 +182,7 @@ function Create-DocumentFromTemplate {
     }
     
     # 替换模板变量
-    $content = Replace-TemplateVariables -Content $content -Variables $Variables
+    $content = Update-TemplateVariables -Content $content -Variables $Variables
     
     # 创建文档文件
     $content | Out-File -FilePath $docPath -Encoding UTF8
@@ -248,7 +248,7 @@ Write-ColorOutput "   中文名称: $(if ($ChineseName) { $ChineseName } else { 
 Write-ColorOutput "   负责人: $(if ($Owner) { $Owner } else { '待指定' })" "Cyan"
 
 # 创建模块目录
-$moduleDir = Create-ModuleDirectory -ModuleName $ModuleName
+$moduleDir = New-ModuleDirectory -ModuleName $ModuleName
 
 # 准备模板变量
 $variables = Get-TemplateVariables -ModuleName $ModuleName -ChineseName $ChineseName -Owner $Owner
@@ -258,7 +258,7 @@ $createdDocs = @()
 Write-ColorOutput "`n📄 生成文档文件:" "Blue"
 
 foreach ($docInfo in $ModuleDocsConfig.RequiredDocs) {
-    if (Create-DocumentFromTemplate -ModuleDir $moduleDir -DocInfo $docInfo -Variables $variables -Force $Force) {
+    if (New-DocumentFromTemplate -ModuleDir $moduleDir -DocInfo $docInfo -Variables $variables -Force $Force) {
         $createdDocs += $docInfo.FileName
     }
 }

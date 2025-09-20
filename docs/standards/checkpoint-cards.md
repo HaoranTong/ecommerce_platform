@@ -145,7 +145,7 @@
 □ 字段命名符合snake_case规范
 □ 禁止在测试中使用字符串作为ID值
 
-**辅助脚本**: `scripts/ai-checkpoint.ps1 -CardType DEV-002 -ModuleName {module}`
+**辅助脚本**: `scripts/ai_checkpoint.ps1 -CardType DEV-002 -ModuleName {module}`
 
 ### DEV-003: API设计与路由规范
 **触发条件**: 创建*_routes.py、设计API接口
@@ -232,7 +232,7 @@
 □ 外键关系测试正确
 
 **常见错误**: ❌ `sku_id="TEST-SKU-001"` → ✅ `sku_id=sku.id`
-**辅助脚本**: `scripts/ai-checkpoint.ps1 -CardType TEST-002`
+**辅助脚本**: `scripts/ai_checkpoint.ps1 -CardType TEST-002`
 
 ### TEST-003: 集成测试设计
 **触发条件**: API测试、跨模块测试
@@ -761,3 +761,54 @@ scripts\run_performance_tests.ps1 -Module [模块名] -LoadLevel [负载级别]
 # 执行安全测试套件
 scripts\run_security_tests.ps1 -Module [模块名] -TestLevel [测试级别]
 ```
+
+## 📋 文件操作类检查卡片 (FILE)
+
+### DEV-009: 严重混乱文件强制重建验证
+**触发条件**: 文件内容严重混乱、格式错误、大量重复内容
+**检查重点**: 安全删除、完全重建、防止错误复制
+**精准导航**:
+1. **备份策略** → 使用Terminal创建备份文件，不依赖内存保存
+2. **删除策略** → Terminal强制删除+清理缓存+删除Python预编译目录  
+3. **重建策略** → Terminal创建空文件，逐行编写，禁止复制粘贴
+4. **验证策略** → 每步验证，确保文件状态符合预期
+
+**强制执行流程**:
+1. **备份原文件**:
+   ```powershell
+   # 创建备份文件
+   Copy-Item "原文件路径" "原文件路径.backup.$(Get-Date -Format 'yyyyMMdd_HHmmss')"
+   ```
+
+2. **强力删除**:
+   ```powershell
+   # 删除混乱文件
+   Remove-Item "文件路径" -Force
+   # 清理Python缓存
+   Remove-Item "__pycache__" -Recurse -Force -ErrorAction SilentlyContinue
+   # 清理.pyc文件
+   Get-ChildItem -Recurse -Filter "*.pyc" | Remove-Item -Force
+   ```
+
+3. **创建空文件**:
+   ```powershell
+   # 创建全新空文件
+   New-Item "文件路径" -ItemType File -Force
+   # 验证文件为空
+   Get-Content "文件路径" | Should -BeNullOrEmpty
+   ```
+
+4. **逐行重建**:
+   - ❌ 禁止: 使用create_file工具
+   - ❌ 禁止: 复制粘贴原文件内容
+   - ✅ 必须: 使用replace_string_in_file逐行添加
+   - ✅ 必须: 每次添加验证内容正确性
+
+**验证清单**:
+□ 已创建带时间戳的备份文件
+□ 已强力删除原文件和所有缓存
+□ 已创建完全空白的新文件
+□ 已验证新文件确实为空
+□ 已逐行重建内容，无复制粘贴
+□ 已验证每行内容的正确性
+□ **强制**: 必须参考备份文件而非内存内容
