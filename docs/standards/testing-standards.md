@@ -1,178 +1,80 @@
-# 测试策略与实施指南 (统一标准版)
+# 测试标准
 
-## 文档说明
-- **内容**：四层测试策略、测试框架配置、执行规范和质量标准
-- **使用者**：开发人员、测试人员、DevOps工程师
-- **更新频率**：随测试需求变化和框架升级更新
-- **关联文档**：[开发工作流程](workflow.md)、[编码标准](standards.md)、[MASTER工作流程](../MASTER.md)
-- **版本**：2025.09.19 - 统一四层测试策略标准版
+## 五层测试架构
 
-## 🚨 强制性测试代码编写规范
+### 编写测试前检查
+- 阅读被测试模块文档 (overview.md, models.py, service.py)
+- 验证数据模型字段存在性 
+- 验证API方法存在性
+- 检查方法参数正确性
 
-### 测试代码编写前强制检查清单
-**⚠️ 违反此检查清单将导致测试质量问题和生产环境风险**
+### 禁止行为
+- 猜测字段名称
+- 猜测方法名称  
+- 假设字段存在
+- 简化业务逻辑测试
 
-#### 1. 强制文档依赖检查
-**任何测试代码编写前，必须完成以下步骤：**
-- ✅ **必须阅读被测试模块的技术文档** - 包括模块的 overview.md、models.py、service.py、schemas.py
-- ✅ **必须阅读相关依赖模块的技术文档** - 所有被引用模块的文档
-- ✅ **必须验证数据模型字段的实际存在性** - 通过 read_file 检查模型定义
-- ✅ **必须验证API方法的实际存在性** - 通过 grep_search 检查方法定义
-- ✅ **必须验证方法参数的正确性** - 检查方法签名和参数类型
+## 测试层级 (70%, 2%, 20%, 6%, 2%)
 
-#### 2. 禁止凭感觉编写测试代码
-**🚫 严禁以下行为：**
-- ❌ 凭经验猜测字段名称（如 `hashed_password` vs `password_hash`）
-- ❌ 凭经验猜测方法名称（如 `get_order_details` vs `get_order_by_id`）
-- ❌ 假设字段存在而不验证（如不存在的 `location` 字段）
-- ❌ 猜测方法参数（如遗漏 `operator_id` 参数）
-- ❌ 简化业务逻辑测试（如跳过认证流程）
-- ❌ 简化API端点测试（如只测试主页而不测试实际API）
+#### 单元测试 (70%)
+- test_models/: Mock测试
+- test_services/: SQLite内存
+- *_standalone.py: SQLite内存
 
-#### 3. 强制验证流程
-**编写测试前必须执行的验证步骤：**
-1. **模型验证**: `read_file app/modules/[模块]/models.py` 检查所有字段定义
-2. **服务验证**: `grep_search "def " app/modules/[模块]/service.py` 检查所有方法
-3. **API验证**: `read_file app/modules/[模块]/routes.py` 检查所有端点
-4. **依赖验证**: 检查所有import的模块和类的实际定义
+#### 烟雾测试 (2%) 
+- tests/smoke/: SQLite文件
 
-#### 4. 测试质量强制要求
-**测试必须达到以下质量标准：**
-- ✅ **100%使用真实字段名** - 所有字段名必须与模型定义一致
-- ✅ **100%使用真实方法名** - 所有方法调用必须与实际代码一致
-- ✅ **100%使用正确参数** - 所有参数必须与方法签名一致
-- ✅ **覆盖真实业务流程** - 不得简化关键业务逻辑
-- ✅ **测试真实API端点** - 不得用无关端点替代实际API
+#### 集成测试 (20%)
+- tests/integration/: MySQL Docker
 
----
+#### E2E测试 (6%)
+- tests/e2e/: MySQL Docker
 
-## 🎯 四层测试策略 (统一标准)
+#### 专项测试 (2%)
+- 性能测试, 安全测试
 
-### 测试金字塔分布
-```
-       /\      专项测试 (2%) - 性能/安全
-      /  \     
-     /____\    系统测试 (8%) - 烟雾/E2E  
-    /______\   集成测试 (20%) - API/数据库
-   /________\  单元测试 (70%) - Mock/SQLite
-```
+## 数据库策略
 
-### 四层测试定义
+| 测试位置 | Mock | 数据库 | Fixture |
+|---------|------|--------|---------|
+| tests/unit/test_models/ | 100% | 无 | pytest-mock |
+| tests/unit/test_services/ | 0% | SQLite内存 | unit_test_db |
+| tests/unit/*_standalone.py | 0% | SQLite内存 | unit_test_db |
+| tests/smoke/ | 0% | SQLite文件 | smoke_test_db |
+| tests/integration/ | 0% | MySQL Docker | mysql_integration_db |
+| tests/e2e/ | 0% | MySQL Docker | mysql_e2e_db |
 
-#### 1. 单元测试 (70%) - 快速反馈层
-- **test_models/**: 100% Mock测试 (纯业务逻辑)
-- **test_services/**: SQLite内存数据库 (数据交互)  
-- **\*_standalone.py**: SQLite内存数据库 (业务流程)
-- **目标**: 快速验证代码逻辑正确性，TDD开发支持
+## 测试实现示例
 
-#### 2. 集成测试 (20%) - 质量保证层  
-- **tests/integration/test_api/**: HTTP API测试 + MySQL Docker
-- **tests/integration/test_database/**: 跨模块数据测试 + MySQL Docker
-- **目标**: 验证模块间集成，发现接口问题
-
-#### 3. 系统测试 (8%) - 部署验证层
-- **烟雾测试 (smoke)**: 基本功能验证 + SQLite文件数据库
-- **E2E测试**: 完整业务流程 + MySQL Docker  
-- **目标**: 验证系统整体可用性
-
-#### 4. 专项测试 (2%) - 特殊需求层
-- **性能测试**: 负载压力测试
-- **安全测试**: 渗透安全测试
-- **目标**: 非功能性需求验证
-
-## 🚨 强制测试策略规范
-
-### 数据库策略矩阵 (强制标准)
-**⚠️ 严格按照此矩阵执行，违规将导致测试架构混乱**
-
-| 测试位置 | Mock策略 | 数据库类型 | 数据持久化 | 使用场景 | 强制要求 |
-|---------|----------|-----------|------------|---------|----------|
-| **tests/unit/test_models/** | 100% Mock | 无数据库 | 不适用 | 纯业务逻辑验证 | 必须pytest-mock |
-| **tests/unit/test_services/** | 0% Mock | SQLite内存 | 测试间隔离 | 服务层数据交互 | 必须unit_test_db fixture |
-| **tests/unit/\*_standalone.py** | 0% Mock | SQLite内存 | 测试间隔离 | 完整业务流程 | 必须unit_test_db fixture |
-| **tests/smoke/** | 0% Mock | SQLite文件 | 会话内持久 | 部署后快速验证 | 必须smoke_test_db fixture |
-| **tests/integration/** | 0% Mock | MySQL Docker | 测试间清理 | 真实环境集成 | 必须mysql_integration_db |
-| **tests/e2e/** | 0% Mock | MySQL Docker | 测试间清理 | 生产环境模拟 | 必须mysql_e2e_db |
-
-### 分层测试实现规范
-
-#### 1. test_models/ → 100% Mock (纯逻辑测试)
+### Mock测试 (test_models/)
 ```python
-# ✅ 正确示例：完全Mock，专注业务逻辑
 def test_user_password_validation(mocker):
-    """测试用户密码验证逻辑，不涉及数据库"""
-    # 创建Mock对象
     mock_user = mocker.Mock()
     mock_user.password = "weak123"
-    
-    # 测试业务逻辑
     validator = PasswordValidator(mock_user)
     assert not validator.is_strong()
-    assert validator.get_weakness_reasons() == ["too_short", "no_special_char"]
-
-# ❌ 禁止：在test_models/中使用数据库
-def test_user_model_with_db(unit_test_db):  # 严禁使用
-    pass
 ```
 
-#### 2. test_services/ → SQLite内存 (数据交互测试)
-```python  
-# ✅ 正确示例：服务层与数据库交互测试
-def test_user_service_create_and_query(unit_test_db):
-    """测试用户服务的数据库操作"""
+### 数据库测试 (test_services/)
+```python
+def test_user_service_create(unit_test_db):
     service = UserService(unit_test_db)
-    
-    # 创建用户
-    user_data = {"email": "test@example.com", "password": "secure123"}
+    user_data = {"email": "test@example.com"}
     created_user = service.create_user(user_data)
-    
-    # 验证数据库交互
-    assert created_user.id is not None
     assert created_user.email == user_data["email"]
-    
-    # 查询验证
-    found_user = service.get_user_by_email(user_data["email"])
-    assert found_user is not None
-    assert found_user.id == created_user.id
-
-# ❌ 禁止：在test_services/中使用Mock
-def test_service_with_mock(mocker):  # 违反规范
-    pass
 ```
 
-#### 3. *_standalone.py → SQLite内存 (业务流程测试)
+### 业务流程测试 (*_standalone.py)
 ```python
-# ✅ 正确示例：完整业务流程，验证数据一致性
-def test_shopping_cart_complete_workflow(unit_test_db):
-    """测试购物车完整业务流程"""
-    # 1. 准备测试数据
-    user = create_test_user(unit_test_db, email="customer@test.com")
-    product = create_test_product(unit_test_db, sku="PROD001", price=99.99)
-    
-    # 2. 执行业务流程
+def test_cart_workflow(unit_test_db):
     cart_service = ShoppingCartService(unit_test_db)
-    
-    # 添加商品到购物车
-    result = cart_service.add_item(user.id, product.sku, quantity=2)
+    result = cart_service.add_item(user_id, product_sku, 2)
     assert result.success is True
-    
-    # 计算购物车总价
-    total = cart_service.calculate_total(user.id)
-    assert total == 199.98
-    
-    # 清空购物车
-    clear_result = cart_service.clear_cart(user.id)
-    assert clear_result.success is True
-    
-    # 验证数据一致性
-    cart_items = cart_service.get_cart_items(user.id)
-    assert len(cart_items) == 0
 ```
 
-#### 4. tests/smoke/ → SQLite文件 (部署验证)
+### 烟雾测试 (tests/smoke/)
 ```python
-# ✅ 烟雾测试：快速验证系统可用性
-def test_application_health_check():
+def test_health_check():
     """验证应用基本健康状态"""
     response = requests.get("http://localhost:8000/health")
     assert response.status_code == 200
@@ -326,7 +228,11 @@ def test_with_custom_database():
     Session = sessionmaker(bind=engine)  # 绝对禁止
 ```
 
-### SQLite vs MySQL 兼容性处理
+### SQLite数据库使用策略
+
+#### 数据持久化区别
+- **SQLite内存数据库** (:memory:): 用于单元测试，测试间数据自动清理，高性能
+- **SQLite文件数据库** (文件路径): 用于烟雾测试，数据持久化便于调试和验证
 
 #### 兼容性策略
 ```python
@@ -391,13 +297,13 @@ tests/
 │   ├── test_services/             # SQLite内存 - 数据交互
 │   ├── test_utils/                # Mock测试 - 工具函数
 │   └── *_standalone.py            # SQLite内存 - 业务流程
-├── smoke/                         # 烟雾测试 (4%)
+├── smoke/                         # 烟雾测试 (2%)
 │   ├── test_health.py             # 健康检查
 │   └── test_basic_api.py          # 基本API验证
 ├── integration/                   # 集成测试 (20%) 
 │   ├── test_api/                  # HTTP API集成测试
 │   └── test_database/             # 跨模块数据库测试
-├── e2e/                          # 端到端测试 (4%)
+├── e2e/                          # 端到端测试 (6%)
 │   ├── test_user_journey.py       # 用户完整流程
 │   └── test_order_journey.py      # 订单完整流程
 ├── performance/                   # 性能测试 (1%)
@@ -454,68 +360,165 @@ def test_login_invalid_password()        # 无效密码登录
 def test_add_to_cart_out_of_stock()     # 添加无库存商品到购物车
 ```
 ```
-tests/
-├── unit/                    # 单元测试 (已按标准重组)
-│   ├── test_models/         # 模型测试 ✅ 已实现
-│   │   ├── test_inventory_models.py
-│   │   ├── test_product_catalog_models.py
-│   │   ├── test_models_sqlite.py
-│   │   └── test_data_models_relationships.py
-│   ├── test_services/       # 服务测试 ✅ 已实现
-│   │   ├── test_member_service.py
-│   │   ├── test_point_service.py
-│   │   ├── test_benefit_service.py
-│   │   └── test_inventory_service_simple.py
-│   ├── test_utils/          # 工具测试 ✅ 已创建
-│   └── [模块级独立测试文件] # *_standalone.py 文件
-├── integration/             # 集成测试
-│   ├── test_api/            # API集成测试
-│   │   └── test_member_api_integration.py
-│   ├── test_database/       # 数据库集成测试
-│   └── test_cart_system.ps1 # 购物车系统测试脚本
-├── e2e/                     # 端到端测试
-│   ├── test_user_journey.py # 用户流程测试
-│   └── test_order_journey.py # 订单流程测试
-└── conftest.py              # pytest配置
+
+## pytest.ini 标准配置
+
+```ini
+# pytest.ini - 项目根目录
+[tool:pytest]
+testpaths = tests
+python_files = test_*.py *_test.py
+python_classes = Test*
+python_functions = test_*
+addopts = 
+    --strict-markers
+    --strict-config
+    --verbose
+    --tb=short
+    --cov=app
+    --cov-report=html:htmlcov
+    --cov-report=term-missing
+    --cov-fail-under=85
+    --cov-config=.coveragerc
+markers =
+    unit: 单元测试标记
+    smoke: 烟雾测试标记  
+    integration: 集成测试标记
+    e2e: 端到端测试标记
+    slow: 慢速测试标记
+filterwarnings =
+    ignore::DeprecationWarning
+    ignore::PendingDeprecationWarning
+```
+
+## .coveragerc 覆盖率配置
+
+```ini
+# .coveragerc - 覆盖率配置
+[run]
+source = app
+omit = 
+    */tests/*
+    */venv/*
+    */__pycache__/*
+    */migrations/*
+    */conftest.py
+    app/main.py
+
+[report]
+exclude_lines =
+    pragma: no cover
+    def __repr__
+    if self.debug:
+    if settings.DEBUG
+    raise AssertionError
+    raise NotImplementedError
+    if 0:
+    if __name__ == .__main__.:
+    class .*\bProtocol\):
+    @(abc\.)?abstractmethod
+
+[html]
+directory = htmlcov
 ```
 
 ## 测试框架技术栈
 
 ### 核心测试框架 (强制使用)
 ```bash
-# 必需测试框架
-pytest>=7.0.0              # 主测试框架
-pytest-mock>=3.10.0        # Mock支持 (禁止unittest.mock)
-pytest-asyncio>=0.21.0     # 异步测试支持  
-pytest-cov>=4.0.0          # 覆盖率报告
+pytest>=7.0.0              
+pytest-mock>=3.10.0        
+pytest-asyncio>=0.21.0     
+pytest-cov>=4.0.0          
+httpx>=0.24.0              
+fastapi.testclient
+SQLAlchemy>=2.0.0          
+pymysql>=1.0.0             
+factory-boy>=3.2.0         
+Faker>=18.0.0              
+```
 
-# API测试工具
-httpx>=0.24.0              # HTTP客户端 (集成测试)
-fastapi.testclient         # FastAPI测试客户端
+## Factory Boy 测试数据工厂
 
-# 数据库测试工具  
-SQLAlchemy>=2.0.0          # ORM框架
-pymysql>=1.0.0             # MySQL连接器 (集成测试)
+### 数据工厂标准结构
+```python
+# tests/factories/__init__.py
+from .user_factory import UserFactory
+from .product_factory import ProductFactory
 
-# 测试数据生成
-factory-boy>=3.2.0         # 测试数据工厂 (可选)
-Faker>=18.0.0              # 假数据生成 (可选)
+# tests/factories/user_factory.py
+import factory
+from faker import Faker
+from app.modules.user_auth.models import User
+
+fake = Faker('zh_CN')
+
+class UserFactory(factory.Factory):
+    class Meta:
+        model = User
+
+    email = factory.LazyFunction(lambda: fake.email())
+    username = factory.LazyFunction(lambda: fake.user_name())
+    password_hash = "hashed_password_123"
+    is_active = True
+    created_at = factory.LazyFunction(lambda: fake.date_time())
+
+# 使用示例
+def test_user_creation(unit_test_db):
+    user = UserFactory.build()  # 创建对象但不保存
+    unit_test_db.add(user)
+    unit_test_db.commit()
+    assert user.email is not None
 ```
 
 ### Docker环境配置 (集成测试必需)
+
+#### 方法1：docker-compose.yml配置 (推荐)
 ```yaml
 # docker-compose.yml - MySQL测试数据库配置
 services:
   mysql_test:
     image: mysql:8.0
+    container_name: mysql_test_container
     environment:
       MYSQL_ROOT_PASSWORD: test_root_pass
       MYSQL_DATABASE: ecommerce_platform_test  
       MYSQL_USER: test_user
       MYSQL_PASSWORD: test_pass
     ports:
-      - "3308:3306"  # 注意：使用3308端口避免冲突
+      - "3308:3306"  # 测试专用端口，避免与生产MySQL(3306)冲突
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     command: --default-authentication-plugin=mysql_native_password
+    tmpfs:
+      - /tmp  # 临时文件系统，提高测试性能
+    volumes:
+      - /tmp/mysql_test_data:/var/lib/mysql  # 临时数据，测试后清理
+
+# 启动命令
+# docker-compose up -d mysql_test
+```
+
+#### 方法2：直接Docker命令 (快速测试)
+```bash
+# 启动MySQL测试容器
+docker run -d --name mysql_integration_test \
+  -e MYSQL_ROOT_PASSWORD=test_root_pass \
+  -e MYSQL_DATABASE=ecommerce_platform_test \
+  -e MYSQL_USER=test_user \
+  -e MYSQL_PASSWORD=test_pass \
+  -p 3308:3306 \
+  --health-cmd "mysqladmin ping -h localhost" \
+  --health-interval 10s \
+  --health-timeout 5s \
+  --health-retries 5 \
+  mysql:8.0
+
+# 清理命令
+docker stop mysql_integration_test && docker rm mysql_integration_test
 ```
 
 ## 统一数据库配置策略
@@ -539,42 +542,19 @@ services:
 | **SQLite文件** | 临时文件 | `sqlite:///temp.db` | 会话内持久 | 快 (<50ms) | 部署验证 |
 | **MySQL Docker** | 容器数据库 | `mysql://test_user:test_pass@localhost:3308/test_db` | 测试间清理 | 中等 (<200ms) | 集成测试 |
 
-## conftest.py 标准配置
+## conftest.py 配置
 
-### 统一Fixture定义 (精确配置)
 ```python
-# tests/conftest.py - 标准配置，无需修改
-import sys
-import os
+# tests/conftest.py
 import pytest
-from sqlalchemy import create_engine, event
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import StaticPool
-from fastapi.testclient import TestClient
-
-# 确保项目路径
-ROOT = Path(__file__).resolve().parents[1]
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
-
-from app.main import app
+from sqlalchemy import create_engine
 from app.core.database import Base
 
-# ========== 1. 单元测试Fixture (SQLite内存) ==========
-@pytest.fixture(scope="function")
+@pytest.fixture(scope="function") 
 def unit_test_db():
-    """SQLite内存数据库，用于test_services/和*_standalone.py"""
-    engine = create_engine(
-        "sqlite:///:memory:",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool  # 确保连接池稳定性
-    )
-    
-    # SQLite兼容性配置
-    @event.listens_for(engine, "connect")
-    def set_sqlite_pragma(dbapi_connection, connection_record):
-        cursor = dbapi_connection.cursor()
-        cursor.execute("PRAGMA foreign_keys=ON")  # 启用外键约束
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(bind=engine)
+    # 返回会话...
         cursor.execute("PRAGMA journal_mode=WAL")   # 改善并发性能  
         cursor.close()
     
@@ -621,22 +601,45 @@ def mysql_integration_db():
     import time
     
     # 启动MySQL Docker容器
-    subprocess.run([
+    container_result = subprocess.run([
         "docker", "run", "-d", "--name", "mysql_integration_test",
         "-e", "MYSQL_ROOT_PASSWORD=test_root_pass",
         "-e", "MYSQL_DATABASE=ecommerce_platform_test",
         "-e", "MYSQL_USER=test_user", 
         "-e", "MYSQL_PASSWORD=test_pass",
-        "-p", "3308:3306",  # 注意端口3308
+        "-p", "3308:3306",  # 测试专用端口，避免与生产环境冲突
+        "--health-cmd", "mysqladmin ping -h localhost",
+        "--health-interval", "10s",
+        "--health-timeout", "5s",
+        "--health-retries", "5",
         "mysql:8.0"
-    ], check=False)
+    ], check=False, capture_output=True, text=True)
     
-    # 等待MySQL启动
-    time.sleep(15)
+    if container_result.returncode != 0:
+        print(f"容器启动失败: {container_result.stderr}")
+        raise RuntimeError("MySQL Docker容器启动失败")
     
-    # 创建连接
+    # 等待MySQL健康检查通过
+    max_wait = 60  # 最大等待60秒
+    wait_time = 0
+    while wait_time < max_wait:
+        health_check = subprocess.run([
+            "docker", "inspect", "--format", "{{.State.Health.Status}}", 
+            "mysql_integration_test"
+        ], capture_output=True, text=True, check=False)
+        
+        if health_check.stdout.strip() == "healthy":
+            break
+        time.sleep(2)
+        wait_time += 2
+    else:
+        raise TimeoutError("MySQL Docker容器健康检查超时")
+    
+    # 创建数据库连接
     engine = create_engine(
-        "mysql+pymysql://test_user:test_pass@localhost:3308/ecommerce_platform_test"
+        "mysql+pymysql://test_user:test_pass@localhost:3308/ecommerce_platform_test",
+        pool_pre_ping=True,  # 连接前检查有效性
+        pool_recycle=300     # 5分钟回收连接
     )
     Base.metadata.create_all(bind=engine)
     
@@ -704,37 +707,16 @@ def clean_database_after_test(unit_test_db):
         unit_test_db.rollback()
 ```
 
-## 测试执行标准流程
+## 测试执行
 
-### 分层测试命令 (强制规范)
-
-#### 1. 单元测试执行 (日常开发)
+### 基本命令
 ```bash
-# Mock单元测试 - 最快速验证
-pytest tests/unit/test_models/ -v --tb=short
-# 预期时间: <30秒, 覆盖率要求: >95%
-
-# 数据库单元测试 - 服务层验证  
-pytest tests/unit/test_services/ -v --tb=short
-# 预期时间: <1分钟, 覆盖率要求: >90%
-
-# 业务流程测试 - 端到端业务逻辑
-pytest tests/unit/*_standalone.py -v --tb=short  
-# 预期时间: <2分钟, 覆盖率要求: >85%
-
-# 所有单元测试
-pytest tests/unit/ -v --cov=app --cov-report=term
-# 预期时间: <3分钟, 总覆盖率要求: >90%
-```
-
-#### 2. 烟雾测试执行 (部署验证)
-```bash
-# 快速部署验证 - 关键功能检查
-pytest tests/smoke/ -v --tb=short
-# 预期时间: <30秒, 必须100%通过
-
-# 使用脚本执行 (推荐)
-.\scripts\smoke_test.ps1
+pytest tests/unit/test_models/     # Mock测试
+pytest tests/unit/test_services/   # 数据库测试  
+pytest tests/unit/*_standalone.py  # 业务流程测试
+pytest tests/smoke/                # 烟雾测试
+pytest tests/integration/          # 集成测试
+pytest tests/e2e/                  # E2E测试
 ```
 
 #### 3. 集成测试执行 (提交前验证)
@@ -755,45 +737,17 @@ pytest tests/integration/ -v
 # 预期时间: <5分钟, 必须100%通过
 ```
 
-#### 4. 完整测试套件 (发布前验证)
+pytest tests/ --cov=app                # 全部测试
+.\scripts\integration_test.ps1       # 使用脚本
+```
+
+## 测试工具
+
+### 环境检查
 ```bash
-# 完整测试流程 - 所有测试层级
-pytest tests/ -v --cov=app --cov-report=html --tb=short
-# 预期时间: <10分钟, 总覆盖率要求: >85%
-
-# 使用标准脚本 (推荐)
-.\scripts\integration_test.ps1
-```
-
-### 测试性能标准
-
-| 测试类型 | 时间要求 | 覆盖率要求 | 通过率要求 | 执行频率 |
-|---------|----------|-----------|-----------|----------|
-| **Mock单元测试** | <30秒 | >95% | 100% | 每次代码修改 |
-| **数据库单元测试** | <1分钟 | >90% | 100% | 每次提交前 |
-| **业务流程测试** | <2分钟 | >85% | 100% | 每次提交前 |
-| **烟雾测试** | <30秒 | N/A | 100% | 每次部署后 |
-| **集成测试** | <5分钟 | >80% | 100% | 提交到主分支前 |
-| **E2E测试** | <10分钟 | >70% | 100% | 发布前 |
-
-## 🔧 测试环境工具 (强制使用)
-
-根据MASTER文档规范，项目提供标准化测试环境工具，**强制要求**在测试前使用这些工具验证环境：
-
-### ⚠️ check_test_env.ps1 (测试前必须执行)
-**用途**：快速测试环境检查，**任何测试前必须通过**
-**执行时间**：约30秒
-**检查内容**：
-- Python虚拟环境状态验证
-- 测试依赖包完整性检查 (pytest, sqlalchemy, fastapi等)
-- 测试目录结构完整性验证
-- 数据库连接能力测试 (SQLite内存/文件)
-- pytest配置文件检查
-
-```powershell
-# 测试前强制执行的环境检查
-.\scripts\check_test_env.ps1
-```
+.\scripts\check_test_env.ps1         # 测试前检查
+.\scripts\setup_test_env.ps1         # 环境设置  
+python scripts/validate_test_config.py  # 配置验证
 
 **输出标准**：
 - ✅ 所有检查通过 → 可以进行测试
@@ -802,6 +756,7 @@ pytest tests/ -v --cov=app --cov-report=html --tb=short
 ### 🎯 setup_test_env.ps1 (标准测试流程)
 **用途**：标准化测试环境设置和执行流程
 **功能**：自动环境验证、数据库准备、测试执行、环境清理
+**依赖**：内部会调用 check_test_env.ps1 进行前置验证
 
 **参数说明**：
 - `-TestType <unit|smoke|integration|all>`：测试类型
@@ -824,6 +779,12 @@ pytest tests/ -v --cov=app --cov-report=html --tb=short
 **用途**：深度测试配置验证，问题排查时使用
 **执行时间**：约60秒
 **验证范围**：7个验证步骤，全面诊断配置问题
+**依赖**：独立工具，可单独使用，不依赖其他脚本
+
+**执行顺序建议**：
+1. 首先运行：check_test_env.ps1 (快速检查)
+2. 通过后运行：setup_test_env.ps1 (标准流程)
+3. 问题排查时：validate_test_config.py (深度诊断)
 
 ```powershell
 # 详细配置验证 (问题排查时使用)
@@ -1125,7 +1086,7 @@ from fastapi.testclient import TestClient
 class TestUserJourney:
     
     def test_complete_user_registration_and_login(self, client: TestClient):
-        """测试用户注册和登录的完整流程"""
+        """测试跨模块用户注册和登录的完整端到端流程"""
         
         # 1. 用户注册
         registration_data = {
@@ -1588,11 +1549,123 @@ pytest tests/ --tb=no -q
 3. **导入路径标准**: 建立并遵守模块化导入规范
 4. **测试隔离**: 使用独立数据库配置避免冲突
 
+## CI/CD 测试配置
+
+### GitHub Actions 配置模板
+```yaml
+# .github/workflows/tests.yml
+name: Tests
+on: [push, pull_request]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: test_root_pass
+          MYSQL_DATABASE: ecommerce_platform_test
+          MYSQL_USER: test_user
+          MYSQL_PASSWORD: test_pass
+        ports:
+          - 3308:3306
+        options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=3
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install -r requirements-test.txt
+      - name: Run tests
+        run: |
+          python scripts/validate_test_config.py
+          pytest tests/unit/ --cov=app --cov-report=xml
+          pytest tests/integration/ --cov=app --cov-append
+      - name: Upload coverage
+        uses: codecov/codecov-action@v3
+```
+
+## 测试失败处理标准
+
+### 失败诊断流程
+1. **错误分类**: 语法错误 > 导入错误 > 逻辑错误 > 环境错误
+2. **优先级**: P0(阻塞) > P1(重要) > P2(一般) > P3(优化)
+3. **处理时限**: P0立即修复, P1当日修复, P2本周修复, P3下版本修复
+
+### 标准修复程序
+```bash
+# 1. 错误定位
+pytest tests/ --tb=line | grep FAILED
+# 2. 详细诊断  
+pytest tests/path/to/failed_test.py -vv
+# 3. 环境验证
+.\scripts\check_test_env.ps1
+# 4. 修复验证
+pytest tests/path/to/failed_test.py
+```
+
+## 测试数据管理
+
+### 数据生命周期
+- **创建**: 使用Factory模式生成标准测试数据
+- **使用**: 仅在测试范围内有效
+- **清理**: 测试结束自动清理，集成测试Docker容器重置
+
+### 敏感数据处理
+```python
+# 使用假数据，禁止真实敏感信息
+TEST_USER_EMAIL = "test@example.com"  # ✅
+REAL_USER_EMAIL = "john@company.com"  # ❌
+
+# 密码使用固定测试值
+TEST_PASSWORD = "TestPass123"
+TEST_HASH = "$2b$12$..."  # 预计算的测试哈希值
+```
+
+## 测试质量控制
+
+### 覆盖率要求
+- 单元测试: ≥90%
+- 集成测试: ≥80% 
+- 端到端测试: ≥70%
+- 关键业务流程: 100%
+
+### 质量门禁
+```bash
+# 提交前强制检查
+pytest tests/ --cov=app --cov-fail-under=85
+# 覆盖率不足 → 阻止提交
+# 测试失败 → 阻止提交
+```
+
+### 测试审查标准
+1. **命名规范**: 测试函数名清晰描述测试场景
+2. **结构规范**: AAA模式 (Arrange-Act-Assert)
+3. **独立性**: 测试间无依赖，可单独执行
+4. **完整性**: 正常和异常场景全覆盖
+
+## 问题查找索引
+
+### 按问题类型查找
+- **环境问题**: 查看"测试工具"章节
+- **配置问题**: 查看"pytest.ini配置"和"conftest.py配置"章节  
+- **数据库问题**: 查看"数据库策略"章节
+- **Mock问题**: 查看"pytest-mock统一使用标准"章节
+- **架构问题**: 查看"五层测试架构"章节
+- **执行问题**: 查看"测试执行"章节
+
+### 按测试类型查找
+- **单元测试**: 查看"测试实现示例"章节
+- **集成测试**: 查看"Docker环境配置"章节
+- **E2E测试**: 查看"端到端测试指南"章节
+- **烟雾测试**: 查看"测试层级"章节
+
 ---
 
 ## 相关文档
-- [测试环境配置指南](../development/testing-setup.md) - 详细的测试环境配置和工具使用说明
-- [开发工作流程](workflow-standards.md) - 包含测试流程
-- [编码标准](code-standards.md) - 代码质量标准
-- [MASTER工作流程](../../MASTER.md) - 强制检查点包含测试要求
-- [架构概览](../architecture/overview.md) - 系统测试架构
+- [测试环境配置指南](../development/testing-setup.md) - 环境配置和故障排除
+- [开发工作流程](workflow-standards.md) - 测试流程
+- [MASTER工作流程](../../MASTER.md) - 强制检查点
