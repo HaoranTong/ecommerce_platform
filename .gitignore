@@ -50,6 +50,20 @@ tests/**/*.sqlite3
 **/test.db
 smoke_test.db
 
+# 自动生成的测试文件
+tests/generated/
+!tests/generated/README.md
+!tests/generated/.gitignore
+
+# 临时测试文件
+tests/**/test_*_generated_*.py
+tests/**/test_*_temp_*.py
+tests/**/test_*_draft_*.py
+
+# 测试生成工具的临时文件
+scripts/generate_test_template.tmp
+scripts/.test_generation_cache/
+
 # env files
 .env
 .env.*

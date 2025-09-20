@@ -255,6 +255,47 @@
 
 ## 🧪 测试与验证脚本
 
+### generate_test_template.py - 五层架构测试生成器
+
+**功能描述**: 根据测试标准自动生成符合五层架构的完整测试套件  
+**执行时机**: 新模块开发后、测试文件缺失时、测试架构标准化时  
+**输出格式**: 生成到tests/generated/目录，包含完整测试模板文件  
+**错误处理**: 生成失败时提供模块分析错误和修复建议
+
+**参数表格**:
+| 参数名 | 类型 | 必需 | 默认值 | 说明 | AI使用提示 |
+|--------|------|------|--------|------|------------|
+| `module_name` | String | ✓ | 无 | 目标模块名称 | 使用模块目录名如"shopping_cart","user_auth" |
+| `--type` | String | ✗ | "all" | 测试类型 | all/unit/integration/e2e/smoke/specialized |
+| `--output` | String | ✗ | "tests/generated/" | 输出目录 | 指定生成文件的目标目录 |
+| `--validate` | Switch | ✗ | false | 生成后验证 | 自动验证生成文件的语法和结构 |
+
+**AI使用模式**:
+```powershell
+# 生成完整测试套件（五层架构）
+python scripts/generate_test_template.py shopping_cart --type all
+
+# 生成特定类型测试
+python scripts/generate_test_template.py user_auth --type unit
+python scripts/generate_test_template.py product_catalog --type integration
+
+# 生成并验证
+python scripts/generate_test_template.py payment --type all --validate
+```
+
+**关联文档**: `docs/standards/testing-standards.md`, `docs/development/testing-setup.md`  
+**触发场景**: 新模块创建后、测试覆盖率不足时、测试标准化重构  
+**下游操作**: 生成后需人工审查，通过后迁移到正式测试目录
+
+**生成的五层架构分布**:
+- Unit Tests (70%): Mock模式 + SQLite内存数据库
+- Integration Tests (20%): 真实数据库 + API测试
+- E2E Tests (6%): 完整业务流程验证
+- Smoke Tests (2%): 快速功能验证
+- Specialized Tests (2%): 性能 + 安全测试
+
+---
+
 ### integration_test.ps1 - 集成测试执行
 
 **功能描述**: 执行模块间集成测试，验证系统整体功能协作  
