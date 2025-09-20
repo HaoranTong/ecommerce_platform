@@ -23,16 +23,8 @@ from app.shared.base_models import Base
 from app.modules.user_auth.models import User
 from app.modules.product_catalog.models import Category, Brand, Product
 
-# 集成测试数据库配置
-INTEGRATION_TEST_DATABASE_URL = "mysql+pymysql://root:test_password@localhost:3308/ecommerce_platform_test"
-
-
-@pytest.fixture(scope="function")
-def integration_test_engine():
-    """集成测试数据库引擎，应用inventory_management成功模式"""
-    engine = create_engine(INTEGRATION_TEST_DATABASE_URL)
-    Base.metadata.create_all(bind=engine)
-    yield engine
+# 使用conftest.py中的标准集成测试配置
+# 删除重复的数据库配置，使用integration_test_engine和integration_test_db fixtures
     engine.dispose()
 
 

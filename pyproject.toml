@@ -1,9 +1,17 @@
 [tool.pytest.ini_options]
+# 五层测试架构标记配置 [CHECK:TEST-001]
+# 符合testing-standards.md第81-157行测试分类要求
 markers = [
-    "integration: marks tests as integration tests (requires database)",
-    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
-    "api: marks tests as API tests",
-    "unit: marks tests as unit tests"
+    "unit: Unit tests - 70% coverage target (fast, isolated, no external dependencies)",
+    "smoke: Smoke tests - 2% coverage (basic functionality verification)",
+    "integration: Integration tests - 20% coverage (module interaction testing)", 
+    "e2e: End-to-end tests - 6% coverage (complete user workflow testing)",
+    "performance: Performance tests - 2% coverage (load and stress testing)",
+    "security: Security tests (authentication, authorization, input validation)",
+    "slow: Slow running tests (can be skipped for quick feedback)",
+    "api: API endpoint tests (REST/GraphQL interface testing)",
+    "database: Database dependent tests (require database connection)",
+    "external: External service dependent tests (require network/third-party services)"
 ]
 testpaths = ["tests"]
 python_files = ["test_*.py", "*_test.py"]
@@ -11,6 +19,17 @@ python_classes = ["Test*"]
 python_functions = ["test_*"]
 addopts = [
     "--strict-markers",
-    "--tb=short",
-    "--disable-warnings"
+    "--tb=short", 
+    "--disable-warnings",
+    "--timeout=300",  # 全局测试超时5分钟 [CHECK:TEST-001]
+    "--timeout-method=thread"  # 使用线程方式进行超时处理
 ]
+# 测试超时配置说明 [CHECK:TEST-001]
+# --timeout=300: 单个测试最大执行时间5分钟，防止测试无限挂起
+# --timeout-method=thread: 使用线程超时，兼容性更好
+# 特定测试类型建议超时时间：
+# - 单元测试: 2秒内完成 (可用 @pytest.mark.timeout(2) 覆盖)
+# - 烟雾测试: 10秒内完成
+# - 集成测试: 30秒内完成
+# - E2E测试: 120秒内完成
+# - 性能测试: 300秒内完成
