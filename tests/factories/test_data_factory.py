@@ -28,7 +28,10 @@ from datetime import datetime
 from app.modules.user_auth.models import User, Role
 from app.modules.product_catalog.models import Category, Brand, Product, SKU
 from app.modules.shopping_cart.models import CartItem
-from app.modules.inventory_management.models import InventoryStock
+from app.modules.inventory_management.models import (
+    InventoryStock, InventoryReservation, InventoryTransaction,
+    TransactionType, ReservationType, AdjustmentType
+)
 
 
 class StandardTestDataFactory:
@@ -157,7 +160,10 @@ class StandardTestDataFactory:
             "sku_id": sku_id,
             "available_quantity": 100,
             "reserved_quantity": 0,
-            "total_quantity": 100
+            "total_quantity": 100,
+            "warning_threshold": 10,
+            "critical_threshold": 5,
+            "is_active": True
         }
         defaults.update(kwargs)
         
@@ -166,6 +172,64 @@ class StandardTestDataFactory:
         db.commit()
         db.refresh(inventory)
         return inventory
+
+    @staticmethod
+    def create_inventory_reservation(db: Session, sku_id: int, **kwargs) -> InventoryReservation:
+        """创建库存预占记录
+        
+        Args:
+            sku_id: SKU的ID（整数，不是sku_code！）
+        """
+        if not isinstance(sku_id, int):
+            raise ValueError(f"sku_id必须是整数类型，当前类型: {type(sku_id)}")
+            
+        from datetime import datetime, timedelta, timezone
+        import uuid
+        
+        defaults = {
+            "sku_id": sku_id,
+            "reserved_quantity": 10,
+            "reservation_type": ReservationType.CART,
+            "reference_id": f"TEST-REF-{uuid.uuid4().hex[:8]}",
+            "expires_at": datetime.now(timezone.utc) + timedelta(hours=2),
+            "is_active": True
+        }
+        defaults.update(kwargs)
+        
+        reservation = InventoryReservation(**defaults)
+        db.add(reservation)
+        db.commit()
+        db.refresh(reservation)
+        return reservation
+
+    @staticmethod
+    def create_inventory_transaction(db: Session, sku_id: int, **kwargs) -> InventoryTransaction:
+        """创建库存事务记录
+        
+        Args:
+            sku_id: SKU的ID（整数，不是sku_code！）
+        """
+        if not isinstance(sku_id, int):
+            raise ValueError(f"sku_id必须是整数类型，当前类型: {type(sku_id)}")
+            
+        import uuid
+        
+        defaults = {
+            "sku_id": sku_id,
+            "transaction_type": TransactionType.DEDUCT,
+            "quantity": 10,
+            "reference_type": "order",
+            "reference_id": f"TEST-TX-{uuid.uuid4().hex[:8]}",
+            "reason": "测试事务",
+            "operator_id": "test_admin"
+        }
+        defaults.update(kwargs)
+        
+        transaction = InventoryTransaction(**defaults)
+        db.add(transaction)
+        db.commit()
+        db.refresh(transaction)
+        return transaction
     
     @staticmethod
     def create_cart_item(db: Session, user_id: int, sku_id: int, **kwargs) -> CartItem:
@@ -246,6 +310,37 @@ class TestDataValidator:
                         f"❌ {field_name}必须是整数类型，当前类型: {type(value)}"
                     )
 
+    @staticmethod
+    def validate_inventory_response(data: dict, expected_fields: list = None) -> None:
+        """验证库存响应数据格式"""
+        if expected_fields is None:
+            expected_fields = [
+                "sku_id", "total_quantity", "available_quantity", 
+                "reserved_quantity", "is_low_stock", "is_active"
+            ]
+        
+        for field in expected_fields:
+            assert field in data, f"响应数据缺少字段: {field}"
+        
+        assert isinstance(data["total_quantity"], int), "total_quantity 应该是整数"
+        assert isinstance(data["available_quantity"], int), "available_quantity 应该是整数"
+        assert isinstance(data["reserved_quantity"], int), "reserved_quantity 应该是整数"
+        assert isinstance(data["is_low_stock"], bool), "is_low_stock 应该是布尔值"
+        assert isinstance(data["is_active"], bool), "is_active 应该是布尔值"
+
+    @staticmethod
+    def verify_stock_quantities(stock: InventoryStock, 
+                              expected_total: int, 
+                              expected_available: int, 
+                              expected_reserved: int) -> None:
+        """验证库存数量"""
+        assert stock.total_quantity == expected_total, \
+            f"总库存不匹配: 期望 {expected_total}, 实际 {stock.total_quantity}"
+        assert stock.available_quantity == expected_available, \
+            f"可用库存不匹配: 期望 {expected_available}, 实际 {stock.available_quantity}"
+        assert stock.reserved_quantity == expected_reserved, \
+            f"预占库存不匹配: 期望 {expected_reserved}, 实际 {stock.reserved_quantity}"
+
 
 # 便捷函数
 def create_test_sku_with_validation(db: Session, product_id: int) -> SKU:
@@ -275,3 +370,40 @@ def get_sku_id_safely(db: Session, sku_code: str = None, product_id: int = None)
         return sku.id
     
     raise ValueError("必须提供sku_code或product_id")
+
+
+# 库存测试便捷函数
+def create_low_stock_scenario(db: Session, sku_id: int) -> InventoryStock:
+    """创建低库存场景"""
+    return StandardTestDataFactory.create_inventory_stock(
+        db, sku_id,
+        total_quantity=12,
+        available_quantity=8,
+        reserved_quantity=4,
+        warning_threshold=15,
+        critical_threshold=8
+    )
+
+
+def create_critical_stock_scenario(db: Session, sku_id: int) -> InventoryStock:
+    """创建紧急库存场景"""
+    return StandardTestDataFactory.create_inventory_stock(
+        db, sku_id,
+        total_quantity=6,
+        available_quantity=3,
+        reserved_quantity=3,
+        warning_threshold=15,
+        critical_threshold=8
+    )
+
+
+def create_out_of_stock_scenario(db: Session, sku_id: int) -> InventoryStock:
+    """创建缺货场景"""
+    return StandardTestDataFactory.create_inventory_stock(
+        db, sku_id,
+        total_quantity=0,
+        available_quantity=0,
+        reserved_quantity=0,
+        warning_threshold=10,
+        critical_threshold=5
+    )

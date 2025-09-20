@@ -23,10 +23,22 @@
 5. ✅ **测试架构完善**: 新增12个测试文件，建立完整5层测试架构
 6. ✅ **工作区清理**: 所有修改已提交，working tree clean
 
-### [CHECK:STATUS-002] 下一阶段规划 - READY
+### [CHECK:DOC-005] [CHECK:DOC-006] 测试文档重构和Generated目录管理 - COMPLETED
+- **任务类型**: 文档重构优化，避免重复文档创建
+- **完成时间**: 2025-09-20 15:45-16:20  
+- **工作成果**: 遵循MASTER文档规范，更新现有文档而非创建重复文档
+
+### 完成的纠错工作
+1. ✅ **违规纠正**: 认识到违反MASTER文档强制检查点规范的严重问题
+2. ✅ **重复文档删除**: 删除错误创建的testing-scripts-manual.md和testing-usage-guide.md
+3. ✅ **现有文档增强**: 在scripts-usage-manual.md中补充测试生成工具说明
+4. ✅ **统一文档管理**: 在testing-setup.md中添加generated目录管理策略
+5. ✅ **版本控制修正**: 仅在根目录.gitignore配置，删除错误的独立gitignore文件
+
+### [CHECK:STATUS-002] 下一阶段规划 - READY  
 - **任务类型**: 持续开发和维护
-- **工作重点**: 基于清理后的项目结构继续功能开发
-- **检查点**: [CHECK:DOC-006] [CHECK:STATUS-002] [CHECK:STATUS-003] [CHECK:STATUS-004]
+- **工作重点**: 严格遵循MASTER文档规范，避免重复文档创建
+- **经验教训**: 必须在每次对话开始时检查工作状态和现有文档结构
 
 ### 最新完成的重要成果 (2025-09-20)
 - ✅ **PowerShell代码质量100%**: 所有脚本符合PSScriptAnalyzer最佳实践
