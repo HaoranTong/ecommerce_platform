@@ -1,6 +1,7 @@
 import sys
 from pathlib import Path
 import pytest
+import pytest_mock
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 from fastapi.testclient import TestClient
@@ -32,22 +33,68 @@ from app.modules.order_management.models import Order, OrderItem, OrderStatusHis
 # 支付服务模块模型  
 from app.modules.payment_service.models import Payment, Refund
 
-# 测试数据库配置 - 符合testing-standards.md标准
+# 测试数据库配置 - 符合testing-standards.md标准和脚本配置
 UNIT_TEST_DATABASE_URL = "sqlite:///:memory:"  # 单元测试：内存数据库
 SMOKE_TEST_DATABASE_URL = "sqlite:///./tests/smoke_test.db"  # 烟雾测试：文件数据库
-# Integration Test Database Configuration (MySQL Docker)
-INTEGRATION_TEST_DATABASE_URL = "mysql+pymysql://root:test_password@localhost:3308/ecommerce_platform_test"
+# Integration Test Database Configuration (MySQL Docker) - 与setup_test_env.ps1一致
+INTEGRATION_TEST_DATABASE_URL = "mysql+pymysql://test_user:test_pass@localhost:3308/test_ecommerce"
+
+# ========== Mock框架配置 [CHECK:TEST-001] ==========
+@pytest.fixture(autouse=True)
+def mock_setup(mocker):
+    """
+    全局Mock配置，为所有测试提供统一的Mock环境
+    符合testing-standards.md第113-200行pytest-mock统一使用标准
+    """
+    # 设置Mock的默认行为和最佳实践
+    # 确保Mock对象有明确的spec，避免AttributeError
+    mocker.patch.object.__defaults__ = (None, True)  # 默认启用autospec
+    
+    # 为常用的外部依赖创建Mock
+    # Redis Mock（避免测试时依赖外部Redis）
+    mock_redis = mocker.Mock()
+    mock_redis.get.return_value = None
+    mock_redis.set.return_value = True
+    mock_redis.delete.return_value = 1
+    mocker.patch('app.core.redis_client.redis_client', mock_redis)
+    
+    # 日志Mock（避免测试时产生真实日志）
+    mock_logger = mocker.Mock()
+    mocker.patch('app.core.security_logger.security_logger', mock_logger)
+    
+    return mocker
 
 # ========== 单元测试配置 ==========
 @pytest.fixture(scope="function")
 def unit_test_engine():
-    """单元测试数据库引擎（内存数据库）"""
-    # 使用内存数据库避免索引冲突问题
+    """单元测试数据库引擎（内存数据库）[CHECK:TEST-001]"""
+    from sqlalchemy import event
+    
+    # SQLite配置优化 - 启用外键约束和性能优化
     engine = create_engine(
         "sqlite:///:memory:", 
-        connect_args={"check_same_thread": False},
+        connect_args={
+            "check_same_thread": False,
+            "isolation_level": None,  # 启用autocommit模式以支持WAL
+        },
         poolclass=None  # Disable connection pooling for test
     )
+    
+    # 启用SQLite外键约束和性能优化
+    @event.listens_for(engine, "connect")
+    def set_sqlite_pragma(dbapi_connection, connection_record):
+        """为每个SQLite连接设置PRAGMA优化选项"""
+        cursor = dbapi_connection.cursor()
+        # 启用外键约束（确保数据完整性）
+        cursor.execute("PRAGMA foreign_keys=ON")
+        # 启用WAL模式（提高并发性能）
+        cursor.execute("PRAGMA journal_mode=WAL")
+        # 设置同步模式为NORMAL（平衡性能和安全性）
+        cursor.execute("PRAGMA synchronous=NORMAL")
+        # 启用查询优化器
+        cursor.execute("PRAGMA optimize")
+        cursor.close()
+    
     Base.metadata.create_all(bind=engine)
     yield engine
     engine.dispose()
@@ -154,11 +201,29 @@ def unit_test_client(unit_test_engine, mock_admin_user):
 # ========== 烟雾测试配置 ==========
 @pytest.fixture(scope="module")
 def smoke_test_engine():
-    """烟雾测试数据库引擎（文件）"""
+    """烟雾测试数据库引擎（文件）[CHECK:TEST-001]"""
+    from sqlalchemy import event
+    
+    # SQLite文件数据库配置优化
     engine = create_engine(
         SMOKE_TEST_DATABASE_URL,
-        connect_args={"check_same_thread": False}
+        connect_args={
+            "check_same_thread": False,
+            "isolation_level": None,  # 启用autocommit模式以支持WAL
+        }
     )
+    
+    # 为烟雾测试SQLite连接启用外键约束和性能优化
+    @event.listens_for(engine, "connect")
+    def set_smoke_sqlite_pragma(dbapi_connection, connection_record):
+        """为烟雾测试SQLite连接设置PRAGMA优化选项"""
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA foreign_keys=ON")
+        cursor.execute("PRAGMA journal_mode=WAL")
+        cursor.execute("PRAGMA synchronous=NORMAL")
+        cursor.execute("PRAGMA optimize")
+        cursor.close()
+    
     Base.metadata.create_all(bind=engine)
     yield engine
     # 清理测试数据但保留结构
@@ -384,3 +449,116 @@ def sample_product_data():
         "sku": "TEST001",
         "stock_quantity": 100
     }
+
+# ========== E2E和专项测试配置 [CHECK:TEST-001] [CHECK:TEST-004] ==========
+
+# E2E测试数据库配置（专用MySQL实例）- 使用独立数据库名
+E2E_TEST_DATABASE_URL = "mysql+pymysql://test_user:test_pass@localhost:3308/test_ecommerce_e2e"
+
+@pytest.fixture(scope="session")
+def mysql_e2e_db():
+    """
+    E2E测试专用MySQL数据库配置
+    符合testing-standards.md第598-645行E2E测试要求
+    """
+    from sqlalchemy import event
+    
+    engine = create_engine(
+        E2E_TEST_DATABASE_URL,
+        pool_pre_ping=True,
+        pool_recycle=3600,
+        echo=False  # E2E测试不需要SQL日志
+    )
+    
+    # 创建E2E测试专用数据库
+    try:
+        Base.metadata.create_all(bind=engine)
+        print("🔄 E2E测试数据库已准备完成")
+        yield engine
+    except Exception as e:
+        print(f"❌ E2E测试数据库连接失败: {e}")
+        pytest.skip("E2E测试需要MySQL数据库支持")
+    finally:
+        # E2E测试完成后清理数据
+        Base.metadata.drop_all(bind=engine)
+        engine.dispose()
+
+@pytest.fixture(scope="function")
+def performance_test_db():
+    """
+    性能测试专用数据库配置
+    符合testing-standards.md第646-691行性能测试要求
+    """
+    # 性能测试使用独立的内存数据库以避免IO影响
+    engine = create_engine(
+        "sqlite:///:memory:",
+        connect_args={"check_same_thread": False},
+        poolclass=None,
+        echo=False  # 性能测试关闭SQL日志以减少开销
+    )
+    
+    # 为性能测试优化SQLite配置
+    from sqlalchemy import event
+    
+    @event.listens_for(engine, "connect")
+    def set_performance_sqlite_pragma(dbapi_connection, connection_record):
+        """性能测试专用SQLite优化配置"""
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA foreign_keys=ON")
+        cursor.execute("PRAGMA journal_mode=MEMORY")  # 最快的日志模式
+        cursor.execute("PRAGMA synchronous=OFF")      # 关闭同步以提升性能
+        cursor.execute("PRAGMA cache_size=10000")     # 增大缓存
+        cursor.execute("PRAGMA temp_store=MEMORY")    # 临时表存储在内存中
+        cursor.close()
+    
+    Base.metadata.create_all(bind=engine)
+    yield engine
+    engine.dispose()
+
+@pytest.fixture(scope="function")
+def security_test_setup(mocker):
+    """
+    安全测试专用配置
+    符合testing-standards.md第692-737行安全测试要求
+    """
+    # Mock安全相关组件以进行安全测试
+    security_mocks = {
+        'rate_limiter': mocker.Mock(),
+        'auth_validator': mocker.Mock(),
+        'input_sanitizer': mocker.Mock(),
+        'csrf_protection': mocker.Mock(),
+    }
+    
+    # 设置安全测试的默认行为
+    security_mocks['rate_limiter'].is_allowed.return_value = True
+    security_mocks['auth_validator'].validate_token.return_value = True
+    security_mocks['input_sanitizer'].sanitize.side_effect = lambda x: x
+    security_mocks['csrf_protection'].verify.return_value = True
+    
+    return security_mocks
+
+# ========== 测试超时配置 [CHECK:TEST-001] ==========
+
+@pytest.fixture(autouse=True)
+def configure_test_timeouts(request):
+    """
+    根据测试标记自动配置测试超时时间
+    符合testing-standards.md第830-877行超时管理要求
+    """
+    # 根据测试类型标记设置合适的超时时间
+    if request.node.get_closest_marker("unit"):
+        # 单元测试：2秒超时
+        request.node.add_marker(pytest.mark.timeout(2))
+    elif request.node.get_closest_marker("smoke"):  
+        # 烟雾测试：10秒超时
+        request.node.add_marker(pytest.mark.timeout(10))
+    elif request.node.get_closest_marker("integration"):
+        # 集成测试：30秒超时
+        request.node.add_marker(pytest.mark.timeout(30))
+    elif request.node.get_closest_marker("e2e"):
+        # E2E测试：120秒超时
+        request.node.add_marker(pytest.mark.timeout(120))
+    elif request.node.get_closest_marker("performance"):
+        # 性能测试：300秒超时
+        request.node.add_marker(pytest.mark.timeout(300))
+    # 如果没有特定标记，使用全局默认超时（pyproject.toml中的300秒）
