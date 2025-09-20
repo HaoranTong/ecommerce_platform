@@ -3,12 +3,13 @@ User_Auth 服务层测试
 
 测试类型: 单元测试 - 服务层业务逻辑
 数据策略: SQLite内存数据库
-生成时间: 2025-09-20 22:55:33
+生成时间: 2025-09-20 23:13:20
 
 符合标准: [CHECK:TEST-001]
 """
 
 import pytest
+from unittest.mock import Mock
 from sqlalchemy.orm import Session
 
 # 测试依赖
@@ -17,12 +18,12 @@ from tests.factories.test_data_factory import StandardTestDataFactory
 
 # 被测服务
 try:
-    from app.modules.user_auth.service import User_AuthService
+    from app.modules.user_auth.service import UserAuthService
 except ImportError:
-    User_AuthService = Mock()  # 服务不存在时使用Mock
+    UserAuthService = Mock()  # 服务不存在时使用Mock
 
 
-class TestUser_AuthService:
+class TestUserAuthService:
     """服务层测试类"""
     
     def setup_method(self):
@@ -31,12 +32,12 @@ class TestUser_AuthService:
         
     def test_service_initialization(self, unit_test_db: Session):
         """测试服务初始化"""
-        service = User_AuthService(unit_test_db)
+        service = UserAuthService(unit_test_db)
         assert service is not None
         
     def test_basic_crud_operations(self, unit_test_db: Session):
         """测试基础CRUD操作"""
-        service = User_AuthService(unit_test_db)
+        service = UserAuthService(unit_test_db)
         
         # 创建测试数据
         test_data = self.test_data_factory.create_sample_data()

@@ -3,7 +3,7 @@ User_Auth 业务流程测试
 
 测试类型: 单元测试 - 完整业务流程
 数据策略: SQLite内存数据库
-生成时间: 2025-09-20 22:55:33
+生成时间: 2025-09-20 23:13:20
 
 符合标准: [CHECK:TEST-001]
 """
@@ -16,7 +16,7 @@ from tests.conftest import unit_test_db
 from tests.factories.test_data_factory import StandardTestDataFactory
 
 
-class TestUser_AuthWorkflow:
+class TestUserAuthWorkflow:
     """业务流程测试类"""
     
     def setup_method(self):
