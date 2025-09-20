@@ -3,7 +3,7 @@ User_Auth 服务层测试套件
 
 测试类型: 单元测试 (Service)
 数据策略: SQLite内存数据库, unit_test_db fixture
-生成时间: 2025-09-20 09:38:07
+生成时间: 2025-09-20 21:34:33
 
 根据testing-standards.md第54-68行服务测试规范
 """
