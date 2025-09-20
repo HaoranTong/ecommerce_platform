@@ -1,11 +1,16 @@
 #!/usr/bin/env pwsh
 <#
 .SYNOPSIS
-自动统计模块开发状态脚本
+模块开发状态统计脚本 - 【需要更新为手动模式】
 
 .DESCRIPTION
-自动扫描app/modules目录，统计各模块的API端点数量、代码行数、文件结构等信息，
-生成实时的模块状态报告
+⚠️ 注意：根据MASTER.md要求，状态管理已改为手动更新模式
+原功能：自动扫描app/modules目录，统计各模块的API端点数量、代码行数、文件结构等信息
+新要求：需要调整为辅助手动更新的工具，而非自动更新
+
+.NOTES  
+状态：需要重构以符合手动更新流程
+最后检查：2025-09-20
 
 .PARAMETER OutputPath
 输出文件路径，默认为docs/status/module-status.md
