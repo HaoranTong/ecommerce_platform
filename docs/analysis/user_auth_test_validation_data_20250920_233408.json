@@ -1,0 +1,155 @@
+{
+  "syntax_check": {
+    "passed": [
+      "tests/factories/user_auth_factories.py",
+      "tests/unit/test_models/test_user_auth_models.py",
+      "tests/unit/test_services/test_user_auth_service.py",
+      "tests/unit/test_user_auth_workflow.py"
+    ],
+    "failed": [],
+    "details": {
+      "tests/factories/user_auth_factories.py": {
+        "status": "pass",
+        "message": "语法检查通过"
+      },
+      "tests/unit/test_models/test_user_auth_models.py": {
+        "status": "pass",
+        "message": "语法检查通过"
+      },
+      "tests/unit/test_services/test_user_auth_service.py": {
+        "status": "pass",
+        "message": "语法检查通过"
+      },
+      "tests/unit/test_user_auth_workflow.py": {
+        "status": "pass",
+        "message": "语法检查通过"
+      }
+    }
+  },
+  "pytest_collection": {
+    "collected_tests": 0,
+    "collection_errors": [
+      {
+        "file": "tests/unit/test_models/test_user_auth_models.py",
+        "error": "ImportError while loading conftest 'e:\\ecommerce_platform\\tests\\conftest.py'.\ntests\\conftest.py:7: in <module>\n    from fastapi.testclient import TestClient\nE   ModuleNotFoundError: No module named 'fastapi'\n"
+      },
+      {
+        "file": "tests/unit/test_services/test_user_auth_service.py",
+        "error": "ImportError while loading conftest 'e:\\ecommerce_platform\\tests\\conftest.py'.\ntests\\conftest.py:7: in <module>\n    from fastapi.testclient import TestClient\nE   ModuleNotFoundError: No module named 'fastapi'\n"
+      },
+      {
+        "file": "tests/unit/test_user_auth_workflow.py",
+        "error": "ImportError while loading conftest 'e:\\ecommerce_platform\\tests\\conftest.py'.\ntests\\conftest.py:7: in <module>\n    from fastapi.testclient import TestClient\nE   ModuleNotFoundError: No module named 'fastapi'\n"
+      }
+    ],
+    "test_files": [],
+    "details": {
+      "tests/unit/test_models/test_user_auth_models.py": {
+        "status": "fail",
+        "error": "ImportError while loading conftest 'e:\\ecommerce_platform\\tests\\conftest.py'.\ntests\\conftest.py:7: in <module>\n    from fastapi.testclient import TestClient\nE   ModuleNotFoundError: No module named 'fastapi'\n",
+        "message": "测试收集失败"
+      },
+      "tests/unit/test_services/test_user_auth_service.py": {
+        "status": "fail",
+        "error": "ImportError while loading conftest 'e:\\ecommerce_platform\\tests\\conftest.py'.\ntests\\conftest.py:7: in <module>\n    from fastapi.testclient import TestClient\nE   ModuleNotFoundError: No module named 'fastapi'\n",
+        "message": "测试收集失败"
+      },
+      "tests/unit/test_user_auth_workflow.py": {
+        "status": "fail",
+        "error": "ImportError while loading conftest 'e:\\ecommerce_platform\\tests\\conftest.py'.\ntests\\conftest.py:7: in <module>\n    from fastapi.testclient import TestClient\nE   ModuleNotFoundError: No module named 'fastapi'\n",
+        "message": "测试收集失败"
+      }
+    }
+  },
+  "import_validation": {
+    "passed": [
+      "tests/factories/user_auth_factories.py",
+      "tests/unit/test_models/test_user_auth_models.py",
+      "tests/unit/test_services/test_user_auth_service.py",
+      "tests/unit/test_user_auth_workflow.py"
+    ],
+    "failed": [],
+    "missing_dependencies": [],
+    "details": {
+      "tests/factories/user_auth_factories.py": {
+        "status": "pass",
+        "total_imports": 12,
+        "message": "所有12个导入验证通过"
+      },
+      "tests/unit/test_models/test_user_auth_models.py": {
+        "status": "pass",
+        "total_imports": 8,
+        "message": "所有8个导入验证通过"
+      },
+      "tests/unit/test_services/test_user_auth_service.py": {
+        "status": "pass",
+        "total_imports": 6,
+        "message": "所有6个导入验证通过"
+      },
+      "tests/unit/test_user_auth_workflow.py": {
+        "status": "pass",
+        "total_imports": 4,
+        "message": "所有4个导入验证通过"
+      }
+    }
+  },
+  "dependency_check": {
+    "factory_dependencies": {
+      "tests/factories/user_auth_factories.py": [
+        "PermissionFactory",
+        "RoleFactory",
+        "RolePermissionFactory",
+        "SessionFactory",
+        "UserFactory",
+        "UserRoleFactory"
+      ]
+    },
+    "model_dependencies": {
+      "tests/unit/test_models/test_user_auth_models.py": [
+        "RolesFactory",
+        "PermissionsFactory",
+        "UsersFactory",
+        "UsersFactory",
+        "UsersFactory",
+        "RolesFactory",
+        "UsersFactory"
+      ],
+      "tests/unit/test_services/test_user_auth_service.py": [
+        "StandardTestDataFactory"
+      ],
+      "tests/unit/test_user_auth_workflow.py": [
+        "StandardTestDataFactory"
+      ]
+    },
+    "circular_dependencies": [],
+    "missing_factories": [
+      "PermissionsFactory",
+      "RolesFactory",
+      "UsersFactory",
+      "StandardTestDataFactory"
+    ],
+    "details": {}
+  },
+  "execution_test": {
+    "executed_files": 1,
+    "successful_executions": 0,
+    "failed_executions": 1,
+    "execution_details": {
+      "tests/factories/user_auth_factories.py": {
+        "status": "fail",
+        "error": "Table 'users' is already defined for this MetaData instance.  Specify 'extend_existing=True' to redefine options and columns on an existing Table object.",
+        "message": "执行失败: Table 'users' is already defined for this MetaData instance.  Specify 'extend_existing=True' to redefine options and columns on an existing Table object."
+      }
+    },
+    "success_rate": 0.0
+  },
+  "overall_success": false,
+  "summary": {
+    "total_files": 4,
+    "passed": 4,
+    "failed": 0,
+    "errors": [],
+    "overall_score": 66.66666666666667,
+    "status": "⚠️ 一般"
+  }
+}
