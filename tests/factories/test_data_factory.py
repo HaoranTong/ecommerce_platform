@@ -37,6 +37,25 @@ from app.modules.inventory_management.models import (
 class StandardTestDataFactory:
     """标准测试数据工厂 - 确保正确的数据类型"""
     
+    def create_sample_data(self) -> dict:
+        """创建样本测试数据 - [CHECK:TEST-002] 测试数据一致性验证
+        
+        Returns:
+            dict: 包含测试场景所需的样本数据
+        """
+        return {
+            'user_data': {
+                'username': 'test_user',
+                'email': 'test@example.com', 
+                'password': 'test_password_123'
+            },
+            'test_scenarios': [
+                'user_registration',
+                'user_authentication', 
+                'password_validation'
+            ]
+        }
+    
     @staticmethod
     def create_user(db: Session, **kwargs) -> User:
         """创建测试用户"""

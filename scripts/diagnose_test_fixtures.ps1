@@ -20,7 +20,6 @@ Write-Host "🔍 检查1: autouse fixture依赖问题" -ForegroundColor Green
 $AutoUseFixtures = Select-String -Path $ConfTestPath -Pattern "@pytest\.fixture\(autouse=True\)" -Context 0,3
 
 foreach ($Match in $AutoUseFixtures) {
-    $LineContent = $Match.Line
     $Context = $Match.Context.PostContext
     
     # 检查是否直接依赖integration_test_engine
