@@ -1,46 +1,132 @@
-# ====================================================================
-# 产品目录系统测试脚本
-# 
-# 根据docs/standards/testing-standards.md规范实现
-# 功能描述：产品目录模块的完整系统级测试
-# 测试类型：系统测试脚本 (scripts/*_test.ps1)
-# 执行方式：.\scripts\test_product_system.ps1
-# ====================================================================
+#!/usr/bin/env pwsh#!/usr/bin/env pwsh
 
-param(
-    [string]$TestType = "all",          # 测试类型: all, unit, integration, e2e, smoke
-    [string]$Environment = "test",      # 环境: test, staging
-    [switch]$Coverage = $false,         # 是否生成覆盖率报告
-    [switch]$Verbose = $false,          # 详细输出
-    [switch]$FailFast = $false,         # 遇到失败立即停止
-    [int]$Workers = 4                   # 并行工作进程数
-)
+<#<#
 
-# 设置错误处理
-$ErrorActionPreference = "Stop"
+.SYNOPSIS.SYNOPSIS
 
-# 颜色输出函数
-function Write-ColorOutput {
-    param(
-        [string]$Message,
-        [string]$Color = "White"
-    )
-    Write-Host $Message -ForegroundColor $Color
-}
+产品目录系统测试脚本 - 已弃用产品目录系统测试脚本 - 已弃用
 
-function Write-Success { param([string]$Message) Write-ColorOutput "✅ $Message" "Green" }
-function Write-Info { param([string]$Message) Write-ColorOutput "ℹ️ $Message" "Cyan" }
-function Write-Warning { param([string]$Message) Write-ColorOutput "⚠️ $Message" "Yellow" }
-function Write-Error { param([string]$Message) Write-ColorOutput "❌ $Message" "Red" }
 
-# 主标题
-Write-ColorOutput "`n🧪 产品目录系统测试脚本" "Magenta"
-Write-ColorOutput "================================" "Magenta"
-Write-Info "测试类型: $TestType"
-Write-Info "环境: $Environment"
-Write-Info "覆盖率报告: $Coverage"
-Write-Info "详细输出: $Verbose"
-Write-ColorOutput ""
+
+.DESCRIPTION.DESCRIPTION
+
+⚠️  此脚本已弃用！请使用统一的模块测试脚本。⚠️  此脚本已弃用！请使用统一的模块测试脚本。
+
+
+
+新的使用方式:新的使用方式:
+
+    scripts\run_module_tests.ps1 -ModuleName "product_catalog" -TestType "all"    scripts\run_module_tests.ps1 -ModuleName "product_catalog" -TestType "all"
+
+    scripts\run_module_tests.ps1 -ModuleName "product_catalog" -TestType "unit"    scripts\run_module_tests.ps1 -ModuleName "product_catalog" -TestType "unit"
+
+    scripts\run_module_tests.ps1 -ModuleName "product_catalog" -TestType "integration"    scripts\run_module_tests.ps1 -ModuleName "product_catalog" -TestType "integration"
+
+
+
+优势:优势:
+
+- 统一的测试执行流程- 统一的测试执行流程
+
+- 更好的参数标准化- 更好的参数标准化
+
+- 与pytest-mock迁移完全兼容- 与pytest-mock迁移完全兼容
+
+- 支持所有模块的一致性测试- 支持所有模块的一致性测试
+
+
+
+.NOTES.NOTES
+
+状态: 已弃用 (Deprecated)状态: 已弃用 (Deprecated)
+
+替代方案: run_module_tests.ps1替代方案: run_module_tests.ps1
+
+弃用日期: 2025-09-21弃用日期: 2025-09-21
+
+删除计划: 2025-10-21删除计划: 2025-10-21
+
+#>#>
+
+
+
+param(param(
+
+    [string]$TestType = "all",          # 测试类型: all, unit, integration, e2e, smoke    [string]$TestType = "all",          # 测试类型: all, unit, integration, e2e, smoke
+
+    [string]$Environment = "test",      # 环境: test, staging    [string]$Environment = "test",      # 环境: test, staging
+
+    [switch]$Coverage = $false,         # 是否生成覆盖率报告    [switch]$Coverage = $false,         # 是否生成覆盖率报告
+
+    [switch]$Verbose = $false,          # 详细输出    [switch]$Verbose = $false,          # 详细输出
+
+    [switch]$FailFast = $false,         # 遇到失败立即停止    [switch]$FailFast = $false,         # 遇到失败立即停止
+
+    [int]$Workers = 4                   # 并行工作进程数    [int]$Workers = 4                   # 并行工作进程数
+
+))
+
+
+
+Write-Host "⚠️  此脚本已弃用！" -ForegroundColor YellowWrite-Host "⚠️  此脚本已弃用！" -ForegroundColor Yellow
+
+Write-Host "请使用新的统一模块测试脚本:" -ForegroundColor CyanWrite-Host "请使用新的统一模块测试脚本:" -ForegroundColor Cyan
+
+Write-Host ""Write-Host ""
+
+Write-Host "推荐用法:" -ForegroundColor GreenWrite-Host "推荐用法:" -ForegroundColor Green
+
+Write-Host "  scripts\run_module_tests.ps1 -ModuleName 'product_catalog' -TestType '$TestType'" -ForegroundColor WhiteWrite-Host "  scripts\run_module_tests.ps1 -ModuleName 'product_catalog' -TestType '$TestType'" -ForegroundColor White
+
+Write-Host ""Write-Host ""
+
+Write-Host "参数映射:" -ForegroundColor CyanWrite-Host "参数映射:" -ForegroundColor Cyan
+
+Write-Host "  -TestType '$TestType' → 保持不变" -ForegroundColor GrayWrite-Host "  -TestType '$TestType' → 保持不变" -ForegroundColor Gray
+
+Write-Host "  -Coverage → 内置支持" -ForegroundColor GrayWrite-Host "  -Coverage → 内置支持" -ForegroundColor Gray
+
+Write-Host "  -Verbose → 内置支持" -ForegroundColor GrayWrite-Host "  -Verbose → 内置支持" -ForegroundColor Gray
+
+Write-Host "  -FailFast → pytest --maxfail=1" -ForegroundColor GrayWrite-Host "  -FailFast → pytest --maxfail=1" -ForegroundColor Gray
+
+Write-Host "  -Workers → pytest -n $Workers" -ForegroundColor GrayWrite-Host "  -Workers → pytest -n $Workers" -ForegroundColor Gray
+
+Write-Host ""Write-Host ""
+
+
+
+$ConfirmMigration = Read-Host "是否自动执行推荐命令? (y/N)"$ConfirmMigration = Read-Host "是否自动执行推荐命令? (y/N)"
+
+
+
+if ($ConfirmMigration -eq "y" -or $ConfirmMigration -eq "Y") {if ($ConfirmMigration -eq "y" -or $ConfirmMigration -eq "Y") {
+
+    Write-Host "🔄 执行统一模块测试命令..." -ForegroundColor Green    Write-Host "🔄 执行统一模块测试命令..." -ForegroundColor Green
+
+        
+
+    $NewScriptPath = Join-Path $PSScriptRoot "run_module_tests.ps1"    $NewScriptPath = Join-Path $PSScriptRoot "run_module_tests.ps1"
+
+    $Arguments = @("-ModuleName", "product_catalog", "-TestType", $TestType)    $Arguments = @("-ModuleName", "product_catalog", "-TestType", $TestType)
+
+        
+
+    if ($Verbose) { $Arguments += "-Verbose" }    if ($Verbose) { $Arguments += "-Verbose" }
+
+        
+
+    & $NewScriptPath @Arguments    & $NewScriptPath @Arguments
+
+} else {} else {
+
+    Write-Host "❌ 已取消执行" -ForegroundColor Red    Write-Host "❌ 已取消执行" -ForegroundColor Red
+
+    Write-Host "💡 请手动运行推荐的命令" -ForegroundColor Yellow    Write-Host "💡 请手动运行推荐的命令" -ForegroundColor Yellow
+
+    exit 1    exit 1
+
+}}
 
 # 检查环境
 Write-Info "🔍 检查测试环境..."

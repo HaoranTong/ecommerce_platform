@@ -293,7 +293,7 @@ def smoke_test_client(smoke_test_db, mock_admin_user):
 
 # ========== 集成测试配置 ==========
 @pytest.fixture(scope="session")
-def integration_test_engine():
+def mysql_integration_engine():
     """集成测试数据库引擎（使用现有MySQL Docker容器）"""
     print("🐳 使用现有MySQL容器进行集成测试...")
     
@@ -333,12 +333,12 @@ def integration_test_engine():
         engine.dispose()
 
 @pytest.fixture(scope="function")
-def integration_test_db(integration_test_engine):
+def mysql_integration_db(mysql_integration_engine):
     """集成测试数据库会话"""
     TestingSessionLocal = sessionmaker(
         autocommit=False,
         autoflush=False,
-        bind=integration_test_engine
+        bind=mysql_integration_engine
     )
     database = TestingSessionLocal()
     try:
@@ -356,9 +356,9 @@ def clean_integration_test_data(request):
         yield
         return
     
-    # 只在集成测试时获取integration_test_engine
+    # 只在集成测试时获取mysql_integration_engine
     try:
-        integration_test_engine = request.getfixturevalue('integration_test_engine')
+        mysql_integration_engine = request.getfixturevalue('mysql_integration_engine')
     except Exception:
         # 如果无法获取fixture，跳过清理
         yield
@@ -368,7 +368,7 @@ def clean_integration_test_data(request):
     
     # 测试后清理数据
     try:
-        with integration_test_engine.begin() as conn:
+        with mysql_integration_engine.begin() as conn:
             # 禁用外键检查
             conn.execute(text("SET FOREIGN_KEY_CHECKS = 0"))
             
@@ -397,13 +397,13 @@ def clean_integration_test_data(request):
         # 不抛出异常，避免影响测试结果
 
 @pytest.fixture(scope="function")
-def integration_test_client(integration_test_db, mock_admin_user):
+def api_client(mysql_integration_db, mock_admin_user):
     """集成测试客户端"""
     # 导入认证函数
     from app.core.auth import get_current_user, get_current_active_user, get_current_admin_user
     
     def override_get_db():
-        yield integration_test_db
+        yield mysql_integration_db
         
     async def override_get_current_user():
         return mock_admin_user
@@ -583,3 +583,5 @@ def configure_test_timeouts(request):
         # 性能测试：300秒超时
         request.node.add_marker(pytest.mark.timeout(300))
     # 如果没有特定标记，使用全局默认超时（pyproject.toml中的300秒）
+
+

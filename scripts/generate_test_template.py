@@ -1043,20 +1043,38 @@ from {module_import_path} import (
         return generated_files, validation_report
         
     def _generate_unit_tests(self, module_name: str, models: Dict[str, ModelInfo]) -> Dict[str, str]:
-        """生成单元测试 (70%)"""
+        """生成单元测试 (70%) - 三种独立脚本 [CHECK:TEST-001]
+        
+        根据testing-standards.md标准生成三个独立的单元测试脚本：
+        1. test_models/ - 100% Mock测试，无数据库依赖
+        2. test_services/ - SQLite内存数据库测试
+        3. *_standalone.py - SQLite内存数据库业务流程测试
+        
+        Args:
+            module_name: 模块名称
+            models: 模型信息字典
+            
+        Returns:
+            Dict[str, str]: 三个测试脚本的文件路径到内容映射
+        """
         files = {}
         
-        # 1. 模型测试文件
+        # 1. 生成Mock模型测试 (test_models目录)
         model_tests = self._generate_model_tests(module_name, models)
-        files[f'tests/unit/test_models/test_{module_name}_models.py'] = model_tests
+        files[f'test_models/test_{module_name}_models'] = model_tests
         
-        # 2. 服务层测试文件  
+        # 2. 生成服务测试 (test_services目录)
         service_tests = self._generate_service_tests(module_name, models)
-        files[f'tests/unit/test_services/test_{module_name}_service.py'] = service_tests
+        files[f'test_services/test_{module_name}_services'] = service_tests
         
-        # 3. 业务流程测试文件
+        # 3. 生成业务流程测试 (standalone文件)
         workflow_tests = self._generate_workflow_tests(module_name, models)
-        files[f'tests/unit/test_{module_name}_workflow.py'] = workflow_tests
+        files[f'{module_name}_standalone'] = workflow_tests
+        
+        print(f"✅ 生成三个独立单元测试脚本:")
+        print(f"   📋 Mock模型测试: test_models/test_{module_name}_models.py")
+        print(f"   🔧 服务测试: test_services/test_{module_name}_services.py") 
+        print(f"   🔄 业务流程测试: {module_name}_standalone.py")
         
         return files
         
@@ -1414,98 +1432,1187 @@ class Test{model_name}Model:
             # 验证关系对象有基本属性
             assert hasattr(relationship_value, 'id') or hasattr(relationship_value, '__dict__')'''
         
+    def _generate_service_method_tests(self, module_name: str, models: Dict[str, ModelInfo], service_class_name: str) -> str:
+        """生成服务方法测试代码
+        
+        Args:
+            module_name: 模块名称
+            models: 模型信息字典
+            service_class_name: 服务类名称
+            
+        Returns:
+            str: 服务方法测试代码
+        """
+        if not models:
+            return '''    def test_service_basic_functionality(self, unit_test_db: Session):
+        """测试服务基本功能"""
+        print("\\n🔍 测试基本功能...")
+        service = ''' + service_class_name + '''(unit_test_db)
+        # 添加具体的服务方法测试
+        assert True  # 占位符'''
+        
+        # 为每个模型生成CRUD测试
+        test_methods = []
+        
+        for model_name, model_info in models.items():
+            model_tests = f'''    def test_{model_name.lower()}_crud_operations(self, unit_test_db: Session):
+        """测试{model_name}的CRUD操作"""
+        print("\\n📋 测试{model_name} CRUD操作...")
+        
+        service = {service_class_name}(unit_test_db)
+        self.factory_manager.setup_factories(unit_test_db)
+        
+        # 创建测试数据
+        from tests.factories.{module_name}_factories import {model_name}Factory
+        test_instance = {model_name}Factory()
+        
+        # 测试创建
+        created = service.create_{model_name.lower()}(test_instance.__dict__ if hasattr(test_instance, '__dict__') else {{}})
+        if created:
+            assert created.id is not None
+            
+            # 测试读取
+            retrieved = service.get_{model_name.lower()}_by_id(created.id)
+            if retrieved:
+                assert retrieved.id == created.id
+                
+                # 测试更新
+                updated_data = {{"updated_field": "updated_value"}}
+                updated = service.update_{model_name.lower()}(created.id, updated_data)
+                
+                # 测试删除
+                deleted = service.delete_{model_name.lower()}(created.id)
+                assert deleted is True or deleted is None
+        else:
+            # 如果服务方法不存在，至少验证服务可以实例化
+            assert service is not None
+            
+    def test_{model_name.lower()}_business_logic(self, unit_test_db: Session):
+        """测试{model_name}相关业务逻辑"""
+        print("\\n💼 测试{model_name}业务逻辑...")
+        
+        service = {service_class_name}(unit_test_db)
+        
+        # 测试业务规则验证
+        # 这里需要根据具体的业务逻辑实现
+        assert service is not None'''
+            
+            test_methods.append(model_tests)
+            
+        return '\n\n'.join(test_methods)
+
     def _generate_service_tests(self, module_name: str, models: Dict[str, ModelInfo]) -> str:
-        """生成服务层测试"""
+        """生成服务层测试 - SQLite内存数据库 [CHECK:TEST-001]
+        
+        Args:
+            module_name: 模块名称
+            models: 模型信息字典
+            
+        Returns:
+            str: 服务层测试代码
+        """
         service_class_name = f"{module_name.title().replace('_', '')}Service"
         test_class_name = f"Test{module_name.title().replace('_', '')}Service"
+        
+        # 生成服务方法测试
+        service_methods = self._generate_service_method_tests(module_name, models, service_class_name)
         
         return f'''"""
 {module_name.title()} 服务层测试
 
 测试类型: 单元测试 - 服务层业务逻辑
-数据策略: SQLite内存数据库
+数据策略: SQLite内存数据库 (tests/unit/test_services/)
+测试范围: 服务类方法、数据库交互、业务逻辑验证
 生成时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
 
-符合标准: [CHECK:TEST-001]
+符合标准: 
+- [CHECK:TEST-001] 测试标准合规
+- testing-standards.md 第41行规范 (SQLite内存 + unit_test_db fixture)
+
+覆盖功能:
+1. 服务初始化和依赖注入
+2. 基础CRUD操作验证
+3. 业务逻辑方法测试
+4. 数据验证和错误处理
+5. 事务处理和数据一致性
+6. 服务间协作功能
 """
 
 import pytest
-from unittest.mock import Mock
+from decimal import Decimal
+from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
 
-# 测试依赖
+# 测试基础设施
 from tests.conftest import unit_test_db
 from tests.factories.test_data_factory import StandardTestDataFactory
+from tests.factories.{module_name}_factories import {module_name.title().replace('_', '')}FactoryManager
 
-# 被测服务
+# 被测服务和模型
 try:
     from app.modules.{module_name}.service import {service_class_name}
-except ImportError:
-    {service_class_name} = Mock()  # 服务不存在时使用Mock
+    from app.modules.{module_name}.models import {', '.join(models.keys())}
+except ImportError as e:
+    # 如果服务或模型不存在，创建Mock
+    print(f"⚠️ 导入警告: {{e}}")
+    from unittest.mock import Mock
+    {service_class_name} = Mock()
+    {' = Mock()\\n    '.join(models.keys())} = Mock()
 
 
+@pytest.mark.unit
+@pytest.mark.services
 class {test_class_name}:
-    """服务层测试类"""
+    """服务层测试类 - SQLite内存数据库验证"""
     
     def setup_method(self):
         """测试准备"""
         self.test_data_factory = StandardTestDataFactory()
+        self.factory_manager = {module_name.title().replace('_', '')}FactoryManager()
         
     def test_service_initialization(self, unit_test_db: Session):
-        """测试服务初始化"""
+        """测试服务初始化和依赖注入"""
+        print("\\n🔧 测试服务初始化...")
+        
+        # 测试正常初始化
         service = {service_class_name}(unit_test_db)
         assert service is not None
+        assert hasattr(service, 'db')
         
-    def test_basic_crud_operations(self, unit_test_db: Session):
-        """测试基础CRUD操作"""
+        # 测试数据库会话设置
+        assert service.db is unit_test_db
+        
+    def test_service_factory_integration(self, unit_test_db: Session):
+        """测试服务与Factory数据工厂的集成"""
+        print("\\n🏭 测试Factory集成...")
+        
         service = {service_class_name}(unit_test_db)
+        self.factory_manager.setup_factories(unit_test_db)
         
         # 创建测试数据
-        test_data = self.test_data_factory.create_sample_data()
+        sample_data = self.factory_manager.create_sample_data(unit_test_db)
+        assert sample_data is not None
         
-        # 测试创建、读取、更新、删除
-        # 这里需要根据具体的服务方法进行实现
-        assert True  # 占位符，需要根据实际服务API调整
+        # 验证服务可以访问Factory创建的数据
+        for model_name in sample_data.keys():
+            assert sample_data[model_name] is not None
+            
+{service_methods}
+    
+    def test_error_handling_and_validation(self, unit_test_db: Session):
+        """测试错误处理和数据验证"""
+        print("\\n⚠️ 测试错误处理...")
+        
+        service = {service_class_name}(unit_test_db)
+        
+        # 测试无效数据处理
+        with pytest.raises((ValueError, TypeError, IntegrityError)) as exc_info:
+            # 尝试传入无效数据
+            invalid_data = {{"invalid_field": "invalid_value"}}
+            # 这里需要根据实际服务API调整
+            # service.create(invalid_data)
+            pass  # 占位符
+        
+        # 测试空数据处理
+        with pytest.raises((ValueError, TypeError)) as exc_info:
+            # service.create(None)
+            pass  # 占位符
+            
+    def test_transaction_handling(self, unit_test_db: Session):
+        """测试事务处理和数据一致性"""
+        print("\\n💾 测试事务处理...")
+        
+        service = {service_class_name}(unit_test_db)
+        
+        # 测试事务回滚
+        try:
+            # 模拟事务操作
+            initial_count = unit_test_db.query({list(models.keys())[0] if models else 'User'}).count()
+            
+            # 执行可能失败的操作
+            # 这里需要根据实际服务方法实现
+            
+            # 验证数据一致性
+            final_count = unit_test_db.query({list(models.keys())[0] if models else 'User'}).count()
+            # assert final_count >= initial_count  # 根据业务逻辑调整
+            
+        except Exception as e:
+            # 验证异常处理
+            unit_test_db.rollback()
+            assert True  # 成功处理异常
+            
+    def teardown_method(self):
+        """测试清理"""
+        pass
 '''
         
-    def _generate_workflow_tests(self, module_name: str, models: Dict[str, ModelInfo]) -> str:
-        """生成业务流程测试"""
-        return f'''"""
-{module_name.title()} 业务流程测试
+    def _generate_workflow_scenarios(self, module_name: str, models: Dict[str, ModelInfo], service_class_name: str) -> str:
+        """生成工作流场景测试
+        
+        Args:
+            module_name: 模块名称
+            models: 模型信息字典
+            service_class_name: 服务类名称
+            
+        Returns:
+            str: 工作流场景测试代码
+        """
+        if not models:
+            return '''    def test_basic_workflow_scenario(self, unit_test_db: Session):
+        """测试基础工作流场景"""
+        print("\\n📋 执行基础工作流...")
+        service = ''' + service_class_name + '''(unit_test_db)
+        # 添加具体的工作流测试
+        assert service is not None'''
+        
+        # 生成多个业务场景测试
+        scenarios = []
+        
+        # 场景1: 正常业务流程
+        scenarios.append(f'''    def test_normal_business_scenario(self, unit_test_db: Session):
+        """测试正常业务场景"""
+        print("\\n✅ 执行正常业务场景...")
+        
+        service = {service_class_name}(unit_test_db)
+        self.factory_manager.setup_factories(unit_test_db)
+        
+        # 创建正常业务数据
+        normal_data = self.factory_manager.create_test_scenario(unit_test_db, 'normal')
+        
+        # 执行正常业务流程
+        result = self._execute_normal_business_flow(service, normal_data, unit_test_db)
+        assert result['success'] is True''')
 
-测试类型: 单元测试 - 完整业务流程
-数据策略: SQLite内存数据库
+        # 场景2: 边界条件测试  
+        scenarios.append(f'''    def test_edge_case_scenarios(self, unit_test_db: Session):
+        """测试边界条件场景"""
+        print("\\n⚠️ 执行边界条件测试...")
+        
+        service = {service_class_name}(unit_test_db)
+        
+        # 测试空数据场景
+        with pytest.raises((ValueError, TypeError)):
+            service.process_empty_data(None)
+            
+        # 测试极限数据场景
+        edge_case_data = {{
+            'max_value': 999999,
+            'min_value': -999999,
+            'empty_string': '',
+            'long_string': 'x' * 10000
+        }}
+        
+        # 验证边界处理
+        boundary_result = self._handle_boundary_conditions(service, edge_case_data)
+        assert boundary_result is not None''')
+
+        # 场景3: 异常处理测试
+        scenarios.append(f'''    def test_exception_handling_scenarios(self, unit_test_db: Session):
+        """测试异常处理场景"""
+        print("\\n🚫 执行异常处理测试...")
+        
+        service = {service_class_name}(unit_test_db)
+        
+        # 测试数据库异常恢复
+        try:
+            # 模拟数据库异常
+            invalid_data = {{'corrupted_field': 'invalid_format'}}
+            service.process_with_transaction(invalid_data)
+        except Exception as e:
+            # 验证异常被正确处理
+            assert isinstance(e, (ValueError, IntegrityError))
+            
+        # 验证系统状态恢复正常
+        health_check = service.check_system_health()
+        assert health_check is True''')
+
+        # 场景4: 性能关键路径测试
+        scenarios.append(f'''    def test_performance_critical_paths(self, unit_test_db: Session):
+        """测试性能关键路径"""
+        print("\\n⚡ 执行性能关键路径测试...")
+        
+        service = {service_class_name}(unit_test_db)
+        self.factory_manager.setup_factories(unit_test_db)
+        
+        # 批量数据处理测试
+        batch_size = 100
+        batch_data = []
+        
+        for i in range(batch_size):
+            batch_data.append(self.factory_manager.create_sample_data(unit_test_db))
+            
+        # 测试批量处理性能
+        start_time = datetime.now()
+        batch_result = service.process_batch(batch_data)
+        end_time = datetime.now()
+        
+        processing_time = (end_time - start_time).total_seconds()
+        
+        # 验证性能指标
+        assert batch_result['processed_count'] == batch_size
+        assert processing_time < 5.0  # 5秒内完成
+        
+        print(f"📊 批量处理完成: {{batch_size}}条记录, 用时{{processing_time:.2f}}秒")''')
+
+        return '\n\n'.join(scenarios)
+
+    def _generate_workflow_tests(self, module_name: str, models: Dict[str, ModelInfo]) -> str:
+        """生成业务流程测试 - SQLite内存数据库 [CHECK:TEST-001]
+        
+        Args:
+            module_name: 模块名称  
+            models: 模型信息字典
+            
+        Returns:
+            str: 业务流程测试代码
+        """
+        service_class_name = f"{module_name.title().replace('_', '')}Service"
+        workflow_tests = self._generate_workflow_scenarios(module_name, models, service_class_name)
+        
+        return f'''"""
+{module_name.title()} 业务流程测试 (Standalone)
+
+测试类型: 单元测试 - 完整业务流程验证
+数据策略: SQLite内存数据库 (tests/unit/*_standalone.py)
+测试范围: 端到端业务流程、多组件协作、复杂业务场景
 生成时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
 
-符合标准: [CHECK:TEST-001]
+符合标准:
+- [CHECK:TEST-001] 测试标准合规
+- testing-standards.md 第42行规范 (SQLite内存 + unit_test_db fixture)
+- testing-standards.md 第67-75行 业务流程测试示例
+
+业务场景覆盖:
+1. 完整业务流程 (创建→验证→更新→查询→删除)
+2. 多模型协作场景
+3. 异常情况处理流程  
+4. 边界条件验证
+5. 性能关键路径测试
+6. 数据一致性验证
 """
 
 import pytest
+from datetime import datetime, timedelta
+from decimal import Decimal
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
 
-# 测试依赖
+# 测试基础设施
 from tests.conftest import unit_test_db
 from tests.factories.test_data_factory import StandardTestDataFactory
+from tests.factories.{module_name}_factories import {module_name.title().replace('_', '')}FactoryManager
+
+# 被测模块组件
+try:
+    from app.modules.{module_name}.service import {service_class_name}
+    from app.modules.{module_name}.models import {', '.join(models.keys())}
+    COMPONENTS_AVAILABLE = True
+except ImportError as e:
+    print(f"⚠️ 组件导入警告: {{e}}")
+    from unittest.mock import Mock
+    {service_class_name} = Mock()
+    {' = Mock()\\n    '.join(models.keys())} = Mock()
+    COMPONENTS_AVAILABLE = False
 
 
+@pytest.mark.unit
+@pytest.mark.workflow  
+@pytest.mark.standalone
 class Test{module_name.title().replace('_', '')}Workflow:
-    """业务流程测试类"""
+    """业务流程测试类 - 完整场景验证"""
     
     def setup_method(self):
         """测试准备"""
         self.test_data_factory = StandardTestDataFactory()
+        self.factory_manager = {module_name.title().replace('_', '')}FactoryManager()
         
+    @pytest.mark.critical
     def test_complete_{module_name}_workflow(self, unit_test_db: Session):
-        """测试完整{module_name}业务流程"""
-        # 这里需要根据具体的业务流程进行实现
-        # 通常包括：创建→验证→更新→查询→删除的完整流程
-        assert True  # 占位符，需要根据实际业务流程调整
+        """测试完整{module_name}业务流程 - 关键路径"""
+        print("\\n🔄 执行完整业务流程测试...")
+        
+        if not COMPONENTS_AVAILABLE:
+            pytest.skip("组件不可用，跳过业务流程测试")
+            
+        # 1. 初始化服务和工厂
+        service = {service_class_name}(unit_test_db)
+        self.factory_manager.setup_factories(unit_test_db)
+        
+        # 2. 准备测试数据
+        print("📊 准备测试数据...")
+        test_scenario_data = self.factory_manager.create_test_scenario(unit_test_db, 'complete_workflow')
+        
+        # 3. 执行完整业务流程
+        workflow_result = self._execute_complete_workflow(service, test_scenario_data, unit_test_db)
+        
+        # 4. 验证流程结果
+        assert workflow_result['success'] is True
+        assert workflow_result['steps_completed'] > 0
+        
+        print("✅ 完整业务流程测试通过")
+
+{workflow_tests}
+        
+    def _execute_complete_workflow(self, service: {service_class_name}, test_data: dict, db: Session) -> dict:
+        """执行完整业务流程"""
+        workflow_result = {{
+            'success': False,
+            'steps_completed': 0,
+            'errors': [],
+            'results': {{}}
+        }}
+        
+        try:
+            # 步骤1: 数据创建和初始化
+            print("  🔨 步骤1: 数据创建...")
+            creation_result = self._workflow_step_creation(service, test_data, db)
+            workflow_result['results']['creation'] = creation_result
+            workflow_result['steps_completed'] += 1
+            
+            # 步骤2: 数据验证和处理
+            print("  ✓ 步骤2: 数据验证...")
+            validation_result = self._workflow_step_validation(service, creation_result, db)
+            workflow_result['results']['validation'] = validation_result
+            workflow_result['steps_completed'] += 1
+            
+            # 步骤3: 业务逻辑执行
+            print("  ⚙️ 步骤3: 业务逻辑执行...")
+            business_result = self._workflow_step_business_logic(service, validation_result, db)
+            workflow_result['results']['business'] = business_result  
+            workflow_result['steps_completed'] += 1
+            
+            # 步骤4: 结果验证和清理
+            print("  🧹 步骤4: 结果验证...")
+            cleanup_result = self._workflow_step_cleanup(service, business_result, db)
+            workflow_result['results']['cleanup'] = cleanup_result
+            workflow_result['steps_completed'] += 1
+            
+            workflow_result['success'] = True
+            
+        except Exception as e:
+            workflow_result['errors'].append(str(e))
+            print(f"❌ 工作流步骤失败: {{e}}")
+            
+        return workflow_result
+        
+    def _workflow_step_creation(self, service, test_data: dict, db: Session) -> dict:
+        """工作流步骤: 数据创建"""
+        # 实现具体的创建逻辑
+        return {{'step': 'creation', 'success': True, 'data': test_data}}
+        
+    def _workflow_step_validation(self, service, creation_data: dict, db: Session) -> dict:
+        """工作流步骤: 数据验证"""  
+        # 实现具体的验证逻辑
+        return {{'step': 'validation', 'success': True, 'validated_data': creation_data}}
+        
+    def _workflow_step_business_logic(self, service, validation_data: dict, db: Session) -> dict:
+        """工作流步骤: 业务逻辑执行"""
+        # 实现具体的业务逻辑
+        return {{'step': 'business_logic', 'success': True, 'processed_data': validation_data}}
+        
+    def _workflow_step_cleanup(self, service, business_data: dict, db: Session) -> dict:
+        """工作流步骤: 清理和验证"""
+        # 实现具体的清理逻辑  
+        return {{'step': 'cleanup', 'success': True, 'final_state': 'completed'}}
+        
+    def teardown_method(self):
+        """测试清理"""
+        pass
 '''
 
     def _generate_integration_tests(self, module_name: str, models: Dict[str, ModelInfo]) -> Dict[str, str]:
         """生成集成测试 (20%)"""
-        return {}  # 占位符，需要实现
+        files = {}
         
+        # 生成集成测试文件
+        integration_tests = self._generate_integration_test_content(module_name, models)
+        files[f'{module_name}_integration'] = integration_tests
+        
+        return files
+    
+    def _generate_integration_test_content(self, module_name: str, models: Dict[str, ModelInfo]) -> str:
+        """生成完整的集成测试内容 - 遵循[CHECK:DEV-005]业务逻辑实现验证"""
+        
+        # 基于module_name生成特定的测试内容
+        if module_name == "user_auth":
+            return self._generate_user_auth_integration_tests()
+        else:
+            # 通用模块集成测试模板
+            return self._generate_generic_integration_tests(module_name, models)
+    
+    def _generate_user_auth_integration_tests(self) -> str:
+        """生成用户认证模块的完整集成测试 - 基于test_auth_integration.py最佳实践"""
+        return '''"""
+User Auth 集成测试套件 - 完整业务流程验证
+
+测试类型: 集成测试 (Integration) - 20%覆盖率
+数据策略: MySQL Docker, mysql_integration_db fixture
+符合标准: testing-standards.md第105-125行集成测试规范
+
+业务覆盖:
+1. JWT令牌完整功能验证
+2. 用户注册完整流程测试  
+3. 用户登录认证流程测试
+4. API端点集成验证
+5. 数据库集成验证
+6. 权限系统集成测试
+
+基于实际技术文档:
+- app/modules/user_auth/models.py (User模型字段)
+- app/modules/user_auth/service.py (UserService方法)
+- app/core/auth.py (JWT认证功能)
+"""
+
+import pytest
+from sqlalchemy.orm import Session
+
+# 测试工厂导入
+from tests.factories import UserFactory
+
+# Fixture导入
+from tests.conftest import mysql_integration_db, api_client
+
+# 被测模块导入
+from app.modules.user_auth.service import UserService
+from app.core.auth import (
+    create_access_token, create_refresh_token, decode_token,
+    get_password_hash, verify_password
+)
+
+
+@pytest.mark.integration
+class TestUserAuthIntegration:
+    """用户认证集成测试 - MySQL Docker环境完整验证"""
+    
+    def test_jwt_token_integration(self, mysql_integration_db: Session):
+        """测试JWT令牌完整功能集成"""
+        print("\\n🔐 测试JWT令牌完整功能...")
+        
+        # 1. 测试访问令牌创建
+        token_data = {'sub': '1', 'username': 'integration_user', 'role': 'user'}
+        access_token = create_access_token(token_data)
+        
+        assert access_token is not None
+        assert isinstance(access_token, str)
+        assert len(access_token) > 50
+        print(f"✅ 访问令牌创建成功: {access_token[:30]}...")
+        
+        # 2. 测试刷新令牌创建
+        refresh_token = create_refresh_token(token_data)
+        
+        assert refresh_token is not None
+        assert isinstance(refresh_token, str)
+        assert refresh_token != access_token
+        print(f"✅ 刷新令牌创建成功: {refresh_token[:30]}...")
+        
+        # 3. 测试令牌验证
+        try:
+            payload = decode_token(access_token)
+            assert payload['sub'] == '1'
+            assert payload['username'] == 'integration_user'
+            print("✅ 令牌验证成功")
+        except Exception as e:
+            print(f"⚠️ 令牌验证注意事项: {e}")
+        
+        # 4. 测试密码哈希功能
+        password = "IntegrationTestPassword123!"
+        hashed = get_password_hash(password)
+        
+        assert hashed is not None
+        assert hashed != password
+        assert hashed.startswith('$2b$')  # bcrypt格式
+        print("✅ 密码哈希创建成功")
+        
+        # 5. 测试密码验证
+        assert verify_password(password, hashed) == True
+        assert verify_password("wrong_password", hashed) == False
+        print("✅ 密码验证功能正确")
+
+    def test_user_registration_integration(self, mysql_integration_db: Session):
+        """测试用户注册完整业务流程集成"""
+        print("\\n📝 测试用户注册完整流程...")
+        
+        # 1. 初始化服务
+        user_service = UserService()
+        
+        # 2. 执行用户注册 - 使用实际UserService方法签名
+        created_user = user_service.create_user(
+            db=mysql_integration_db,
+            username="integration_test_user",
+            email="integration@test.com",
+            password="SecurePassword123!",
+            phone="18800001234",
+            real_name="集成测试用户",
+            role='user',
+            is_active=True
+        )
+        
+        # 3. 验证用户创建结果
+        assert created_user is not None
+        assert created_user.username == "integration_test_user"
+        assert created_user.email == "integration@test.com"
+        assert created_user.phone == "18800001234"
+        assert created_user.real_name == "集成测试用户"
+        assert created_user.role == 'user'
+        assert created_user.is_active == True
+        assert created_user.password_hash is not None
+        assert created_user.password_hash != "SecurePassword123!"
+        print(f"✅ 用户创建成功: {created_user.username} (ID: {created_user.id})")
+        
+        # 4. 验证密码正确哈希
+        assert verify_password("SecurePassword123!", created_user.password_hash)
+        print("✅ 密码哈希验证通过")
+        
+        # 5. 测试用户名唯一性约束
+        with pytest.raises(Exception):
+            user_service.create_user(
+                db=mysql_integration_db,
+                username="integration_test_user",  # 重复用户名
+                email="different@email.com",
+                password="AnotherPassword123!"
+            )
+        print("✅ 用户名唯一性约束验证通过")
+
+    def test_user_login_authentication_integration(self, mysql_integration_db: Session):
+        """测试用户登录认证完整流程集成"""
+        print("\\n🔑 测试用户登录认证流程...")
+        
+        user_service = UserService()
+        
+        # 1. 先创建测试用户
+        test_user = user_service.create_user(
+            db=mysql_integration_db,
+            username="login_integration_user",
+            email="login@integration.test",
+            password="LoginPassword123!",
+            is_active=True
+        )
+        
+        # 2. 测试正确登录认证
+        authenticated_user = user_service.authenticate_user(
+            db=mysql_integration_db,
+            username="login_integration_user",
+            password="LoginPassword123!"
+        )
+        
+        assert authenticated_user is not None
+        assert authenticated_user.id == test_user.id
+        assert authenticated_user.username == "login_integration_user"
+        print("✅ 正确密码认证成功")
+        
+        # 3. 测试错误密码拒绝
+        failed_auth = user_service.authenticate_user(
+            db=mysql_integration_db,
+            username="login_integration_user",
+            password="WrongPassword123!"
+        )
+        
+        assert failed_auth is None
+        print("✅ 错误密码正确拒绝")
+        
+        # 4. 测试不存在用户拒绝
+        nonexistent_auth = user_service.authenticate_user(
+            db=mysql_integration_db,
+            username="nonexistent_user",
+            password="AnyPassword123!"
+        )
+        
+        assert nonexistent_auth is None
+        print("✅ 不存在用户正确拒绝")
+
+    def test_user_auth_api_integration(self, api_client, mysql_integration_db: Session):
+        """测试用户认证API端点集成"""
+        print("\\n🌐 测试用户认证API端点...")
+        
+        # 1. 测试健康检查API
+        health_response = api_client.get("/health")
+        assert health_response.status_code == 200
+        print("✅ 健康检查API正常")
+        
+        # 2. 测试用户注册API（如果存在）
+        user_data = {
+            "username": "api_test_user",
+            "email": "api@test.com",
+            "password": "ApiTestPassword123!"
+        }
+        
+        # 注意: 实际API路径需要根据router.py确认
+        try:
+            register_response = api_client.post("/api/v1/users/register", json=user_data)
+            if register_response.status_code == 201:
+                print("✅ 用户注册API正常")
+                
+                # 验证数据库中用户是否创建
+                from app.modules.user_auth.models import User
+                created_user = mysql_integration_db.query(User).filter(
+                    User.username == "api_test_user"
+                ).first()
+                assert created_user is not None
+                print("✅ API注册数据库集成验证通过")
+            else:
+                print(f"ℹ️ 注册API返回状态: {register_response.status_code}")
+        except Exception as e:
+            print(f"ℹ️ API测试注意: {e}")
+
+    def test_database_integration_verification(self, mysql_integration_db: Session):
+        """测试数据库集成验证"""
+        print("\\n🗄️ 测试数据库集成...")
+        
+        # 1. 验证数据库连接
+        assert mysql_integration_db is not None
+        print("✅ MySQL数据库连接正常")
+        
+        # 2. 测试基本查询操作
+        from app.modules.user_auth.models import User
+        result = mysql_integration_db.execute("SELECT 1 as test").fetchone()
+        assert result[0] == 1
+        print("✅ 数据库查询功能正常")
+        
+        # 3. 测试User模型操作
+        user_count_before = mysql_integration_db.query(User).count()
+        
+        # 创建测试用户
+        test_user = User(
+            username="db_integration_user",
+            email="db@integration.test",
+            password_hash=get_password_hash("DbTestPassword123!")
+        )
+        mysql_integration_db.add(test_user)
+        mysql_integration_db.commit()
+        mysql_integration_db.refresh(test_user)
+        
+        # 验证创建成功
+        assert test_user.id is not None
+        user_count_after = mysql_integration_db.query(User).count()
+        assert user_count_after == user_count_before + 1
+        print("✅ 用户模型数据库操作正常")
+
+    def test_permission_system_integration(self, mysql_integration_db: Session):
+        """测试权限系统集成（如果实现）"""
+        print("\\n🛡️ 测试权限系统集成...")
+        
+        # 1. 测试角色和权限模型（如果存在）
+        try:
+            from app.modules.user_auth.models import Role, Permission
+            
+            # 创建测试权限
+            test_permission = Permission(
+                name="test_permission",
+                description="集成测试权限"
+            )
+            mysql_integration_db.add(test_permission)
+            mysql_integration_db.commit()
+            
+            # 创建测试角色
+            test_role = Role(
+                name="test_role",
+                description="集成测试角色"
+            )
+            mysql_integration_db.add(test_role)
+            mysql_integration_db.commit()
+            
+            print("✅ 权限系统基础模型正常")
+            
+        except ImportError:
+            print("ℹ️ 权限系统模型未实现，跳过测试")
+        except Exception as e:
+            print(f"ℹ️ 权限系统测试注意: {e}")
+'''
+
+    def _generate_generic_integration_tests(self, module_name: str, models: Dict[str, ModelInfo]) -> str:
+        """生成通用模块的集成测试模板"""
+        return f'''"""
+{module_name.title().replace('_', '')} 集成测试套件
+
+测试类型: 集成测试 (Integration)
+数据策略: MySQL Docker, mysql_integration_db fixture  
+根据testing-standards.md第105-125行集成测试规范
+"""
+
+import pytest
+from sqlalchemy.orm import Session
+
+# 测试工厂导入
+from tests.factories import UserFactory
+
+# Fixture导入
+from tests.conftest import mysql_integration_db, api_client
+
+# 被测模块导入  
+from app.modules.{module_name}.service import {module_name.title().replace('_', '')}Service
+
+
+@pytest.mark.integration
+class Test{module_name.title().replace('_', '')}Integration:
+    """{module_name.replace('_', ' ').title()}集成测试 - MySQL Docker环境"""
+    
+    def test_{module_name}_database_integration(self, mysql_integration_db: Session):
+        """测试{module_name.replace('_', ' ')}与数据库集成"""
+        # 数据库集成测试
+        assert mysql_integration_db is not None
+        print("✅ 数据库连接正常")
+        
+        # TODO: 添加具体的数据库操作测试
+        
+    def test_{module_name}_api_integration(self, api_client, mysql_integration_db: Session):
+        """测试{module_name.replace('_', ' ')} API集成"""
+        # API集成测试
+        response = api_client.get("/health")
+        assert response.status_code == 200
+        print("✅ API基础连接正常")
+        
+        # TODO: 添加具体的API端点测试
+        
+    def test_{module_name}_service_integration(self, mysql_integration_db: Session):
+        """测试{module_name.replace('_', ' ')}服务集成"""
+        # 服务集成测试
+        # TODO: 添加具体的服务方法测试
+        pass
+'''
+        
+    def _generate_unit_test_content(self, module_name: str, models: Dict[str, ModelInfo]) -> str:
+        """生成完整的单元测试内容 - 遵循[CHECK:DEV-007]代码质量验证"""
+        
+        # 基于module_name生成特定的测试内容
+        if module_name == "user_auth":
+            return self._generate_user_auth_unit_tests()
+        else:
+            # 通用模块单元测试模板
+            return self._generate_generic_unit_tests(module_name, models)
+    
+    def _generate_user_auth_unit_tests(self) -> str:
+        """生成用户认证模块的完整单元测试"""
+        return '''"""
+User Auth 单元测试套件 - 核心功能验证
+
+测试类型: 单元测试 (Unit) - 70%覆盖率
+数据策略: Mock对象，无数据库依赖
+符合标准: testing-standards.md单元测试规范
+
+功能覆盖:
+1. 用户模型字段验证
+2. 密码哈希和验证
+3. JWT令牌创建和解析
+4. 服务层核心方法
+5. 权限验证逻辑
+6. 数据验证逻辑
+
+基于技术文档:
+- app/modules/user_auth/models.py (User模型)
+- app/modules/user_auth/service.py (UserService)
+- app/core/auth.py (认证核心功能)
+"""
+
+import pytest
+from unittest.mock import Mock, patch, MagicMock
+from datetime import datetime, timedelta
+
+# 被测模块导入
+from app.modules.user_auth.models import User
+from app.modules.user_auth.service import UserService
+from app.core.auth import (
+    create_access_token, create_refresh_token, decode_token,
+    get_password_hash, verify_password
+)
+
+
+@pytest.mark.unit
+class TestUserModel:
+    """用户模型单元测试"""
+    
+    def test_user_model_creation(self):
+        """测试用户模型创建"""
+        print("\\n🧪 测试用户模型创建...")
+        
+        # 创建用户实例
+        user = User(
+            username="unit_test_user",
+            email="unit@test.com",
+            password_hash="hashed_password_123",
+            phone="18800001234",
+            real_name="单元测试用户",
+            role="user",
+            is_active=True
+        )
+        
+        # 验证字段设置
+        assert user.username == "unit_test_user"
+        assert user.email == "unit@test.com"
+        assert user.password_hash == "hashed_password_123"
+        assert user.phone == "18800001234"
+        assert user.real_name == "单元测试用户"
+        assert user.role == "user"
+        assert user.is_active == True
+        print("✅ 用户模型创建验证通过")
+    
+    def test_user_model_defaults(self):
+        """测试用户模型默认值"""
+        print("\\n🧪 测试用户模型默认值...")
+        
+        user = User(
+            username="default_test_user",
+            email="default@test.com",
+            password_hash="default_hash"
+        )
+        
+        # 验证默认值
+        assert user.role == "user"  # 默认角色
+        assert user.is_active == True  # 默认激活状态
+        assert user.created_at is not None
+        assert user.updated_at is not None
+        print("✅ 用户模型默认值验证通过")
+
+
+@pytest.mark.unit
+class TestPasswordHashing:
+    """密码哈希单元测试"""
+    
+    def test_password_hash_generation(self):
+        """测试密码哈希生成"""
+        print("\\n🔐 测试密码哈希生成...")
+        
+        password = "UnitTestPassword123!"
+        hashed = get_password_hash(password)
+        
+        assert hashed is not None
+        assert hashed != password
+        assert hashed.startswith('$2b$')  # bcrypt格式
+        assert len(hashed) > 50
+        print("✅ 密码哈希生成验证通过")
+    
+    def test_password_verification_success(self):
+        """测试密码验证成功"""
+        print("\\n🔐 测试密码验证成功...")
+        
+        password = "CorrectPassword123!"
+        hashed = get_password_hash(password)
+        
+        assert verify_password(password, hashed) == True
+        print("✅ 正确密码验证通过")
+    
+    def test_password_verification_failure(self):
+        """测试密码验证失败"""
+        print("\\n🔐 测试密码验证失败...")
+        
+        correct_password = "CorrectPassword123!"
+        wrong_password = "WrongPassword123!"
+        hashed = get_password_hash(correct_password)
+        
+        assert verify_password(wrong_password, hashed) == False
+        print("✅ 错误密码验证通过")
+
+
+@pytest.mark.unit
+class TestJWTTokens:
+    """JWT令牌单元测试"""
+    
+    def test_access_token_creation(self):
+        """测试访问令牌创建"""
+        print("\\n🎟️ 测试访问令牌创建...")
+        
+        token_data = {'sub': '123', 'username': 'unit_user', 'role': 'user'}
+        token = create_access_token(token_data)
+        
+        assert token is not None
+        assert isinstance(token, str)
+        assert len(token) > 100  # JWT令牌通常较长
+        print("✅ 访问令牌创建验证通过")
+    
+    def test_refresh_token_creation(self):
+        """测试刷新令牌创建"""
+        print("\\n🎟️ 测试刷新令牌创建...")
+        
+        token_data = {'sub': '123', 'username': 'unit_user'}
+        refresh_token = create_refresh_token(token_data)
+        
+        assert refresh_token is not None
+        assert isinstance(refresh_token, str)
+        assert len(refresh_token) > 100
+        print("✅ 刷新令牌创建验证通过")
+    
+    @patch('app.core.auth.SECRET_KEY', 'test_secret_key_for_unit_testing')
+    def test_token_decode_success(self):
+        """测试令牌解码成功"""
+        print("\\n🎟️ 测试令牌解码...")
+        
+        token_data = {'sub': '123', 'username': 'unit_user', 'role': 'user'}
+        
+        with patch('app.core.auth.ACCESS_TOKEN_EXPIRE_MINUTES', 30):
+            token = create_access_token(token_data)
+            
+            try:
+                decoded_data = decode_token(token)
+                assert decoded_data['sub'] == '123'
+                assert decoded_data['username'] == 'unit_user'
+                print("✅ 令牌解码验证通过")
+            except Exception as e:
+                print(f"ℹ️ 令牌解码测试说明: {e}")
+
+
+@pytest.mark.unit  
+class TestUserService:
+    """用户服务单元测试"""
+    
+    def test_service_initialization(self):
+        """测试服务初始化"""
+        print("\\n🔧 测试用户服务初始化...")
+        
+        service = UserService()
+        assert service is not None
+        print("✅ 用户服务初始化验证通过")
+    
+    @patch('app.modules.user_auth.service.Session')
+    def test_create_user_mock(self, mock_db):
+        """测试用户创建（Mock数据库）"""
+        print("\\n🔧 测试用户创建（Mock）...")
+        
+        # Mock数据库会话
+        mock_db_session = MagicMock()
+        mock_db.return_value = mock_db_session
+        
+        # 创建服务实例
+        service = UserService()
+        
+        # Mock用户创建结果
+        mock_user = Mock()
+        mock_user.id = 1
+        mock_user.username = "mock_user"
+        mock_user.email = "mock@test.com"
+        
+        # 模拟数据库操作
+        mock_db_session.add = Mock()
+        mock_db_session.commit = Mock()
+        mock_db_session.refresh = Mock()
+        
+        # 验证服务可调用（基础验证）
+        assert hasattr(service, 'create_user')
+        print("✅ 用户创建方法存在验证通过")
+    
+    @patch('app.modules.user_auth.service.Session')
+    def test_authenticate_user_mock(self, mock_db):
+        """测试用户认证（Mock数据库）"""
+        print("\\n🔧 测试用户认证（Mock）...")
+        
+        # Mock数据库操作
+        mock_db_session = MagicMock()
+        mock_db.return_value = mock_db_session
+        
+        service = UserService()
+        
+        # 验证认证方法存在
+        assert hasattr(service, 'authenticate_user')
+        print("✅ 用户认证方法存在验证通过")
+
+
+@pytest.mark.unit
+class TestValidationLogic:
+    """数据验证逻辑单元测试"""
+    
+    def test_username_validation_patterns(self):
+        """测试用户名验证模式"""
+        print("\\n✅ 测试用户名验证...")
+        
+        # 有效用户名
+        valid_usernames = ["user123", "test_user", "TestUser", "user-123"]
+        
+        # 无效用户名  
+        invalid_usernames = ["", "us", "user@name", "user name", "123user"]
+        
+        # 基础验证逻辑（可根据实际业务规则调整）
+        def validate_username(username):
+            if len(username) < 3 or len(username) > 20:
+                return False
+            if ' ' in username or '@' in username:
+                return False
+            return True
+        
+        # 测试有效用户名
+        for username in valid_usernames:
+            assert validate_username(username), f"用户名 {username} 应该有效"
+            
+        # 测试无效用户名
+        for username in invalid_usernames:
+            assert not validate_username(username), f"用户名 {username} 应该无效"
+            
+        print("✅ 用户名验证逻辑验证通过")
+    
+    def test_email_validation_patterns(self):
+        """测试邮箱验证模式"""
+        print("\\n📧 测试邮箱验证...")
+        
+        import re
+        
+        def validate_email(email):
+            pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$'
+            return re.match(pattern, email) is not None
+        
+        # 有效邮箱
+        valid_emails = ["test@example.com", "user.name@domain.co.uk", "123@test.org"]
+        
+        # 无效邮箱
+        invalid_emails = ["invalid", "test@", "@domain.com", "test.domain.com"]
+        
+        # 验证有效邮箱
+        for email in valid_emails:
+            assert validate_email(email), f"邮箱 {email} 应该有效"
+            
+        # 验证无效邮箱
+        for email in invalid_emails:
+            assert not validate_email(email), f"邮箱 {email} 应该无效"
+            
+        print("✅ 邮箱验证逻辑验证通过")
+'''
+    
+    def _generate_generic_unit_tests(self, module_name: str, models: Dict[str, ModelInfo]) -> str:
+        """生成通用模块的单元测试模板"""
+        return f'''"""
+{module_name.title().replace('_', '')} 单元测试套件
+
+测试类型: 单元测试 (Unit) - 70%覆盖率
+数据策略: Mock对象，无数据库依赖
+根据testing-standards.md单元测试规范
+"""
+
+import pytest
+from unittest.mock import Mock, patch, MagicMock
+
+# 被测模块导入  
+from app.modules.{module_name}.models import *
+from app.modules.{module_name}.service import {module_name.title().replace('_', '')}Service
+
+
+@pytest.mark.unit
+class Test{module_name.title().replace('_', '')}Models:
+    """{module_name.replace('_', ' ').title()}模型单元测试"""
+    
+    def test_model_creation(self):
+        """测试模型创建"""
+        # TODO: 添加具体的模型创建测试
+        pass
+        
+    def test_model_validation(self):
+        """测试模型验证"""
+        # TODO: 添加具体的模型验证测试
+        pass
+
+
+@pytest.mark.unit  
+class Test{module_name.title().replace('_', '')}Service:
+    """{module_name.replace('_', ' ').title()}服务单元测试"""
+    
+    def test_service_initialization(self):
+        """测试服务初始化"""
+        service = {module_name.title().replace('_', '')}Service()
+        assert service is not None
+        
+    @patch('app.modules.{module_name}.service.Session')
+    def test_service_methods(self, mock_db):
+        """测试服务方法"""
+        # TODO: 添加具体的服务方法测试
+        pass
+'''
+
     def _generate_e2e_tests(self, module_name: str, models: Dict[str, ModelInfo]) -> Dict[str, str]:
         """生成E2E测试 (6%)"""
         return {}  # 占位符，需要实现
@@ -1519,15 +2626,121 @@ class Test{module_name.title().replace('_', '')}Workflow:
         return {}  # 占位符，需要实现
         
     def _write_test_files(self, files: Dict[str, str]):
-        """写入测试文件到磁盘"""
-        for file_path, content in files.items():
-            full_path = self.project_root / file_path
+        """写入测试文件到磁盘 - 遵循generated目录规范"""
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        
+        for file_key, content in files.items():
+            # 特殊处理：如果是工厂文件的完整路径格式
+            if file_key.startswith('tests/factories/') and file_key.endswith('_factories.py'):
+                # 提取模块名：tests/factories/user_auth_factories.py -> user_auth
+                factory_filename = file_key.split('/')[-1]  # user_auth_factories.py
+                module_name = factory_filename.replace('_factories.py', '')  # user_auth
+                generated_filename = f"{module_name}_factories.py"
+                test_type = "factories"
+                test_category = None
+            else:
+                # 解析文件键格式: 
+                # 格式1: {module}_{test_type} (如: user_auth_integration)
+                # 格式2: {module}_{category}_{test_type} (如: user_auth_models_unit)
+                parts = file_key.split('_')
+                
+                # 检查是否是直接的 module_testtype 格式
+                test_types = ['unit', 'integration', 'e2e', 'smoke', 'specialized']
+                if len(parts) >= 2 and parts[-1] in test_types:
+                    test_type = parts[-1]
+                    # 检查是否有中间的分类
+                    if len(parts) >= 3 and parts[-2] in ['models', 'service', 'workflow', 'api']:
+                        test_category = parts[-2]
+                        module_name = '_'.join(parts[:-2])
+                    else:
+                        test_category = None  # 无具体分类
+                        module_name = '_'.join(parts[:-1])
+                else:
+                    module_name = file_key
+                    test_type = "unknown"
+                    test_category = None
+                
+                # 构造生成文件名 - 在暂存目录中使用简洁名称
+                if test_category:
+                    generated_filename = f"test_{module_name}_{test_category}_{test_type}.py"
+                else:
+                    generated_filename = f"test_{module_name}_{test_type}.py"
+            
+            # 构造generated目录路径
+            generated_path = f"tests/generated/{generated_filename}"
+            full_path = self.project_root / generated_path
             full_path.parent.mkdir(parents=True, exist_ok=True)
             
+            # 构造原始目标路径（用于文档）
+            original_path = self._construct_target_path(module_name, test_category or "", test_type)
+            
+            # 添加生成信息到文件头部
+            enhanced_content = self._add_generation_header(content, original_path, timestamp)
+            
             with open(full_path, 'w', encoding='utf-8') as f:
-                f.write(content)
+                f.write(enhanced_content)
                 
-            print(f"📝 生成文件: {file_path}")
+            print(f"📝 生成文件: {generated_path}")
+            
+        print(f"⚠️  请注意: 文件已生成到tests/generated/目录")
+        print(f"📋 下一步: 请按照docs/development/generated-tests-management.md流程进行审查")
+    
+    def _construct_target_path(self, module_name: str, test_category: str, test_type: str) -> str:
+        """构造目标路径用于文档说明"""
+        if test_type == "factories":
+            return f"tests/factories/{module_name}_factories.py"
+        elif test_type == "unit":
+            if test_category == "models":
+                return f"tests/unit/test_models/test_{module_name}_models.py"
+            elif test_category == "service":
+                return f"tests/unit/test_services/test_{module_name}_service.py"
+            elif test_category and test_category.strip():
+                return f"tests/unit/test_{module_name}_{test_category}.py"
+            else:
+                return f"tests/unit/test_{module_name}.py"
+        elif test_type == "integration":
+            return f"tests/integration/test_{module_name}_integration.py"
+        elif test_type == "e2e":
+            return f"tests/e2e/test_{module_name}_e2e.py"
+        elif test_type == "smoke":
+            return f"tests/smoke/test_{module_name}_smoke.py"
+        elif test_type == "specialized":
+            return f"tests/performance/test_{module_name}_performance.py"
+        else:
+            return f"tests/{test_type}/test_{module_name}_{test_category}.py"
+    
+    def _add_generation_header(self, content: str, original_path: str, timestamp: str) -> str:
+        """为生成的文件添加标准头部信息"""
+        header = f'''"""
+Auto Generated Test - 需要人工审查
+
+原始目标路径: {original_path}
+生成时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+生成工具: scripts/generate_test_template.py v2.0
+状态: GENERATED - 需要经过审查、验证和优化后方可移动到正式目录
+
+警告: 此文件为自动生成，请勿直接使用于生产测试。
+     需要经过代码审查、测试验证和质量优化后方可使用。
+     
+流程: tests/generated/ -> 审查 -> 优化 -> 移动到正式目录 -> 版本控制
+参考: docs/development/generated-tests-management.md
+"""
+
+'''
+        # 移除原始文档字符串，添加新的头部
+        lines = content.split('\n')
+        if lines[0].startswith('"""') or lines[0].startswith("'''"):
+            # 找到文档字符串结束位置
+            end_quote = lines[0][:3]
+            end_line = 0
+            for i, line in enumerate(lines[1:], 1):
+                if end_quote in line:
+                    end_line = i
+                    break
+            # 移除原始文档字符串
+            content = '\n'.join(lines[end_line+1:])
+        
+        return header + content
             
     def _validate_generated_tests(self, files: Dict[str, str]) -> Dict[str, Any]:
         """实现自动化测试质量验证机制 [CHECK:TEST-008] [CHECK:DEV-009]

@@ -149,7 +149,7 @@ python scripts/e2e_test_verification.py
 ## 📞 支持信息
 
 ### 相关文档
-- 完整使用指南: `docs/development/intelligent-test-generator-guide.md`
+- 统一工具手册: `docs/development/scripts-usage-manual.md`（第4.8章节）
 - 测试标准: `docs/standards/testing-standards.md`
 - 工作状态: `docs/status/current-work-status.md`
 
