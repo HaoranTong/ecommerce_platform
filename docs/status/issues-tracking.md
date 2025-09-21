@@ -362,6 +362,75 @@ Swagger API文档中部分接口缺少请求/响应示例，影响前端开发�
 
 ---
 
+## 新增问题记录
+
+### ISS-024 - pytest fixture依赖冲突导致单元测试连接错误数据库 🟠
+- **状态**: 已解决
+- **优先级**: P2 - 中 
+- **类型**: 环境问题
+- **发现日期**: 2024-09-21
+- **报告人**: GitHub Copilot AI
+- **负责人**: GitHub Copilot AI
+- **解决日期**: 2024-09-21
+
+**问题描述**:
+单元测试执行时意外连接到MySQL集成测试数据库而非SQLite内存数据库，导致测试失败并报告MySQL连接拒绝错误。
+
+**根本原因分析**:
+1. **autouse fixture依赖强制初始化**: `tests/conftest.py`中的`@pytest.fixture(autouse=True)`装饰的fixture会强制pytest解析和初始化所有依赖的fixture，无视条件判断
+2. **fixture设计缺陷**: `clean_integration_test_data(request, integration_test_engine)`直接依赖`integration_test_engine`参数，导致即使是单元测试也会尝试创建MySQL连接
+3. **全局Mock配置错误**: `mock_setup` fixture中尝试patch不存在的模块属性，引发AttributeError
+
+**影响范围**:
+- **直接影响**: 所有单元测试无法正常运行
+- **间接影响**: 开发效率降低，CI/CD流程中断
+- **潜在风险**: 类似问题可能在其他模块测试中重现
+
+**解决方案** (已实施):
+```python
+# 1. 修复autouse fixture依赖问题 - 使用延迟fixture获取
+@pytest.fixture(autouse=True)
+def clean_integration_test_data(request):
+    """集成测试每个测试后自动清理数据库 - 确保测试隔离 [CHECK:TEST-002]"""
+    # 只对集成测试生效
+    if not any(marker.name == 'integration' for marker in request.node.iter_markers()):
+        yield
+        return
+    
+    # 只在集成测试时获取integration_test_engine
+    try:
+        integration_test_engine = request.getfixturevalue('integration_test_engine')
+    except Exception:
+        # 如果无法获取fixture，跳过清理
+        yield
+        return
+
+# 2. 修复Mock配置问题
+# 修复前: mocker.patch('app.core.redis_client.redis_client', mock_redis)  # ❌ 属性不存在
+# 修复后: mocker.patch('app.core.redis_client.get_redis_connection', return_value=mock_redis)  # ✅
+
+# 3. 移除错误的默认属性设置
+# 修复前: mocker.patch.object.__defaults__ = (None, True)  # ❌ 方法对象无此属性
+# 修复后: # 注释掉，在使用时单独指定autospec
+```
+
+**预防措施**:
+1. **设计原则**: autouse fixture应避免直接依赖其他复杂fixture，使用延迟获取模式
+2. **Mock验证**: 在Mock设置前验证目标属性是否存在
+3. **测试隔离**: 确保单元测试和集成测试的fixture完全隔离
+
+**检查点关联**: 
+- **[CHECK:TEST-002]**: 测试数据一致性 - 单元测试必须使用SQLite内存数据库
+- **相关文档**: `docs/standards/checkpoint-cards.md` TEST-002章节
+- **快速查询关键词**: "autouse fixture", "pytest依赖冲突", "单元测试数据库配置"
+
+**学到的经验**:
+- pytest的autouse fixture会无条件解析所有依赖，需要使用`request.getfixturevalue()`延迟获取
+- 复杂测试环境需要严格的fixture隔离设计
+- Mock配置应该验证目标属性存在性
+
+---
+
 ## 相关文档
 - [每日工作日志](daily-log.md) - 问题发现和解决记录
 - [当前冲刺状态](current-sprint.md) - 冲刺中的问题影响

@@ -67,6 +67,7 @@
 ### 测试验证类 (TEST)
 - **开始测试会话** → [CHECK:TEST-001] 测试环境配置验证
 - **编写单元测试** → [CHECK:TEST-002] 单元测试验证
+- **测试连接MySQL错误** → [强制CHECK:TEST-002] fixture配置冲突排查
 - **Mock统一化** → [CHECK:TEST-003] Mock模式统一验证
 - **跨模块测试** → [CHECK:TEST-004] 集成测试验证
 - **接口测试** → [CHECK:TEST-005] API测试验证
