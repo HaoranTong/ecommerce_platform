@@ -217,6 +217,36 @@ $Content
         Write-Host "   ⚠️  发现 $TodoCount 个待处理标记 (TODO/FIXME/XXX)" -ForegroundColor Yellow
     }
     
+    # 检查sku_id数据类型错误 (合并自check_sku_id_types.ps1)
+    if ($File.Extension -eq ".py" -and $File.DirectoryName -like "*tests*") {
+        $SkuIdErrors = 0
+        $LineNumber = 1
+        
+        foreach ($Line in ($Content -split "`n")) {
+            # 检查字符串类型的sku_id赋值
+            if ($Line -match 'sku_id\s*=\s*["''][^"'']*["'']') {
+                Write-Host "   ❌ sku_id数据类型错误 (行$LineNumber): 使用字符串而非整数" -ForegroundColor Red
+                $SkuIdErrors++
+                $FileIssues++
+            }
+            
+            # 检查模型实例化中的sku_id字符串使用
+            if ($Line -match '(InventoryStock|InventoryTransaction|InventoryReservation)\s*\(' -and 
+                (($Content -split "`n")[$LineNumber..($LineNumber+5)] -join " ") -match 'sku_id\s*=\s*["'']') {
+                Write-Host "   ⚠️  模型实例化可能使用字符串sku_id (行$LineNumber)" -ForegroundColor Yellow
+                $SkuIdErrors++
+            }
+            
+            $LineNumber++
+        }
+        
+        if ($SkuIdErrors -eq 0) {
+            Write-Host "   ✅ sku_id数据类型使用正确" -ForegroundColor Green
+        } else {
+            Write-Host "   💡 修复建议: 先创建SKU对象，然后使用sku.id (整数)" -ForegroundColor Cyan
+        }
+    }
+    
     # 检查复杂函数 (Python)
     if ($File.Extension -eq ".py") {
         $LongFunctions = ($Content -split "`n" | Select-String "def " | ForEach-Object {

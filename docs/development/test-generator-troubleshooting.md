@@ -375,8 +375,7 @@ python scripts/generate_test_template.py user_auth --type unit
 ## 📞 获取帮助
 
 ### 自助资源
-1. **完整文档**: `docs/development/intelligent-test-generator-guide.md`
-2. **快速参考**: `docs/development/test-generator-quick-reference.md`  
+1. **统一工具手册**: `docs/development/scripts-usage-manual.md`（第4.8章节 - generate_test_template.py）  
 3. **验证报告**: `docs/analysis/*validation_report*.md`
 4. **工作日志**: `docs/status/current-work-status.md`
 
