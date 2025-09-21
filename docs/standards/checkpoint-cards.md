@@ -230,8 +230,18 @@
 □ Decimal字段使用正确数值，不用字符串
 □ datetime字段使用对象，不用字符串
 □ 外键关系测试正确
+□ **pytest fixture配置正确** - 单元测试不能连接MySQL
 
-**常见错误**: ❌ `sku_id="TEST-SKU-001"` → ✅ `sku_id=sku.id`
+**常见错误**: 
+- ❌ `sku_id="TEST-SKU-001"` → ✅ `sku_id=sku.id`
+- ❌ `autouse fixture直接依赖集成测试fixture` → ✅ `使用延迟fixture获取`
+
+**fixture配置错误排查** [NEW 2024-09-21]:
+如果单元测试连接MySQL而非SQLite，检查`tests/conftest.py`中：
+1. **autouse fixture依赖**: 检查是否有autouse fixture直接依赖integration_test_engine
+2. **Mock配置错误**: 检查Mock是否patch了不存在的属性
+3. **问题追踪查询**: → `docs/status/issues-tracking.md` ISS-024 完整解决方案
+
 **辅助脚本**: `scripts/ai_checkpoint.ps1 -CardType TEST-002`
 
 ### TEST-003: 集成测试设计
