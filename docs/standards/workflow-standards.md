@@ -3,16 +3,15 @@
 - 内容：标准化开发工作流程，从需求到部署的完整流程  
 - 使用方法：每次开发新功能时严格按照此流程执行
 - 引用关系：被MASTER.md引用，是开发工作的核心指导
-- 优化状态：第一期优化完成 - 工具引用已标记待修正，结构已优化
-- 文档长度：233行（符合AI优化标准）
+- 文档长度：简洁性原则，专注核心流程标准
 - 检查点集成：已添加完整的[CHECK:XXX-XXX]标记
 -->
 
 # 开发工作流程
 
-## 开发阶段划分
+## 开发工作流程
 
-### Phase 1: 需求准备阶段 [CHECK:REQ-001] [CHECK:REQ-002] [CHECK:REQ-003]
+### 需求准备 [CHECK:REQ-001] [CHECK:REQ-002] [CHECK:REQ-003]
 **目标**: 确保需求清晰明确，技术方案可行
 
 #### 1.1 需求分析 [CHECK:REQ-001]
@@ -45,10 +44,10 @@ TOOL-REFERENCE-PENDING: 需要验证scripts/create_module_docs.ps1和scripts/che
 - [ ] `api-implementation.md` - API接口实施细节记录
 - [ ] `implementation.md` - 开发记录文档
 
-### Phase 2: 开发实施阶段 [CHECK:DEV-001] [CHECK:DEV-002] [CHECK:DEV-003] [CHECK:DEV-004] [CHECK:DEV-005]
+### 开发实施 [CHECK:DEV-001] [CHECK:DEV-002] [CHECK:DEV-003] [CHECK:DEV-004] [CHECK:DEV-005]
 **目标**: 高质量代码实现，完整测试覆盖
 
-#### 2.1 环境准备 【待修正-工具验证】
+#### 环境准备 [CHECK:DEV-001]
 <!--
 TOOL-REFERENCE-PENDING: 需要验证dev_env.ps1和dev_tools.ps1的实际状态和用法
 原内容：配置开发环境和数据库检查脚本
@@ -93,10 +92,10 @@ TOOL-REFERENCE-PENDING: 需要验证check_docs.ps1脚本的实际状态
 -->
 **临时方案**: 手动检查模块文档是否包含所有7个必需文档并内容完整
 
-### Phase 3: 测试验证阶段 [CHECK:TEST-001] [CHECK:TEST-002] [CHECK:TEST-003] [CHECK:TEST-004] [CHECK:TEST-005]
+### 测试验证 [CHECK:TEST-001] [CHECK:TEST-002] [CHECK:TEST-003] [CHECK:TEST-004] [CHECK:TEST-005]
 **目标**: 确保功能正确性和系统稳定性
 
-#### 🚨 强制环境检查 【待修正-工具验证】
+#### 🚨 强制环境检查 [CHECK:TEST-001]
 <!--
 TOOL-REFERENCE-PENDING: 需要验证check_test_env.ps1和setup_test_env.ps1的实际状态
 原内容：强制测试环境检查流程
@@ -127,7 +126,7 @@ TOOL-REFERENCE-PENDING: 需要验证所有测试相关脚本的实际状态
 修正计划：确认测试架构和工具后重新编写此部分
 -->
 **临时方案**: 
-- 开发阶段：手动执行单元测试
+- 开发过程中：手动执行单元测试
 - 功能完成：手动执行集成测试  
 - 提交前：手动执行完整测试套件
 
@@ -139,7 +138,7 @@ TOOL-REFERENCE-PENDING: 需要验证smoke_test.ps1和性能测试工具状态
 -->
 **临时方案**: 手动执行关键功能验证和基础性能检查
 
-### Phase 4: 文档完善阶段 [CHECK:DOC-001] [CHECK:DOC-002] [CHECK:DOC-003]
+### 文档完善 [CHECK:DOC-001] [CHECK:DOC-002] [CHECK:DOC-003]
 **目标**: 完整准确的技术文档，100%符合标准
 
 #### 4.1 API文档更新  
@@ -166,7 +165,7 @@ TOOL-REFERENCE-PENDING: 需要验证check_docs.ps1脚本功能
 
 **⚠️ 重要**: 不符合文档标准的代码不允许合并到主分支 [CHECK:DOC-003]
 
-### Phase 5: 代码提交阶段 [CHECK:DEV-008] [CHECK:STATUS-002] [CHECK:STATUS-003] [CHECK:STATUS-004]
+### 代码提交 [CHECK:DEV-008] [CHECK:STATUS-002] [CHECK:STATUS-003] [CHECK:STATUS-004]
 **目标**: 规范化代码提交和版本管理
 
 #### 5.1 提交前检查 【待修正-工具验证】
@@ -267,13 +266,12 @@ git push origin dev
 
 ---
 
-## 📝 第一期优化完成状态 
+## 📝 当前状态 
 
-### ✅ 已完成优化
+### ✅ 标准特征
 - **工具引用**: 全部标记为【待修正-工具验证】
 - **检查点**: 已添加完整的[CHECK:XXX-XXX]标记系统
-- **文档长度**: 从443行精简到233行 
-- **结构优化**: 使用IF-THEN条件逻辑，命令式表述
+- **文档结构**: 使用IF-THEN条件逻辑，命令式表述
 - **内容外置**: 详细代码示例移至独立文件引用
 
 ### 🔄 待创建的外置文件
@@ -282,7 +280,7 @@ git push origin dev
 - `docs/examples/api-database-examples.md` - API和数据库操作示例
 - `docs/operations/release-procedures.md` - 详细发布操作流程
 
-### 🚧 待第二期处理（工具验证后）
+### 🚧 待处理内容（工具验证后）
 - 所有标记为【待修正-工具验证】的部分
 - 脚本工具的准确引用和用法
 - 自动化流程的完整配置

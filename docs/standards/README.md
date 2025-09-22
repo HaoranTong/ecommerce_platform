@@ -7,13 +7,17 @@
 ```
 standards/
 ├── api-standards.md          # API设计规范
+├── checkpoint-cards.md       # 检查点卡片系统（26张卡片）
 ├── code-standards.md         # 代码组织规范
 ├── database-standards.md     # 数据库设计规范
+├── document-dependencies.md  # 文档依赖关系管理规范
 ├── document-standards.md     # 文档管理规范
 ├── naming-conventions.md     # 命名规范
+├── openapi.yaml             # API契约定义（全局标准）
+├── performance-standards.md  # 性能标准规范
+├── technology-stack-standards.md # 技术栈标准规范
 ├── testing-standards.md      # 测试规范
 ├── workflow-standards.md     # 工作流程规范
-├── code-development-checklist.md # 代码开发强制检查清单 ⭐NEW
 └── README.md                 # 本文档
 ```
 
@@ -22,12 +26,16 @@ standards/
 | 规范文档 | 适用范围 | 强制程度 |
 |---------|---------|---------|
 | **api-standards.md** | API设计和接口规范 | 强制 |
+| **checkpoint-cards.md** | AI检查点卡片系统（26张卡片） | 强制 |
 | **code-standards.md** | 代码结构和组织 | 强制 |
 | **database-standards.md** | 数据库设计 | 强制 |
+| **document-dependencies.md** | 文档依赖关系管理 | 强制 |
 | **document-standards.md** | 文档编写和管理 | 强制 |
 | **naming-conventions.md** | 命名规则 | 强制 |
+| **openapi.yaml** | 全局API契约定义 | 强制 |
+| **performance-standards.md** | 性能标准和优化规范 | 强制 |
+| **technology-stack-standards.md** | 技术栈标准和版本规范 | 强制 |
 | **testing-standards.md** | 测试编写和执行 | 强制 |
-| **code-development-checklist.md** | 代码开发前强制检查 | 强制 |
 | **workflow-standards.md** | 开发流程 | 强制 |
 
 ## 🔗 使用指引
@@ -45,6 +53,11 @@ standards/
 
 ### ⚡ 快速检查清单
 - **开始编写代码** → 必须执行 [code-development-checklist.md](code-development-checklist.md) ⭐
+- **执行检查点验证** → 使用 [checkpoint-cards.md](checkpoint-cards.md) - 26张精准导航卡片
+- **API契约遵循** → 参考 [openapi.yaml](openapi.yaml) - 全局API标准
+- **性能要求确认** → 检查 [performance-standards.md](performance-standards.md)
+- **技术栈合规检查** → 遵循 [technology-stack-standards.md](technology-stack-standards.md)
+- **文档依赖管理** → 参考 [document-dependencies.md](document-dependencies.md)
 - **任何命名操作** → 检查 [naming-conventions.md](naming-conventions.md)
 - **API设计** → 检查 [api-standards.md](api-standards.md)
 - **数据库操作** → 检查 [database-standards.md](database-standards.md)

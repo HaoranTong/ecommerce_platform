@@ -196,21 +196,108 @@
 □ 组件接口设计清晰
 □ 集成测试通过
 
-### DEV-005: 代码质量与规范
-**触发条件**: 代码提交前、Code Review
-**检查重点**: 命名规范、代码结构、文档同步
+### DEV-005: 业务逻辑实现验证
+**触发条件**: 实现service.py、业务逻辑开发
+**检查重点**: 业务规则正确性、依赖注入、错误处理
 **精准导航**:
-1. **命名规范** → `docs/standards/naming-conventions.md` 第20-60行各类命名
-2. **代码组织** → `docs/standards/code-standards.md` 第15-35行结构规范
-3. **注释文档** → `docs/standards/code-standards.md` 第55-70行文档规范
-4. **版本控制** → `docs/development/README.md` 第80-95行Git规范
+1. **业务规则** → `docs/design/modules/{module}/requirements.md` 第35-60行详细功能描述
+2. **组件设计** → `docs/design/modules/{module}/design.md` 第80-120行组件架构
+3. **依赖管理** → `docs/standards/code-standards.md` 第40-55行依赖注入
+4. **异常处理** → `docs/standards/code-standards.md` 第70-85行错误处理
 
 **验证清单**:
-□ 变量函数命名符合snake_case
-□ 类名符合PascalCase
-□ 常量使用UPPER_CASE
-□ 代码结构层次清晰
-□ 注释和文档同步更新
+□ 业务逻辑符合需求文档描述
+□ 依赖注入配置正确
+□ 异常处理覆盖完整
+□ 组件接口设计清晰
+□ 集成测试通过
+
+### DEV-006: 安全控制实现验证
+**触发条件**: 开发安全相关功能、权限控制实现
+**检查重点**: 认证授权、数据保护、输入验证
+**精准导航**:
+1. **安全架构** → `docs/architecture/security-architecture.md` 第60-100行认证策略
+2. **API安全** → `docs/standards/api-standards.md` 第250-290行安全控制
+3. **数据保护** → `docs/architecture/security-architecture.md` 第140-180行数据加密
+4. **权限模型** → `docs/architecture/security-architecture.md` 第100-140行权限控制
+
+**验证清单**:
+□ 身份认证机制正确实现
+□ 权限控制覆盖所有敏感操作
+□ 输入数据验证和过滤完整
+□ 敏感数据加密存储和传输
+□ 安全日志记录完备
+
+### DEV-007: 错误处理实现验证
+**触发条件**: 异常处理实现、错误响应设计
+**检查重点**: 异常覆盖、错误响应、日志记录
+**精准导航**:
+1. **错误处理** → `docs/standards/api-standards.md` 第200-240行错误响应
+2. **异常策略** → `docs/standards/code-standards.md` 第70-85行异常处理
+3. **日志规范** → `docs/standards/code-standards.md` 第85-100行日志记录
+4. **状态码** → `docs/standards/api-standards.md` 第130-170行HTTP状态码
+
+**验证清单**:
+□ 异常处理覆盖所有可能的错误场景
+□ 错误响应格式符合API标准
+□ 敏感信息不在错误消息中泄露
+□ 错误日志记录详细且安全
+□ HTTP状态码使用正确规范
+
+### DEV-008: 代码质量验证
+**触发条件**: 代码提交前、Code Review
+**检查重点**: 代码规范、注释完整性、性能优化
+**精准导航**:
+1. **代码规范** → `docs/standards/code-standards.md` 第40-70行代码组织规范
+2. **注释标准** → `docs/standards/code-standards.md` 第80-120行注释规范
+3. **性能要求** → `docs/standards/performance-standards.md` 第30-60行性能标准
+4. **命名规范** → `docs/standards/naming-conventions.md` 第150-180行代码命名
+
+**验证清单**:
+□ 代码符合项目规范和风格标准
+□ 函数和类包含完整的文档字符串
+□ 代码性能满足响应时间要求
+□ 变量和函数命名语义清晰准确
+□ 代码通过所有质量检查工具验证
+
+### DEV-009: 代码开发前强制检查验证
+**触发条件**: 开始编写代码前、创建代码文件前
+**检查重点**: 文档完整性、命名规范、设计合规
+**精准导航**:
+1. **文件命名** → `docs/standards/naming-conventions.md` 第35-60行文件命名规则
+2. **目录结构** → `docs/standards/code-standards.md` 第10-35行项目结构
+3. **API设计** → `docs/standards/api-standards.md` 第45-80行URL设计规范
+4. **数据模型** → `docs/standards/database-standards.md` 第10-65行表名字段规范
+
+**验证清单**:
+□ 已完成模块文档编写（7个必须文档）
+□ 文件命名符合项目规范
+□ API路径设计符合RESTful标准
+□ 数据库设计符合命名规范
+□ 功能不与现有代码重复
+
+**强制检查流程**:
+1. **Python文件创建检查**:
+   - 确认文件名符合 `{module}_{type}.py` 格式
+   - 确认文件位置符合标准目录结构
+   - 确认功能不重复现有文件
+
+2. **数据库操作检查**:  
+   - 表名字段名遵循命名规范
+   - 外键命名格式：`{表名}_id`
+   - 时间戳字段：`created_at`, `updated_at`
+
+3. **API开发检查**:
+   - API路径使用复数资源名
+   - HTTP状态码使用规范
+   - 输入验证和权限控制完整
+
+4. **测试文件检查**:
+   - 测试文件位置和命名正确
+   - 测试函数命名：`test_{功能}_{场景}`
+   - 测试覆盖关键场景
+
+**辅助脚本**: `scripts/ai_checkpoint.ps1 -CardType DEV-009`
 
 ## 🧪 测试类检查卡片 (TEST)
 
@@ -293,7 +380,55 @@
 □ SQL注入防护验证
 □ 权限控制测试通过
 
-### TEST-007: 测试阶段完成验证
+### TEST-005: API测试验证
+**触发条件**: API接口测试、端到端验证
+**检查重点**: 接口功能、响应格式、错误处理
+**精准导航**:
+1. **API测试** → `docs/standards/testing-standards.md` 第200-240行API测试策略
+2. **响应格式** → `docs/standards/api-standards.md` 第160-200行统一响应
+3. **状态码** → `docs/standards/api-standards.md` 第130-170行HTTP状态码
+4. **错误处理** → `docs/standards/api-standards.md` 第200-240行错误响应
+
+**验证清单**:
+□ API接口功能测试通过
+□ 响应数据格式符合标准
+□ HTTP状态码使用正确
+□ 错误场景处理完整
+□ 认证授权机制正常
+
+### TEST-006: 性能测试验证
+**触发条件**: 性能压力测试、负载验证
+**检查重点**: 响应时间、并发能力、资源使用
+**精准导航**:
+1. **性能标准** → `docs/standards/performance-standards.md` 第30-60行性能要求
+2. **性能架构** → `docs/architecture/performance-architecture.md` 第80-120行性能策略
+3. **监控指标** → `docs/architecture/performance-architecture.md` 第140-180行监控体系
+4. **压力测试** → `docs/standards/testing-standards.md` 第240-280行性能测试
+
+**验证清单**:
+□ 响应时间满足性能要求
+□ 并发处理能力验证通过
+□ 内存和CPU使用合理
+□ 数据库连接池配置优化
+□ 缓存命中率符合预期
+
+### TEST-007: 安全测试验证
+**触发条件**: 安全功能测试、漏洞扫描
+**检查重点**: 认证授权、数据保护、攻击防护
+**精准导航**:
+1. **安全架构** → `docs/architecture/security-architecture.md` 第60-120行安全策略
+2. **安全测试** → `docs/standards/testing-standards.md` 第280-320行安全验证
+3. **权限控制** → `docs/architecture/security-architecture.md` 第120-160行权限模型
+4. **数据保护** → `docs/architecture/security-architecture.md` 第160-200行加密策略
+
+**验证清单**:
+□ 身份认证功能正确
+□ 权限控制机制有效
+□ 敏感数据加密存储
+□ SQL注入防护验证
+□ XSS攻击防护测试
+
+### TEST-008: 测试阶段完成验证
 **触发条件**: 模块测试完成、代码保护提交前
 **检查重点**: 测试覆盖率、代码质量、文件清理、提交准备
 **精准导航**:
