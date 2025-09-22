@@ -10,17 +10,23 @@
 
 ## 📋 当前任务区域
 
-### [CHECK:DOC-005] [CHECK:ARCH-004] 四层文档体系架构重构 - COMPLETED
+### [CHECK:DOC-005] [CHECK:REQ-001] requirements目录文档标准符合性检查 - COMPLETED
+- **任务类型**: requirements目录结构和内容规范性检查，确保符合document-standards.md要求
+- **开始时间**: 2025-09-22
+- **完成时间**: 2025-09-22
+- **工作目标**: 验证requirements层文档符合"纯业务需求"定位，消除技术实现越界问题
+- **核心成果**:
+  - ✅ 目录结构检查PASS：4个标准文件齐全，命名规范
+  - ✅ 内容边界修正：移除non-functional.md中的JWT+Redis等技术实现细节
+  - ✅ 层级职责明确：README.md添加需求层职责和边界约束说明
+  - ✅ 术语优化：统一技术术语表达，避免具体技术选型
+  - ✅ 符合微服务演进：需求与实现解耦，支持技术架构演进
+
+### [CHECK:DOC-005] [CHECK:ARCH-004] 四层文档体系架构重构 - COMPLETED  
 - **任务类型**: 基于document-standards.md v2.0标准，重构整个docs目录结构
 - **开始时间**: 2025-09-22
 - **完成时间**: 2025-09-22  
 - **工作目标**: 建立requirements→architecture→design→standards四层文档体系，保持模块/组件边界独立
-- **核心成果**: 
-  - ✅ 创建design层级(modules/, components/)，保持边界独立
-  - ✅ 建立planning层级，移动DEVELOPMENT_PLAN.md
-  - ✅ 重构docs根目录README.md，体现四层架构特征
-  - ✅ 严格遵循ADR-0001架构调整决策
-  - ✅ 符合微服务演进架构要求
 
 ### [CHECK:TEST-001] [CHECK:TEST-002] [CHECK:TEST-004] 用户认证模块五层测试流程建立 - PAUSED  
 - **任务类型**: 建立用户模块标准测试流程典范，完成五层测试架构实施
