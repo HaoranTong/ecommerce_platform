@@ -1,7 +1,7 @@
 """
 订单管理模块数据模式定义
 
-根据 docs/modules/order-management/api-spec.md 规范实现
+根据 docs/design/modules/order-management/api-spec.md 规范实现
 符合API设计标准和模块化架构原则
 
 主要模式:

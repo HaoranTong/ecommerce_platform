@@ -71,7 +71,7 @@ development/
 .\scripts\check_docs.ps1 -CheckModuleCompleteness
 
 # 详细检查特定路径
-.\scripts\check_docs.ps1 -Path docs/modules/user-auth -Detailed
+.\scripts\check_docs.ps1 -Path docs/design/modules/user-auth -Detailed
 
 # 全面文档结构验证
 .\scripts\check_docs.ps1 -Detailed -CheckModuleCompleteness
@@ -123,7 +123,7 @@ New-Item -Path "app/modules/new-module" -ItemType Directory
 # - implementation.md (实现记录)
 
 # Step 4: 验证文档完整性
-.\scripts\check_docs.ps1 -Path docs/modules/new-module
+.\scripts\check_docs.ps1 -Path docs/design/modules/new-module
 ```
 
 ### 2. 文档维护流程
@@ -154,7 +154,7 @@ New-Item -Path "app/modules/new-module" -ItemType Directory
 | `implementation.md` | ✅ **强制** | 开发实现记录和配置 |
 
 ### 文档架构分层
-- **📦 业务模块** (`docs/modules/`) - 19个业务功能模块
+- **📦 业务模块** (`docs/design/modules/`) - 19个业务功能模块
 - **🔧 核心组件** (`docs/core/`) - 应用基础设施组件  
 - **🔗 共享组件** (`docs/shared/`) - 通用数据模型和工具
 

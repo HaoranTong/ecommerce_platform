@@ -109,7 +109,7 @@ function Test-BusinessRequirements($ModuleName) {
 function Test-FunctionalRequirements($ModuleName) {
     Write-Host "📋 功能需求分析验证 - $ModuleName" -ForegroundColor Yellow
     
-    $ModuleDoc = "docs/modules/$ModuleName/README.md"
+    $ModuleDoc = "docs/design/modules/$ModuleName/README.md"
     if (Test-Path $ModuleDoc) {
         Write-Host "✅ 模块文档存在: $ModuleDoc" -ForegroundColor Green
         
@@ -200,8 +200,8 @@ function Test-ModuleDocumentation($ModuleName) {
     Write-Host "📋 模块文档完整性验证 - $ModuleName" -ForegroundColor Yellow
     
     $RequiredDocs = @(
-        "docs/modules/$ModuleName/README.md",
-        "docs/modules/$ModuleName/api-spec.md"
+        "docs/design/modules/$ModuleName/README.md",
+        "docs/design/modules/$ModuleName/api-spec.md"
     )
     
     foreach ($Doc in $RequiredDocs) {
@@ -499,7 +499,7 @@ function Test-CodeDocumentation($ModuleName, $FilePath) {
 function Test-APIDocumentation($ModuleName) {
     Write-Host "📋 API文档更新验证 - $ModuleName" -ForegroundColor Yellow
     
-    $APIDoc = "docs/modules/$ModuleName/api-spec.md"
+    $APIDoc = "docs/design/modules/$ModuleName/api-spec.md"
     if (Test-Path $APIDoc) {
         Write-Host "   ✅ API文档存在: $APIDoc" -ForegroundColor Green
     } else {

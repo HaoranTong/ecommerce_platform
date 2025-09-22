@@ -205,7 +205,7 @@ function Update-ModulesReadme {
         if ($content -match "\| \*\*$ModuleName\*\*") {
             Write-ColorOutput "📝 模块已在索引中: $ModuleName" "Yellow"
         } else {
-            Write-ColorOutput "📝 需要手动更新 docs/modules/README.md，添加新模块: $ModuleName" "Cyan"
+            Write-ColorOutput "📝 需要手动更新 docs/design/modules/README.md，添加新模块: $ModuleName" "Cyan"
         }
     }
 }
@@ -227,7 +227,7 @@ function Show-Summary {
     
     Write-ColorOutput "`n📝 后续步骤:" "Blue"
     Write-ColorOutput "   1. 编辑各文档文件，填入具体内容" "Cyan"
-    Write-ColorOutput "   2. 更新 docs/modules/README.md 添加模块索引" "Cyan"
+    Write-ColorOutput "   2. 更新 docs/design/modules/README.md 添加模块索引" "Cyan"
     Write-ColorOutput "   3. 运行检查脚本验证文档完整性:" "Cyan"
     Write-ColorOutput "      .\scripts\check_docs.ps1 -Path docs\modules\$ModuleName" "Yellow"
 }

@@ -40,7 +40,7 @@ graph LR
 #### 原则说明
 ```
 业务概念层（连字符）: user-auth, shopping-cart, product-catalog
-├── 文档目录: docs/modules/user-auth/
+├── 文档目录: docs/design/modules/user-auth/
 ├── API前缀: /api/v1/ (在main.py中设置)
 └── 配置文件: user-auth.yaml
 
@@ -97,9 +97,9 @@ docs/
 **示例**：
 ```
 docs/standards/openapi.yaml              # 全局API契约
-docs/modules/shopping-cart/api-spec.md    # 模块接口规范
-docs/modules/shopping-cart/api-implementation.md # 模块实施记录
-docs/modules/shopping-cart/overview.md
+docs/design/modules/shopping-cart/api-spec.md    # 模块接口规范
+docs/design/modules/shopping-cart/api-implementation.md # 模块实施记录
+docs/design/modules/shopping-cart/overview.md
 ```
 
 ## 🗄️ 数据库命名规范

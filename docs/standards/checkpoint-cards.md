@@ -24,9 +24,9 @@
 **检查重点**: 功能完整性、需求优先级、验收标准
 **精准导航**:
 1. **功能规范** → `docs/requirements/functional.md` 第1-80行功能总体规划
-2. **模块需求** → `docs/modules/{module}/requirements.md` 第10-60行详细功能描述
-3. **用户故事** → `docs/modules/{module}/requirements.md` 第35-45行用户故事格式
-4. **验收标准** → `docs/modules/{module}/requirements.md` 第60-85行验收条件
+2. **模块需求** → `docs/design/modules/{module}/requirements.md` 第10-60行详细功能描述
+3. **用户故事** → `docs/design/modules/{module}/requirements.md` 第35-45行用户故事格式
+4. **验收标准** → `docs/design/modules/{module}/requirements.md` 第60-85行验收条件
 
 **验证清单**:
 □ 已完整梳理功能需求清单
@@ -88,7 +88,7 @@
 1. **数据模型** → `docs/architecture/data-models.md` 第1-50行领域模型设计
 2. **存储架构** → `docs/architecture/data-models.md` 第70-110行存储策略
 3. **数据关系** → `docs/architecture/data-models.md` 第130-170行关系设计
-4. **数据流** → `docs/modules/{module}/design.md` 第120-160行数据流设计
+4. **数据流** → `docs/design/modules/{module}/design.md` 第120-160行数据流设计
 
 **验证清单**:
 □ 已设计符合领域的数据模型
@@ -120,9 +120,9 @@
 **检查重点**: 确保完整的模块文档存在且符合标准
 **精准导航**:
 1. **文档结构** → `docs/templates/module-template.md` 第1-100行标准模块结构
-2. **需求文档** → `docs/modules/{module}/requirements.md` 完整性验证
-3. **设计文档** → `docs/modules/{module}/design.md` 第35-150行技术设计
-4. **API规范** → `docs/modules/{module}/api-spec.md` 第1-80行接口定义
+2. **需求文档** → `docs/design/modules/{module}/requirements.md` 完整性验证
+3. **设计文档** → `docs/design/modules/{module}/design.md` 第35-150行技术设计
+4. **API规范** → `docs/design/modules/{module}/api-spec.md` 第1-80行接口定义
 
 **验证清单**:
 □ 已创建完整的7文档结构 (overview/requirements/design/api-spec/implementation/api-implementation/README)
@@ -184,8 +184,8 @@
 **触发条件**: 实现service.py、组件开发
 **检查重点**: 业务逻辑正确性、依赖注入、错误处理
 **精准导航**:
-1. **业务规则** → `docs/modules/{module}/requirements.md` 第35-60行详细功能描述
-2. **组件设计** → `docs/modules/{module}/design.md` 第80-120行组件架构
+1. **业务规则** → `docs/design/modules/{module}/requirements.md` 第35-60行详细功能描述
+2. **组件设计** → `docs/design/modules/{module}/design.md` 第80-120行组件架构
 3. **依赖管理** → `docs/standards/code-standards.md` 第40-55行依赖注入
 4. **异常处理** → `docs/standards/code-standards.md` 第70-85行错误处理
 
@@ -265,8 +265,8 @@
 **触发条件**: API测试、跨模块测试
 **检查重点**: 接口契约、数据流验证、边界场景
 **精准导航**:
-1. **API契约** → `docs/modules/{module}/api-spec.md` 第20-50行接口定义
-2. **数据流** → `docs/modules/{module}/design.md` 第120-150行数据流设计
+1. **API契约** → `docs/design/modules/{module}/api-spec.md` 第20-50行接口定义
+2. **数据流** → `docs/design/modules/{module}/design.md` 第120-150行数据流设计
 3. **测试策略** → `docs/standards/testing-standards.md` 第160-185行集成测试
 4. **Mock设计** → `docs/standards/testing-standards.md` 第200-220行Mock策略
 
@@ -342,8 +342,8 @@
 **检查重点**: 7文档结构完整、内容准确、模板一致
 **精准导航**:
 1. **模块模板** → `docs/templates/module-template.md` 第1-100行标准结构
-2. **需求文档** → `docs/modules/{module}/requirements.md` 验证完整性
-3. **设计文档** → `docs/modules/{module}/design.md` 验证技术设计
+2. **需求文档** → `docs/design/modules/{module}/requirements.md` 验证完整性
+3. **设计文档** → `docs/design/modules/{module}/design.md` 验证技术设计
 4. **文档标准** → `docs/standards/document-standards.md` 第20-60行规范要求
 
 **验证清单**:
@@ -357,7 +357,7 @@
 **触发条件**: API变更、接口文档更新
 **检查重点**: 接口文档与代码同步、示例准确性
 **精准导航**:
-1. **API规范** → `docs/modules/{module}/api-spec.md` 第1-50行接口定义
+1. **API规范** → `docs/design/modules/{module}/api-spec.md` 第1-50行接口定义
 2. **代码实现** → `app/modules/{module}/router.py` 验证一致性
 3. **响应格式** → `docs/standards/api-standards.md` 第60-90行格式标准
 4. **版本管理** → `docs/standards/api-standards.md` 第120-140行版本控制

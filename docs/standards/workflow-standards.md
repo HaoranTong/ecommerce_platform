@@ -79,8 +79,8 @@ TOOL-REFERENCE-PENDING: 需要验证dev_env.ps1和dev_tools.ps1的实际状态�
 
 #### 2.4 文档同步要求 [CHECK:DOC-001] [CHECK:DOC-002]
 **IF 开发进展变化 THEN 必须更新**:
-- [ ] `docs/modules/{module}/implementation.md` - 开发进展记录
-- [ ] `docs/modules/{module}/api-implementation.md` - API实现细节
+- [ ] `docs/design/modules/{module}/implementation.md` - 开发进展记录
+- [ ] `docs/design/modules/{module}/api-implementation.md` - API实现细节
 
 **IF 遇到问题 THEN 必须记录**:
 - [ ] `docs/status/issues-tracking.md` - 问题跟踪和解决方案
@@ -143,18 +143,18 @@ TOOL-REFERENCE-PENDING: 需要验证smoke_test.ps1和性能测试工具状态
 **目标**: 完整准确的技术文档，100%符合标准
 
 #### 4.1 API文档更新  
-- [ ] 更新 `docs/modules/{module}/api-spec.md` - 接口规范要求
-- [ ] 更新 `docs/modules/{module}/api-implementation.md` - 实施细节记录
+- [ ] 更新 `docs/design/modules/{module}/api-spec.md` - 接口规范要求
+- [ ] 更新 `docs/design/modules/{module}/api-implementation.md` - 实施细节记录
 - [ ] 确保遵循 `standards/openapi.yaml` 全局契约
 - [ ] 添加完整的请求响应示例
 - [ ] 说明错误处理和状态码
 
 #### 4.2 模块文档完善
-- [ ] 完善 `docs/modules/{module}/design.md` 技术设计
-- [ ] 更新 `docs/modules/{module}/implementation.md` 实现细节  
-- [ ] 完善 `docs/modules/{module}/requirements.md` 需求文档
-- [ ] 更新 `docs/modules/{module}/overview.md` 技术概述
-- [ ] 确保 `docs/modules/{module}/README.md` 导航完整
+- [ ] 完善 `docs/design/modules/{module}/design.md` 技术设计
+- [ ] 更新 `docs/design/modules/{module}/implementation.md` 实现细节  
+- [ ] 完善 `docs/design/modules/{module}/requirements.md` 需求文档
+- [ ] 更新 `docs/design/modules/{module}/overview.md` 技术概述
+- [ ] 确保 `docs/design/modules/{module}/README.md` 导航完整
 
 #### 4.3 文档标准化验证 【待修正-工具验证】
 <!--

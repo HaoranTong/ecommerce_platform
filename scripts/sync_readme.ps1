@@ -17,7 +17,7 @@
 自动更新README.md文件（需要确认）
 
 .EXAMPLE
-scripts/sync_readme.ps1 -Path docs/modules/user_auth
+scripts/sync_readme.ps1 -Path docs/design/modules/user_auth
 scripts/sync_readme.ps1 -CheckOnly -Path scripts
 scripts/sync_readme.ps1 -AutoUpdate -Path docs/standards
 

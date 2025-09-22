@@ -25,6 +25,7 @@ docs/
 ├── requirements/      # 需求层：纯业务需求
 ├── architecture/      # 架构层：系统整体设计原则
 ├── design/           # 设计层：具体详细设计
+│   ├── system/       # 系统级设计（技术选型、算法、集成）
 │   ├── modules/      # 业务模块详细设计（保持模块边界）
 │   └── components/   # 技术组件详细设计（保持组件边界）
 ├── planning/         # 项目管理层
@@ -53,6 +54,12 @@ docs/
 
 ### 设计层边界划分
 
+#### design/system/ - 系统级设计
+- **职责**：系统级技术实现方案，承接架构层原则
+- **边界原则**：具体技术选型和实现，不涉及业务逻辑
+- **包含内容**：technology-stack.md, algorithm-design.md, integration-design.md等
+- **禁止内容**：业务逻辑实现，模块特定配置
+
 #### design/modules/ - 业务模块设计
 - **职责**：各业务模块的独立详细设计
 - **边界原则**：保持模块边界清晰，支持未来微服务拆分
@@ -64,6 +71,17 @@ docs/
 - **边界原则**：保持组件边界清晰，支持未来服务化演进
 - **包含内容**：application-core, database-core, redis-cache, base-models
 - **禁止内容**：业务逻辑混入，避免技术与业务耦合
+
+### 架构层与设计层职责边界
+
+| 内容类型 | 架构层职责 (architecture/) | 设计层职责 (design/system/) |
+|---------|---------------------------|----------------------------|
+| **技术选型** | 技术选型原则、演进策略 | 具体技术栈、版本选择、配置方案 |
+| **算法设计** | 算法策略和架构原则 | 具体算法实现、性能优化细节 |
+| **集成设计** | 集成架构原则、模式选择 | 具体集成方案、接口设计、协议定义 |
+| **安全架构** | 安全策略、架构原则 | 具体安全实现、加密算法、认证方案 |
+| **性能设计** | 性能架构原则、策略 | 具体性能优化、缓存设计、负载方案 |
+| **部署架构** | 部署策略、演进路径 | 具体部署配置、容器化、CI/CD方案 |
 
 ## 四层文档体系详细说明
 
@@ -83,12 +101,24 @@ docs/
 **职责**: 具体的详细设计文档
 **文档特征**: 怎么做（How），技术实现，详细方案
 
-#### 3.1 design/modules/ - 业务模块设计
+#### 3.1 design/system/ - 系统级设计
+**职责**: 承接架构层原则，提供系统级技术实现方案
+**约束原则**: 具体技术选型、算法实现、系统集成的详细设计
+**文档结构**: 
+- technology-stack.md - 技术栈选型和版本规划
+- algorithm-design.md - 核心算法设计和实现
+- integration-design.md - 系统集成和模块协作设计  
+- performance-design.md - 性能设计和优化方案
+- security-design.md - 安全实现设计和加密方案
+- deployment-design.md - 部署架构和运维设计
+**边界要求**: 承接架构原则，不包含具体业务逻辑
+
+#### 3.2 design/modules/ - 业务模块设计
 **约束原则**: 保持模块边界独立，支持微服务演进
 **文档结构**: 每个模块包含 requirements.md, design.md, database-design.md, api-spec.md
 **边界要求**: 禁止跨模块设计，避免模块耦合
 
-#### 3.2 design/components/ - 技术组件设计  
+#### 3.3 design/components/ - 技术组件设计  
 **约束原则**: 保持组件边界清晰，技术与业务分离
 **文档结构**: application-core, database-core, redis-cache, base-models
 **边界要求**: 禁止业务逻辑混入技术组件
@@ -166,7 +196,8 @@ docs/
 | 文档类型 | 存放位置 | 功能定位 | 禁止内容 | 边界要求 |
 |---------|---------|---------|---------|---------|
 | **需求文档** | requirements/ | 业务需求、功能规格 | 技术实现、代码细节 | 业务价值导向 |
-| **架构设计** | architecture/ | 系统设计决策、技术选型 | 实现代码、配置详情 | 指导性原则 |
+| **架构设计** | architecture/ | 系统设计原则、架构思维 | 具体技术版本、实现代码 | **指导性原则** |
+| **系统设计** | design/system/ | 技术选型、算法实现、集成方案 | 业务逻辑、模块特定细节 | **系统级技术边界** |
 | **模块设计** | design/modules/ | 业务模块详细设计 | 跨模块集成、其他模块细节 | **严格模块边界** |
 | **组件设计** | design/components/ | 技术组件详细设计 | 业务逻辑、模块特定实现 | **严格组件边界** |
 | **开发标准** | standards/ | 开发规范、API契约定义 | 具体实现、业务逻辑 | 统一标准 |  
@@ -210,7 +241,7 @@ docs/
 🚫 执行操作：更新README.md内容
 
 ### 自动触发规则
-IF create_file app/modules/* THEN 更新 docs/modules/README.md
+IF create_file app/modules/* THEN 更新 docs/design/modules/README.md
 IF 修改 main.py THEN 检查根目录README.md
 IF create_file docs/* THEN 更新对应目录README.md
 IF 修改启动脚本 THEN 更新根目录README.md快速开始部分

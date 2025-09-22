@@ -2,7 +2,7 @@
 
 <!--
 文件名：overview.md
-文件路径：docs/modules/inventory-management/overview.md
+文件路径：docs/design/modules/inventory-management/overview.md
 文档类型：模块概览文档
 模块名称：库存管理模块 (Inventory Management Module)
 文档版本：v1.0.0

@@ -3,7 +3,7 @@
 订单管理模块集成测试 - 严格按照技术文档编写版本
 
 🚨 本测试严格遵循以下技术文档：
-- docs/modules/order-management/design.md
+- docs/design/modules/order-management/design.md
 - docs/standards/testing-standards.md 
 - app/modules/order_management/models.py (实际字段定义)
 - app/modules/order_management/service.py (实际方法定义)

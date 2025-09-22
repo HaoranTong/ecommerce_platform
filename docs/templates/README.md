@@ -35,18 +35,18 @@ templates/
 ### 创建新模块文档
 ```bash
 # 1. 创建模块目录
-mkdir docs/modules/{module-name}
+mkdir docs/design/modules/{module-name}
 
 # 2. 复制所有必需模板
-cp docs/templates/module-readme-template.md docs/modules/{module-name}/README.md
-cp docs/templates/module-template.md docs/modules/{module-name}/overview.md
-cp docs/templates/module-requirements-template.md docs/modules/{module-name}/requirements.md
-cp docs/templates/module-design-template.md docs/modules/{module-name}/design.md
-cp docs/templates/module-implementation-template.md docs/modules/{module-name}/implementation.md
+cp docs/templates/module-readme-template.md docs/design/modules/{module-name}/README.md
+cp docs/templates/module-template.md docs/design/modules/{module-name}/overview.md
+cp docs/templates/module-requirements-template.md docs/design/modules/{module-name}/requirements.md
+cp docs/templates/module-design-template.md docs/design/modules/{module-name}/design.md
+cp docs/templates/module-implementation-template.md docs/design/modules/{module-name}/implementation.md
 
 # 3. API文档需要手动创建
-touch docs/modules/{module-name}/api-spec.md
-touch docs/modules/{module-name}/api-implementation.md
+touch docs/design/modules/{module-name}/api-spec.md
+touch docs/design/modules/{module-name}/api-implementation.md
 ```
 
 ### 模板变量替换

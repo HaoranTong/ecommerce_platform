@@ -1,7 +1,7 @@
 """
 商品目录模块数据模型
 
-根据 docs/modules/product-catalog/overview.md 文档规范实现
+根据 docs/design/modules/product-catalog/overview.md 文档规范实现
 严格符合数据库设计原则和字段命名标准
 
 主要模型:

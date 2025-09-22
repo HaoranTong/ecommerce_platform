@@ -269,7 +269,7 @@ function Test-DocumentationNaming {
         if (-not $isValidModuleName) {
             $violations += @{
                 Type = "文档目录命名"
-                File = "docs/modules/$dirName"
+                File = "docs/design/modules/$dirName"
                 Issue = "模块目录名称不符合规范: $dirName"
                 Line = 0
                 Suggestion = "使用kebab-case格式的业务概念名，参考模块映射表的键名"

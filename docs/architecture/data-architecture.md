@@ -17,24 +17,26 @@
 
 ## 数据架构概览
 
-### 数据存储技术栈
+### 数据存储架构策略
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                      数据架构技术栈                              │
+│                      数据存储架构分层                            │
 ├─────────────────────────────────────────────────────────────────┤
 │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐ │
-│  │  主数据库   │  │  缓存系统   │  │  搜索引擎   │  │  文件存储   │ │
-│  │   MySQL     │  │   Redis     │  │Elasticsearch│  │   OSS/S3    │ │
-│  │   8.0+      │  │   7.0+      │  │    8.0+     │  │   CDN       │ │
+│  │  主数据存储  │  │  缓存存储   │  │  搜索存储   │  │  文件存储   │ │
+│  │ 关系型数据库 │  │ 内存数据库  │  │ 全文搜索引擎 │  │ 对象存储服务 │ │
+│  │ ACID事务保证 │  │ 高速缓存    │  │ 复杂查询    │  │ CDN分发     │ │
 │  └─────────────┘  └─────────────┘  └─────────────┘  └─────────────┘ │
 │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐ │
-│  │  消息队列   │  │  区块链存储  │  │  时序数据库  │  │  向量数据库  │ │
-│  │  RabbitMQ   │  │  IPFS/链存证 │  │  InfluxDB   │  │  Pinecone   │ │
-│  │  (后期)     │  │  (溯源)     │  │  (IoT)      │  │  (AI推荐)   │ │
+│  │  消息存储   │  │  区块链存储  │  │  时序存储   │  │  向量存储   │ │
+│  │ 异步消息队列 │  │ 防篡改存证  │  │ 时间序列数据 │  │ AI模型数据  │ │
+│  │ 削峰填谷    │  │ 溯源记录    │  │ IoT传感器   │  │ 相似度搜索  │ │
 │  └─────────────┘  └─────────────┘  └─────────────┘  └─────────────┘ │
 └─────────────────────────────────────────────────────────────────┘
 ```
+
+> **具体技术选型和版本**: 详见 [系统技术栈设计](../design/system/technology-stack.md)
 
 ### 数据分布策略
 
@@ -130,180 +132,108 @@
 
 ## 数据模型设计规范
 
-### ORM基础架构
+### ORM架构设计原则
 
-```python
-# 统一Base类设计
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy import Column, Integer, DateTime, Boolean
-from datetime import datetime
+#### 统一基础模型原则
+- **基础类抽象**: 定义通用的基础模型类，包含标准字段和行为
+- **混入类设计**: 通过混入类提供可复用的功能特性
+- **时间戳标准**: 统一的创建时间和更新时间管理
+- **软删除支持**: 支持逻辑删除以保护历史数据
 
-Base = declarative_base()
+#### 基础模型设计要求
+- **主键策略**: 统一使用自增整型主键
+- **注释规范**: 所有表和字段必须包含完整的中文注释
+- **抽象基类**: 定义抽象基类避免重复代码
+- **扩展性设计**: 预留扩展字段和扩展机制
 
-class BaseModel(Base):
-    __abstract__ = True
-    
-    id = Column(Integer, primary_key=True, comment="主键ID")
-    created_at = Column(DateTime, default=datetime.utcnow, comment="创建时间")
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, comment="更新时间")
+### 外键约束设计原则
 
-class SoftDeleteMixin:
-    """软删除混入类"""
-    deleted_at = Column(DateTime, nullable=True, comment="删除时间")
-    is_deleted = Column(Boolean, default=False, comment="是否已删除")
+#### 约束策略分类
+- **核心业务关系**: 使用SET NULL保护核心业务数据完整性
+- **从属关系**: 使用CASCADE保持主从数据一致性
+- **引用关系**: 使用RESTRICT防止意外删除被引用数据
+- **历史关系**: 保留历史关联避免数据孤岛
 
-class TimestampMixin:
-    """时间戳混入类"""
-    created_at = Column(DateTime, default=datetime.utcnow, comment="创建时间")
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, comment="更新时间")
-```
-
-### 外键约束策略
-
-```python
-# 外键约束设计原则
-class Order(BaseModel):
-    __tablename__ = 'orders'
-    
-    # 核心业务外键 - 使用SET NULL保护数据
-    user_id = Column(Integer, ForeignKey('users.id', ondelete='SET NULL'), comment="用户ID")
-    
-    # 从属关系外键 - 使用CASCADE保持一致性  
-    items = relationship("OrderItem", back_populates="order", cascade="all, delete-orphan")
-
-class OrderItem(BaseModel):
-    __tablename__ = 'order_items'
-    
-    order_id = Column(Integer, ForeignKey('orders.id', ondelete='CASCADE'), comment="订单ID")
-    sku_id = Column(Integer, ForeignKey('skus.id', ondelete='SET NULL'), comment="SKU ID")
-```
+#### 外键设计规范
+- **删除策略**: 根据业务关系选择合适的ON DELETE策略
+- **更新策略**: 合理设置ON UPDATE行为
+- **性能考虑**: 平衡数据完整性和查询性能
+- **微服务准备**: 考虑未来服务拆分对外键的影响
 
 ### 索引设计策略
 
-```python
-# 索引设计规范
-from sqlalchemy import Index
+#### 索引设计原则  
+- **查询优化**: 基于实际查询模式设计索引
+- **复合索引**: 合理使用复合索引提升查询效率
+- **唯一约束**: 通过唯一索引保证数据唯一性
+- **性能平衡**: 平衡查询性能和写入性能
 
-class User(BaseModel):
-    __tablename__ = 'users'
-    
-    username = Column(String(50), unique=True, comment="用户名")
-    email = Column(String(100), unique=True, comment="邮箱")
-    phone = Column(String(20), unique=True, comment="手机号")
-    
-    # 复合索引设计
-    __table_args__ = (
-        Index('idx_user_email_status', 'email', 'status'),  # 登录查询优化
-        Index('idx_user_phone_status', 'phone', 'status'),  # 手机登录优化
-        Index('idx_user_created_at', 'created_at'),         # 时间范围查询
+#### 索引命名规范
+- **前缀标识**: 使用统一的索引命名前缀
+- **字段顺序**: 复合索引按查询频率排序字段
+- **业务含义**: 索引名称体现业务查询场景
+
+> **具体ORM实现和代码**: 详见 [系统技术栈设计](../design/system/technology-stack.md) 和各模块数据库设计文档
     )
 ```
 
 ## 数据一致性设计
 
-### 事务边界设计
+### 事务边界设计原则
 
-```python
-# 事务管理策略
-from contextlib import contextmanager
-from sqlalchemy.orm import sessionmaker
+#### 事务范围划分
+- **单一职责**: 每个事务专注于一个业务操作的完整性
+- **最小化范围**: 尽量缩小事务涉及的数据范围和持有时间
+- **嵌套避免**: 避免事务嵌套导致的死锁和性能问题
+- **异常回滚**: 完善的异常处理和事务回滚机制
 
-@contextmanager
-def transaction_scope():
-    """数据库事务上下文管理器"""
-    session = Session()
-    try:
-        yield session
-        session.commit()
-    except Exception:
-        session.rollback()
-        raise
-    finally:
-        session.close()
+#### 业务事务策略
+- **强一致性**: 关键业务操作使用ACID事务保证数据一致性
+- **补偿机制**: 长事务通过补偿事务处理异常情况
+- **超时控制**: 设置合理的事务超时时间避免长时间锁定
+- **隔离级别**: 根据业务需求选择合适的事务隔离级别
 
-# 业务事务示例
-async def create_order_with_payment(order_data, payment_data):
-    """创建订单并处理支付 - 强一致性事务"""
-    with transaction_scope() as session:
-        # 1. 创建订单
-        order = Order(**order_data)
-        session.add(order)
-        session.flush()  # 获取订单ID
-        
-        # 2. 减库存
-        for item in order_data['items']:
-            inventory = session.query(Inventory).filter_by(sku_id=item['sku_id']).first()
-            inventory.available_quantity -= item['quantity']
-        
-        # 3. 创建支付记录
-        payment = Payment(order_id=order.id, **payment_data)
-        session.add(payment)
-        
-        return order, payment
-```
+> **具体事务实现**: 详见 [系统技术栈设计](../design/system/technology-stack.md) 和各模块数据库设计
 
-### 跨模块数据一致性
+### 跨模块数据一致性原则
 
-```python
-# 事件驱动的最终一致性
-from typing import Dict, Any
-import asyncio
+#### 一致性策略选择
+- **强一致性**: 关键业务数据使用同步事务保证强一致性
+- **最终一致性**: 非关键业务数据通过事件机制保证最终一致性
+- **补偿一致性**: 复杂业务流程通过补偿机制保证业务一致性
+- **分布式事务**: 跨系统操作使用分布式事务模式
 
-class EventBus:
-    """事件总线 - 处理模块间数据一致性"""
-    
-    async def publish_order_created(self, order_id: int, user_id: int):
-        """订单创建事件 - 触发相关业务处理"""
-        await asyncio.gather(
-            self._update_user_points(user_id, order_id),      # 更新积分
-            self._send_notification(user_id, order_id),       # 发送通知  
-            self._update_analytics(user_id, order_id),        # 更新统计
-        )
-    
-    async def _update_user_points(self, user_id: int, order_id: int):
-        """异步更新用户积分"""
-        # 会员系统处理积分增加
-        pass
-    
-    async def _send_notification(self, user_id: int, order_id: int):
-        """异步发送订单通知"""
-        # 通知服务处理消息推送
-        pass
-```
+#### 事件驱动架构
+- **事件发布**: 业务操作完成后发布相关业务事件
+- **异步处理**: 通过事件总线异步处理跨模块业务逻辑
+- **事件溯源**: 保留完整的事件历史支持业务审计
+- **幂等性**: 确保事件处理的幂等性避免重复处理
+
+> **具体事件机制实现**: 详见 [系统集成设计](../design/system/integration-design.md)
 
 ## 性能优化策略
 
-### 缓存架构设计
+### 缓存架构策略
 
-```python
-# Redis缓存策略
-import redis
-import json
-from typing import Optional, Any
+#### 缓存分层设计
+- **应用缓存**: 应用层内存缓存提升计算性能
+- **分布式缓存**: 跨实例共享的分布式缓存系统
+- **数据库缓存**: 数据库层查询结果缓存
+- **CDN缓存**: 静态资源的全球分发缓存
 
-class CacheManager:
-    """缓存管理器"""
-    
-    def __init__(self):
-        self.redis_client = redis.Redis(host='localhost', port=6379, db=0)
-    
-    # 用户信息缓存 - 1小时过期
-    async def get_user(self, user_id: int) -> Optional[Dict]:
-        key = f"user:{user_id}"
-        data = self.redis_client.get(key)
-        return json.loads(data) if data else None
-    
-    # 商品信息缓存 - 24小时过期  
-    async def get_product(self, product_id: int) -> Optional[Dict]:
-        key = f"product:{product_id}"
-        data = self.redis_client.get(key)
-        return json.loads(data) if data else None
-    
-    # 库存缓存 - 实时更新
-    async def get_inventory(self, sku_id: int) -> Optional[int]:
-        key = f"inventory:{sku_id}"
-        return self.redis_client.get(key)
-```
+#### 缓存策略原则
+- **数据分类**: 根据数据特性选择不同的缓存策略
+- **过期策略**: 设置合理的缓存过期时间和刷新策略
+- **一致性保证**: 缓存与数据库的一致性维护机制
+- **热点识别**: 识别热点数据优化缓存命中率
+
+#### 缓存使用场景
+- **用户信息**: 频繁访问的用户基础信息
+- **商品数据**: 商品详情和库存信息
+- **配置数据**: 系统配置和业务规则数据
+- **计算结果**: 复杂计算和统计结果数据
+
+> **具体缓存实现**: 详见 [系统性能设计](../design/system/performance-design.md)
 
 ### 分库分表策略
 
@@ -337,86 +267,67 @@ class DataEncryption:
     """数据加密工具"""
     
     @staticmethod
-    def hash_password(password: str) -> str:
-        """密码哈希存储"""
-        return hashlib.sha256(password.encode()).hexdigest()
-    
-    @staticmethod
-    def encrypt_sensitive_data(data: str, key: bytes) -> str:
-        """敏感信息加密存储"""
-        f = Fernet(key)
-        encrypted_data = f.encrypt(data.encode())
-        return encrypted_data.decode()
+### 数据安全架构
 
-# 数据模型应用
-class User(BaseModel):
-    __tablename__ = 'users'
-    
-    phone = Column(String(200), comment="手机号(加密存储)")  # 加密存储
-    password_hash = Column(String(64), comment="密码哈希")   # 哈希存储
-    id_card = Column(String(200), comment="身份证号(加密存储)")  # 加密存储
-```
+#### 数据加密策略
+- **传输加密**: 数据传输过程中的端到端加密保护
+- **存储加密**: 敏感数据的加密存储和访问控制
+- **字段级加密**: 对特定敏感字段进行独立加密
+- **密钥管理**: 安全的加密密钥生成、存储和轮换
 
-### 审计日志设计
+#### 数据脱敏原则
+- **分级脱敏**: 根据数据敏感级别采用不同脱敏策略
+- **动态脱敏**: 运行时根据用户权限动态脱敏显示
+- **测试环境**: 测试和开发环境使用脱敏数据
+- **日志保护**: 确保日志中不包含敏感信息
 
-```python
-# 数据变更审计
-class AuditLog(BaseModel):
-    __tablename__ = 'audit_logs'
-    
-    table_name = Column(String(50), comment="表名")
-    record_id = Column(Integer, comment="记录ID")
-    operation = Column(String(10), comment="操作类型(INSERT/UPDATE/DELETE)")
-    old_values = Column(Text, comment="变更前数据(JSON)")
-    new_values = Column(Text, comment="变更后数据(JSON)")
-    user_id = Column(Integer, comment="操作用户ID")
-    ip_address = Column(String(45), comment="操作IP")
-    user_agent = Column(String(500), comment="用户代理")
-```
+### 审计追踪架构
 
-## 农产品电商特色数据
+#### 审计数据策略
+- **操作记录**: 记录所有数据变更操作的完整信息
+- **用户追踪**: 追踪操作用户、时间、IP等上下文信息
+- **数据变更**: 记录变更前后的数据状态对比
+- **业务审计**: 记录关键业务操作的审计轨迹
 
-### 区块链溯源数据
+#### 审计日志管理
+- **日志分类**: 按操作类型和重要程度分类存储
+- **保留策略**: 设置合理的日志保留期限和归档策略
+- **查询优化**: 优化审计日志的查询和分析性能
+- **合规要求**: 满足行业合规和监管要求
 
-```python
-# 区块链存证数据模型
-class BlockchainRecord(BaseModel):
-    __tablename__ = 'blockchain_records'
-    
-    batch_id = Column(Integer, ForeignKey('batches.id'), comment="批次ID")
-    transaction_hash = Column(String(66), unique=True, comment="区块链交易哈希")
-    block_number = Column(Integer, comment="区块号")
-    ipfs_hash = Column(String(46), comment="IPFS存储哈希")
-    data_type = Column(String(20), comment="数据类型(生产/检测/运输)")
-    timestamp = Column(DateTime, comment="上链时间")
-    
-    __table_args__ = (
-        Index('idx_blockchain_batch_type', 'batch_id', 'data_type'),
-        Index('idx_blockchain_timestamp', 'timestamp'),
-    )
-```
+> **具体数据安全实现**: 详见 [系统安全设计](../design/system/security-design.md)
 
-### IoT数据采集
+## 农产品电商特色数据架构
 
-```python
-# IoT传感器数据(时序数据库存储)
-class IoTSensorData:
-    """IoT传感器数据模型 - InfluxDB存储"""
-    
-    measurement = "sensor_data"
-    tags = {
-        'batch_id': 'string',      # 批次ID
-        'sensor_type': 'string',   # 传感器类型
-        'location': 'string',      # 位置信息
-    }
-    fields = {
-        'temperature': 'float',    # 温度
-        'humidity': 'float',       # 湿度  
-        'ph_value': 'float',       # PH值
-        'soil_moisture': 'float',  # 土壤湿度
-    }
-    timestamp = 'datetime'         # 时间戳
-```
+### 区块链溯源数据架构
+
+#### 溯源数据策略
+- **链上存证**: 关键溯源信息上链确保数据不可篡改
+- **链下存储**: 详细数据通过分布式存储保存并链上存证哈希
+- **数据分类**: 按生产、检测、运输等环节分类存储溯源数据
+- **实时同步**: 溯源数据实时同步到区块链网络
+
+#### 区块链集成原则
+- **混合架构**: 结合公有链和联盟链优势设计溯源系统
+- **成本优化**: 平衡数据完整性和区块链交易成本
+- **查询效率**: 设计高效的溯源数据查询和验证机制
+- **标准兼容**: 遵循农产品溯源行业标准和规范
+
+### IoT数据采集架构
+
+#### 时序数据策略
+- **实时采集**: 农业IoT设备实时采集环境和生产数据
+- **数据分类**: 按传感器类型和数据重要性分级存储
+- **压缩存储**: 使用时序数据库优化存储和查询性能
+- **数据清洗**: 对IoT数据进行实时清洗和异常值过滤
+
+#### IoT数据管理
+- **设备管理**: 统一管理IoT设备注册、配置和状态监控
+- **数据质量**: 确保IoT数据的准确性和完整性
+- **边缘计算**: 在边缘节点进行数据预处理和分析
+- **数据融合**: 将IoT数据与业务数据进行关联分析
+
+> **具体区块链和IoT实现**: 详见相关模块设计文档
 
 ## 相关文档
 
