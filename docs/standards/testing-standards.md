@@ -793,13 +793,13 @@ python scripts/validate_test_config.py
 
 ## 📋 强制性测试流程 (MASTER规范)
 
-### 第一步：环境验证 (强制)
+### 环境验证 (强制) [CHECK:TEST-001]
 ```powershell
 # 必须通过的环境检查
 .\scripts\check_test_env.ps1
 ```
 
-### 第二步：选择测试类型并执行
+### 选择测试类型并执行 [CHECK:TEST-002]
 
 #### 单元测试流程 (推荐)
 ```powershell
@@ -819,7 +819,7 @@ python scripts/validate_test_config.py
 .\scripts\setup_test_env.ps1 -TestType all
 ```
 
-### 第三步：问题排查 (如需要)
+### 问题排查 (如需要) [CHECK:TEST-003]
 ```powershell
 # 如果遇到环境问题，执行详细诊断
 python scripts/validate_test_config.py
@@ -845,14 +845,14 @@ python scripts/validate_test_config.py
 
 ### 标准执行步骤
 ```powershell
-# 第一步：激活虚拟环境
+# 激活虚拟环境
 .venv\Scripts\Activate.ps1
 
-# 第二步：验证环境
+# 验证环境
 python -c "import sys; print('Python环境:', sys.executable)"
 # 输出应为: E:\ecommerce_platform\.venv\Scripts\python.exe
 
-# 第三步：确认依赖包
+# 确认依赖包
 pip list | findstr pytest
 # 应显示: pytest, pytest-asyncio, pytest-cov 等
 
@@ -1513,12 +1513,12 @@ def test_payment_model_fields(self, test_db):
 
 ### 修复工作流程
 
-#### 第一步：问题识别
+#### 问题识别
 1. 运行测试识别失败项目
 2. 分析错误信息，区分导入错误vs逻辑错误
 3. 使用工具验证当前架构状态
 
-#### 第二步：架构验证
+#### 架构验证
 ```bash
 # 检查模块结构
 find app/modules -name "*.py" -type f | grep models
@@ -1527,7 +1527,7 @@ find app/modules -name "*.py" -type f | grep models
 python -c "from app.modules.user_auth.models import User; print('导入成功')"
 ```
 
-#### 第三步：逐项修复
+#### 逐项修复
 1. 修复导入路径为模块化路径
 2. 验证模型字段的实际存在性
 3. 更新测试配置以避免关系冲突
