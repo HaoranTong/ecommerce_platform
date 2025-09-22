@@ -25,7 +25,7 @@ factories/
 ## 🛠️ 使用方法
 
 详细的使用方法和代码示例请参考：
-- **[测试数据工厂使用手册](../../docs/development/test-factory-usage-guide.md)** - 完整使用指南和代码示例
+- **[测试数据工厂使用手册](../../docs/tools/test-factory-usage-guide.md)** - 完整使用指南和代码示例
 
 ### 快速开始
 ```python
@@ -38,5 +38,5 @@ user, category, brand, product, sku = StandardTestDataFactory.create_complete_ch
 ## 📚 相关文档
 
 - **[测试标准文档](../../docs/standards/testing-standards.md)** - Factory Boy使用规范
-- **[测试使用指南](../../docs/development/testing-setup.md)** - 数据工厂配置说明
-- **[测试数据工厂使用手册](../../docs/development/test-factory-usage-guide.md)** - 详细使用指南
+- **[测试使用指南](../../docs/tools/testing-tools.md)** - 数据工厂配置说明
+- **[测试数据工厂使用手册](../../docs/tools/test-factory-usage-guide.md)** - 详细使用指南

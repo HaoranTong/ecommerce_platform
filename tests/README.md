@@ -53,6 +53,6 @@ tests/
 ## 📚 相关文档
 
 - **[测试标准文档](../docs/standards/testing-standards.md)** - 完整的测试架构规范和要求
-- **[测试环境配置](../docs/development/testing-setup.md)** - 测试环境搭建和工具配置
-- **[脚本使用手册](../docs/development/scripts-usage-manual.md)** - 测试工具和脚本使用指南
-- **[Generated目录管理](../docs/development/generated-tests-management.md)** - 自动生成测试管理策略
+- **[测试环境配置](../docs/tools/testing-tools.md)** - 测试环境搭建和工具配置
+- **[脚本使用手册](../docs/tools/scripts-usage-manual.md)** - 测试工具和脚本使用指南
+- **[Generated目录管理](../docs/tools/test-management.md)** - 自动生成测试管理策略

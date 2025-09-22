@@ -169,5 +169,5 @@ class ProductSchema(BaseModel):
 
 **相关文档**:
 - [系统技术栈设计](../design/system/technology-stack.md) - 具体技术选型实现
-- [开发环境配置](../development/environment-setup.md) - 环境搭建指南
+- [开发环境配置](../operations/development-setup.md) - 环境搭建指南
 - [代码组织规范](code-standards.md) - 代码编写标准
