@@ -41,6 +41,7 @@ ecommerce_platform/
 │   ├── shared/                # 共享组件文档
 │   ├── modules/               # 业务模块文档 (19个)
 │   ├── architecture/          # 系统架构设计
+│   ├── adr/                   # 架构决策记录 (ADR)
 │   ├── standards/             # 开发规范标准
 │   ├── development/           # 开发环境指南
 │   ├── operations/            # 运维部署文档
