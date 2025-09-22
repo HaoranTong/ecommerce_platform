@@ -41,7 +41,7 @@ tools/
 ## 🚀 快速开始
 
 ### 新开发人员
-1. **环境配置** → 参考 [环境配置指南](../operations/environment-complete.md)
+1. **环境配置** → 参考 [环境变量管理](../operations/environment-variables.md)
 2. **工具了解** → 阅读 [脚本使用手册](scripts-usage-manual.md)
 3. **测试配置** → 参考 [测试工具配置](testing-tools.md)
 
@@ -82,7 +82,7 @@ tools/
 - **[工作流程标准](../standards/workflow-standards.md)** - 开发流程规范
 
 ### 同级文档
-- **[环境配置](../operations/environment-complete.md)** - 环境配置和管理
+- **[环境配置](../operations/environment-variables.md)** - 环境变量配置和管理
 - **[测试标准](../standards/testing-standards.md)** - 测试规范和标准
 
 ### 下级文档

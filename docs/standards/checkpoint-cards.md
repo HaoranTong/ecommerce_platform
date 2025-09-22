@@ -135,9 +135,9 @@
 **触发条件**: 开始开发工作、环境配置
 **检查重点**: 开发环境、工具配置、脚本准备
 **精准导航**:
-1. **环境配置** → `docs/development/environment-setup.md` 开发环境配置指南
+1. **环境配置** → `docs/operations/development-setup.md` 开发环境配置指南
 2. **工作流程** → `docs/standards/workflow-standards.md` 第51-85行环境准备
-3. **脚本工具** → `docs/development/README.md` 第20-50行工具使用指南
+3. **脚本工具** → `docs/tools/README.md` 第20-50行工具使用指南
 4. **强制检查** → `docs/standards/code-development-checklist.md` 第96-130行执行流程
 
 **验证清单**:
@@ -306,7 +306,7 @@
 **检查重点**: 环境隔离、数据库配置、依赖管理
 **精准导航**:
 1. **环境分离** → `docs/standards/testing-standards.md` 第40-60行环境配置
-2. **数据库配置** → `docs/development/testing-setup.md` 第25-45行MySQL设置
+2. **数据库配置** → `docs/tools/testing-tools.md` 第25-45行MySQL设置
 3. **依赖注入** → `tests/conftest.py` 第15-35行测试配置
 4. **环境变量** → `docs/standards/testing-standards.md` 第70-85行配置管理
 
@@ -581,7 +581,7 @@
 
 ### 📚 参考文档
 - `docs/standards/document-standards.md` (60-120行)
-- `docs/development/README.md` (1-50行)
+- `docs/tools/README.md` (1-50行)
 - `scripts/README.md` (1-30行)
 
 ### 🔧 辅助脚本
@@ -635,7 +635,7 @@ scripts\sync_readme.ps1 -CheckOnly -Path [目录路径]
 
 ### 📚 参考文档
 - `docs/standards/code-standards.md` (80-120行)
-- `docs/development/tool-development.md` (1-100行)
+- `docs/tools/scripts-usage-manual.md` (1-100行)
 - `scripts/README.md` (30-80行)
 
 ### 🔧 辅助脚本
@@ -698,7 +698,7 @@ scripts\check_tool_documentation.ps1 -ToolPath [工具路径]
 ### 📚 参考文档
 - `docs/standards/code-standards.md` (1-80行)
 - `docs/standards/document-standards.md` (120-180行)
-- `docs/development/coding-guidelines.md` (1-150行)
+- `docs/standards/coding-guidelines.md` (1-150行)
 
 ### 🔧 辅助脚本
 ```powershell

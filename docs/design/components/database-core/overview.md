@@ -465,5 +465,5 @@ export DATABASE_URL="mysql+pymysql://user:${DB_PASSWORD}@rds-endpoint:3306/ecomm
 
 - [数据模型定义](../models/overview.md)
 - [数据库迁移指南](../../operations/deployment.md#数据库迁移)
-- [Alembic使用文档](../../development/environment-setup.md#alembic)
+- [Alembic使用文档](../../../operations/development-setup.md#alembic)
 - [SQLAlchemy官方文档](https://docs.sqlalchemy.org/)
