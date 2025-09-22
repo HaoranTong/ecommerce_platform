@@ -165,12 +165,12 @@ gunicorn app.main:app -w 4 -k uvicorn.workers.UvicornWorker
 - [📋 **完整开发计划**](docs/requirements/functional.md#迭代计划) - 详细迭代规划和功能优先级
 - [📋 功能需求规范](docs/requirements/functional.md) - 详细功能需求与业务规则
 - [🏗️ 系统架构设计](docs/architecture/overview.md) - 技术架构与设计原则
-- [📦 业务模块文档](docs/modules/) - 19个完整模块设计文档
+- [📦 业务模块文档](docs/design/modules/) - 19个完整模块设计文档
 
 ### 📚 完整文档导航
 - [📋 项目文档](docs/) - 完整技术文档中心
 - [🏗️ 系统架构](docs/architecture/) - 架构设计与技术选型  
-- [📦 功能模块](docs/modules/) - 业务模块设计文档 (19个完整模块)
+- [📦 功能模块](docs/design/modules/) - 业务模块设计文档 (19个完整模块)
 - [🔧 核心组件](docs/core/) - 应用核心基础设施文档
 - [🔗 共享组件](docs/shared/) - 通用数据模型和工具  
 - [📡 API规范](docs/standards/api-standards.md) - 接口设计标准

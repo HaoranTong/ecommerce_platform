@@ -73,7 +73,7 @@ graph TB
 
 <!-- 禁止的引用格式 -->
 ❌ [API规范](api-standards.md) - 缺少路径
-❌ [用户认证](/docs/modules/user-auth/overview.md) - 绝对路径
+❌ [用户认证](/docs/design/modules/user-auth/overview.md) - 绝对路径
 ❌ 点击这里查看API规范 - 无具体链接
 ```
 
@@ -140,8 +140,8 @@ overview.md ← README.md (汇总引用)
 - **影响范围**: 依赖此文档的所有文档
 
 ### 需要同步的文档
-- [ ] docs/modules/user-auth/design.md
-- [ ] docs/modules/product-catalog/api-spec.md
+- [ ] docs/design/modules/user-auth/design.md
+- [ ] docs/design/modules/product-catalog/api-spec.md
 
 ### 变更内容
 {具体变更描述}
@@ -211,7 +211,7 @@ docs/
 ### 自动化维护
 ```powershell
 # 文档更新时自动检查依赖
-.\scripts\update_dependencies.ps1 -DocumentPath "docs/modules/user-auth/"
+.\scripts\update_dependencies.ps1 -DocumentPath "docs/design/modules/user-auth/"
 
 # 批量更新引用
 .\scripts\batch_update_references.ps1 -OldPath "modules/old-name" -NewPath "modules/new-name"
@@ -241,7 +241,7 @@ docs/
 3. standards/naming-conventions.md (被引用 15 次)
 
 ### 需要关注的问题
-- [ ] docs/modules/old-module/overview.md 存在无效引用
+- [ ] docs/design/modules/old-module/overview.md 存在无效引用
 - [x] docs/development/tools.md 已重构为environment-setup.md和scripts-usage-manual.md
 ```
 

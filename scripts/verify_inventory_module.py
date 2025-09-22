@@ -67,7 +67,7 @@ def verify_inventory_module():
         "E:/ecommerce_platform/app/modules/inventory_management/schemas.py", 
         "E:/ecommerce_platform/app/modules/inventory_management/router.py",
         "E:/ecommerce_platform/app/modules/inventory_management/service.py",
-        "E:/ecommerce_platform/docs/modules/inventory-management/api-spec.md"
+        "E:/ecommerce_platform/docs/design/modules/inventory-management/api-spec.md"
     ]
     
     all_passed = True

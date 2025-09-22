@@ -1,8 +1,8 @@
 """
 用户认证模块数据模型
 
-按照docs/modules/user-auth/overview.md设计文档实现
-根据docs/modules/data-models/overview.md文档规范实现
+按照docs/design/modules/user-auth/overview.md设计文档实现
+根据docs/design/modules/data-models/overview.md文档规范实现
 包含User、Role、Permission等完整认证模型
 符合数据库设计原则和字段命名标准
 

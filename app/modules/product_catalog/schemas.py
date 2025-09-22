@@ -1,7 +1,7 @@
 """
 商品目录模块Pydantic模式定义
 
-根据docs/modules/product-catalog/overview.md文档规范实现
+根据docs/design/modules/product-catalog/overview.md文档规范实现
 严格符合API设计标准和数据验证要求
 
 主要功能：

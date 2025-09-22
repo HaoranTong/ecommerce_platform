@@ -66,7 +66,7 @@ function Test-NamingCompliance {
     Write-Host "🔍 检查命名合规性..." -ForegroundColor Cyan
     
     # 检查是否存在命名映射文档
-    $namingDoc = "docs/modules/$module/naming-map.md"
+    $namingDoc = "docs/design/modules/$module/naming-map.md"
     if (-not (Test-Path $namingDoc)) {
         Stop-Checkpoint "模块命名映射文档不存在: $namingDoc"
     }
@@ -84,7 +84,7 @@ switch ($Phase) {
         Read-Document "docs/api/api-design-standards.md" "API设计标准" -Force
         
         if ($Module) {
-            $moduleDoc = "docs/modules/$Module/overview.md"
+            $moduleDoc = "docs/design/modules/$Module/overview.md"
             Read-Document $moduleDoc "$Module 模块概述文档" -Force
             Test-NamingCompliance $Module
         }
@@ -100,7 +100,7 @@ switch ($Phase) {
         }
         
         # 检查是否存在相关API文档
-        $apiDoc = "docs/modules/$Module/api-spec.md"
+        $apiDoc = "docs/design/modules/$Module/api-spec.md"
         if (-not (Test-Path $apiDoc)) {
             Stop-Checkpoint "API规范文档不存在，禁止编码: $apiDoc"
         }

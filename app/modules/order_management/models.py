@@ -1,7 +1,7 @@
 """
 订单管理模块数据模型
 
-根据 docs/modules/order-management/design.md 文档规范实现
+根据 docs/design/modules/order-management/design.md 文档规范实现
 符合数据库设计原则和字段命名标准
 
 主要模型:
@@ -33,7 +33,7 @@ class Order(Base):
     """订单主表模型
     
     管理订单的完整生命周期，包括订单基础信息、金额信息、收货信息等
-    符合 docs/modules/order-management/design.md 设计规范
+    符合 docs/design/modules/order-management/design.md 设计规范
     """
     __tablename__ = 'orders'
     

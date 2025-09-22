@@ -2,7 +2,7 @@
 共享数据模型和基础组件
 
 提供跨模块共享的基础模型类和通用数据结构
-根据 docs/modules/data-models/overview.md 文档规范实现
+根据 docs/design/modules/data-models/overview.md 文档规范实现
 """
 
 import json

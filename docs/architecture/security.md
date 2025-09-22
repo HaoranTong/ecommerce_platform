@@ -35,88 +35,57 @@
 4. JWT Token验证
 ```
 
-### 多因子认证 (MFA)
-```python
-# 认证因子组合
-class AuthFactor:
-    KNOWLEDGE = "password"      # 知识因子：密码
-    POSSESSION = "sms_code"     # 持有因子：短信验证码
-    INHERENCE = "biometric"     # 生物因子：指纹/面部识别
+### 多因子认证策略
 
-# 认证策略
-def authenticate_user(username, password, sms_code=None):
-    # 第一因子：密码验证
-    if not verify_password(username, password):
-        return False
-    
-    # 第二因子：短信验证码（高风险操作）
-    if is_high_risk_operation():
-        if not verify_sms_code(username, sms_code):
-            return False
-    
-    return generate_jwt_token(username)
-```
+#### 认证因子分类
+- **知识因子**: 用户知道的信息（密码、PIN码）
+- **持有因子**: 用户拥有的设备（短信验证码、硬件令牌）  
+- **生物因子**: 用户身体特征（指纹、面部识别）
 
-### JWT Token 安全
-```python
-# Token 配置
-JWT_CONFIG = {
-    "algorithm": "HS256",
-    "access_token_expire": 3600,    # 1小时
-    "refresh_token_expire": 86400,  # 24小时
-    "issuer": "ecommerce-platform",
-    "audience": "api-users"
-}
+#### 认证策略原则
+- **风险评估**: 根据操作风险等级选择认证因子组合
+- **用户体验**: 平衡安全性和用户便利性
+- **降级支持**: 在生物识别不可用时提供备用方案
 
-# Token 结构
-{
-    "header": {
-        "alg": "HS256",
-        "typ": "JWT"
-    },
-    "payload": {
-        "user_id": "123456",
-        "username": "user@example.com",
-        "roles": ["user"],
-        "permissions": ["read:products", "write:cart"],
-        "exp": 1640995200,
-        "iat": 1640908800,
-        "iss": "ecommerce-platform",
-        "aud": "api-users",
-        "jti": "token-unique-id"  # Token ID，用于撤销
-    }
-}
-```
+### JWT认证架构原则
+
+#### Token设计原则
+- **无状态设计**: Token包含完整的身份和权限信息
+- **有限生命周期**: 设置合理的Token过期时间
+- **撤销机制**: 支持Token黑名单和主动撤销
+- **签名验证**: 使用加密算法确保Token完整性
+
+#### Token载荷结构
+- **用户标识**: 用户ID和基础信息
+- **角色权限**: 用户角色和具体权限列表
+- **时间控制**: 发布时间、过期时间、生效时间
+- **发布信息**: 发行者、受众、唯一标识符
+
+> **具体实现方案**: 详见 [系统安全设计](../design/system/security-design.md)
 
 ## 授权访问控制
 
-### RBAC 权限模型
-```python
-# 角色定义
-class Role:
-    GUEST = "guest"           # 游客
-    USER = "user"            # 普通用户
-    PREMIUM = "premium"      # 高级用户
-    DISTRIBUTOR = "distributor"  # 分销商
-    SUPPLIER = "supplier"     # 供应商
-    CUSTOMER_SERVICE = "customer_service"  # 客服人员
-    OPERATIONS = "operations" # 运营人员
-    FINANCE = "finance"       # 财务人员
-    MERCHANT = "merchant"     # 商户
-    ADMIN = "admin"           # 管理员
-    SUPER_ADMIN = "super_admin"  # 超级管理员
+### RBAC权限架构
 
-# 权限定义
-class Permission:
-    # 商品权限
-    READ_PRODUCTS = "read:products"
-    WRITE_PRODUCTS = "write:products"
-    DELETE_PRODUCTS = "delete:products"
-    
-    # 订单权限
-    READ_ORDERS = "read:orders"
-    WRITE_ORDERS = "write:orders"
-    MANAGE_ORDERS = "manage:orders"
+#### 角色层次设计
+- **访客角色**: 未登录用户的基础浏览权限
+- **用户角色**: 普通用户和高级会员的差异化权限
+- **业务角色**: 分销商、供应商、商户的业务操作权限
+- **管理角色**: 客服、运营、财务的后台管理权限
+- **系统角色**: 管理员和超级管理员的系统控制权限
+
+#### 权限分类体系
+- **数据权限**: 对业务数据的读取、写入、删除权限
+- **功能权限**: 对系统功能模块的访问和操作权限
+- **管理权限**: 对系统配置和用户管理的控制权限
+- **审计权限**: 对系统日志和报表的查看权限
+
+#### 权限继承原则
+- **垂直继承**: 上级角色自动继承下级角色的所有权限
+- **权限最小化**: 每个角色只分配必需的最小权限集合
+- **动态调整**: 支持运行时权限的动态授予和撤销
+
+> **具体角色和权限定义**: 详见 [系统安全设计](../design/system/security-design.md)
     
     # 用户权限
     READ_USERS = "read:users"
@@ -232,83 +201,53 @@ ROLE_PERMISSIONS = {
 }
 ```
 
-### API 权限控制
-```python
-from functools import wraps
+### API权限控制架构
 
-def require_permission(permission):
-    def decorator(func):
-        @wraps(func)
-        def wrapper(*args, **kwargs):
-            current_user = get_current_user()
-            if not current_user.has_permission(permission):
-                raise HTTPException(
-                    status_code=403,
-                    detail="权限不足"
-                )
-            return func(*args, **kwargs)
-        return wrapper
-    return decorator
+#### 权限控制设计原则
+- **装饰器模式**: 使用装饰器实现权限控制的横切关注点
+- **细粒度控制**: 支持接口级、方法级的细粒度权限控制
+- **权限检查**: 在业务逻辑执行前进行权限验证
+- **异常处理**: 统一的权限不足异常处理机制
 
-# 使用示例
-@app.get("/api/v1/products")
-@require_permission(Permission.READ_PRODUCTS)
-def get_products():
-    return ProductService.get_all()
+#### API权限策略
+- **资源权限**: 基于资源类型的权限控制
+- **操作权限**: 基于操作类型的权限控制  
+- **数据权限**: 基于数据归属的权限控制
+- **上下文权限**: 基于请求上下文的动态权限控制
 
-@app.post("/api/v1/products")
-@require_permission(Permission.WRITE_PRODUCTS)
-def create_product(product_data):
-    return ProductService.create(product_data)
-```
+> **具体权限控制实现**: 详见 [系统安全设计](../design/system/security-design.md)
 
 ## 数据加密保护
 
-### 传输加密
-```nginx
-# HTTPS 配置
-server {
-    listen 443 ssl http2;
-    server_name api.example.com;
-    
-    # SSL 证书配置
-    ssl_certificate /path/to/certificate.crt;
-    ssl_certificate_key /path/to/private.key;
-    
-    # SSL 安全配置
-    ssl_protocols TLSv1.2 TLSv1.3;
-    ssl_ciphers ECDHE-RSA-AES128-GCM-SHA256:ECDHE-RSA-AES256-GCM-SHA384;
-    ssl_prefer_server_ciphers off;
-    
-    # HSTS 安全头
-    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
-}
-```
+### 传输安全架构
 
-### 存储加密
-```python
-from cryptography.fernet import Fernet
-import hashlib
-import bcrypt
+#### HTTPS安全策略
+- **强制HTTPS**: 所有API通信必须使用HTTPS协议
+- **TLS版本**: 支持TLS 1.2和1.3，禁用旧版本协议
+- **加密套件**: 选择高强度的加密算法套件
+- **HSTS策略**: 启用HTTP严格传输安全策略
 
-class DataEncryption:
-    def __init__(self, key):
-        self.cipher = Fernet(key)
-    
-    def encrypt_sensitive_data(self, data):
-        """加密敏感数据"""
-        return self.cipher.encrypt(data.encode()).decode()
-    
-    def decrypt_sensitive_data(self, encrypted_data):
-        """解密敏感数据"""
-        return self.cipher.decrypt(encrypted_data.encode()).decode()
+#### 安全头配置
+- **内容安全**: 配置CSP、CSRF保护等安全头
+- **传输安全**: 启用HSTS、HPKP等传输安全机制
+- **信息泄露**: 隐藏服务器版本等敏感信息
+- **跨域安全**: 合理配置CORS策略
 
-class PasswordSecurity:
-    @staticmethod
-    def hash_password(password):
-        """密码哈希"""
-        salt = bcrypt.gensalt()
-        return bcrypt.hashpw(password.encode('utf-8'), salt)
+### 存储安全架构
+
+#### 数据加密策略
+- **敏感数据**: 用户隐私数据使用强加密算法加密存储
+- **密码安全**: 使用安全的哈希算法存储用户密码
+- **密钥管理**: 建立安全的密钥生成、存储和轮换机制
+- **分级加密**: 根据数据敏感程度选择不同加密强度
+
+#### 加密算法选择
+- **对称加密**: 选择AES等安全的对称加密算法
+- **哈希算法**: 选择bcrypt、Argon2等安全的密码哈希算法
+- **随机数**: 使用加密安全的随机数生成器
+- **盐值策略**: 为每个密码生成唯一的盐值
+
+> **具体加密实现方案**: 详见 [系统安全设计](../design/system/security-design.md)
     
     @staticmethod
     def verify_password(password, hashed):

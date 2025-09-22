@@ -2,7 +2,7 @@
 
 用户注册、登录、权限管理和JWT认证功能。
 
-**对应文档**: [docs/modules/user-auth/](../../docs/modules/user-auth/)
+**对应文档**: [docs/design/modules/user-auth/](../../docs/design/modules/user-auth/)
 
 ## 功能概览
 
@@ -33,6 +33,6 @@ user_auth/
 
 ## 相关文档
 
-- [API规范](../../docs/modules/user-auth/api-spec.md)
-- [数据模型](../../docs/modules/user-auth/data-models.md)
-- [业务流程](../../docs/modules/user-auth/business-logic.md)
+- [API规范](../../docs/design/modules/user-auth/api-spec.md)
+- [数据模型](../../docs/design/modules/user-auth/data-models.md)
+- [业务流程](../../docs/design/modules/user-auth/business-logic.md)

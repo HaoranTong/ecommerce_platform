@@ -1,7 +1,7 @@
 """
 商品管理模块
 
-对应文档：docs/modules/product-catalog/
+对应文档：docs/design/modules/product-catalog/
 功能：商品CRUD、分类管理、规格管理
 """
 

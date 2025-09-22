@@ -9,6 +9,14 @@
 
 ```
 design/
+├── system/           # 系统级设计
+│   ├── technology-stack.md           # 技术栈选型和版本规划
+│   ├── algorithm-design.md           # 核心算法设计和实现
+│   ├── integration-design.md         # 系统集成和模块协作设计
+│   ├── performance-design.md         # 性能设计和优化方案
+│   ├── security-design.md            # 安全实现设计和加密方案
+│   ├── deployment-design.md          # 部署架构和运维设计
+│   └── README.md                     # 系统级设计索引
 ├── modules/          # 业务模块设计
 │   ├── user-auth/                    # 用户认证模块
 │   ├── product-catalog/              # 商品目录模块  
@@ -41,6 +49,12 @@ design/
 ```
 
 ## 边界管理规则
+
+### 系统级设计边界 (system/)
+- **承接原则**: 承接架构层原则，转化为具体技术实现方案
+- **通用性要求**: 技术方案具备通用性，支持多模块复用
+- **边界约束**: 不包含具体业务逻辑，专注技术实现
+- **演进支持**: 考虑未来微服务演进的技术需求
 
 ### 业务模块边界 (modules/)
 - **独立性原则**: 每个模块必须能够独立演进为微服务
