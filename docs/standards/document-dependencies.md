@@ -1,3 +1,5 @@
+<!--version info: v1.0.0, created: 2025-09-23, level: L2, dependencies: naming-conventions.md,project-structure-standards.md-->
+
 # 文档依赖关系管理规范
 
 📝 **文档类型**: 文档架构和依赖关系规范  

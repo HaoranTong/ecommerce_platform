@@ -1,3 +1,5 @@
+<!--version info: v1.0.0, created: 2025-09-23, level: L2, dependencies: naming-conventions.md,project-structure-standards.md-->
+
 # 文档管理规范
 
 > **版本**: v2.1  

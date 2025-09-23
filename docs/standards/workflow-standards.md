@@ -1,3 +1,5 @@
+<!--version info: v1.0.0, created: 2025-09-23, level: L2, dependencies: naming-conventions.md,project-structure-standards.md-->
+
 <!--
 文档说明：
 - 内容：完整软件开发生命周期(SDLC)标准流程和AI操作指导
@@ -336,3 +338,4 @@ TOOL-REFERENCE-PENDING: 需要验证release_to_main.ps1脚本状态
 4. 更新状态文档记录发布信息
 
 > 详细发布流程参考：`docs/operations/release-procedures.md`
+
