@@ -121,7 +121,7 @@
 - **工具创建后** → [CHECK:DOC-006] 工具文档完整性验证
 
 ## 🎯 检查卡片详情
-详细验证步骤 → `docs/standards/checkpoint-cards.md` (26张卡片)
+详细验证步骤 → `docs/tools/checkpoint-cards.md` (26张卡片)
 辅助检查脚本 → `scripts/ai_checkpoint.ps1 -CardType [卡片编号]`
 
 ## 📁 标准规范文档引用 (完整版)
@@ -137,13 +137,13 @@
 ### 开发流程与规范
 - docs/development/README.md - 开发流程指南
 - docs/development/testing-setup.md - 测试环境配置（增强版）
-- docs/standards/checkpoint-cards.md - 检查点卡片系统（25张卡片）
+- docs/tools/checkpoint-cards.md - 检查点卡片系统（25张卡片）
 - docs/standards/naming-conventions.md - 命名规范
 - docs/standards/api-standards.md - API设计规范
 - docs/standards/database-standards.md - 数据库设计规范
 - docs/standards/code-standards.md - 代码组织规范
 - docs/standards/testing-standards.md - 测试规范（五层架构）
-- docs/standards/document-standards.md - 文档结构规范
+- docs/standards/document-management-standards.md - 文档结构规范
 - docs/standards/workflow-standards.md - 工作流程规范
 
 ### 状态文档管理规范 (强制)

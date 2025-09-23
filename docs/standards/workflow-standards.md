@@ -11,6 +11,13 @@
 
 # 软件开发生命周期标准流程
 
+## 依赖标准
+
+本标准依赖以下L1核心标准：
+
+- **[项目结构标准](./project-structure-standards.md)** - 定义工作流程中涉及的文件和目录结构
+- **[命名规范](./naming-conventions-standards.md)** - 工作流程中文件、分支、标签等命名规则
+
 ## 🤖 AI开发任务启动检查点 [CHECK:AI-START]
 
 **当AI接收到新的开发任务时，必须依次完成：**
@@ -19,14 +26,17 @@
 2. **[ ] 确认开发流程标准** → 本文档全文
 3. **[ ] 掌握工具使用方法** → `docs/tools/scripts-usage-manual.md`
 4. **[ ] 理解任务具体要求** → 用户提供的任务描述
+5. **[ ] 🚨 执行文档标准验证** → `.\scripts\validate_standards.ps1 -Action full` (必须100%通过)
 
-**验证标准**: 必须提供MASTER文档确认回复模板，包含以上4项的确认状态
+**验证标准**: 必须提供MASTER文档确认回复模板，包含以上5项的确认状态
+
+**💀 新增强制规则**: 如果任何文档将被创建或修改，必须在任务完成前再次执行文档验证
 
 ---
 
 ## 📋 完整SDLC流程概览
 
-```
+```text
 需求分析 → 架构设计 → 详细设计 → 代码实现 → 测试验证 → 部署发布 → 运维监控 → 故障处理
 ```
 
@@ -49,20 +59,20 @@
 ### 需求准备 [CHECK:REQ-001] [CHECK:REQ-002] [CHECK:REQ-003]
 **目标**: 确保需求清晰明确，技术方案可行
 
-#### 1.1 需求分析 [CHECK:REQ-001]
+**1.1 需求分析 [CHECK:REQ-001]**：
 - [ ] 阅读 [业务需求](../requirements/business.md) 理解项目背景
 - [ ] 查看 [功能需求](../requirements/functional.md) 了解具体功能要求  
 - [ ] 确认 [非功能需求](../requirements/non-functional.md) 的技术约束
 - [ ] 识别功能依赖关系和集成点
 
-#### 1.2 技术方案设计 [CHECK:ARCH-001] [CHECK:ARCH-002] 
+### 1.2 技术方案设计 [CHECK:ARCH-001] [CHECK:ARCH-002]
 - [ ] 遵循 [架构总览](../architecture/overview.md) 的技术栈选择
-- [ ] 按照 [API设计标准](api-standards.md) 设计接口
-- [ ] 遵循 [数据库设计规范](database-standards.md) 设计数据结构  
+- [ ] 按照项目结构标准设计接口层组织
+- [ ] 遵循项目结构标准设计数据模型组织  
 - [ ] 考虑 [安全架构](../architecture/security.md) 要求
 - [ ] 规划 [第三方集成](../architecture/integration.md) 需求
 
-#### 1.3 模块文档创建 【待修正-工具验证】
+**1.3 模块文档创建 【待修正-工具验证】**：
 <!--
 TOOL-REFERENCE-PENDING: 需要验证scripts/create_module_docs.ps1和scripts/check_docs.ps1的实际状态
 原内容：使用自动化工具创建完整文档结构
@@ -82,7 +92,7 @@ TOOL-REFERENCE-PENDING: 需要验证scripts/create_module_docs.ps1和scripts/che
 ### 开发实施 [CHECK:DEV-001] [CHECK:DEV-002] [CHECK:DEV-003] [CHECK:DEV-004] [CHECK:DEV-005]
 **目标**: 高质量代码实现，完整测试覆盖
 
-#### 环境准备 [CHECK:DEV-001]
+### 环境准备 [CHECK:DEV-001]
 <!--
 TOOL-REFERENCE-PENDING: 需要验证dev_env.ps1和dev_tools.ps1的实际状态和用法
 原内容：配置开发环境和数据库检查脚本
@@ -94,14 +104,14 @@ TOOL-REFERENCE-PENDING: 需要验证dev_env.ps1和dev_tools.ps1的实际状态�
 3. 创建功能分支：`git checkout -b feature/{module-name}`
 4. 更新依赖：`pip install -r requirements.txt`
 
-#### 2.2 代码开发标准 [CHECK:DEV-002] [CHECK:DEV-003] [CHECK:DEV-004] [CHECK:DEV-005]
+### 2.2 代码开发标准 [CHECK:DEV-002] [CHECK:DEV-003] [CHECK:DEV-004] [CHECK:DEV-005]
 - [ ] **数据模型** - 在 `app/modules/{module}/models.py` 中定义 SQLAlchemy 模型 [CHECK:DEV-002]
 - [ ] **API路由** - 在 `app/modules/{module}/router.py` 中实现路由 [CHECK:DEV-004]
 - [ ] **数据验证** - 在 `app/modules/{module}/schemas.py` 中定义 Pydantic 模式 [CHECK:DEV-003]
 - [ ] **业务逻辑** - 在 `app/services/` 中实现服务层 [CHECK:DEV-005]
 - [ ] **错误处理** - 统一异常处理和错误响应 [CHECK:DEV-007]
 
-#### 2.3 代码质量要求 [CHECK:DEV-006] [CHECK:DEV-007] [CHECK:DEV-008]
+### 2.3 代码质量要求 [CHECK:DEV-006] [CHECK:DEV-007] [CHECK:DEV-008]
 **必须包含**:
 - 完整字段定义和验证规则  
 - 统一异常处理和错误响应
@@ -111,7 +121,7 @@ TOOL-REFERENCE-PENDING: 需要验证dev_env.ps1和dev_tools.ps1的实际状态�
 
 > 详细代码示例参考：`docs/examples/code-standards-examples.md` 【待创建】
 
-#### 2.4 文档同步要求 [CHECK:DOC-001] [CHECK:DOC-002]
+### 2.4 文档同步要求 [CHECK:DOC-001] [CHECK:DOC-002]
 **IF 开发进展变化 THEN 必须更新**:
 - [ ] `docs/design/modules/{module}/implementation.md` - 开发进展记录
 - [ ] `docs/design/modules/{module}/api-implementation.md` - API实现细节
@@ -119,7 +129,7 @@ TOOL-REFERENCE-PENDING: 需要验证dev_env.ps1和dev_tools.ps1的实际状态�
 **IF 遇到问题 THEN 必须记录**:
 - [ ] `docs/status/issues-tracking.md` - 问题跟踪和解决方案
 
-#### 2.5 文档完整性验证 【待修正-工具验证】
+**2.5 文档完整性验证 【待修正-工具验证】**：
 <!--
 TOOL-REFERENCE-PENDING: 需要验证check_docs.ps1脚本的实际状态
 原内容：每日文档完整性检查
@@ -130,7 +140,7 @@ TOOL-REFERENCE-PENDING: 需要验证check_docs.ps1脚本的实际状态
 ### 测试验证 [CHECK:TEST-001] [CHECK:TEST-002] [CHECK:TEST-003] [CHECK:TEST-004] [CHECK:TEST-005]
 **目标**: 确保功能正确性和系统稳定性
 
-#### 🚨 强制环境检查 [CHECK:TEST-001]
+### 🚨 强制环境检查 [CHECK:TEST-001]
 <!--
 TOOL-REFERENCE-PENDING: 需要验证check_test_env.ps1和setup_test_env.ps1的实际状态
 原内容：强制测试环境检查流程
@@ -138,14 +148,14 @@ TOOL-REFERENCE-PENDING: 需要验证check_test_env.ps1和setup_test_env.ps1的�
 -->
 **临时方案**: 手动检查测试环境配置，确保数据库连接和测试数据准备就绪
 
-#### 3.1 单元测试 [CHECK:TEST-002]
+**3.1 单元测试 [CHECK:TEST-002]**：
 **必须覆盖**:
 - [ ] 正常业务逻辑测试
 - [ ] 边界条件和异常处理测试  
 - [ ] 数据验证测试
 - [ ] Mock外部依赖测试
 
-#### 3.2 集成测试 [CHECK:TEST-004]  
+**3.2 集成测试 [CHECK:TEST-004]**：
 **必须覆盖**:
 - [ ] API接口完整测试
 - [ ] 数据库操作测试
@@ -154,7 +164,7 @@ TOOL-REFERENCE-PENDING: 需要验证check_test_env.ps1和setup_test_env.ps1的�
 
 > 详细测试示例参考：`docs/examples/testing-examples.md` 【待创建】
 
-#### 3.3 标准测试执行流程 【待修正-工具验证】
+**3.3 标准测试执行流程 【待修正-工具验证】**：
 <!--
 TOOL-REFERENCE-PENDING: 需要验证所有测试相关脚本的实际状态
 原内容：分层测试执行流程
@@ -165,7 +175,7 @@ TOOL-REFERENCE-PENDING: 需要验证所有测试相关脚本的实际状态
 - 功能完成：手动执行集成测试  
 - 提交前：手动执行完整测试套件
 
-#### 3.4 系统测试 【待修正-工具验证】
+**3.4 系统测试 【待修正-工具验证】**：
 <!--
 TOOL-REFERENCE-PENDING: 需要验证smoke_test.ps1和性能测试工具状态
 原内容：系统级测试流程
@@ -176,41 +186,70 @@ TOOL-REFERENCE-PENDING: 需要验证smoke_test.ps1和性能测试工具状态
 ### 文档完善 [CHECK:DOC-001] [CHECK:DOC-002] [CHECK:DOC-003]
 **目标**: 完整准确的技术文档，100%符合标准
 
-#### 4.1 API文档更新  
+### 4.0 **强制性文档标准验证** [CHECK:DOC-000] 🚨
+**⚠️ 所有文档创建/修改后的强制检查点 - 绝不可跳过**
+
+```powershell
+# 必须执行的验证命令
+.\scripts\validate_standards.ps1 -Action full
+
+# 验证标准：
+✅ 格式一致性: 100% 通过 (代码块语言标识符完整)
+✅ 重复内容检测: 100% 通过 (相似度<50%)  
+✅ 依赖关系验证: 100% 通过 (严格L0→L1→L2层级)
+✅ 内容完整性: 100% 通过 (必要章节齐全)
+
+# 💀 阻止规则：任何一项未通过，严禁提交代码或文档
+```
+
+**4.1 API文档更新**：
 - [ ] 更新 `docs/design/modules/{module}/api-spec.md` - 接口规范要求
 - [ ] 更新 `docs/design/modules/{module}/api-implementation.md` - 实施细节记录
 - [ ] 确保遵循 `standards/openapi.yaml` 全局契约
 - [ ] 添加完整的请求响应示例
+- [ ] **强制执行**: `.\scripts\validate_standards.ps1 -Action full` ✅
 - [ ] 说明错误处理和状态码
 
-#### 4.2 模块文档完善
+**4.2 模块文档完善**：
 - [ ] 完善 `docs/design/modules/{module}/design.md` 技术设计
 - [ ] 更新 `docs/design/modules/{module}/implementation.md` 实现细节  
 - [ ] 完善 `docs/design/modules/{module}/requirements.md` 需求文档
 - [ ] 更新 `docs/design/modules/{module}/overview.md` 技术概述
 - [ ] 确保 `docs/design/modules/{module}/README.md` 导航完整
 
-#### 4.3 文档标准化验证 【待修正-工具验证】
-<!--
-TOOL-REFERENCE-PENDING: 需要验证check_docs.ps1脚本功能
-原内容：自动化文档验证流程  
-修正计划：确认文档检查工具后重新编写此部分
--->
-**临时方案**: 手动检查模块文档完整性，确保包含所有必需内容
+### 4.3 🚨 强制文档标准验证 [CHECK:DOC-003]
+**⚠️ 绝对强制检查点 - 任何违规立即停止工作流程**
 
-**⚠️ 重要**: 不符合文档标准的代码不允许合并到主分支 [CHECK:DOC-003]
+```powershell
+# 每次文档创建/修改后必须执行
+.\scripts\validate_standards.ps1 -Action full
+
+# 必须达到的标准：
+✅ 格式一致性: 100% 通过 (0个代码块缺失语言标识符)
+✅ 标题层级: 100% 通过 (0个深层标题>3级) 
+✅ 重复内容检测: 100% 通过 (相似度<50%)
+✅ 依赖关系验证: 100% 通过 (严格L0→L1→L2层级)
+✅ 内容完整性: 100% 通过 (所有必要章节完整)
+```
+
+**💀 零容忍规则**: 
+- 任何一项验证失败，严禁提交代码
+- 任何一项验证失败，严禁合并到主分支
+- 任何一项验证失败，必须立即修复后重新验证
 
 ### 代码提交 [CHECK:DEV-008] [CHECK:STATUS-002] [CHECK:STATUS-003] [CHECK:STATUS-004]
 **目标**: 规范化代码提交和版本管理
 
-#### 5.1 提交前检查 【待修正-工具验证】
-<!--
-TOOL-REFERENCE-PENDING: 需要验证所有检查脚本的实际状态
-原内容：提交前自动化检查流程
-修正计划：确认所有检查工具后重新编写此部分
--->
-**临时方案**:
-1. 手动检查文档完整性
+### 5.1 🚨 提交前强制验证检查 [CHECK:DOC-FINAL]
+**⚠️ Git提交前的最后防线 - 绝对不可跳过**
+
+**强制执行顺序**:
+1. **文档标准验证**: `.\scripts\validate_standards.ps1 -Action full` (必须100%通过)
+2. **代码质量检查**: 确保所有测试通过
+3. **依赖关系确认**: 验证无循环依赖
+4. **版本信息更新**: 更新相关版本号和时间戳
+
+**🔒 提交阻止机制**: Git提交前必须声明"已执行并通过validate_standards.ps1验证"
 2. 手动运行所有测试
 3. 检查代码质量（如有工具配置）
 4. 确保数据库迁移正确：`alembic upgrade head`
@@ -218,7 +257,7 @@ TOOL-REFERENCE-PENDING: 需要验证所有检查脚本的实际状态
 
 **⚠️ 提交阻止规则**: 如果文档完整性检查不通过，禁止提交代码 [CHECK:DOC-003]
 
-#### 5.2 自动化提交 【待修正-工具验证】
+**5.2 自动化提交 【待修正-工具验证】**：
 <!--
 TOOL-REFERENCE-PENDING: 需要验证feature_finish.ps1脚本状态
 原内容：自动化提交流程
@@ -226,7 +265,7 @@ TOOL-REFERENCE-PENDING: 需要验证feature_finish.ps1脚本状态
 -->
 **临时方案**: 使用手动提交流程，确保每个步骤手动验证
 
-#### 5.3 手动提交流程
+**5.3 手动提交流程**：
 ```powershell
 # 如果不使用自动化脚本
 git add .
@@ -338,4 +377,18 @@ TOOL-REFERENCE-PENDING: 需要验证release_to_main.ps1脚本状态
 4. 更新状态文档记录发布信息
 
 > 详细发布流程参考：`docs/operations/release-procedures.md`
+
+## 具体标准
+
+### 工作流程执行标准
+- 所有开发任务必须遵循SDLC流程
+- CHECK检查点必须逐项完成，不得跳过
+- 代码提交前必须通过所有测试
+- 版本发布必须包含完整的变更记录
+
+### 质量门禁要求
+- 代码覆盖率不低于80%
+- 所有单元测试必须通过
+- 集成测试验证核心功能
+- 性能测试确保符合SLA要求
 

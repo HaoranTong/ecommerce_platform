@@ -2,7 +2,20 @@
 
 # 技术栈标准规范
 
-## 强制技术栈要求
+## 概述
+
+本文档规范了电商平台项目的技术栈选择标准，包括编程语言、框架、数据库、中间件等技术组件的版本要求和配置规范。确保技术选择的一致性和兼容性。
+
+## 依赖标准
+
+本标准依赖以下L1核心标准：
+
+- **[项目结构标准](./project-structure-standards.md)** - 定义技术组件的目录结构规范
+- **[命名规范](./naming-conventions-standards.md)** - 技术组件和配置文件的命名规则
+
+## 具体标准
+
+### 强制技术栈要求
 
 ### Python环境标准
 - **Python版本**: 3.11+ (强制，禁止使用3.10以下版本)
@@ -172,4 +185,4 @@ class ProductSchema(BaseModel):
 **相关文档**:
 - [系统技术栈设计](../design/system/technology-stack.md) - 具体技术选型实现
 - [开发环境配置](../operations/development-setup.md) - 环境搭建指南
-- [代码组织规范](code-standards.md) - 代码编写标准
+- [项目结构标准](project-structure-standards.md) - 代码组织规范

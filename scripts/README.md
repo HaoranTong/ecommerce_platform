@@ -20,7 +20,7 @@
 | `log_status.ps1` | 状态日志记录 | 工作状态记录 | [📖](../docs/tools/scripts-usage-manual.md#log_status) |
 | `update_module_status.ps1` | 模块状态更新 | 模块开发状态维护 | [📖](../docs/tools/scripts-usage-manual.md#update_module_status) |
 
-### 🔍 代码质量检查脚本 (5个)
+### 🔍 代码质量检查脚本 (6个)
 | 脚本名称 | 功能 | 使用场景 | 详细文档 |
 |---------|------|----------|----------|
 | `check_code_standards.ps1` | 代码规范检查 | 代码质量验证+sku_id类型检查 | [📖](../docs/tools/scripts-usage-manual.md#check_code_standards) |
@@ -28,6 +28,7 @@
 | `check_naming_compliance.ps1` | 命名规范检查 | 命名标准验证 | [📖](../docs/tools/scripts-usage-manual.md#check_naming_compliance) |
 | `quick_structure_check.ps1` | 快速结构检查 | 项目结构验证 | [📖](../docs/tools/scripts-usage-manual.md#quick_structure_check) |
 | `validate_pydantic_v2.py` | Pydantic验证 | 数据模型验证 | [📖](../docs/tools/scripts-usage-manual.md#validate_pydantic_v2) |
+| `analyze_simple_markers.ps1` | 📋 **代码块格式分析** | Markdown代码块配对问题诊断 | [📖](../docs/tools/analyze_simple_markers.md) |
 
 ### 🧪 测试与验证脚本 (9个)
 | 脚本名称 | 功能 | 使用场景 | 详细文档 |

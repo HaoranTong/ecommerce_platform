@@ -1,4 +1,4 @@
-<!--version info: v2.0.0, created: 2025-09-23, level: L2, dependencies: naming-conventions.md,project-structure-standards.md-->
+<!--version info: v2.0.0, created: 2025-09-23, level: L2, dependencies: naming-conventions-standards.md,project-structure-standards.md-->
 
 # 代码标准规范 (Code Standards)
 
@@ -9,24 +9,21 @@
 ## 依赖标准
 
 本标准依赖以下L1核心标准：
-- `naming-conventions.md` - 代码命名规范（类、函数、变量、常量命名标准）
+- `naming-conventions-standards.md` - 代码命名规范（类、函数、变量、常量命名标准）
 - `project-structure-standards.md` - 项目结构和模块组织标准
 
 ## 具体标准
-⬆️ **文件命名规范**: 参见 [naming-conventions.md](naming-conventions.md#文件命名规范) - Python文件、模块文件命名
+⬆️ **文件命名规范**: 参见 [naming-conventions-standards.md](naming-conventions-standards.md#文件命名规范) - Python文件、模块文件命名
 
 ## 📋 文档说明
 
 本文档定义代码质量标准、注释规范、导入管理、错误处理等编码实施规范，基于L1核心标准制定具体的代码开发标准。
 
 ### 🎯 文档职责
-- **代码质量标准**: 注释规范、文档字符串、代码风格
-- **模块化开发规范**: 依赖注入、导入管理、模块独立性
-- **错误处理标准**: 异常处理、错误响应、调试支持
-- **配置管理规范**: 环境变量、配置文件、依赖管理
-- **测试代码规范**: 测试组织、命名约定、覆盖率要求
+- **代码质量标准**: 注释规范、文档字符串、代码风格一致性
+- **开发实践规范**: 错误处理、导入管理、配置管理标准
+- **代码组织规范**: 函数设计、类设计、模块化开发最佳实践
 
----
 
 ## � 代码注释和文档规范
 
@@ -43,42 +40,48 @@
 - 功能点3: 具体描述
 
 技术栈:
-- FastAPI: API路由和依赖注入
-- SQLAlchemy: 数据库ORM操作
+- FastAPI: API路由和依赖注入  
 - Pydantic: 数据验证和序列化
+- 其他框架: 参见对应领域标准文档
 
 依赖关系:
-- app.core.database: 数据库连接管理
+- app.core: 核心基础设施
 - app.modules.{module}.models: 数据模型定义
 - app.modules.{module}.schemas: 请求响应模型
 
 使用示例:
-    ```python
-    from app.modules.user_auth.router import router
-    app.include_router(router, prefix="/api/v1")
-    ```
+from app.modules.user_auth.router import router
+app.include_router(router, prefix="/api/v1")
+"""
+```
 
 ```markdown
-注意事项:
+**注意事项**:
 - 重要的业务规则或限制
 - 性能考虑或优化建议
 - 安全相关的注意点
 
-Author: {开发者}
-Created: {创建日期}
-Modified: {最后修改日期}
+**文档头部信息模板**:
 ```
+
+```text
+Author: {开发者}
+Created: {创建日期}  
+Modified: {最后修改日期}
+Version: {版本号}
+```
+
+```yaml
 Version: 1.0.0
-"""
 ```
 
 ### 函数和方法文档字符串 (强制要求)
 ```python
-def create_user(user_data: UserCreate, db: Session = Depends(get_db)) -> UserRead:
-    """创建新用户账户
+def create_entity(entity_data: EntityCreate, service: EntityService = Depends(get_entity_service)) -> EntityRead:
+    """创建新实体记录
     
-    执行用户注册流程，包括数据验证、唯一性检查、密码加密和用户创建。
-    该函数实现了完整的用户注册业务逻辑，确保数据安全和业务规则。
+    执行实体创建流程，包括数据验证、唯一性检查、数据处理和实体创建。
+    该函数实现了完整的实体创建业务逻辑，确保数据安全和业务规则。
     
     Args:
         user_data (UserCreate): 用户创建数据模型
@@ -86,7 +89,7 @@ def create_user(user_data: UserCreate, db: Session = Depends(get_db)) -> UserRea
             - email: 邮箱地址 (必须符合邮箱格式)
             - password: 密码 (最少8位，包含字母数字)
             - full_name: 用户全名 (可选)
-        db (Session): SQLAlchemy数据库会话，通过依赖注入获取
+        service (UserService): 用户业务服务，通过依赖注入获取
         
     Returns:
         UserRead: 新创建的用户信息响应模型
@@ -99,12 +102,11 @@ def create_user(user_data: UserCreate, db: Session = Depends(get_db)) -> UserRea
             
     Raises:
         HTTPException: HTTP异常，包含具体错误信息
-            - 400 Bad Request: 用户名或邮箱已存在
+            - 400 Bad Request: 业务规则冲突（如重复标识符）
             - 422 Unprocessable Entity: 输入数据验证失败
-            - 500 Internal Server Error: 数据库操作失败
+            - 500 Internal Server Error: 服务内部错误
             
     Example:
-        ```python
         # 创建用户请求
         user_data = UserCreate(
             username="john_doe", 
@@ -112,26 +114,22 @@ def create_user(user_data: UserCreate, db: Session = Depends(get_db)) -> UserRea
             password="securePass123"
         )
         
-        # 调用创建用户函数
-        new_user = await create_user(user_data, db)
+        # 调用创建实体函数
+        new_entity = await create_entity(entity_data, db)
         
-        # 返回的用户信息
-        print(f"Created user: {new_user.username} ({new_user.id})")
-        ```
-            
-```markdown
-    Business Rules:
-        - 用户名在系统中必须唯一
-        - 邮箱地址在系统中必须唯一  
-        - 密码使用bcrypt进行加密存储
-        - 新用户默认角色为'user'
-        - 创建后用户状态为已激活
+        # 返回的实体信息
+        print(f"Created entity: {new_entity.name} ({new_entity.id})")
+
+    **Business Rules**:
+        - 具体业务规则应在需求文档或模块文档中定义
+        - 代码文档字符串应引用而非重复定义业务规则
+        - 保持代码规范与业务需求的清晰分离
+        - 数据验证和唯一性检查应遵循项目结构标准中的模块边界
         
     Performance:
         - 单次操作，平均响应时间 < 200ms
-```
-        - 涉及2次数据库查询：唯一性检查 + 插入操作
-        - 建议在高并发场景下使用数据库唯一约束
+        - 涉及业务逻辑验证和数据持久化操作
+        - 建议在高并发场景下使用适当的并发控制机制
         
     Security:
         - 密码不会在响应中返回
@@ -155,35 +153,32 @@ class UserService:
         - 数据验证: 业务规则验证、数据完整性检查
         
     设计模式:
-        - Repository Pattern: 数据访问抽象
-        - Service Layer: 业务逻辑封装
-        - Dependency Injection: 依赖注入支持测试
+        - Service Layer: 业务逻辑封装和组织
+        - Dependency Injection: 依赖注入支持测试和模块解耦
+        - Strategy Pattern: 算法策略分离
         
     主要方法:
-        - create_user(user_data): 创建新用户，包含验证和加密
-        - authenticate_user(credentials): 用户登录认证
-        - get_user_by_id(user_id): 根据ID获取用户信息
-        - update_user_profile(user_id, update_data): 更新用户资料
-        - deactivate_user(user_id): 停用用户账户
-        - check_user_permissions(user_id, resource): 权限验证
+        - create_entity(entity_data): 创建新实体，包含验证和处理
+        - authenticate_entity(credentials): 实体认证
+        - get_entity_by_id(entity_id): 根据ID获取实体信息
+        - update_entity_profile(entity_id, update_data): 更新实体资料
+        - deactivate_entity(entity_id): 停用实体
+        - check_entity_permissions(entity_id, resource): 权限验证
         
     Usage:
-        ```python
-        # 初始化服务
-        user_service = UserService(db_session=db)
+        # 初始化服务（通过依赖注入）
+        entity_service = Depends(get_entity_service)
         
-        # 创建用户
-        user_data = UserCreate(username="john", email="john@example.com")
-        new_user = await user_service.create_user(user_data)
+        # 创建实体
+        entity_data = EntityCreate(name="john", email="john@example.com")
+        new_entity = await entity_service.create_entity(entity_data)
         
-        # 用户认证
-        credentials = LoginCredentials(username="john", password="pass")
-        auth_result = await user_service.authenticate_user(credentials)
-        ```
-        
-```markdown
-    Dependencies:
-        - db_session (Session): SQLAlchemy数据库会话
+        # 实体认证
+        credentials = AuthCredentials(identifier="john", token="auth_token")
+        auth_result = await entity_service.authenticate_entity(credentials)
+
+    **Dependencies**:
+        - service (UserService): 用户业务服务实例
         - password_service (PasswordService): 密码加密服务
         - jwt_service (JWTService): Token生成和验证服务
         - cache_service (CacheService): 缓存服务，可选
@@ -193,10 +188,9 @@ class UserService:
         在FastAPI中通过依赖注入确保每个请求的隔离性。
         
     Performance Notes:
-```
-        - 用户查询操作已优化，平均响应时间 < 50ms
+        - 业务操作已优化，平均响应时间 < 50ms
         - 密码验证使用异步操作，避免阻塞主线程
-        - 支持Redis缓存，减少重复数据库查询
+        - 支持缓存机制，减少重复计算和外部调用
         
     Security Considerations:
         - 所有密码操作使用bcrypt加密
@@ -208,33 +202,30 @@ class UserService:
 ### 复杂逻辑代码注释 (强制要求)
 ```python
 # =================================================================
-# 用户唯一性验证 - 防止用户名和邮箱重复注册
+# 业务数据验证 - 确保数据完整性和业务规则
 # =================================================================
-# 业务规则: 用户名和邮箱在整个系统中必须保持全局唯一性
-# 性能考虑: 使用单次查询检查两个字段，避免多次数据库往返
-# 错误处理: 提供具体的重复字段信息，便于前端用户体验优化
-existing_user = db.query(User).filter(
-    or_(
-        User.username == user_data.username,
-        User.email == user_data.email
+# 业务规则: 关键业务字段必须满足唯一性和完整性约束
+# 性能考虑: 使用服务层封装验证逻辑，减少重复代码
+# 错误处理: 提供明确的验证错误信息，便于用户理解和修正
+try:
+    # 调用业务验证服务
+    validation_result = service.validate_business_rules(input_data)
+    
+    if not validation_result.is_valid:
+        # 返回具体的验证错误信息
+        error_details = validation_result.get_error_details()
+        raise HTTPException(
+            status_code=400,
+            detail=error_details.message,
+            headers={"X-Error-Field": error_details.field}
+        )
+        
+except ValidationError as e:
+    # 处理业务验证异常
+    raise HTTPException(
+        status_code=400,
+        detail=f"数据验证失败: {e.message}"
     )
-).first()
-
-if existing_user:
-    # 区分具体的重复字段，返回精确的错误信息
-    # 这样前端可以高亮显示具体的错误字段
-    if existing_user.username == user_data.username:
-        raise HTTPException(
-            status_code=400, 
-            detail="用户名已存在，请选择其他用户名",
-            headers={"X-Error-Field": "username"}
-        )
-    else:
-        raise HTTPException(
-            status_code=400, 
-            detail="邮箱已被注册，请使用其他邮箱或尝试登录",
-            headers={"X-Error-Field": "email"}
-        )
 
 # =================================================================
 # 密码安全处理 - bcrypt加密存储
@@ -256,47 +247,38 @@ except Exception as e:
     )
 
 # =================================================================
-# 数据库事务管理 - 确保数据一致性
+# 业务逻辑组织 - 确保操作原子性
 # =================================================================
-# 事务范围: 用户创建和初始权限设置必须在同一事务中完成
-# 回滚策略: 任何步骤失败都应回滚整个用户创建过程
-# 并发控制: 使用数据库约束处理并发创建的竞态条件
+# 操作范围: 相关业务对象的创建和初始化应该在同一操作中完成
+# 错误处理: 任何步骤失败都应该回滚整个业务操作
+# 并发控制: 使用适当的机制处理并发操作的竞态条件
 try:
-    # 开始事务：创建用户记录
-    new_user = User(
-        username=user_data.username,
-        email=user_data.email,
-        password_hash=password_hash,
-        is_active=True,
-        created_at=datetime.utcnow()
+    # 第一步：创建主要业务对象
+    result = service.create_main_object(
+        data=validated_data,
+        context=operation_context
     )
-    db.add(new_user)
-    db.flush()  # 获取用户ID但不提交事务
     
-    # 事务内操作：设置默认用户权限
-    default_role = db.query(Role).filter(Role.name == "user").first()
-    if default_role:
-        user_role = UserRole(user_id=new_user.id, role_id=default_role.id)
-        db.add(user_role)
+    # 第二步：设置关联对象
+    service.initialize_related_objects(result.id)
     
-    # 提交整个事务
-    db.commit()
+    # 第三步：完成操作并确认结果
+    service.finalize_operation(result.id)
     
-except IntegrityError as e:
-    # 处理数据库约束冲突（如唯一性约束）
-    db.rollback()
-    if "username" in str(e.orig):
-        raise HTTPException(status_code=400, detail="用户名已存在")
-    elif "email" in str(e.orig):
-        raise HTTPException(status_code=400, detail="邮箱已被注册")
+except BusinessError as e:
+    # 处理业务规则冲突
+    if e.error_code == "DUPLICATE_IDENTIFIER":
+        raise HTTPException(status_code=400, detail="标识符已存在")
+    elif e.error_code == "DUPLICATE_EMAIL":
+        raise HTTPException(status_code=400, detail="邮箱已被使用")
     else:
-        raise HTTPException(status_code=400, detail="数据冲突，请检查输入")
+        raise HTTPException(status_code=400, detail=f"业务规则冲突: {e.message}")
         
 except Exception as e:
-    # 处理其他数据库错误
-    db.rollback()
-    logger.error(f"User creation failed: {e}")
-    raise HTTPException(status_code=500, detail="用户创建失败")
+    # 处理其他未预期错误
+    service.rollback_operation()
+    logger.error(f"Operation failed: {e}")
+    raise HTTPException(status_code=500, detail="操作失败，请稍后重试")
 ```
 
 ### 📋 注释规范执行标准
@@ -352,12 +334,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.responses import JSONResponse
 
-# 数据库和ORM
-from sqlalchemy import and_, or_, func
-from sqlalchemy.orm import Session, selectinload
-from sqlalchemy.exc import IntegrityError
-
-# 数据验证和序列化
+# 数据验证和序列化  
 from pydantic import BaseModel, Field, validator
 import bcrypt
 import jwt
@@ -366,16 +343,17 @@ import jwt
 # 本地应用导入 - 项目内模块 (按依赖层级排序)
 # =================================================================
 # 核心基础设施层
-from app.core.database import get_db, Base
 from app.core.auth import get_current_user, verify_token
 from app.core.config import settings
+from app.core.logger import get_logger
 
 # 共享组件层 (仅技术必需的共享)
 from app.shared.exceptions import BusinessError, ValidationError
+from app.shared.utils import format_datetime, validate_input
 
 # 业务模块层 (当前模块的依赖)
-from app.modules.user_auth.models import User, UserRole
-from app.modules.user_auth.schemas import UserCreate, UserRead, UserUpdate
+from app.modules.{module}.models import {ModelName}
+from app.modules.{module}.schemas import {CreateSchema}, {ReadSchema}, {UpdateSchema}
 
 # =================================================================
 # 相对导入 - 同模块内文件 (最小化使用)
@@ -386,19 +364,22 @@ from .dependencies import get_user_service
 
 ### 导入最佳实践和禁止行为
 ```python
-# ✅ 推荐的导入方式
-from typing import List, Optional                    # 明确指定导入项
+# ✅ 推荐的导入方式 - 明确指定导入项
+from typing import List, Optional                    # 具体类型导入
+from datetime import datetime, timedelta           # 明确导入函数
 from app.modules.user_auth.models import User       # 完整模块路径
-from sqlalchemy.orm import Session                  # 具体导入所需类
+from app.services import UserService               # 业务服务类导入
 
-# ❌ 禁止的导入方式
+# ❌ 禁止的导入方式 - 避免命名空间污染
 from typing import *                                # 禁止星号导入
+from datetime import *                              # 污染命名空间
+from sqlalchemy import *                           # 第三方库星号导入
 import app.modules.user_auth.models as models      # 避免模糊别名
 from .. import some_module                          # 避免复杂相对导入
 
-# ✅ 处理导入冲突的正确方式
+# ✅ 处理导入冲突的正确方式  
 from datetime import datetime
-from sqlalchemy import DateTime as SQLDateTime      # 使用明确别名
+from external_lib import DateTime as ExternalDateTime    # 使用明确别名
 
 # ✅ 模块级别的导入组织
 from app.modules.user_auth import (               # 多行导入格式
@@ -409,6 +390,34 @@ from app.modules.user_auth import (               # 多行导入格式
 )
 ```
 
+### 基础设施统一导入原则
+```python
+# ✅ 正确的基础设施导入方式 - 统一来源
+from app.core.config import Settings              # 统一配置管理
+from app.core.logging import get_logger           # 统一日志服务
+
+# ❌ 禁止的基础设施导入方式
+from multiple_config_sources import *             # 禁止配置来源混乱
+```
+
+**数据库相关导入**: 参见项目结构标准中的数据库模块组织规范
+
+### 跨模块引用最佳实践
+```python
+# ✅ 跨模块导入：直接导入需要的类
+from app.modules.user_auth.models import User
+from app.modules.product_catalog.models import Product
+from app.modules.order_management.services import OrderService
+
+# ✅ 避免循环导入：优先使用字符串引用
+class Order(Base):
+    user = relationship("User", foreign_keys=[user_id])  # 字符串引用
+    
+# ❌ 禁止的跨模块导入
+from app.modules import *                          # 禁止模块级星号导入
+import app.modules.user_auth as user_stuff        # 避免模糊命名
+```
+
 ### 循环导入预防策略
 ```python
 # 问题场景：模块A和模块B相互依赖
@@ -417,12 +426,12 @@ from app.modules.user_auth import (               # 多行导入格式
 # file: app/modules/user_auth/service.py
 from app.modules.order_management.models import Order  # 错误
 
-# ✅ 解决方案1：使用字符串引用 (推荐)
-# file: app/modules/user_auth/models.py
-from sqlalchemy.orm import relationship
+# ✅ 解决方案1：使用接口或协议 (推荐)
+# file: app/modules/user_auth/interfaces.py
+from typing import Protocol
 
-class User(Base):
-    orders = relationship("Order", back_populates="user")  # 字符串引用
+class OrderServiceProtocol(Protocol):
+    def get_orders_by_user(self, user_id: int): ...  # 协议定义
 
 # ✅ 解决方案2：在函数内导入 (谨慎使用)
 def get_user_orders(user_id: int):
@@ -446,70 +455,71 @@ def create_user(user_data):
 # 依赖函数定义 - 模块内dependencies.py
 # =================================================================
 from fastapi import Depends, HTTPException, status
-from sqlalchemy.orm import Session
-from app.core.database import get_db
 from app.core.auth import get_current_user
+from app.core.config import get_settings
 from .service import UserService
 
-def get_user_service(db: Session = Depends(get_db)) -> UserService:
+def get_user_service(settings = Depends(get_settings)) -> UserService:
     """获取用户服务实例
     
     使用依赖注入模式创建用户服务，确保每个请求使用独立的服务实例，
     支持单元测试时的依赖替换。
     
     Args:
-        db: 数据库会话，通过依赖链自动注入
+        settings: 应用配置，通过依赖链自动注入
         
     Returns:
         UserService: 用户服务实例
     """
-    return UserService(db)
+    return UserService(settings)
 
-def get_current_active_user(
-    current_user: User = Depends(get_current_user)
-) -> User:
-    """获取当前活跃用户
+def get_validated_entity(
+    entity: BaseEntity = Depends(get_current_entity)
+) -> BaseEntity:
+    """获取经过验证的业务实体
     
-    验证当前用户是否为活跃状态，非活跃用户将被拒绝访问。
+    验证当前实体是否满足业务规则要求，不满足条件的实体将被拒绝。
+    这是通用的实体验证模式，可用于用户、权限、资源等各种验证场景。
     
     Args:
-        current_user: 当前认证用户
+        entity: 当前业务实体
         
     Returns:
-        User: 活跃的用户对象
+        BaseEntity: 经过验证的业务实体
         
     Raises:
-        HTTPException: 用户未激活时抛出403错误
+        HTTPException: 实体验证失败时抛出相应错误
     """
-    if not current_user.is_active:
+    if not entity.is_active:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="用户账户已被停用"
+            detail="实体状态无效，访问被拒绝"
         )
-    return current_user
+    return entity
 
-def get_admin_user(
-    current_user: User = Depends(get_current_active_user)
-) -> User:
-    """获取管理员用户
+def get_privileged_entity(
+    entity: BaseEntity = Depends(get_validated_entity)
+) -> BaseEntity:
+    """获取具有特权的业务实体
     
-    验证当前用户是否具有管理员权限。
+    验证当前实体是否具有执行特殊操作的权限。
+    这是通用的权限验证模式，适用于各种权限检查场景。
     
     Args:
-        current_user: 当前活跃用户
+        entity: 当前经过验证的实体
         
     Returns:
-        User: 具有管理员权限的用户
+        BaseEntity: 具有特权的业务实体
         
     Raises:
-        HTTPException: 非管理员用户访问时抛出403错误
+        HTTPException: 权限不足时抛出403错误
     """
-    if not current_user.is_admin:
+    if not entity.has_privilege:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="需要管理员权限"
+            detail="权限不足，无法执行此操作"
         )
-    return current_user
+    return entity
 ```
 
 ### 路由处理函数依赖注入
@@ -725,9 +735,9 @@ class UserService:
             # 业务异常直接向上传播
             raise
             
-        except SQLAlchemyError as e:
+        except DatabaseError as e:
             # 数据库异常处理
-            logger.error(f"Database error in create_user: {e}")
+            logger.error(f"Database error in create_entity: {e}")
             await self.db.rollback()
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -770,20 +780,22 @@ from pydantic import BaseSettings, Field, validator
 from typing import Optional, List
 import os
 
-class DatabaseSettings(BaseSettings):
-    """数据库配置设置"""
+class ApplicationSettings(BaseSettings):
+    """应用程序配置设置"""
     
-    # 数据库连接配置
-    DB_HOST: str = Field("localhost", description="数据库主机地址")
-    DB_PORT: int = Field(5432, description="数据库端口")
-    DB_USER: str = Field("postgres", description="数据库用户名")
-    DB_PASSWORD: str = Field("", description="数据库密码")
-    DB_NAME: str = Field("ecommerce", description="数据库名称")
+    # 应用基本配置
+    APP_NAME: str = Field("ECommerce Platform", description="应用名称")
+    APP_VERSION: str = Field("1.0.0", description="应用版本")
+    DEBUG: bool = Field(False, description="调试模式")
     
-    # 连接池配置
-    DB_POOL_SIZE: int = Field(10, description="连接池大小")
-    DB_MAX_OVERFLOW: int = Field(20, description="最大溢出连接数")
-    DB_POOL_TIMEOUT: int = Field(30, description="连接超时时间(秒)")
+    # 安全配置
+    SECRET_KEY: str = Field("", description="应用密钥")
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(30, description="访问令牌过期时间")
+    
+    # 外部服务配置（具体配置参见各领域标准文档）
+    # 数据库配置：遵循项目结构标准中的配置管理规范
+    # 缓存配置：遵循项目结构标准中的基础设施组织  
+    # API配置：遵循项目结构标准中的接口层组织
     
     @property
     def database_url(self) -> str:
@@ -916,251 +928,7 @@ CORS_ORIGINS=["http://localhost:3000","http://127.0.0.1:3000"]
 
 ## 🧪 测试代码规范
 
-### 测试文件组织结构
-```tree
-tests/
-├── __init__.py                    # 测试包初始化
-├── conftest.py                    # pytest全局配置和fixtures
-├── test_config.py                 # 测试配置验证
-├── unit/                          # 单元测试
-│   ├── __init__.py
-│   ├── test_models/               # 模型单元测试
-│   │   ├── __init__.py
-│   │   ├── test_user.py          # 用户模型测试
-│   │   └── test_product.py       # 商品模型测试
-│   ├── test_services/             # 服务单元测试
-│   │   ├── __init__.py
-│   │   ├── test_user_service.py  # 用户服务测试
-│   │   └── test_auth_service.py  # 认证服务测试
-│   └── test_utils/                # 工具函数测试
-├── integration/                   # 集成测试
-│   ├── __init__.py
-│   ├── test_api/                  # API集成测试
-│   │   ├── __init__.py
-│   │   ├── test_user_api.py      # 用户API测试
-│   │   └── test_auth_api.py      # 认证API测试
-│   └── test_database/             # 数据库集成测试
-└── e2e/                          # 端到端测试
-    ├── __init__.py
-    └── test_user_workflow.py     # 用户流程测试
-```
-
-### 测试代码质量标准
-```python
-# =================================================================
-# 测试配置和Fixtures - tests/conftest.py
-# =================================================================
-import pytest
-import asyncio
-from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from app.main import app
-from app.core.database import get_db, Base
-from app.core.config import settings
-
-# 测试数据库配置
-TEST_DATABASE_URL = "sqlite:///./test.db"
-engine = create_engine(TEST_DATABASE_URL, connect_args={"check_same_thread": False})
-TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-
-@pytest.fixture(scope="session")
-def db_engine():
-    """数据库引擎fixture - 会话级别"""
-    Base.metadata.create_all(bind=engine)
-    yield engine
-    Base.metadata.drop_all(bind=engine)
-
-@pytest.fixture(scope="function")
-def db_session(db_engine):
-    """数据库会话fixture - 函数级别，每个测试独立事务"""
-    connection = db_engine.connect()
-    transaction = connection.begin()
-    session = TestingSessionLocal(bind=connection)
-    
-    yield session
-    
-    session.close()
-    transaction.rollback()
-    connection.close()
-
-@pytest.fixture(scope="function")
-def client(db_session):
-    """测试客户端fixture"""
-    def override_get_db():
-        try:
-            yield db_session
-        finally:
-            pass
-    
-    app.dependency_overrides[get_db] = override_get_db
-    with TestClient(app) as test_client:
-        yield test_client
-    app.dependency_overrides.clear()
-
-@pytest.fixture
-def sample_user_data():
-    """样本用户数据fixture"""
-    return {
-        "username": "test_user",
-        "email": "test@example.com",
-        "password": "testpass123",
-        "full_name": "Test User"
-    }
-
-# =================================================================
-# 单元测试示例 - tests/unit/test_services/test_user_service.py
-# =================================================================
-import pytest
-from unittest.mock import Mock, patch
-from app.modules.user_auth.service import UserService
-from app.modules.user_auth.schemas import UserCreate
-from app.modules.user_auth.exceptions import UserAlreadyExistsError
-
-class TestUserService:
-    """用户服务测试类
-    
-    测试用户服务的所有业务逻辑，确保功能正确性和边界条件处理。
-    """
-    
-    @pytest.fixture
-    def user_service(self, db_session):
-        """用户服务实例fixture"""
-        return UserService(db_session)
-    
-    @pytest.fixture
-    def valid_user_data(self):
-        """有效用户数据fixture"""
-        return UserCreate(
-            username="john_doe",
-            email="john@example.com",
-            password="securepass123",
-            full_name="John Doe"
-        )
-    
-    async def test_create_user_success(self, user_service, valid_user_data):
-        """测试成功创建用户
-        
-        验证正常情况下用户创建流程的正确性。
-        """
-        # Act - 执行操作
-        result = await user_service.create_user(valid_user_data)
-        
-        # Assert - 验证结果
-        assert result.username == valid_user_data.username
-        assert result.email == valid_user_data.email
-        assert result.full_name == valid_user_data.full_name
-        assert result.is_active is True
-        assert result.id is not None
-        assert hasattr(result, 'created_at')
-        
-        # 验证密码已加密（不应该是明文）
-        assert not hasattr(result, 'password')
-    
-    async def test_create_user_duplicate_username(self, user_service, valid_user_data):
-        """测试创建用户时用户名重复
-        
-        验证用户名唯一性约束的正确处理。
-        """
-        # Arrange - 准备数据
-        await user_service.create_user(valid_user_data)
-        
-        # 创建相同用户名但不同邮箱的用户数据
-        duplicate_user_data = UserCreate(
-            username=valid_user_data.username,  # 相同用户名
-            email="different@example.com",       # 不同邮箱
-            password="differentpass123"
-        )
-        
-        # Act & Assert - 执行并验证异常
-        with pytest.raises(UserAlreadyExistsError) as exc_info:
-            await user_service.create_user(duplicate_user_data)
-        
-        assert "用户名" in str(exc_info.value)
-        assert valid_user_data.username in str(exc_info.value)
-    
-    async def test_create_user_duplicate_email(self, user_service, valid_user_data):
-        """测试创建用户时邮箱重复"""
-        # Arrange
-        await user_service.create_user(valid_user_data)
-        
-        duplicate_email_data = UserCreate(
-            username="different_user",
-            email=valid_user_data.email,  # 相同邮箱
-            password="differentpass123"
-        )
-        
-        # Act & Assert
-        with pytest.raises(UserAlreadyExistsError) as exc_info:
-            await user_service.create_user(duplicate_email_data)
-        
-        assert "邮箱" in str(exc_info.value)
-    
-    @patch('app.modules.user_auth.service.bcrypt.hashpw')
-    async def test_create_user_password_hashing(self, mock_hashpw, user_service, valid_user_data):
-        """测试密码加密处理
-        
-        使用Mock验证密码加密函数被正确调用。
-        """
-        # Arrange
-        mock_hashpw.return_value = b'hashed_password'
-        
-        # Act
-        await user_service.create_user(valid_user_data)
-        
-        # Assert
-        mock_hashpw.assert_called_once()
-        call_args = mock_hashpw.call_args[0]
-        assert call_args[0] == valid_user_data.password.encode('utf-8')
-
-# =================================================================
-# API集成测试示例 - tests/integration/test_api/test_user_api.py
-# =================================================================
-class TestUserAPI:
-    """用户API集成测试
-    
-    测试完整的HTTP请求响应流程，验证API接口的正确性。
-    """
-    
-    def test_create_user_api_success(self, client, sample_user_data):
-        """测试创建用户API成功场景"""
-        # Act
-        response = client.post("/api/v1/users/", json=sample_user_data)
-        
-        # Assert
-        assert response.status_code == 201
-        data = response.json()
-        assert data["success"] is True
-        assert data["data"]["username"] == sample_user_data["username"]
-        assert data["data"]["email"] == sample_user_data["email"]
-        assert "password" not in data["data"]  # 确保密码不被返回
-    
-    def test_create_user_api_validation_error(self, client):
-        """测试创建用户API参数验证错误"""
-        # 测试数据缺少必需字段
-        invalid_data = {
-            "username": "test",
-            # 缺少email和password
-        }
-        
-        # Act
-        response = client.post("/api/v1/users/", json=invalid_data)
-        
-        # Assert
-        assert response.status_code == 422
-        data = response.json()
-        assert data["success"] is False
-        assert data["error"]["type"] == "VALIDATION_ERROR"
-        assert len(data["error"]["details"]) > 0
-    
-    def test_get_current_user_unauthorized(self, client):
-        """测试获取当前用户信息 - 未认证"""
-        # Act
-        response = client.get("/api/v1/users/me")
-        
-        # Assert
-        assert response.status_code == 401
-```
+测试代码应遵循与生产代码相同的质量标准，具体的测试组织、结构和质量标准请参见项目结构标准中的测试目录规范。
 
 ## ❌ 代码质量禁止项和强制要求
 
@@ -1242,3 +1010,4 @@ def process_user(user_id: int, user_data: UserUpdate) -> UserRead:  # 类型注�
 - [ ] 测试覆盖率达到80%以上
 - [ ] 代码格式符合Black和isort标准
 - [ ] 无pylint和mypy警告错误
+
