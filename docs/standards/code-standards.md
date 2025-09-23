@@ -118,8 +118,8 @@ def create_user(user_data: UserCreate, db: Session = Depends(get_db)) -> UserRea
         ```python
         user_data = UserCreate(username="test", email="test@example.com", password="123456")
         new_user = create_user(user_data, db)
-        ```
-        
+```
+
     Note:
         - 密码会自动加密存储
         - 创建时会自动设置created_at时间戳
@@ -145,8 +145,8 @@ class UserService:
         ```python
         user_service = UserService(db_session)
         user = user_service.create_user(user_data)
-        ```
-        
+```
+
     Dependencies:
         - SQLAlchemy Session: 数据库操作
         - bcrypt: 密码加密
@@ -308,4 +308,4 @@ tests/
 - 超长的函数或类 (函数>50行, 类>200行)
 - 循环导入
 - 硬编码配置值
-- 不一致的命名风格
+- 不一致的命名风格你yo
