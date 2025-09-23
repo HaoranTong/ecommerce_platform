@@ -17,7 +17,20 @@
 🔄 **最后更新**: 2025-09-13  
 📋 **版本**: v1.0.0  
 
-## 总体性能目标
+## 概述
+
+本文档定义了电商平台各模块的性能标准和要求，包括响应时间、吞吐量、资源消耗等关键指标。为系统架构设计、性能优化和运维监控提供权威指导。
+
+## 依赖标准
+
+本标准依赖以下L1核心标准：
+
+- **[项目结构标准](./project-structure-standards.md)** - 定义性能测试文件组织结构
+- **[命名规范](./naming-conventions-standards.md)** - 性能指标和监控组件命名规则
+
+## 具体标准
+
+### 总体性能目标
 
 ### 系统级性能指标
 - **系统可用性**: 99.9% (年停机时间 < 8.76小时)
@@ -85,7 +98,7 @@
 
 ### 性能监控指标
 
-#### 应用层监控
+### 应用层监控
 ```yaml
 application_metrics:
   response_time:
@@ -100,7 +113,7 @@ application_metrics:
     target: > 99.9%
 ```
 
-#### 基础设施监控
+### 基础设施监控
 ```yaml
 infrastructure_metrics:
   cpu_usage:
@@ -117,7 +130,7 @@ infrastructure_metrics:
     external: < 100ms
 ```
 
-#### 数据库性能监控
+### 数据库性能监控
 ```yaml
 database_metrics:
   connection_pool:

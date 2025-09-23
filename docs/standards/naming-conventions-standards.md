@@ -42,7 +42,7 @@
 ### 标准文档层级 (kebab-case + standards后缀)
 - **强制规则**: 所有标准文档文件名必须包含"standards"关键字
 - L0导航层: standards-master-index.md
-- L1核心层: project-structure-standards.md, naming-conventions.md (历史例外)
+- L1核心层: project-structure-standards.md, naming-conventions-standards.md
 - L2领域层: api-standards.md, database-standards.md, code-standards.md 等
 - **验证机制**: 自动化脚本通过"standards"关键字识别标准文档
 

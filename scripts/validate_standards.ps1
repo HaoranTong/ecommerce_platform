@@ -77,25 +77,37 @@ Write-Host "=" * 60
 
 # 标准文档路径配置
 $StandardsPath = "docs/standards"
-$StandardDocs = @{
-    "L0" = @("standards-master-index.md")
-    "L1" = @("project-structure-standards.md", "naming-conventions.md") 
-    "L2" = @("database-standards.md", "api-standards.md", "code-standards.md", "scripts-standards.md", "deployment-standards.md")
-}
 
-# 获取所有标准文档的完整路径
+# 动态获取所有标准文档（通过文件名中的"standards"关键字识别）
 function Get-AllStandardDocs {
     $AllDocs = @()
-    foreach ($Level in $StandardDocs.Keys) {
-        foreach ($Doc in $StandardDocs[$Level]) {
-            $FullPath = Join-Path $StandardsPath $Doc
-            if (Test-Path $FullPath) {
-                $AllDocs += @{
-                    Path = $FullPath
-                    Name = $Doc
-                    Level = $Level
-                }
+    
+    # 获取所有包含"standards"关键字的.md文件
+    $StandardFiles = Get-ChildItem "$StandardsPath/*standards*.md" | Where-Object { $_.Name -like "*standards*.md" }
+    
+    foreach ($File in $StandardFiles) {
+        $Content = Get-Content $File.FullName -Raw -ErrorAction SilentlyContinue
+        
+        # 解析版本信息头中的level信息
+        $LevelMatch = [regex]::Match($Content, '<!--version info: v[\d.]+, created: [\d-]+, level: (L\d), dependencies: ([^>]*)-->')
+        
+        if ($LevelMatch.Success) {
+            $Level = $LevelMatch.Groups[1].Value
+        } else {
+            # 如果没有找到level信息，根据文件名推断
+            if ($File.Name -eq "standards-master-index.md") {
+                $Level = "L0"
+            } elseif ($File.Name -in @("project-structure-standards.md", "naming-conventions.md")) {
+                $Level = "L1"
+            } else {
+                $Level = "L2"
             }
+        }
+        
+        $AllDocs += @{
+            Path = $File.FullName
+            Name = $File.Name
+            Level = $Level
         }
     }
     return $AllDocs
@@ -222,12 +234,34 @@ function Test-FormatConsistency {
             Write-Host "     ✅ 标题层级格式正确" -ForegroundColor Green
         }
         
-        # 4. 检查代码块格式
-        $CodeBlocks = [regex]::Matches($Content, '```[\s\S]*?```')
-        $InvalidCodeBlocks = $CodeBlocks | Where-Object { -not ($_.Value -match '```\w+') }
+        # 4. 检查代码块格式 - 正确逻辑：只检查开始标记
+        $lines = $Content -split "`r?`n"
+        $InvalidCodeBlocks = @()
+        $inCodeBlock = $false
+        
+        for ($i = 0; $i -lt $lines.Count; $i++) {
+            $line = $lines[$i].Trim()
+            if ($line -match '^```([a-zA-Z]*)$') {
+                if (-not $inCodeBlock) {
+                    # 这是开始标记
+                    if ($Matches[1] -eq "") {
+                        # 无语言标识符的开始标记
+                        $InvalidCodeBlocks += [PSCustomObject]@{
+                            LineNumber = $i + 1
+                            Line = $line
+                        }
+                    }
+                    $inCodeBlock = $true
+                } else {
+                    # 这是结束标记
+                    $inCodeBlock = $false
+                }
+            }
+        }
         
         if ($InvalidCodeBlocks.Count -gt 0) {
             Write-Host "     ⚠️  存在无语言标识的代码块: $($InvalidCodeBlocks.Count)个" -ForegroundColor Yellow
+            $FormatIssues += $InvalidCodeBlocks.Count
         } else {
             Write-Host "     ✅ 代码块格式正确" -ForegroundColor Green
         }
@@ -246,8 +280,8 @@ function Test-Dependencies {
     Write-Host "📋 依赖关系验证" -ForegroundColor Yellow
     $DependencyIssues = 0
     
-    # L1标准文档列表
-    $L1Standards = $StandardDocs["L1"]
+    # 从文档数组中提取L1标准文档
+    $L1Standards = ($Documents | Where-Object { $_.Level -eq "L1" }).Name
     
     # 检查L2文档的依赖声明
     $L2Docs = $Documents | Where-Object { $_.Level -eq "L2" }
@@ -271,7 +305,8 @@ function Test-Dependencies {
         }
         
         # 检查循环依赖
-        foreach ($OtherL2 in ($StandardDocs["L2"] | Where-Object { $_ -ne $Doc.Name })) {
+        $OtherL2Names = ($Documents | Where-Object { $_.Level -eq "L2" -and $_.Name -ne $Doc.Name }).Name
+        foreach ($OtherL2 in $OtherL2Names) {
             if ($Content -match [Regex]::Escape($OtherL2)) {
                 Write-Host "     ⚠️  可能存在L2间依赖: $OtherL2" -ForegroundColor Yellow
                 $DependencyIssues++

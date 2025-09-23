@@ -1,4 +1,4 @@
-<!--version info: v2.0.0, created: 2025-09-23, level: L2, dependencies: naming-conventions.md,project-structure-standards.md-->
+<!--version info: v2.0.0, created: 2025-09-23, level: L2, dependencies: naming-conventions-standards.md,project-structure-standards.md-->
 
 # 数据库设计规范 (Database Standards)
 
@@ -9,7 +9,7 @@
 ## 依赖标准
 
 本标准依赖以下L1核心标准：
-- `naming-conventions.md` - 数据库命名规范（表名、字段名、索引命名标准）
+- `naming-conventions-standards.md` - 数据库命名规范（表名、字段名、索引命名标准）
 - `project-structure-standards.md` - 项目结构和模块组织标准
 
 ## 具体标准
@@ -20,21 +20,10 @@
 本文档定义数据库设计、ORM规范、迁移管理等技术实施标准，基于L1核心标准制定具体的数据库开发规范。
 
 ### 🎯 文档职责
-- **数据库设计标准**: 数据类型、约束、关系设计规范
-- **SQLAlchemy ORM规范**: 模型定义、关系映射、Session管理
-- **数据库迁移标准**: Alembic迁移文件规范和最佳实践
-- **模块化组织规范**: 跨模块数据库设计和引用标准
+- **数据建模标准**: 表设计、字段类型、约束定义、关系映射规范
+- **ORM实践规范**: SQLAlchemy模型定义、Session管理、查询优化
+- **数据库运维标准**: 迁移管理、索引策略、性能优化方案
 
-### 📖 架构引用说明
-
-```mermaid
-graph TD
-    A[架构设计层: data-models.md] --> B[L1核心标准层: naming-conventions.md]
-    B --> C[L2领域标准层: database-standards.md]
-    C --> D[具体实现层: modules/*/models.py]
-```
-
----
 
 ## 🎯 数据库设计原则
 
@@ -101,13 +90,15 @@ CREATE INDEX idx_orders_user_status_created ON orders (user_id, status, created_
 
 ### Base类统一管理
 ```python
-# ✅ 正确的导入方式 - 统一基础设施
+# 所有模型必须继承统一的Base类
 from app.core.database import Base
 
-# ❌ 禁止的导入方式
-from app.shared.models import Base  # 禁止重复定义
-from sqlalchemy.ext.declarative import declarative_base  # 禁止分散定义
+class User(Base):
+    __tablename__ = 'users'
+    # 模型定义...
 ```
+
+**导入规范**: 遵循命名规范标准中的导入命名约定和项目结构标准中的模块组织
 
 ### 模型定义标准模板
 ```python
@@ -189,16 +180,12 @@ app/
     └── __init__.py
 ```
 
-**🔗 跨模块引用最佳实践**:
+**🔗 SQLAlchemy关系映射**:
 ```python
-# app/modules/order_management/models.py - 订单模块引用其他模块
+# app/modules/order_management/models.py - 订单模型定义
 from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, func
 from sqlalchemy.orm import relationship
 from app.core.database import Base
-
-# 跨模块导入：直接导入需要的模型类
-from app.modules.user_auth.models import User
-from app.modules.product_catalog.models import Product
 
 class Order(Base):
     __tablename__ = 'orders'
@@ -206,7 +193,7 @@ class Order(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     user_id = Column(Integer, ForeignKey('users.id'), nullable=False, index=True)
     
-    # 关系定义：优先使用字符串引用避免循环导入
+    # 关系定义：使用字符串引用避免循环导入
     user = relationship("User", foreign_keys=[user_id])
     # 如果需要反向关系，在User模型中定义orders关系
 ```
@@ -238,6 +225,44 @@ async def create_user_endpoint(
     except SQLAlchemyError as e:
         db.rollback()
         raise HTTPException(status_code=500, detail="数据库操作失败")
+```
+
+### 查询优化和唯一性验证
+```python
+# =================================================================
+# 高效的唯一性验证查询 - 单次查询检查多个字段
+# =================================================================
+from sqlalchemy import or_
+from sqlalchemy.orm import Session
+
+def validate_user_uniqueness(db: Session, user_data):
+    """验证用户数据的唯一性约束
+    
+    使用单次查询检查用户名和邮箱的唯一性，
+    提高性能并减少数据库往返次数。
+    """
+    existing_user = db.query(User).filter(
+        or_(
+            User.username == user_data.username,
+            User.email == user_data.email
+        )
+    ).first()
+    
+    if existing_user:
+        # 精确识别冲突字段，提供具体错误信息
+        if existing_user.username == user_data.username:
+            raise ValueError("用户名已存在")
+        else:
+            raise ValueError("邮箱已被注册")
+    
+    return True  # 验证通过
+
+# 性能优化：使用exists()进行存在性检查
+def check_username_exists(db: Session, username: str) -> bool:
+    """高性能的用户名存在性检查"""
+    return db.query(
+        db.query(User).filter(User.username == username).exists()
+    ).scalar()
 ```
 
 ### 事务管理最佳实践
@@ -445,3 +470,58 @@ class GoodModel(Base):
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now(), nullable=False)
     deleted_at = Column(DateTime, nullable=True)
 ```
+
+## 🔄 SQLAlchemy导入和循环依赖规范
+
+### 标准导入模式
+```python
+# =================================================================
+# SQLAlchemy标准导入 - 数据库操作相关
+# =================================================================
+from sqlalchemy import Column, String, Integer, Boolean, DateTime, ForeignKey
+from sqlalchemy import and_, or_, func, text, select
+from sqlalchemy.orm import Session, relationship, selectinload, joinedload
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
+
+# 数据库连接和会话管理
+from app.core.database import Base, get_db
+
+# SQLAlchemy特定导入
+from sqlalchemy.orm import Session
+from sqlalchemy import func
+```
+
+### 关系映射循环依赖解决
+```python
+# 问题场景：User模型和Order模型相互依赖
+
+# ✅ 解决方案1：使用字符串引用 (推荐)
+# file: app/modules/user_auth/models.py
+from sqlalchemy.orm import relationship
+
+class User(Base):
+    __tablename__ = 'users'
+    id = Column(Integer, primary_key=True)
+    
+    # 使用字符串引用避免导入Order模型
+    orders = relationship("Order", back_populates="user")
+
+# file: app/modules/order_management/models.py  
+class Order(Base):
+    __tablename__ = 'orders'
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey('users.id'))
+    
+    # 使用字符串引用避免导入User模型
+    user = relationship("User", back_populates="orders")
+
+# ✅ 解决方案2：在服务层处理关联查询
+def get_user_with_orders(user_id: int, db: Session):
+    from app.modules.user_auth.models import User
+    from app.modules.order_management.models import Order
+    
+    return db.query(User).options(
+        selectinload(User.orders)
+    ).filter(User.id == user_id).first()
+```
+

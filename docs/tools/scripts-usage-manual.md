@@ -51,7 +51,7 @@
 .\scripts\ai_checkpoint.ps1 -CardType "TEST-001" -Force
 ```
 
-**关联文档**: `docs/standards/checkpoint-cards.md`, `MASTER.md`  
+**关联文档**: `docs/tools/checkpoint-cards.md`, `MASTER.md`  
 **触发场景**: AI完成代码开发、文档更新、测试编写后必须执行  
 **下游脚本**: 通常与 `dev_checkpoint.ps1` 组合使用验证开发质量
 
@@ -206,7 +206,7 @@
 .\scripts\feature_finish.ps1 -FeatureName "payment-integration" -AutoMerge
 ```
 
-**关联文档**: `docs/development/workflow-guide.md`, `docs/standards/document-standards.md`  
+**关联文档**: `docs/development/workflow-guide.md`, `docs/standards/document-management-standards.md`  
 **触发场景**: 功能开发完成、准备代码审查、分支合并前  
 **下游脚本**: 完成后通常执行 `release_to_main.ps1` 进行发布准备
 
@@ -239,7 +239,7 @@
 .\scripts\sync_readme.ps1 -Path "app/modules" -Verbose
 ```
 
-**关联文档**: `docs/standards/document-standards.md`, `MASTER.md`  
+**关联文档**: `docs/standards/document-management-standards.md`, `MASTER.md`  
 **触发场景**: 创建新文件、删除文件、重命名文件后强制执行  
 **下游脚本**: 同步完成后建议执行 `check_docs.ps1` 验证文档质量
 
@@ -305,7 +305,7 @@
 .\scripts\check_docs.ps1 -Path "docs/modules" -Format "markdown"
 ```
 
-**关联文档**: `docs/standards/document-standards.md`, `docs/development/documentation-guide.md`  
+**关联文档**: `docs/standards/document-management-standards.md`, `docs/development/documentation-guide.md`  
 **触发场景**: 文档更新后、发布准备、文档审查前  
 **下游脚本**: 检查通过后可执行 `sync_readme.ps1` 确保文档同步
 
@@ -566,7 +566,7 @@ scripts/maintain_standards.ps1 -Action restore -Target "milestone-v1.0"
 
 ### 🔗 关联文档
 
-- [维护手册详细说明](../standards/maintenance-guide.md)
+- [维护手册详细说明](../operations/maintenance-guide.md)
 - [标准文档导航](../standards/standards-master-index.md)  
 - [validate_standards.ps1文档](#validate_standardsps1---标准文档验证)
 

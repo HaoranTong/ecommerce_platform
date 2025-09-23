@@ -2,7 +2,22 @@
 
 # 测试标准
 
-## 五层测试架构
+## 概述
+
+本文档定义了电商平台项目的完整测试标准和规范，包括五层测试架构、测试类型分布、环境配置、编写规范等。确保代码质量和系统稳定性。
+
+## 依赖标准
+
+本标准依赖以下L1核心标准：
+
+- **[项目结构标准](./project-structure-standards.md)** - 定义tests/目录结构和测试文件组织
+- **[命名规范](./naming-conventions-standards.md)** - 测试文件、类、方法的命名约定
+
+## 具体标准应用
+⬆️ **测试文件结构**: 参见 [project-structure-standards.md](project-structure-standards.md#测试目录结构) - 五层测试架构组织
+⬆️ **测试命名约定**: 参见 [naming-conventions-standards.md](naming-conventions-standards.md#测试命名规范) - test_*文件和方法命名
+
+### 五层测试架构
 
 ### 编写测试前检查
 - 阅读被测试模块文档 (overview.md, models.py, service.py)
@@ -18,21 +33,21 @@
 
 ## 测试层级 (70%, 2%, 20%, 6%, 2%)
 
-#### 单元测试 (70%)
+### 单元测试 (70%)
 - test_models/: Mock测试
 - test_services/: SQLite内存
 - *_standalone.py: SQLite内存
 
-#### 烟雾测试 (2%) 
+### 烟雾测试 (2%)
 - tests/smoke/: SQLite文件
 
-#### 集成测试 (20%)
+### 集成测试 (20%)
 - tests/integration/: MySQL Docker
 
-#### E2E测试 (6%)
+### E2E测试 (6%)
 - tests/e2e/: MySQL Docker
 
-#### 专项测试 (2%)
+### 专项测试 (2%)
 - 性能测试, 安全测试
 
 ## 数据库策略
@@ -89,7 +104,7 @@ def test_database_connection_smoke(smoke_test_db):
     assert result.fetchone()[0] == 1
 ```
 
-#### 5. tests/integration/ → MySQL Docker (集成验证)
+### 5. tests/integration/ → MySQL Docker (集成验证)
 ```python
 # ✅ 集成测试：真实环境模拟
 def test_user_registration_api_integration(api_client, mysql_integration_db):
@@ -200,7 +215,7 @@ def test_with_wrong_mock_usage(mocker):
 ### 强制使用统一Fixture配置
 **⚠️ 严禁自定义数据库连接，必须使用标准Fixture**
 
-#### Fixture使用规范
+### Fixture使用规范
 ```python
 # ✅ 正确：使用标准Fixture
 def test_user_service_database_operations(unit_test_db):
@@ -232,11 +247,11 @@ def test_with_custom_database():
 
 ### SQLite数据库使用策略
 
-#### 数据持久化区别
+### 数据持久化区别
 - **SQLite内存数据库** (:memory:): 用于单元测试，测试间数据自动清理，高性能
 - **SQLite文件数据库** (文件路径): 用于烟雾测试，数据持久化便于调试和验证
 
-#### 兼容性策略
+### 兼容性策略
 ```python
 # ✅ SQLite兼容层配置 (conftest.py中实现)
 @pytest.fixture(scope="function")
@@ -269,7 +284,7 @@ def unit_test_db():
         engine.dispose()
 ```
 
-#### MySQL特定功能测试
+### MySQL特定功能测试
 ```python
 # ✅ 条件测试：仅MySQL环境执行
 @pytest.mark.skipif(DB_TYPE == "sqlite", reason="MySQL JSON功能测试")
@@ -292,7 +307,7 @@ def test_mysql_json_field_operations(mysql_integration_db):
 ## 测试文件组织标准
 
 ### 统一目录结构
-```
+```text
 tests/
 ├── unit/                           # 单元测试 (70%)
 │   ├── test_models/               # Mock测试 - 纯业务逻辑
@@ -326,7 +341,7 @@ tests/
 
 ### 根目录测试脚本管理
 
-#### 临时测试脚本使用规范
+### 临时测试脚本使用规范
 ```powershell
 # ✅ 允许的临时测试脚本
 test_auth_integration.py     # 认证功能调试
@@ -337,9 +352,9 @@ test_inventory_integration.py # 库存集成调试
 temp_test.py                 # 命名不明确
 debug.py                     # 功能不清晰
 my_test.py                   # 个人化命名
-```
+```text
 
-#### 清理规则
+**清理规则**：
 - **开发完成**：移至对应的tests子目录
 - **功能废弃**：直接删除
 - **需要保留**：移至scripts/目录并规范化
@@ -361,7 +376,7 @@ def test_create_user_duplicate_email()   # 重复邮箱创建用户
 def test_login_invalid_password()        # 无效密码登录
 def test_add_to_cart_out_of_stock()     # 添加无库存商品到购物车
 ```
-```
+`$language
 
 ## pytest.ini 标准配置
 
@@ -475,7 +490,7 @@ def test_user_creation(unit_test_db):
 
 ### Docker环境配置 (集成测试必需)
 
-#### 方法1：docker-compose.yml配置 (推荐)
+### 方法1：docker-compose.yml配置 (推荐)
 ```yaml
 # docker-compose.yml - MySQL测试数据库配置
 services:
@@ -504,7 +519,7 @@ services:
 # docker-compose up -d mysql_test
 ```
 
-#### 方法2：直接Docker命令 (快速测试)
+### 方法2：直接Docker命令 (快速测试)
 ```bash
 # 启动MySQL测试容器
 docker run -d --name mysql_integration_test \
@@ -526,7 +541,7 @@ docker stop mysql_integration_test && docker rm mysql_integration_test
 ## 统一数据库配置策略
 
 ### 数据库选择决策树
-```
+```text
 测试需要数据库? 
 ├── NO → test_models/ (100% Mock测试)
 └── YES → 选择数据库类型
@@ -721,7 +736,7 @@ pytest tests/integration/          # 集成测试
 pytest tests/e2e/                  # E2E测试
 ```
 
-#### 3. 集成测试执行 (提交前验证)
+**3. 集成测试执行 (提交前验证)**：
 ```bash
 # 需要先启动MySQL Docker (端口3308)
 docker-compose up -d mysql_test
@@ -741,7 +756,7 @@ pytest tests/integration/ -v
 
 pytest tests/ --cov=app                # 全部测试
 .\scripts\integration_test.ps1       # 使用脚本
-```
+`$language
 
 ## 测试工具
 
@@ -750,6 +765,7 @@ pytest tests/ --cov=app                # 全部测试
 .\scripts\check_test_env.ps1         # 测试前检查
 .\scripts\setup_test_env.ps1         # 环境设置  
 python scripts/validate_test_config.py  # 配置验证
+```
 
 **输出标准**：
 - ✅ 所有检查通过 → 可以进行测试
@@ -803,19 +819,19 @@ python scripts/validate_test_config.py
 
 ### 选择测试类型并执行 [CHECK:TEST-002]
 
-#### 单元测试流程 (推荐)
+### 单元测试流程 (推荐)
 ```powershell
 # 标准单元测试 - 使用SQLite内存数据库
 .\scripts\setup_test_env.ps1 -TestType unit
 ```
 
-#### 集成测试流程
+### 集成测试流程
 ```powershell
 # 自动设置MySQL Docker环境并执行测试
 .\scripts\setup_test_env.ps1 -TestType integration
 ```
 
-#### 完整测试流程
+### 完整测试流程
 ```powershell
 # 执行所有类型测试
 .\scripts\setup_test_env.ps1 -TestType all
@@ -874,7 +890,7 @@ pytest tests/test_user_auth.py -v
 
 ### 测试执行命令
 
-#### 单元测试（快速，无外部依赖）
+### 单元测试（快速，无外部依赖）
 ```bash
 # 运行所有单元测试
 pytest tests/ -v
@@ -892,7 +908,7 @@ pytest tests/test_user_auth.py::TestAccountLocking::test_account_locked_after_ma
 pytest tests/ --cov=app --cov-report=html --cov-report=term
 ```
 
-#### 烟雾测试（快速验证）
+### 烟雾测试（快速验证）
 ```bash
 # 运行烟雾测试
 pytest tests/smoke/ -v
@@ -901,7 +917,7 @@ pytest tests/smoke/ -v
 .\scripts\smoke_test.ps1
 ```
 
-#### 集成测试（需要Docker）
+### 集成测试（需要Docker）
 ```bash
 # 启动Docker服务，然后运行集成测试
 docker-compose up -d mysql
@@ -913,7 +929,7 @@ pytest tests/integration/ -v
 
 ### 🎯 测试策略决策树
 
-```
+```text
 开始测试
 ├── 测试单个函数/类？
 │   └── Yes → 使用单元测试 + SQLite内存
@@ -928,7 +944,7 @@ pytest tests/integration/ -v
 ## 单元测试指南
 
 ### 测试文件组织
-```
+```text
 tests/
 ├── unit/
 │   ├── test_models/
@@ -1442,7 +1458,7 @@ pytest --cov=app --cov-report=html:reports/coverage
 
 ### 🚨 常见测试架构问题
 
-#### 1. 导入架构违规问题
+**1. 导入架构违规问题**：
 
 **❌ 错误的导入方式** - 违反模块化架构：
 ```python
@@ -1465,7 +1481,7 @@ from app.modules.order_management.models import Order, OrderItem
 from app.modules.shopping_cart.models import Cart, CartItem
 ```
 
-#### 2. 测试环境配置冲突
+**2. 测试环境配置冲突**：
 
 **问题**: SQLAlchemy关系配置冲突导致测试失败
 
@@ -1487,7 +1503,7 @@ def isolated_test_db():
         db.close()
 ```
 
-#### 3. 字段名称验证失败
+**3. 字段名称验证失败**：
 
 **强制验证流程**:
 1. **模型验证**: 使用 `read_file` 检查实际模型定义
@@ -1515,12 +1531,12 @@ def test_payment_model_fields(self, test_db):
 
 ### 修复工作流程
 
-#### 问题识别
+### 问题识别
 1. 运行测试识别失败项目
 2. 分析错误信息，区分导入错误vs逻辑错误
 3. 使用工具验证当前架构状态
 
-#### 架构验证
+### 架构验证
 ```bash
 # 检查模块结构
 find app/modules -name "*.py" -type f | grep models
@@ -1529,13 +1545,13 @@ find app/modules -name "*.py" -type f | grep models
 python -c "from app.modules.user_auth.models import User; print('导入成功')"
 ```
 
-#### 逐项修复
+### 逐项修复
 1. 修复导入路径为模块化路径
 2. 验证模型字段的实际存在性
 3. 更新测试配置以避免关系冲突
 4. 逐个运行测试确保修复生效
 
-#### 第四步：系统验证
+### 第四步：系统验证
 ```bash
 # 运行全部测试验证修复效果
 pytest tests/ -v --tb=short
@@ -1669,6 +1685,7 @@ pytest tests/ --cov=app --cov-fail-under=85
 
 ## 相关文档
 - [测试环境配置指南](../development/testing-setup.md) - 环境配置和故障排除
-- [开发工作流程](workflow-standards.md) - 测试流程
+- [项目结构标准](project-structure-standards.md) - 测试目录组织
 - [MASTER工作流程](../../MASTER.md) - 强制检查点
+
 
