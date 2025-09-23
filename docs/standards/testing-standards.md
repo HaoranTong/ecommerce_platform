@@ -1,3 +1,5 @@
+<!--version info: v1.0.0, created: 2025-09-23, level: L2, dependencies: naming-conventions.md,project-structure-standards.md-->
+
 # 测试标准
 
 ## 五层测试架构
@@ -1669,3 +1671,4 @@ pytest tests/ --cov=app --cov-fail-under=85
 - [测试环境配置指南](../development/testing-setup.md) - 环境配置和故障排除
 - [开发工作流程](workflow-standards.md) - 测试流程
 - [MASTER工作流程](../../MASTER.md) - 强制检查点
+

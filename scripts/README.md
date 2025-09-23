@@ -2,11 +2,13 @@
 
 ## 📁 脚本分类概览
 
-### 🔧 AI开发辅助脚本 (2个)
+### 🔧 AI开发辅助脚本 (3个)
 | 脚本名称 | 功能 | 使用场景 | 详细文档 |
 |---------|------|----------|----------|
 | `ai_checkpoint.ps1` | AI检查点验证 | AI开发流程验证 | [📖](../docs/tools/scripts-usage-manual.md#ai_checkpoint) |
 | `dev_checkpoint.ps1` | 开发检查点 | 代码质量检查 | [📖](../docs/tools/scripts-usage-manual.md#dev_checkpoint) |
+| `validate_standards.ps1` | 🆕 标准文档验证 | Phase 3.1自动化质量保证 | [📖](../docs/tools/scripts-usage-manual.md#validate_standards) |
+| `maintain_standards.ps1` | 🆕 标准文档综合维护 | Phase 3.3维护工具集合 | [📖](../docs/tools/scripts-usage-manual.md#maintain_standards) |
 
 ### 📋 项目管理脚本 (6个)
 | 脚本名称 | 功能 | 使用场景 | 详细文档 |

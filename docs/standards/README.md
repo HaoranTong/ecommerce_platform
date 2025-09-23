@@ -1,3 +1,5 @@
+<!--version info: v1.0.0, created: 2025-09-23, level: L2, dependencies: naming-conventions.md,project-structure-standards.md-->
+
 # 开发规范标准
 
 项目开发过程中的各类规范、标准和约束文档。

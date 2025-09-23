@@ -1,3 +1,5 @@
+<!--version info: v1.0.0, created: 2025-09-23, level: L2, dependencies: naming-conventions.md,project-structure-standards.md-->
+
 <!--
 文档说明：
 - 内容：所有模块的性能指标定义和初步要求，用于指导性能优化和系统监控
