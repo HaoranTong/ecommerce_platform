@@ -1,4 +1,4 @@
-<!--version info: v2.0.0, created: 2025-09-23, level: L2, dependencies: naming-conventions-standards.md,project-structure-standards.md-->
+<!--version info: v1.0.0, created: 2025-09-23, level: L2, dependencies: technology-stack-standards.md,PROJECT-FOUNDATION.md-->
 
 # 部署标准规范 (Deployment Standards)
 
@@ -10,7 +10,7 @@
 
 本标准依赖以下L1核心标准：
 - `naming-conventions-standards.md` - 容器、服务、环境变量命名规范
-- `project-structure-standards.md` - 部署文件结构和组织标准
+- `PROJECT-FOUNDATION.md` - 部署文件结构和组织标准
 
 ## 具体标准
 

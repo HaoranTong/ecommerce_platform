@@ -1,4 +1,4 @@
-<!--version info: v1.0.0, created: 2025-09-23, level: L2, dependencies: naming-conventions-standards.md,project-structure-standards.md-->
+<!--version info: v1.0.0, created: 2025-09-23, level: L2, dependencies: naming-conventions-standards.md,PROJECT-FOUNDATION.md-->
 
 # 脚本管理标准 (Scripts Standards)
 
@@ -10,71 +10,56 @@
 
 本标准依赖以下L1核心标准：
 - `naming-conventions-standards.md` - 获取PowerShell、Python脚本的统一命名规范
-- `project-structure-standards.md` - 获取scripts目录结构和脚本分类管理标准
+- `PROJECT-FOUNDATION.md` - 获取scripts目录结构和脚本分类管理标准
 
 ## 具体标准
 创建说明：基于真实项目结构定义DevOps脚本管理标准，规范开发运维自动化流程
 -->
 
 ⬆️ **脚本命名规范**: 参见 [naming-conventions-standards.md](naming-conventions-standards.md#脚本命名规范) - 脚本文件命名标准
-⬆️ **项目结构标准**: 参见 [project-structure-standards.md](project-structure-standards.md#scripts目录结构) - 脚本目录组织
-⬆️ **模块命名映射**: 参见 [project-structure-standards.md](project-structure-standards.md#业务模块标准结构)
+⬆️ **脚本目录结构**: 参见 [PROJECT-FOUNDATION.md](../../PROJECT-FOUNDATION.md#scripts目录结构-功能分组管理) - 权威结构定义
 
-## 📋 文档说明
+## scripts-standards.md在document-management-standards.md中的定义
 
-本文档定义DevOps脚本管理、自动化工具、开发辅助脚本等标准，基于L1核心标准制定具体的脚本开发和管理规范。
+根据文档管理标准要求，现补充本文档的完整定义：
+
+| 文档属性 | 定义内容 |
+|---------|---------|
+| **文档类型** | L2领域标准文档 |
+| **功能定位** | DevOps自动化脚本的管理、开发和维护规范 |
+| **内容包含** | 脚本分类标准、管理规范、开发模板、执行监控、维护流程 |
+| **边界定义** | 专注DevOps脚本，不涉及测试脚本管理、不重复定义目录结构 |
+| **质量要求** | 提供可执行的脚本模板和配置示例，确保标准化程度 |
+
+## 📋 职责边界声明
+
+**本文档职责**：DevOps自动化脚本的管理、开发和维护规范
+- **专门负责**: 开发辅助脚本、部署脚本、检查脚本、工具脚本的标准化管理
+- **不包含职责**: 测试脚本管理（由testing-standards.md负责）
+- **脚本目录结构**: 参考 [PROJECT-FOUNDATION.md - scripts目录结构](../../PROJECT-FOUNDATION.md#scripts目录结构-功能分组管理)
 
 ### 🎯 文档职责
-- **脚本分类标准**: 开发、测试、部署、检查脚本的分类和组织
+- **脚本分类标准**: 开发、部署、检查、工具脚本的分类和组织
 - **脚本管理规范**: 脚本分类、版本管理、维护更新标准
 - **自动化流程**: CI/CD集成、工作流程自动化规范
 - **工具链管理**: 开发工具、检查工具、生成工具的标准化
 - **维护和更新**: 脚本版本管理、文档同步、废弃管理
+
+## 相关标准参考
+本文档专注于DevOps脚本管理标准。其他相关标准请查询：
+- **标准导航**: [docs/README.md](../README.md) - 技术文档导航中心
+- **测试脚本管理**: [testing-standards.md](testing-standards.md) - 测试脚本的专门标准
+- **项目结构**: [PROJECT-FOUNDATION.md](../../PROJECT-FOUNDATION.md) - scripts目录结构权威定义
 
 ---
 
 ## 🗂️ 脚本分类和组织标准
 
 ### 脚本功能分类体系
-```tree
-scripts/
-├── README.md                           # 脚本目录说明文档
-├── development/                        # 开发辅助脚本
-│   ├── dev_env.ps1                    # 开发环境设置
-│   ├── dev_tools.ps1                  # 开发工具管理
-│   ├── sync_env.ps1                   # 环境同步
-│   └── setup_test_env.ps1             # 测试环境搭建
-├── testing/                           # 测试相关脚本
-│   ├── run_module_tests.ps1           # 模块测试执行
-│   ├── integration_test.ps1           # 集成测试
-│   ├── smoke_test.ps1                 # 冒烟测试
-│   ├── e2e_test_verification.py       # 端到端测试验证
-│   └── check_test_env.ps1             # 测试环境检查
-├── validation/                        # 脚本验证工具
-│   ├── validate_standards.ps1         # 标准文档验证
-│   ├── validate_pydantic_v2.py        # 依赖版本验证
-│   └── validate_test_config.py        # 配置验证工具
-├── database/                          # 数据库管理脚本
-│   ├── check_database_schema.ps1      # 数据库架构检查
-│   └── rebuild_database.ps1           # 数据库重建
-├── documentation/                     # 文档管理脚本
-│   ├── check_docs.ps1                 # 文档检查
-│   ├── create_module_docs.ps1         # 模块文档生成
-│   ├── sync_readme.ps1                # README同步
-│   └── generate_test_template.py      # 测试模板生成
-├── workflow/                          # 工作流程脚本
-│   ├── ai_checkpoint.ps1              # AI检查点
-│   ├── dev_checkpoint.ps1             # 开发检查点
-│   ├── feature_finish.ps1             # 功能完成流程
-│   ├── release_to_main.ps1            # 发布到主分支
-│   └── update_module_status.ps1       # 模块状态更新
-├── analysis/                          # 分析工具脚本
-│   ├── api_service_mapping_analyzer.py # API服务映射分析
-│   ├── model_analyzer.py              # 模型分析
-│   └── verify_inventory_module.py     # 库存模块验证
-└── utilities/                         # 通用工具脚本
-    └── log_status.ps1                 # 状态日志记录
-```
+
+**权威结构定义**: scripts目录的完整结构请参考 [PROJECT-FOUNDATION.md - scripts目录结构](../../PROJECT-FOUNDATION.md#scripts目录结构-功能分组管理)
+
+基于上述权威结构，本文档定义各分类脚本的管理标准：
 
 ### 脚本类型和用途定义
 | 脚本类型 | 用途范围 | 执行频率 | 权限要求 |

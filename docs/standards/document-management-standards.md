@@ -1,4 +1,4 @@
-<!--version info: v1.0.0, created: 2025-09-23, level: L2, dependencies: naming-conventions-standards.md,project-structure-standards.md-->
+<!--version info: v1.0.0, created: 2025-09-23, level: L1, dependencies: naming-conventions-standards.md,PROJECT-FOUNDATION.md-->
 
 # 文档管理规范
 
@@ -12,7 +12,7 @@
 
 本标准依赖以下L1核心标准：
 
-- **[项目结构标准](./project-structure-standards.md)** - 定义整体项目结构，docs/目录位置和作用
+- **[项目基础定义](../../PROJECT-FOUNDATION.md)** - 定义整体项目结构，docs/目录位置和作用
 - **[命名规范](./naming-conventions-standards.md)** - 文档文件和目录的统一命名规则
 
 ## 重要变更记录
@@ -32,38 +32,52 @@
 ### v1.0 (已废弃)
 - 原有目录结构，存在层次混乱、边界不清等问题
 
-## 适用范围
+## 职责边界声明
 
-**本标准专门规范 `docs/` 目录的文档架构和管理规范**
+**本文档职责**：docs/目录下的文档管理规范、质量控制、维护流程
+- **专门负责**：文档生命周期管理、文档质量标准、版本控制规范、维护流程
+- **动态管理职责**：docs/目录下新增文档类型的规范定义、分类管理、内容标准
+- **不包含职责**：项目整体架构定义、目录结构权威定义、其他目录文档管理
+- **架构参考**：项目完整目录结构请参考 [PROJECT-FOUNDATION.md](../../PROJECT-FOUNDATION.md)
+- **标准导航**：其他相关标准请查询 [docs/README.md](../README.md) - 技术文档导航中心
 
-- **适用范围**: 仅限 `docs/` 目录下的所有文档和子目录
-- **不包含**: 根目录、`app/`、`scripts/`、`tests/`、`alembic/` 等代码目录的架构规范
-- **补充说明**: 整个项目的完整架构规范请参考 `project-architecture-standards.md`
+## L2标准动态管理义务
 
-## docs/ 目录结构标准
+### 静态内容确认 (基于L1权威定义)
+✅ **docs/目录结构已完整定义**: 参考 [PROJECT-FOUNDATION.md - docs/目录结构](../../PROJECT-FOUNDATION.md#docs目录结构-四层文档体系)
+- requirements/, architecture/, design/, standards/, operations/, planning/, adr/, tools/, status/, templates/, analysis/, _archive/ 等11个子目录
+- 每个子目录的基本功能和职责已由L1标准权威定义
 
-基于模块化单体→微服务演进架构，建立四层文档体系：
+### 动态内容管理规范
+**新增文档类型管理** (项目发展中可能增加的文档):
+1. **新文档类型审批流程**
+   - 评估阶段: 确认文档类型的必要性和归属目录
+   - 分类阶段: 按四层文档体系确定层级和功能定位
+   - 标准阶段: 制定内容标准、格式要求、维护责任
+   - 验证阶段: 确保符合整体文档架构
 
-```text
-docs/
-├── requirements/      # 需求层：纯业务需求
-├── architecture/      # 架构层：系统整体设计原则
-├── design/           # 设计层：具体详细设计
-│   ├── system/       # 系统级设计（技术选型、算法、集成）
-│   ├── modules/      # 业务模块详细设计（保持模块边界）
-│   └── components/   # 技术组件详细设计（保持组件边界）
-├── standards/        # 标准层：开发规范和执行标准
-│   ├── openapi.yaml  # API契约定义
-│   └── ...          # 其他标准文档
-├── planning/         # 项目管理层
-├── operations/       # 运维部署层
-├── adr/             # 架构决策记录
-├── tools/           # 工具使用指南
-├── status/          # 项目状态管理
-├── templates/       # 文档标准模板
-├── analysis/        # 分析报告归档
-└── _archive/        # 废弃文档备份
-```
+2. **特殊文档管理规范**
+   - **根目录文档**: README.md, MASTER.md 的内容标准和更新规则
+   - **分析报告**: docs/analysis/目录下动态生成的分析报告命名和归档
+   - **临时文档**: docs/templates/目录下模板文件的版本管理
+
+### 动态管理边界 
+**本标准负责**：
+- ✅ docs/目录内所有文档的内容标准和格式规范
+- ✅ 根目录 README.md, MASTER.md 的管理
+- ✅ 新增文档类型的分类和标准制定
+
+**本标准不负责**：
+- ❌ app/目录内的代码文档 (由code-standards.md管理)
+- ❌ tests/目录内的测试文档 (由testing-standards.md管理)  
+- ❌ scripts/目录内的脚本文档 (由scripts-standards.md管理)
+- ❌ 配置文件的内容标准 (由相应技术标准管理)
+
+## docs/ 目录结构参考
+
+**权威定义**：完整的docs/目录结构定义请参考 [PROJECT-FOUNDATION.md - docs/目录结构](../../PROJECT-FOUNDATION.md#docs目录结构-四层文档体系)
+
+本文档基于上述权威结构，专门规范各目录的文档管理标准。
 
 ## 四层文档体系职责
 
@@ -231,29 +245,13 @@ docs/
 | **开发标准** | standards/ | 开发规范、API契约定义 | 具体实现、业务逻辑 | 统一标准 |  
 | **运维文档** | operations/ | 部署配置、监控运维 | 开发细节、业务逻辑 | 运维专用 |
 | **工具文档** | tools/ | 脚本使用、工具配置、测试管理 | 业务逻辑、架构设计 | 工具操作指导 |
+| **脚本管理标准** | standards/scripts-standards.md | DevOps自动化脚本管理规范 | 测试脚本管理、目录结构定义 | DevOps脚本专用 |
 | **状态文档** | status/ | 进度跟踪、问题记录、工作历史 | 技术实现、设计细节 | 项目管理专用 |
 | **模板文档** | templates/ | 文档创建模板、标准格式 | 具体内容、业务逻辑 | 格式标准化 |
 | **分析文档** | analysis/ | 代码分析、测试报告、审计结果 | 未来规划、架构设计 | 现状分析专用 |
-| **存档文档** | _archive/ | 历史文档、过期内容 | 当前有效信息 | 历史保存专用 |### 测试脚本管理规范
+| **存档文档** | _archive/ | 历史文档、过期内容 | 当前有效信息 | 历史保存专用 |
 
-### 测试脚本分类和存放位置
-| 脚本类型 | 存放位置 | 命名规范 | 用途 |
-|---------|---------|---------|------|
-| **单元测试** | tests/ | test_*.py | 模块功能测试 |
-| **集成测试** | tests/integration/ | test_*_integration.py | 模块间协作测试 |
-| **系统测试** | scripts/ | *_test.ps1 | 端到端系统测试 |
-| **临时测试脚本** | 根目录 | test_*.py | 开发调试用（临时） |
-
-**根目录测试脚本处理规则**：
-- **允许情况**：开发调试期间的临时测试脚本
-- **命名要求**：必须以`test_`开头，包含功能描述
-- **生命周期**：功能开发完成后必须移至`tests/`目录或删除
-- **文档要求**：临时脚本需在README.md中说明用途和计划
-
-### 强制清理触发条件
-- **功能完成提交** → 清理根目录临时测试脚本
-- **版本发布前** → 确保根目录无临时测试文件
-- **代码审查时** → 检查测试脚本分类是否正确
+**测试脚本管理**：测试脚本的分类、存放和管理规范请参考 [testing-standards.md](testing-standards.md) - 专门的测试标准文档
 
 ### 辅助层级目录详细规范
 

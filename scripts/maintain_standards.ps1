@@ -54,7 +54,8 @@ scripts/maintain_standards.ps1 -Action backup -Target "phase3-complete"
 
 相关文档:
 - docs/standards/maintenance-guide.md (维护手册)
-- docs/standards/standards-master-index.md (L0导航)
+- docs/standards/README.md (L0标准文档导航)
+- PROJECT-FOUNDATION.md (FOUNDATION级项目基础设定)
 - scripts/validate_standards.ps1 (核心验证工具)
 #>
 
@@ -177,7 +178,7 @@ function Invoke-HealthCheck {
     foreach ($doc in $l2Docs) {
         $deps = $doc.Dependencies -split ','
         $hasNamingConventions = $deps -contains "naming-conventions-standards.md"
-        $hasProjectStructure = $deps -contains "project-structure-standards.md"
+        $hasProjectFoundation = $deps -contains "PROJECT-FOUNDATION.md"
         
         if (-not $hasNamingConventions -or -not $hasProjectStructure) {
             $dependencyIssues += $doc.Name
@@ -195,8 +196,8 @@ function Invoke-HealthCheck {
     # 5. 文件完整性检查
     Write-Host "📁 文件完整性检查" -ForegroundColor Green
     $criticalFiles = @(
-        "docs/standards/standards-master-index.md",
-        "docs/standards/project-structure-standards.md", 
+        "docs/standards/README.md",
+        "PROJECT-FOUNDATION.md", 
         "docs/standards/naming-conventions-standards.md",
         "scripts/validate_standards.ps1",
         "docs/standards/maintenance-guide.md"
@@ -275,16 +276,16 @@ function Invoke-VersionUpdate {
                     
                     # 确定文档级别
                     $level = switch ($doc.Name) {
-                        "standards-master-index.md" { "L0" }
-                        { $_ -in @("project-structure-standards.md", "naming-conventions-standards.md") } { "L1" }
+                        "README.md" { "L0" }
+                        { $_ -in @("naming-conventions-standards.md", "workflow-standards.md") } { "L1" }
                         default { "L2" }
                     }
                     
                     # 确定依赖关系
                     $dependencies = switch ($level) {
                         "L0" { "none" }
-                        "L1" { if ($doc.Name -eq "naming-conventions-standards.md") { "project-structure-standards.md" } else { "none" } }
-                        "L2" { "naming-conventions-standards.md,project-structure-standards.md" }
+                        "L1" { if ($doc.Name -eq "naming-conventions-standards.md") { "PROJECT-FOUNDATION.md" } else { "none" } }
+                        "L2" { "naming-conventions-standards.md,PROJECT-FOUNDATION.md" }
                     }
                     
                     # 生成版本头
