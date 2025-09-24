@@ -2,7 +2,11 @@
 
 🤖 **AI工作启动指南**：本文档帮助AI提供高质量、规范化的开发服务
 
-✅ **成功工作模式**：遵循启动流程 → 获得完整上下文 → 提供精准解决方案  
+✅ **成功工作模式**：遵循启动流程 → 获得完整上下文 → 提供精准解## � 详细检查点列表 (按场景分类)
+
+⚠️ **重要提醒**: 本文档中的检查点描述仅为概述，AI必须点击卡片链接查看详细要求并严格按照卡片内容执行！
+
+### 🚀 启动类  
 ⚠️ **用户STOP权限**：发现AI未按流程工作时，可输入"STOP"重启流程
 
 ## 🔐 启动验证机制
@@ -15,6 +19,7 @@
 📋 AI工作启动确认：
 【文档验证证明】
 - MASTER.md：已读取[具体行数]行，包含[X]个检查点分类
+- 卡片文档：已读取[具体卡片编号]的详细要求，共[X]行内容
 - 核心规则验证：第[X]条-[具体规则内容]
 - 检查点验证：[任务类型]对应[CHECK:XXX-XXX]检查点
 - 状态文档：[从current-work-status.md获取的具体描述]
@@ -77,12 +82,14 @@
 
 | 任务类型 | 常用检查点 | 什么时候用 |
 |---------|-----------|----------|
-| 修复Bug | DEV-005, TEST-002 | 修改业务逻辑+测试验证 |
-| 新增API | DEV-001, DEV-004, DOC-002 | 检查文档+创建路由+更新API文档 |
-| 数据模型 | DEV-001, DEV-003, TEST-002 | 检查设计+实现模型+测试 |
-| 架构调整 | ARCH-001, DOC-003 | 架构设计+文档更新 |
-| 测试开发 | TEST-001, TEST-002 | 环境配置+单元测试 |
+| 修复Bug | DEV-005, DEV-010, TEST-002 | 修改业务逻辑+代码审查+测试验证 |
+| 新增API | DEV-001, DEV-004, DEV-010, DOC-002 | 检查文档+创建路由+代码审查+更新API文档 |
+| 数据模型 | DEV-001, DEV-003, DEV-011, TEST-002 | 检查设计+实现模型+数据迁移+测试 |
+| 架构调整 | ARCH-001, DEV-012, DOC-003 | 架构设计+配置管理+文档更新 |
+| 测试开发 | TEST-001, TEST-002, DEV-010 | 环境配置+单元测试+代码审查 |
 | 文档更新 | DOC-001, DOC-005 | 同步文档+目录整理 |
+| 环境部署 | DEV-002, DEV-012, DEV-013 | 环境配置+配置管理+依赖管理 |
+| 性能优化 | DEV-010, DEV-014, TEST-006 | 代码审查+性能基准+性能测试 |
 
 ## � 核心工作规则 (必须遵守的10条)
 
@@ -103,50 +110,58 @@
 - **接收任务时** → [CHECK:AI-START] 确认理解任务并制定计划
 
 ### 📋 需求分析类  
-- **项目启动** → [CHECK:REQ-001] 确认理解业务需求
-- **功能规划** → [CHECK:REQ-002] 验证功能需求分析完整
-- **架构设计前** → [CHECK:REQ-003] 确认非功能需求明确
+- **项目启动** → [CHECK:REQ-001] ⚠️ [必读卡片](docs/tools/checkpoint-cards.md#req-001)
+- **功能规划** → [CHECK:REQ-002] ⚠️ [必读卡片](docs/tools/checkpoint-cards.md#req-002)
+- **架构设计前** → [CHECK:REQ-003] ⚠️ [必读卡片](docs/tools/checkpoint-cards.md#req-003)
 
 ### 🏗️ 架构设计类
-- **系统架构** → [CHECK:ARCH-001] 验证系统架构设计合理
-- **模块架构** → [CHECK:ARCH-002] 确认模块边界清晰
-- **数据架构** → [CHECK:ARCH-003] 验证数据模型设计正确
-- **架构调整** → [CHECK:ARCH-004] 确认变更影响已分析
+- **系统架构** → [CHECK:ARCH-001] ⚠️ [必读卡片](docs/tools/checkpoint-cards.md#arch-001)
+- **模块架构** → [CHECK:ARCH-002] ⚠️ [必读卡片](docs/tools/checkpoint-cards.md#arch-002)
+- **数据架构** → [CHECK:ARCH-003] ⚠️ [必读卡片](docs/tools/checkpoint-cards.md#arch-003)
+- **架构调整** → [CHECK:ARCH-004] ⚠️ [必读卡片](docs/tools/checkpoint-cards.md#arch-004)
 
 ### 💻 开发实施类
-- **编码准备** → [CHECK:DEV-001] 确认模块文档完整
-- **环境配置** → [CHECK:DEV-002] 验证开发环境就绪
-- **数据模型** → [CHECK:DEV-003] 确认models.py正确实现
-- **API路由** → [CHECK:DEV-004] 验证routes.py符合规范
-- **业务逻辑** → [CHECK:DEV-005] 确认service.py逻辑完整
-- **安全功能** → [CHECK:DEV-006] 验证安全控制到位
-- **异常处理** → [CHECK:DEV-007] 确认错误处理完善
-- **代码质量** → [CHECK:DEV-008] 提交前代码规范检查
-- **混乱重建** → [CHECK:DEV-009] 严重问题时强制重建
+- **编码准备** → [CHECK:DEV-001] ⚠️ [必读卡片](docs/tools/checkpoint-cards.md#dev-001)
+- **环境配置** → [CHECK:DEV-002] ⚠️ [必读卡片](docs/tools/checkpoint-cards.md#dev-002)
+- **数据模型** → [CHECK:DEV-003] ⚠️ [必读卡片](docs/tools/checkpoint-cards.md#dev-003)
+- **API路由** → [CHECK:DEV-004] ⚠️ [必读卡片](docs/tools/checkpoint-cards.md#dev-004)
+- **业务逻辑** → [CHECK:DEV-005] ⚠️ [必读卡片](docs/tools/checkpoint-cards.md#dev-005)
+- **安全功能** → [CHECK:DEV-006] ⚠️ [必读卡片](docs/tools/checkpoint-cards.md#dev-006)
+- **异常处理** → [CHECK:DEV-007] ⚠️ [必读卡片](docs/tools/checkpoint-cards.md#dev-007)
+- **代码质量** → [CHECK:DEV-008] ⚠️ [必读卡片](docs/tools/checkpoint-cards.md#dev-008)
+- **强制检查** → [CHECK:DEV-009] ⚠️ [必读卡片](docs/tools/checkpoint-cards.md#dev-009)
+- **代码审查** → [CHECK:DEV-010] ⚠️ [必读卡片](docs/tools/checkpoint-cards.md#dev-010)
+- **数据迁移** → [CHECK:DEV-011] ⚠️ [必读卡片](docs/tools/checkpoint-cards.md#dev-011)
+- **配置管理** → [CHECK:DEV-012] ⚠️ [必读卡片](docs/tools/checkpoint-cards.md#dev-012)
+- **依赖管理** → [CHECK:DEV-013] ⚠️ [必读卡片](docs/tools/checkpoint-cards.md#dev-013)
+- **性能基准** → [CHECK:DEV-014] ⚠️ [必读卡片](docs/tools/checkpoint-cards.md#dev-014)
 
 ### 🧪 测试验证类
-- **测试环境** → [CHECK:TEST-001] 确认测试配置正确
-- **单元测试** → [CHECK:TEST-002] 验证单元测试完整
-- **Mock统一** → [CHECK:TEST-003] 确认Mock模式一致
-- **集成测试** → [CHECK:TEST-004] 验证模块间协作
-- **接口测试** → [CHECK:TEST-005] 确认API功能正确
-- **性能测试** → [CHECK:TEST-006] 验证系统性能达标
-- **安全测试** → [CHECK:TEST-007] 确认安全措施有效
-- **测试完成** → [CHECK:TEST-008] 验证测试阶段结束
+- **测试环境** → [CHECK:TEST-001] ⚠️ [必读卡片](docs/tools/checkpoint-cards.md#test-001)
+- **单元测试** → [CHECK:TEST-002] ⚠️ [必读卡片](docs/tools/checkpoint-cards.md#test-002)
+- **Mock统一** → [CHECK:TEST-003] ⚠️ [必读卡片](docs/tools/checkpoint-cards.md#test-003)
+- **集成测试** → [CHECK:TEST-004] ⚠️ [必读卡片](docs/tools/checkpoint-cards.md#test-004)
+- **接口测试** → [CHECK:TEST-005] ⚠️ [必读卡片](docs/tools/checkpoint-cards.md#test-005)
+- **性能测试** → [CHECK:TEST-006] ⚠️ [必读卡片](docs/tools/checkpoint-cards.md#test-006)
+- **安全测试** → [CHECK:TEST-007] ⚠️ [必读卡片](docs/tools/checkpoint-cards.md#test-007)
+- **测试完成** → [CHECK:TEST-008] ⚠️ [必读卡片](docs/tools/checkpoint-cards.md#test-008)
 
 ### 📊 状态管理类
-- **状态读取** → [CHECK:STATUS-001] 确认读取工作状态
-- **状态更新** → [CHECK:STATUS-002] 验证状态及时更新
-- **工作归档** → [CHECK:STATUS-003] 确认完成工作转移
-- **状态恢复** → [CHECK:STATUS-004] 违规时状态回滚
+- **状态读取** → [CHECK:STATUS-001] ⚠️ [必读卡片](docs/tools/checkpoint-cards.md#status-001)
+- **状态更新** → [CHECK:STATUS-002] ⚠️ [必读卡片](docs/tools/checkpoint-cards.md#status-002)
+- **工作归档** → [CHECK:STATUS-003] ⚠️ [必读卡片](docs/tools/checkpoint-cards.md#status-003)
+- **状态恢复** → [CHECK:STATUS-004] ⚠️ [必读卡片](docs/tools/checkpoint-cards.md#status-004)
 
 ### 📖 文档同步类
-- **代码文档** → [CHECK:DOC-001] 确认代码变更同步文档
-- **API文档** → [CHECK:DOC-002] 验证接口文档更新
-- **架构文档** → [CHECK:DOC-003] 确认架构变更同步文档
-- **部署文档** → [CHECK:DOC-004] 验证部署信息完善
-- **目录同步** → [CHECK:DOC-005] 确认文档结构整理
-- **工具文档** → [CHECK:DOC-006] 验证工具说明完整
+- **代码文档** → [CHECK:DOC-001] ⚠️ [必读卡片](docs/tools/checkpoint-cards.md#doc-001)
+- **API文档** → [CHECK:DOC-002] ⚠️ [必读卡片](docs/tools/checkpoint-cards.md#doc-002)
+- **架构文档** → [CHECK:DOC-003] ⚠️ [必读卡片](docs/tools/checkpoint-cards.md#doc-003)
+- **部署文档** → [CHECK:DOC-004] ⚠️ [必读卡片](docs/tools/checkpoint-cards.md#doc-004)
+- **目录同步** → [CHECK:DOC-005] ⚠️ [必读卡片](docs/tools/checkpoint-cards.md#doc-005)
+- **工具文档** → [CHECK:DOC-006] ⚠️ [必读卡片](docs/tools/checkpoint-cards.md#doc-006)
+
+### 🚨 应急处理类
+- **文件重建** → [CHECK:EMERGENCY-001] ⚠️ [必读卡片](docs/tools/checkpoint-cards.md#emergency-001)
 
 ## � 重要文档快速索引
 
