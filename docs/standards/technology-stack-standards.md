@@ -4,7 +4,7 @@
 
 ## 概述
 
-本文档规范了电商平台项目的技术栈选择标准，包括编程语言、框架、数据库、中间件等技术组件的版本要求和配置规范。确保技术选择的一致性和兼容性。
+本文档基于 [技术架构总览](../architecture/overview.md) 的选型原则，规范电商平台项目的具体技术栈版本要求和配置标准。确保技术选择的一致性和兼容性。
 
 ## 依赖标准
 
@@ -92,6 +92,74 @@ pydantic>=2.0.0,<3.0.0
 redis>=4.0.0,<5.0.0
 pytest>=7.0.0,<8.0.0
 pytest-mock>=3.10.0
+```
+
+## 标准配置方案
+
+### FastAPI应用配置（强制）
+```python
+# app/main.py - 统一FastAPI应用配置
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+
+app = FastAPI(
+    title="农产品电商平台API",
+    description="高品质农产品电商平台API服务",
+    version="1.0.0",
+    openapi_url="/api/v1/openapi.json",
+    docs_url="/docs",
+    redoc_url="/redoc"
+)
+
+# CORS配置（强制）
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # 生产环境需限制域名
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+```
+
+### SQLAlchemy数据库配置（强制）
+```python
+# app/core/database.py - 统一数据库配置
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+from sqlalchemy.orm import sessionmaker
+
+DATABASE_URL = "mysql+aiomysql://user:password@localhost/ecommerce"
+
+engine = create_async_engine(
+    DATABASE_URL,
+    pool_size=20,           # 连接池大小（强制）
+    max_overflow=30,        # 最大溢出连接（强制）
+    pool_pre_ping=True,     # 连接验证（强制）
+    pool_recycle=3600,      # 连接回收时间（强制）
+    echo=False              # 生产环境禁止SQL日志
+)
+
+AsyncSessionLocal = sessionmaker(
+    autocommit=False,
+    autoflush=False,
+    bind=engine,
+    class_=AsyncSession
+)
+```
+
+### Redis缓存配置（强制）
+```python
+# app/core/redis_client.py - 统一Redis配置
+import redis.asyncio as redis
+
+redis_client = redis.from_url(
+    "redis://localhost:6379/0",
+    encoding="utf-8",
+    decode_responses=True,
+    max_connections=100,        # 最大连接数（强制）
+    retry_on_timeout=True,      # 超时重试（强制）
+    socket_timeout=5.0,         # 套接字超时（强制）
+    socket_connect_timeout=5.0   # 连接超时（强制）
+)
 ```
 
 ## Pydantic V2强制标准
@@ -183,6 +251,6 @@ class ProductSchema(BaseModel):
 ---
 
 **相关文档**:
-- [系统技术栈设计](../design/system/technology-stack.md) - 具体技术选型实现
+- [技术架构总览](../architecture/overview.md) - 技术选型原则和决策依据
 - [开发环境配置](../operations/development-setup.md) - 环境搭建指南
 - [项目结构标准](project-structure-standards.md) - 代码组织规范
