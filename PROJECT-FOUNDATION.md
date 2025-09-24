@@ -216,7 +216,7 @@ graph TB
 ### 引用路径标准格式
 ```markdown
 <!-- 标准引用格式 -->
-- [项目基础设定](../PROJECT-FOUNDATION.md) - 项目架构权威定义
+- [项目基础设定](PROJECT-FOUNDATION.md) - 项目架构权威定义
 - [MASTER文档](../MASTER.md) - AI工作流程控制
 - [文档导航](docs/README.md) - 统一文档导航中心
 - [命名规范](docs/standards/naming-conventions-standards.md) - L1核心标准

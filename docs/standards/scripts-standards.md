@@ -1,4 +1,4 @@
-<!--version info: v1.0.0, created: 2025-09-23, level: L2, dependencies: naming-conventions-standards.md,PROJECT-FOUNDATION.md-->
+<!--version info: v1.0.0, created: 2025-09-23, level: L2, dependencies: naming-conventions-standards.md,../../PROJECT-FOUNDATION.md-->
 
 # 脚本管理标准 (Scripts Standards)
 
@@ -10,7 +10,7 @@
 
 本标准依赖以下L1核心标准：
 - `naming-conventions-standards.md` - 获取PowerShell、Python脚本的统一命名规范
-- `PROJECT-FOUNDATION.md` - 获取scripts目录结构和脚本分类管理标准
+- `../../PROJECT-FOUNDATION.md` - 获取scripts目录结构和脚本分类管理标准
 
 ## 具体标准
 创建说明：基于真实项目结构定义DevOps脚本管理标准，规范开发运维自动化流程

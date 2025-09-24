@@ -1,4 +1,4 @@
-<!--version info: v1.0.0, created: 2025-09-23, level: L1, dependencies: naming-conventions-standards.md,PROJECT-FOUNDATION.md-->
+<!--version info: v1.0.0, created: 2025-09-23, level: L1, dependencies: naming-conventions-standards.md,../../PROJECT-FOUNDATION.md-->
 
 # 文档管理规范
 
