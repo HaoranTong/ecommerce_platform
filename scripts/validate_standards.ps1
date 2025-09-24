@@ -97,7 +97,7 @@ function Get-AllStandardDocs {
             # 如果没有找到level信息，根据文件名推断
             if ($File.Name -eq "standards-master-index.md") {
                 $Level = "L0"
-            } elseif ($File.Name -in @("project-structure-standards.md", "naming-conventions.md")) {
+            } elseif ($File.Name -in @("project-structure-standards.md", "naming-conventions-standards.md")) {
                 $Level = "L1"
             } else {
                 $Level = "L2"

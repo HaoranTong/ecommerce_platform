@@ -234,7 +234,7 @@ scripts/generate_standards_report.ps1 -Period "monthly" -Output "docs/reports/"
 
 **L2标准文档模板** (`docs/templates/l2-standard-template.md`):
 ```markdown
-<!--version info: v1.0.0, created: YYYY-MM-DD, level: L2, dependencies: naming-conventions.md,project-structure-standards.md-->
+<!--version info: v1.0.0, created: YYYY-MM-DD, level: L2, dependencies: naming-conventions-standards.md,project-structure-standards.md-->
 
 # 【领域名称】标准规范 (【英文名称】 Standards)
 
@@ -245,7 +245,7 @@ scripts/generate_standards_report.ps1 -Period "monthly" -Output "docs/reports/"
 ## 依赖标准
 
 本标准依赖以下L1核心标准：
-- `naming-conventions.md` - 【具体引用的命名规范】
+- `naming-conventions-standards.md` - 【具体引用的命名规范】
 - `project-structure-standards.md` - 【具体引用的结构标准】
 
 ## 具体标准
@@ -279,7 +279,7 @@ scripts/validate_standards.ps1 -Action dependencies # 依赖验证
 scripts/validate_standards.ps1 -Action duplicate    # 重复内容检查
 
 # 单文档验证
-scripts/validate_standards.ps1 -Action full -DocPath "docs/standards/naming-conventions.md"
+scripts/validate_standards.ps1 -Action full -DocPath "docs/standards/naming-conventions-standards.md"
 ```
 
 **b) maintain_standards.ps1 - 综合维护工具**

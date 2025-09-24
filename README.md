@@ -109,7 +109,7 @@ ecommerce_platform/
 |------|----------|----------|----------|
 | **L0导航** | [standards-master-index.md](docs/standards/standards-master-index.md) | 统一入口和AI友好检索 | 📍 **首选入口** |
 | **L1核心** | [项目结构标准](docs/standards/project-structure-standards.md) | 全项目目录结构权威定义 | 🏗️ 新建目录/文件 |
-| **L1核心** | [命名规范总纲](docs/standards/naming-conventions.md) | 全局命名规则权威定义 | 🔤 命名决策 |
+| **L1核心** | [命名规范总纲](docs/standards/naming-conventions-standards.md) | 全局命名规则权威定义 | 🔤 命名决策 |
 | **L2领域** | [数据库设计标准](docs/standards/database-standards.md) | 数据库设计和ORM规范 | 🗄️ 数据建模 |
 | **L2领域** | [API设计标准](docs/standards/api-standards.md) | RESTful API设计规范 | 🌐 接口设计 |
 | **L2领域** | [代码标准规范](docs/standards/code-standards.md) | 代码质量和开发实践 | 💻 编码规范 |
@@ -150,7 +150,7 @@ ecommerce_platform/
 |------|----------|----------|----------|
 | **L0导航** | [standards-master-index.md](docs/standards/standards-master-index.md) | 统一入口和AI友好检索 | 📍 **首选入口** |
 | **L1核心** | [项目结构标准](docs/standards/project-structure-standards.md) | 全项目目录结构权威定义 | 🏗️ 新建目录/文件 |
-| **L1核心** | [命名规范总纲](docs/standards/naming-conventions.md) | 全局命名规则权威定义 | 🔤 命名决策 |
+| **L1核心** | [命名规范总纲](docs/standards/naming-conventions-standards.md) | 全局命名规则权威定义 | 🔤 命名决策 |
 | **L2领域** | [数据库设计标准](docs/standards/database-standards.md) | 数据库设计和ORM规范 | �️ 数据建模 |
 | **L2领域** | [API设计标准](docs/standards/api-standards.md) | RESTful API设计规范 | � 接口设计 |
 | **L2领域** | [代码标准规范](docs/standards/code-standards.md) | 代码质量和开发实践 | � 编码规范 |

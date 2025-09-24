@@ -16,7 +16,7 @@
 ### 🔍 关键词检索映射 (AI优化)
 **直接跳转链接**：
 - **目录结构** → [L1: project-structure-standards.md](#L1-project-structure-standards) ⭐ **最高权威**
-- **命名规范** → [L1: naming-conventions.md](#L1-naming-conventions) ⭐ **全局规则**
+- **命名规范** → [L1: naming-conventions-standards.md](#L1-naming-conventions) ⭐ **全局规则**
 - **工作流程** → [L1: workflow-standards.md](#L1-workflow-standards) ⭐ **SDLC标准**
 - **代码规范** → [L2: code-standards.md](#L2-code-standards)
 - **API设计** → [L2: api-standards.md](#L2-api-standards)  
@@ -31,7 +31,7 @@
 | 问题类型 | 直接答案位置 | 使用场景 |
 |---------|-------------|---------|
 | 这个目录应该放什么？ | [项目结构标准](project-structure-standards.md) | 新建目录或文件 |
-| 这个变量怎么命名？ | [命名规范总纲](naming-conventions.md) | 编码时命名决策 |
+| 这个变量怎么命名？ | [命名规范总纲](naming-conventions-standards.md) | 编码时命名决策 |
 | API路径怎么设计？ | [API设计标准](api-standards.md) | 创建新接口 |
 | 数据表怎么设计？ | [数据库设计标准](database-standards.md) | 数据建模 |
 | 测试怎么组织？ | [测试规范标准](testing-standards.md) | 编写测试用例 |
@@ -50,7 +50,7 @@
 | 🏗️ 标准名称 | 📄 文件名 | 🎯 覆盖范围 | 🔄 更新频率 | 🔗 依赖关系 |
 |-------------|----------|------------|------------|------------|
 | **项目结构标准** | [project-structure-standards.md](project-structure-standards.md) | 全项目目录结构权威定义 | 月度 | ⚡ 无依赖 |
-| **命名规范总纲** | [naming-conventions.md](naming-conventions.md) | 全项目命名规则权威定义 | 月度 | ⬆️ 依赖项目结构 |
+| **命名规范总纲** | [naming-conventions-standards.md](naming-conventions-standards.md) | 全项目命名规则权威定义 | 月度 | ⬆️ 依赖项目结构 |
 | **工作流程标准** | [workflow-standards.md](workflow-standards.md) | SDLC全流程 + AI检查点 | 季度 | ⬆️ 依赖项目结构 |
 
 ### L2层：领域标准层 (8个文档 - 专业实施)  
@@ -102,7 +102,7 @@ graph TD
 ### ⚡ 快速操作指南
 **我需要...**
 - 创建新目录 → 查看 [project-structure-standards.md](project-structure-standards.md)
-- 命名变量/函数 → 查看 [naming-conventions.md](naming-conventions.md)  
+- 命名变量/函数 → 查看 [naming-conventions-standards.md](naming-conventions-standards.md)  
 - 设计API接口 → 查看 [api-standards.md](api-standards.md)
 - 编写测试代码 → 查看 [testing-standards.md](testing-standards.md)
 - 创建脚本工具 → 查看 [scripts-standards.md](scripts-standards.md)

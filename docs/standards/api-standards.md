@@ -1,4 +1,4 @@
-<!--version info: v2.0.0, created: 2025-09-23, level: L2, dependencies: naming-conventions.md,project-structure-standards.md-->
+<!--version info: v2.0.0, created: 2025-09-23, level: L2, dependencies: naming-conventions-standards.md,project-structure-standards.md-->
 
 # API设计标准 (API Standards)
 
@@ -9,7 +9,7 @@
 ## 依赖标准
 
 本标准依赖以下L1核心标准：
-- `naming-conventions.md` - API命名规范（路由路径、参数、端点命名标准）  
+- `naming-conventions-standards.md` - API命名规范（路由路径、参数、端点命名标准）  
 - `project-structure-standards.md` - 项目结构和模块组织标准
 
 ## 具体标准
