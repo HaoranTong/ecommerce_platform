@@ -1,4 +1,4 @@
-<!--version info: v1.0.0, created: 2025-09-23, level: L2, dependencies: naming-conventions.md,project-structure-standards.md-->
+<!--version info: v1.0.0, created: 2025-09-23, level: L2, dependencies: naming-conventions-standards.md,project-structure-standards.md-->
 
 # AI检查点卡片系统 (完整版)
 
@@ -155,7 +155,7 @@
 1. **字段类型** → `docs/standards/database-standards.md` 第45-70行数据类型规范
 2. **外键约束** → `docs/architecture/data-models.md` 第25-50行关系设计
 3. **索引优化** → `docs/standards/database-standards.md` 第80-95行性能优化
-4. **命名规范** → `docs/standards/naming-conventions.md` 第30-45行数据库命名
+4. **命名规范** → `docs/standards/naming-conventions-standards.md` 第30-45行数据库命名
 
 **验证清单**:
 □ 所有*_id字段定义为Column(Integer, ...)类型
@@ -253,7 +253,7 @@
 1. **代码规范** → `docs/standards/code-standards.md` 第40-70行代码组织规范
 2. **注释标准** → `docs/standards/code-standards.md` 第80-120行注释规范
 3. **性能要求** → `docs/standards/performance-standards.md` 第30-60行性能标准
-4. **命名规范** → `docs/standards/naming-conventions.md` 第150-180行代码命名
+4. **命名规范** → `docs/standards/naming-conventions-standards.md` 第150-180行代码命名
 
 **验证清单**:
 □ 代码符合项目规范和风格标准
@@ -266,7 +266,7 @@
 **触发条件**: 开始编写代码前、创建代码文件前
 **检查重点**: 文档完整性、命名规范、设计合规
 **精准导航**:
-1. **文件命名** → `docs/standards/naming-conventions.md` 第35-60行文件命名规则
+1. **文件命名** → `docs/standards/naming-conventions-standards.md` 第35-60行文件命名规则
 2. **目录结构** → `docs/standards/code-standards.md` 第10-35行项目结构
 3. **API设计** → `docs/standards/api-standards.md` 第45-80行URL设计规范
 4. **数据模型** → `docs/standards/database-standards.md` 第10-65行表名字段规范

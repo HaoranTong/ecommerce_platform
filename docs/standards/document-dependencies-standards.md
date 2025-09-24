@@ -1,4 +1,4 @@
-<!--version info: v1.0.0, created: 2025-09-23, level: L2, dependencies: naming-conventions.md,project-structure-standards.md-->
+<!--version info: v1.0.0, created: 2025-09-23, level: L2, dependencies: naming-conventions-standards.md,project-structure-standards.md-->
 
 # 文档依赖关系管理规范
 
@@ -69,7 +69,7 @@ graph TB
 ```text
 同级目录: ./file.md
 上级目录: ../category/file.md
-跨层级: ../../standards/naming-conventions.md
+跨层级: ../../standards/naming-conventions-standards.md
 根目录: /docs/requirements/business.md
 ```
 
@@ -183,7 +183,7 @@ docs/
 ├── standards/          # 标准规范 (被所有文档引用)
 │   ├── document-standards.md
 │   ├── example-domain-standards.md
-│   └── naming-conventions.md
+│   └── naming-conventions-standards.md
 ├── templates/          # 文档模板 (生成时引用)
 ├── architecture/       # 系统架构 (被实施文档引用)
 ├── core/              # 核心组件 (被模块引用)
@@ -266,7 +266,7 @@ docs/
 ### 高依赖文档（被引用最多）
 1. standards/example-domain-standards.md (被引用 23 次)
 2. architecture/overview.md (被引用 18 次)
-3. standards/naming-conventions.md (被引用 15 次)
+3. standards/naming-conventions-standards.md (被引用 15 次)
 
 ### 需要关注的问题
 

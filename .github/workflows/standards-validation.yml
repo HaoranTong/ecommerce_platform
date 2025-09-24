@@ -88,8 +88,8 @@ jobs:
         ## 文档统计
         
         - L0文档: $(Get-ChildItem 'docs/standards/standards-master-index.md' | Measure-Object | Select-Object -ExpandProperty Count)
-        - L1文档: $(Get-ChildItem 'docs/standards/project-structure-standards.md', 'docs/standards/naming-conventions.md' | Measure-Object | Select-Object -ExpandProperty Count)
-        - L2文档: $(Get-ChildItem 'docs/standards/*-standards.md' | Where-Object { $_.Name -notin @('project-structure-standards.md', 'naming-conventions.md', 'standards-master-index.md') } | Measure-Object | Select-Object -ExpandProperty Count)
+        - L1文档: $(Get-ChildItem 'docs/standards/project-structure-standards.md', 'docs/standards/naming-conventions-standards.md' | Measure-Object | Select-Object -ExpandProperty Count)
+        - L2文档: $(Get-ChildItem 'docs/standards/*-standards.md' | Where-Object { $_.Name -notin @('project-structure-standards.md', 'naming-conventions-standards.md', 'standards-master-index.md') } | Measure-Object | Select-Object -ExpandProperty Count)
         
         ## 工具链状态
         

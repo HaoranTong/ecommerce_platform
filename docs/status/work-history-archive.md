@@ -58,14 +58,14 @@
 - ❌ 完成任务后未同步状态文档 → ✅ 建立强制同步流程
 
 #### 📋 **标准文档时序表述清理成果**
-清理涉及文档：workflow-standards.md, testing-standards.md, performance-standards.md, naming-conventions.md
+清理涉及文档：workflow-standards.md, testing-standards.md, performance-standards.md, naming-conventions-standards.md
 
 | 原始表述 | 修复后表述 | 文档位置 |
 |---------|----------|----------|
 | Phase 1-5: XXX阶段 | 功能描述 + [CHECK:XXX] | workflow-standards.md |
 | 第一步/第二步/第三步 | 功能描述 + [CHECK:XXX] | testing-standards.md |
 | 第一/二/三阶段 (时间) | 基础/高级/架构优化 | performance-standards.md |
-| XXX分析阶段 | XXX分析 | naming-conventions.md |
+| XXX分析阶段 | XXX分析 | naming-conventions-standards.md |
 
 **最终验证**: grep搜索确认无明显时序表述残留，标准文档完全实现时间中性原则
 

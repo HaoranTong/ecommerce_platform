@@ -94,7 +94,7 @@
 ### 4. 命名一致性问题 (Naming Consistency Issues)
 
 #### 4.1 模块命名标准检查
-**依据**: `docs/standards/naming-conventions.md`
+**依据**: `docs/standards/naming-conventions-standards.md`
 
 | 层次 | 规范要求 | 实际情况 | 一致性评估 | 问题评级 |
 |------|----------|----------|------------|----------|

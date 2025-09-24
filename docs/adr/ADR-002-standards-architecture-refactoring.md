@@ -11,8 +11,8 @@
 在项目发展过程中，标准文档体系出现了以下关键问题：
 
 1. **标准文档重复内容严重**
-   - `naming-conventions.md` 与 `database-standards.md` 存在命名规范重复
-   - `api-standards.md` 与 `naming-conventions.md` 存在API命名重复  
+   - `naming-conventions-standards.md` 与 `database-standards.md` 存在命名规范重复
+   - `api-standards.md` 与 `naming-conventions-standards.md` 存在API命名重复  
    - `code-standards.md` 与 `document-standards.md` 存在组织规范重复
    - 开发者不清楚以哪个文档为准，影响开发效率
 
@@ -67,7 +67,7 @@ graph TD
     A --> D[L3: 实施层]
     
     B --> B1[project-structure-standards.md<br/>项目结构权威标准]
-    B --> B2[naming-conventions.md<br/>命名规范总纲]
+    B --> B2[naming-conventions-standards.md<br/>命名规范总纲]
     B --> B3[workflow-standards.md<br/>工作流程标准]
     
     C --> C1[代码开发标准组]

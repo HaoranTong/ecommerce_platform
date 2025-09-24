@@ -376,7 +376,7 @@ function Show-CheckResults {
     }
     
     Write-ColorOutput "🔧 修复建议：" "Yellow"
-    Write-ColorOutput "1. 查阅命名规范文档: docs/standards/naming-conventions.md" "White"
+    Write-ColorOutput "1. 查阅命名规范文档: docs/standards/naming-conventions-standards.md" "White"
     Write-ColorOutput "2. 参考模块映射表进行重命名" "White"
     Write-ColorOutput "3. 使用 --Fix 参数尝试自动修复部分问题" "White"
     Write-ColorOutput "4. 完成修复后重新运行检查" "White"

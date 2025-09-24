@@ -285,7 +285,7 @@ modules/{module_name}/
 - **版本管理**: 采用语义版本控制，重大变更需要ADR记录
 
 ### 🔄 被依赖标准列表
-- [naming-conventions.md](naming-conventions.md) - 依赖本标准的目录结构定义
+- [naming-conventions-standards.md](naming-conventions-standards.md) - 依赖本标准的目录结构定义
 - [code-standards.md](code-standards.md) - 依赖本标准的app/目录结构  
 - [testing-standards.md](testing-standards.md) - 依赖本标准的tests/目录结构
 - [scripts-standards.md](scripts-standards.md) - 依赖本标准的scripts/目录结构
