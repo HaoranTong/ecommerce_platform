@@ -1,4 +1,4 @@
-<!--version info: v2.0.0, updated: 2025-09-23, level: L2, dependencies: naming-conventions-standards.md,PROJECT-FOUNDATION.md-->
+<!--version info: v2.0.0, updated: 2025-09-23, level: L2, dependencies: naming-conventions-standards.md,../../PROJECT-FOUNDATION.md-->
 
 # 数据库设计规范 (Database Standards)
 
@@ -10,7 +10,7 @@
 
 本标准依赖以下L1核心标准：
 - `naming-conventions-standards.md` - 数据库命名规范（表名、字段名、索引命名标准）
-- `PROJECT-FOUNDATION.md` - 项目结构和模块组织标准
+- `../../PROJECT-FOUNDATION.md` - 项目结构和模块组织标准
 
 ## 具体标准
 ⬆️ **模块命名映射**: 参见 [PROJECT-FOUNDATION.md](../../PROJECT-FOUNDATION.md#业务模块标准结构-垂直切片)

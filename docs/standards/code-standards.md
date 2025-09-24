@@ -1,4 +1,4 @@
-<!--version info: v1.0.0, created: 2025-09-23, level: L1, dependencies: naming-conventions-standards.md,PROJECT-FOUNDATION.md-->
+<!--version info: v1.0.0, created: 2025-09-23, level: L1, dependencies: naming-conventions-standards.md,../../PROJECT-FOUNDATION.md-->
 
 # 代码标准规范 (Code Standards)
 
@@ -10,7 +10,7 @@
 
 本标准依赖以下L1核心标准：
 - `naming-conventions-standards.md` - 代码命名规范（类、函数、变量、常量命名标准）
-- `PROJECT-FOUNDATION.md` - 项目结构和模块组织标准
+- `../../PROJECT-FOUNDATION.md` - 项目结构和模块组织标准
 
 ## 具体标准
 ⬆️ **文件命名规范**: 参见 [naming-conventions-standards.md](naming-conventions-standards.md#文件命名规范) - Python文件、模块文件命名
