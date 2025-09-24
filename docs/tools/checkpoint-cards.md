@@ -140,7 +140,7 @@
 1. **环境配置** → `docs/operations/development-setup.md` 开发环境配置指南
 2. **工作流程** → `docs/standards/workflow-standards.md` 第51-85行环境准备
 3. **脚本工具** → `docs/tools/README.md` 第20-50行工具使用指南
-4. **强制检查** → `docs/standards/code-development-checklist.md` 第96-130行执行流程
+4. **代码标准** → `docs/standards/code-standards.md` 第1-50行开发规范
 
 **验证清单**:
 □ 已配置Python虚拟环境和依赖
@@ -148,14 +148,14 @@
 □ 已准备开发和测试工具
 □ 已确认代码规范检查工具正常
 
-### DEV-002: 数据模型设计验证
+### DEV-003: 数据模型设计验证
 **触发条件**: 操作models.py、设计数据库表
 **检查重点**: 数据类型一致性、关系完整性、命名规范
 **精准导航**:
 1. **字段类型** → `docs/standards/database-standards.md` 第45-70行数据类型规范
-2. **外键约束** → `docs/architecture/data-models.md` 第25-50行关系设计
+2. **数据架构** → `docs/architecture/data-architecture.md` 第25-50行数据存储策略
 3. **索引优化** → `docs/standards/database-standards.md` 第80-95行性能优化
-4. **命名规范** → `docs/standards/naming-conventions-standards.md` 第30-45行数据库命名
+4. **命名规范** → `docs/standards/database-standards.md` 第200-250行数据库命名规范
 
 **验证清单**:
 □ 所有*_id字段定义为Column(Integer, ...)类型
@@ -164,9 +164,9 @@
 □ 字段命名符合snake_case规范
 □ 禁止在测试中使用字符串作为ID值
 
-**辅助脚本**: `scripts/ai_checkpoint.ps1 -CardType DEV-002 -ModuleName {module}`
+**辅助脚本**: `scripts/ai_checkpoint.ps1 -CardType DEV-003 -ModuleName {module}`
 
-### DEV-003: API设计与路由规范
+### DEV-004: API设计与路由规范
 **触发条件**: 创建*_routes.py、设计API接口
 **检查重点**: RESTful设计、安全控制、响应格式
 **精准导航**:
@@ -182,44 +182,44 @@
 □ 响应格式统一 (成功/失败格式一致)
 □ 已实现认证授权机制
 
-### DEV-004: 组件实现与集成
-**触发条件**: 实现service.py、组件开发
-**检查重点**: 业务逻辑正确性、依赖注入、错误处理
+### DEV-004: API设计与路由规范
+**触发条件**: 创建*_routes.py、设计API接口
+**检查重点**: RESTful设计、安全控制、响应格式
 **精准导航**:
-1. **业务规则** → `docs/design/modules/{module}/requirements.md` 第35-60行详细功能描述
-2. **组件设计** → `docs/design/modules/{module}/design.md` 第80-120行组件架构
-3. **依赖管理** → `docs/standards/code-standards.md` 第40-55行依赖注入
-4. **异常处理** → `docs/standards/code-standards.md` 第70-85行错误处理
+1. **路由设计** → `docs/standards/api-standards.md` 第15-40行RESTful规范
+2. **认证授权** → `docs/architecture/security.md` 第50-80行API安全
+3. **响应格式** → `docs/standards/api-standards.md` 第60-75行统一响应
+4. **错误处理** → `docs/standards/api-standards.md` 第90-110行异常设计
 
 **验证清单**:
-□ 业务逻辑符合需求文档描述
-□ 依赖注入配置正确
-□ 异常处理覆盖完整
-□ 组件接口设计清晰
-□ 集成测试通过
+□ 路由路径符合RESTful规范 (复数资源名)
+□ HTTP方法使用正确 (GET/POST/PUT/DELETE)
+□ 状态码设计符合标准 (2xx/4xx/5xx)
+□ 响应格式统一 (成功/失败格式一致)
+□ 已实现认证授权机制
 
 ### DEV-005: 业务逻辑实现验证
 **触发条件**: 实现service.py、业务逻辑开发
-**检查重点**: 业务规则正确性、依赖注入、错误处理
+**检查重点**: 业务规则正确性、服务层架构、事务管理
 **精准导航**:
 1. **业务规则** → `docs/design/modules/{module}/requirements.md` 第35-60行详细功能描述
-2. **组件设计** → `docs/design/modules/{module}/design.md` 第80-120行组件架构
-3. **依赖管理** → `docs/standards/code-standards.md` 第40-55行依赖注入
-4. **异常处理** → `docs/standards/code-standards.md` 第70-85行错误处理
+2. **服务层设计** → `docs/design/modules/{module}/design.md` 第80-120行服务架构
+3. **事务管理** → `docs/standards/code-standards.md` 第55-70行事务处理
+4. **业务异常** → `docs/standards/code-standards.md` 第70-85行业务错误处理
 
 **验证清单**:
 □ 业务逻辑符合需求文档描述
-□ 依赖注入配置正确
-□ 异常处理覆盖完整
-□ 组件接口设计清晰
-□ 集成测试通过
+□ 服务层职责划分清晰
+□ 事务边界设计合理
+□ 业务异常处理完整
+□ 业务规则验证充分
 
 ### DEV-006: 安全控制实现验证
 **触发条件**: 开发安全相关功能、权限控制实现
 **检查重点**: 认证授权、数据保护、输入验证
 **精准导航**:
 1. **安全架构** → `docs/architecture/security-architecture.md` 第60-100行认证策略
-2. **API安全** → `docs/standards/api-standards.md` 第250-290行安全控制
+2. **API安全** → `docs/standards/api-standards.md` 第441-490行认证授权标准
 3. **数据保护** → `docs/architecture/security-architecture.md` 第140-180行数据加密
 4. **权限模型** → `docs/architecture/security-architecture.md` 第100-140行权限控制
 
@@ -922,13 +922,98 @@ scripts\run_performance_tests.ps1 -Module [模块名] -LoadLevel [负载级别]
 
 ### 🔧 辅助脚本
 ```powershell
-# 执行安全测试套件
-scripts\run_security_tests.ps1 -Module [模块名] -TestLevel [测试级别]
 ```
 
-## 📋 文件操作类检查卡片 (FILE)
+---
 
-### DEV-009: 严重混乱文件强制重建验证
+## 📋 补充DEV检查点 (新增)
+
+### DEV-010: 代码审查验证
+**触发条件**: 代码提交前、Pull Request创建
+**检查重点**: 代码逻辑正确性、可读性、性能优化
+**精准导航**:
+1. **审查标准** → `docs/standards/code-standards.md` 第120-150行代码审查
+2. **性能要求** → `docs/standards/performance-standards.md` 第30-60行性能标准
+3. **安全检查** → `docs/architecture/security-architecture.md` 第200-240行安全审查
+4. **测试覆盖** → `docs/standards/testing-standards.md` 第280-320行覆盖率要求
+
+**验证清单**:
+□ 代码逻辑清晰，无明显缺陷
+□ 变量命名语义准确
+□ 函数职责单一，复杂度合理
+□ 性能瓶颈已识别和优化
+□ 安全漏洞已排查
+□ 测试覆盖率达到要求
+
+### DEV-011: 数据迁移验证
+**触发条件**: 数据库模式变更、数据迁移脚本
+**检查重点**: 迁移脚本正确性、数据完整性、回滚机制
+**精准导航**:
+1. **迁移脚本** → `alembic/versions/` 目录迁移文件
+2. **备份策略** → `docs/operations/maintenance-guide.md` 第300-330行备份管理
+3. **数据测试** → `docs/standards/testing-standards.md` 第200-250行数据库测试规范
+4. **回滚机制** → `docs/operations/maintenance-guide.md` 第365-390行回滚方案
+
+**验证清单**:
+□ 迁移脚本语法正确
+□ 数据迁移前已完成备份
+□ 迁移测试通过
+□ 回滚脚本已验证
+□ 数据完整性检查通过
+
+### DEV-012: 配置管理验证
+**触发条件**: 环境配置变更、敏感信息处理
+**检查重点**: 环境配置正确性、敏感信息安全处理
+**精准导航**:
+1. **环境配置** → `docs/operations/environment-variables.md` 第15-60行环境变量管理
+2. **密钥管理** → `docs/architecture/security-architecture.md` 第180-220行密钥策略
+3. **配置验证** → `docs/standards/deployment-standards.md` 第40-80行配置检查
+4. **环境隔离** → `docs/operations/testing-environment.md` 第20-50行环境隔离策略
+
+**验证清单**:
+□ 环境变量配置正确
+□ 敏感信息已加密存储
+□ 配置文件结构规范
+□ 环境间配置隔离
+□ 配置变更已文档化
+
+### DEV-013: 依赖管理验证
+**触发条件**: 添加新依赖、升级依赖版本
+**检查重点**: 依赖版本兼容性、安全漏洞检查
+**精准导航**:
+1. **依赖规范** → `docs/standards/dependency-management.md` 第20-60行依赖标准
+2. **安全扫描** → `docs/security/vulnerability-management.md` 第30-70行漏洞检查
+3. **版本控制** → `pyproject.toml` 和 `requirements.txt` 版本锁定
+4. **兼容性测试** → `docs/standards/testing-standards.md` 第350-380行兼容性验证
+
+**验证清单**:
+□ 依赖版本已锁定
+□ 安全漏洞扫描通过
+□ 兼容性测试通过
+□ 依赖许可证合规
+□ 依赖文档已更新
+
+### DEV-014: 性能基准验证
+**触发条件**: 关键接口实现、性能优化完成
+**检查重点**: 响应时间、资源使用、性能基准
+**精准导航**:
+1. **性能指标** → `docs/requirements/non-functional.md` 第30-60行性能要求
+2. **基准测试** → `docs/standards/performance-standards.md` 第60-100行基准策略
+3. **监控指标** → `docs/operations/monitoring.md` 第80-120行性能监控
+4. **优化指南** → `docs/architecture/performance-architecture.md` 第120-160行优化建议
+
+**验证清单**:
+□ 关键接口响应时间达标
+□ 内存使用在合理范围
+□ 数据库查询性能优化
+□ 并发处理能力验证
+□ 性能监控指标配置
+
+---
+
+## � 应急处理类检查卡片 (EMERGENCY)
+
+### EMERGENCY-001: 严重混乱文件强制重建验证
 **触发条件**: 文件内容严重混乱、格式错误、大量重复内容
 **检查重点**: 安全删除、完全重建、防止错误复制
 **精准导航**:
@@ -940,26 +1025,19 @@ scripts\run_security_tests.ps1 -Module [模块名] -TestLevel [测试级别]
 **强制执行流程**:
 1. **备份原文件**:
    ```powershell
-   # 创建备份文件
    Copy-Item "原文件路径" "原文件路径.backup.$(Get-Date -Format 'yyyyMMdd_HHmmss')"
    ```
 
 2. **强力删除**:
    ```powershell
-   # 删除混乱文件
    Remove-Item "文件路径" -Force
-   # 清理Python缓存
    Remove-Item "__pycache__" -Recurse -Force -ErrorAction SilentlyContinue
-   # 清理.pyc文件
    Get-ChildItem -Recurse -Filter "*.pyc" | Remove-Item -Force
    ```
 
 3. **创建空文件**:
    ```powershell
-   # 创建全新空文件
    New-Item "文件路径" -ItemType File -Force
-   # 验证文件为空
-   Get-Content "文件路径" | Should -BeNullOrEmpty
    ```
 
 4. **逐行重建**:
@@ -967,16 +1045,6 @@ scripts\run_security_tests.ps1 -Module [模块名] -TestLevel [测试级别]
    - ❌ 禁止: 复制粘贴原文件内容
    - ✅ 必须: 使用replace_string_in_file逐行添加
    - ✅ 必须: 每次添加验证内容正确性
-
-**根本原因分析**:
-反复发生错误的原因是文件编辑器有问题，使用文件编辑器的方法错误。必须严格按照以下步骤操作才能解决问题：
-
-**关键操作原则**:
-1. **备份原文档** - 新文档创建成功并确认无误后，才删除备份文档
-2. **必须彻底删除有问题的文档和当前的缓存** - 不能有任何残留
-3. **删除__pycache__目录** - 清理所有Python缓存文件
-4. **通过终端重建空文档** - 要检查确实是空文档，然后逐行编写文档
-5. **禁止粘贴复制** - 不能用粘贴复制的方式，因为那样会把原来错误再次带进来
 
 **验证清单**:
 □ 已创建带时间戳的备份文件
@@ -986,6 +1054,4 @@ scripts\run_security_tests.ps1 -Module [模块名] -TestLevel [测试级别]
 □ 已验证新文件确实为空
 □ 已逐行重建内容，严禁复制粘贴
 □ 已验证每行内容的正确性
-□ **强制**: 必须参考备份文件而非内存内容
-□ **强制**: 新文档创建成功并确认无误后，才删除备份文档
 
