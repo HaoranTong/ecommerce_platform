@@ -1,4 +1,4 @@
-<!--version info: v1.0.0, created: 2025-09-23, level: L2, dependencies: naming-conventions-standards.md,project-structure-standards.md-->
+<!--version info: v1.0.0, created: 2025-09-23, level: L2, dependencies: technology-stack-standards.md,PROJECT-FOUNDATION.md-->
 
 <!--
 文档说明：
@@ -25,7 +25,7 @@
 
 本标准依赖以下L1核心标准：
 
-- **[项目结构标准](./project-structure-standards.md)** - 定义性能测试文件组织结构
+- **[项目基础定义](../../PROJECT-FOUNDATION.md)** - 定义性能测试文件组织结构
 - **[命名规范](./naming-conventions-standards.md)** - 性能指标和监控组件命名规则
 
 ## 具体标准

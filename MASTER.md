@@ -126,6 +126,11 @@
 
 ## 📁 标准规范文档引用 (完整版)
 
+### 项目基础架构 (FOUNDATION级)
+- **PROJECT-FOUNDATION.md** - 项目基础设定 (最高权威)
+- docs/README.md - 技术文档导航中心
+- MASTER.md - AI开发控制文档 (本文档)
+
 ### 需求与架构
 - docs/requirements/functional.md - 功能需求规范
 - docs/requirements/business.md - 业务需求规范  
@@ -134,17 +139,18 @@
 - docs/architecture/data-models.md - 数据模型设计
 - docs/architecture/security.md - 安全架构设计
 
-### 开发流程与规范
+### 开发流程与规范 (L1-L2标准体系)
 - docs/development/README.md - 开发流程指南
 - docs/development/testing-setup.md - 测试环境配置（增强版）
 - docs/tools/checkpoint-cards.md - 检查点卡片系统（25张卡片）
-- docs/standards/naming-conventions-standards.md - 命名规范
-- docs/standards/api-standards.md - API设计规范
-- docs/standards/database-standards.md - 数据库设计规范
-- docs/standards/code-standards.md - 代码组织规范
-- docs/standards/testing-standards.md - 测试规范（五层架构）
-- docs/standards/document-management-standards.md - 文档结构规范
-- docs/standards/workflow-standards.md - 工作流程规范
+- docs/standards/README.md - L0-L1-L2标准文档导航 ⭐
+- docs/standards/naming-conventions-standards.md - L1核心：命名规范
+- docs/standards/workflow-standards.md - L1核心：工作流程规范
+- docs/standards/api-standards.md - L2领域：API设计规范
+- docs/standards/database-standards.md - L2领域：数据库设计规范
+- docs/standards/code-standards.md - L2领域：代码组织规范
+- docs/standards/testing-standards.md - L2领域：测试规范（五层架构）
+- docs/standards/document-management-standards.md - L2领域：文档结构规范
 
 ### 状态文档管理规范 (强制)
 - **核心状态文档** - 固定4个：module-status.md, current-work-status.md, issues-tracking.md, README.md

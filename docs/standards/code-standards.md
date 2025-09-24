@@ -1,4 +1,4 @@
-<!--version info: v2.0.0, created: 2025-09-23, level: L2, dependencies: naming-conventions-standards.md,project-structure-standards.md-->
+<!--version info: v1.0.0, created: 2025-09-23, level: L1, dependencies: naming-conventions-standards.md,PROJECT-FOUNDATION.md-->
 
 # 代码标准规范 (Code Standards)
 
@@ -10,7 +10,7 @@
 
 本标准依赖以下L1核心标准：
 - `naming-conventions-standards.md` - 代码命名规范（类、函数、变量、常量命名标准）
-- `project-structure-standards.md` - 项目结构和模块组织标准
+- `PROJECT-FOUNDATION.md` - 项目结构和模块组织标准
 
 ## 具体标准
 ⬆️ **文件命名规范**: 参见 [naming-conventions-standards.md](naming-conventions-standards.md#文件命名规范) - Python文件、模块文件命名
@@ -23,6 +23,43 @@
 - **代码质量标准**: 注释规范、文档字符串、代码风格一致性
 - **开发实践规范**: 错误处理、导入管理、配置管理标准
 - **代码组织规范**: 函数设计、类设计、模块化开发最佳实践
+- **动态管理职责**: app/目录下新增业务模块的结构标准和代码规范
+
+## L2标准动态管理义务
+
+### 静态内容确认 (基于L1权威定义)
+✅ **app/目录结构已完整定义**: 参考 [PROJECT-FOUNDATION.md - app/目录结构](../../PROJECT-FOUNDATION.md#app目录一级结构-应用程序组织)
+- core/, modules/, shared/, adapters/ 等核心子目录已权威定义
+- 业务模块标准结构已完整规范 (垂直切片架构)
+- 19个业务模块命名映射表已建立
+
+### 动态内容管理规范
+**新增业务模块管理** (随业务发展动态增加):
+1. **新模块创建标准**
+   - 模块命名: 必须遵循 [业务模块命名映射表](../../PROJECT-FOUNDATION.md#业务模块标准结构-垂直切片)
+   - 目录结构: 严格按照垂直切片标准结构创建 (router.py, service.py, models.py, schemas.py, dependencies.py, README.md)
+   - 代码规范: 按照本标准的代码质量要求实施
+
+2. **模块文档规范**
+   - 每个新模块必须包含 README.md，说明模块功能、API接口、数据模型
+   - 所有Python文件必须包含标准文档字符串
+   - 复杂业务逻辑必须有详细注释和设计说明
+
+3. **模块集成标准**  
+   - 新模块不得直接导入其他业务模块 (通过shared层集成)
+   - API schemas必须在模块内独立定义，不得跨模块共享
+   - 数据库表前缀必须遵循命名映射表定义
+
+### 动态管理边界
+**本标准负责**:
+- ✅ app/目录内所有代码的质量标准和文档规范
+- ✅ 新增业务模块的结构标准和命名规范
+- ✅ 代码注释、文档字符串、错误处理等编码标准
+
+**本标准不负责**:
+- ❌ 项目整体目录结构定义 (由PROJECT-FOUNDATION.md权威定义)
+- ❌ 测试代码的组织和规范 (由testing-standards.md管理)
+- ❌ 数据库设计和迁移脚本 (由database-standards.md管理)
 
 
 ## � 代码注释和文档规范

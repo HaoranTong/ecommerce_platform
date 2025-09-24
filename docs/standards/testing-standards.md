@@ -1,4 +1,4 @@
-<!--version info: v1.0.0, created: 2025-09-23, level: L2, dependencies: naming-conventions-standards.md,project-structure-standards.md-->
+<!--version info: v1.0.0, created: 2025-09-23, level: L2, dependencies: naming-conventions-standards.md,PROJECT-FOUNDATION.md-->
 
 # 测试标准
 
@@ -10,11 +10,11 @@
 
 本标准依赖以下L1核心标准：
 
-- **[项目结构标准](./project-structure-standards.md)** - 定义tests/目录结构和测试文件组织
+- **[项目基础定义](../../PROJECT-FOUNDATION.md)** - 定义tests/目录结构和测试文件组织
 - **[命名规范](./naming-conventions-standards.md)** - 测试文件、类、方法的命名约定
 
 ## 具体标准应用
-⬆️ **测试文件结构**: 参见 [project-structure-standards.md](project-structure-standards.md#测试目录结构) - 五层测试架构组织
+⬆️ **测试文件结构**: 参见 [PROJECT-FOUNDATION.md](../../PROJECT-FOUNDATION.md#tests目录结构-五层测试架构) - 五层测试架构组织
 ⬆️ **测试命名约定**: 参见 [naming-conventions-standards.md](naming-conventions-standards.md#测试命名规范) - test_*文件和方法命名
 
 ### 五层测试架构
@@ -1685,7 +1685,7 @@ pytest tests/ --cov=app --cov-fail-under=85
 
 ## 相关文档
 - [测试环境配置指南](../development/testing-setup.md) - 环境配置和故障排除
-- [项目结构标准](project-structure-standards.md) - 测试目录组织
+- [项目基础定义](../../PROJECT-FOUNDATION.md) - 测试目录组织
 - [MASTER工作流程](../../MASTER.md) - 强制检查点
 
 

@@ -1,4 +1,4 @@
-<!--version info: v1.0.0, created: YYYY-MM-DD, level: L2, dependencies: naming-conventions-standards.md,project-structure-standards.md-->
+<!--version info: v1.0.0, created: YYYY-MM-DD, level: L2, dependencies: naming-conventions-standards.md,PROJECT-FOUNDATION.md-->
 
 # 【领域名称】标准规范 (【英文名称】 Standards)
 
@@ -10,7 +10,7 @@
 
 本标准依赖以下L1核心标准：
 - `naming-conventions-standards.md` - 【具体说明引用的命名规范内容，如：文件命名、变量命名等】
-- `project-structure-standards.md` - 【具体说明引用的结构标准内容，如：目录组织、模块边界等】
+- `PROJECT-FOUNDATION.md` - 【具体说明引用的基础标准内容，如：目录组织、模块边界等】
 
 ## 具体标准
 
@@ -77,7 +77,7 @@
    - 确保依赖关系正确且必要
 
 4. **添加到导航**
-   - 在 `standards-master-index.md` 中添加新文档的导航链接
+   - 在 `docs/README.md` 技术文档导航中心添加新文档的导航链接
    - 更新相关README文档的导航表格
 
 5. **验证文档**

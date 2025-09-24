@@ -56,8 +56,9 @@ scripts/validate_standards.ps1 -Action dependencies
 成功率: 重复内容0%、依赖关系100%、内容完整性100%、格式94%
 
 相关文档:
-- docs/standards/standards-master-index.md (L0导航入口)
-- docs/architecture/ADR-002-standards-architecture-refactoring.md (设计决策)
+- docs/standards/README.md (L0标准文档导航)
+- PROJECT-FOUNDATION.md (FOUNDATION级项目基础设定)
+- docs/adr/ADR-003-document-architecture-restructure.md (重构决策)
 - scripts/README.md (脚本工具说明)
 
 技术债务: 格式检查中的深层标题(>3级)和无语言标识代码块为可接受的细节问题
@@ -95,9 +96,9 @@ function Get-AllStandardDocs {
             $Level = $LevelMatch.Groups[1].Value
         } else {
             # 如果没有找到level信息，根据文件名推断
-            if ($File.Name -eq "standards-master-index.md") {
+            if ($File.Name -eq "README.md") {
                 $Level = "L0"
-            } elseif ($File.Name -in @("project-structure-standards.md", "naming-conventions-standards.md")) {
+            } elseif ($File.Name -in @("naming-conventions-standards.md", "workflow-standards.md")) {
                 $Level = "L1"
             } else {
                 $Level = "L2"

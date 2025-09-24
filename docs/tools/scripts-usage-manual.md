@@ -140,7 +140,7 @@
 # 1 = 发现问题需要修复
 ```
 
-**关联文档**: `docs/standards/standards-master-index.md`, `docs/architecture/ADR-002-standards-architecture-refactoring.md`  
+**关联文档**: `docs/README.md`, `docs/architecture/ADR-002-standards-architecture-refactoring.md`  
 **触发场景**: 标准文档创建/修改后、Phase重构完成后、CI/CD质量门禁  
 **成功率指标**: 重复内容0%、依赖关系100%、内容完整性100%、格式94%
 
@@ -567,7 +567,7 @@ scripts/maintain_standards.ps1 -Action restore -Target "milestone-v1.0"
 ### 🔗 关联文档
 
 - [维护手册详细说明](../operations/maintenance-guide.md)
-- [标准文档导航](../standards/standards-master-index.md)  
+- [技术文档导航中心](../README.md)  
 - [validate_standards.ps1文档](#validate_standardsps1---标准文档验证)
 
 ---
