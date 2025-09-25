@@ -10,8 +10,8 @@
 
 本标准依赖以下L1核心标准：
 
-- **[项目基础定义](../../PROJECT-FOUNDATION.md)** - 定义tests/目录结构和测试文件组织
-- **[命名规范](./naming-conventions-standards.md)** - 测试文件、类、方法的命名约定
+- **[项目基础定义](../../PROJECT-FOUNDATION.md)** - tests/目录五层架构组织（unit/integration/e2e/security/performance）、测试文件存放规则、conftest.py配置管理
+- **[命名规范标准](./naming-conventions-standards.md)** - 测试文件命名（test_*前缀规则）、测试类命名（Test*类规则）、测试方法命名（test_*函数规则）、断言方法标准
 
 ## 具体标准应用
 ⬆️ **测试文件结构**: 参见 [PROJECT-FOUNDATION.md](../../PROJECT-FOUNDATION.md#tests目录结构-五层测试架构) - 五层测试架构组织
