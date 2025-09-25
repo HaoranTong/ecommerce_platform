@@ -37,9 +37,9 @@
 ## 详细业务需求（整合自定制化需求方案）
 
 ### 目标与约束
-- **核心价值**: 行业溯源标准、AI驱动服务化能力、可替换适配器策略、供应链可视化与绿色化目标
-- **技术约束**: Contract-first开发、Adapter抽象、Feature Flag支持、单人+AI协作工作流
-- **业务约束**: 快速上线Mini-MVP，保证后续完整功能可顺利迭代且最小重构成本
+- **核心价值**: 行业溯源标准、智能推荐服务、供应链可视化与绿色化目标
+- **业务约束**: 快速上线Mini-MVP，保证后续完整功能可顺利迭代
+- **质量约束**: 确保食品安全合规、溯源信息真实可靠
 
 ### 用户角色定义
 1. **消费者**: 购买农产品的终端用户
@@ -88,7 +88,7 @@
 
 #### 高级业务场景
 1. **智能推荐**
-   - AI基于用户行为推荐合适产品
+   - 基于用户行为推荐合适产品
    - 个性化营销和定价策略
    - 用户画像分析和精准营销
 
@@ -121,45 +121,6 @@
    - 用户行为分析和洞察
    - 销售数据分析和预测
    - 运营效果评估和优化
-
-### DDD微服务边界设计
-```
-核心域服务:
-- user-service: 用户管理和认证
-- member-service: 会员体系和积分
-- product-service: 商品管理和分类
-- batch-service: 批次管理和溯源
-- inventory-service: 库存管理和预警
-- order-service: 订单处理和状态管理
-- checkout-service: 结算和支付流程
-
-支撑域服务:
-- payment-middleware: 支付集成和路由
-- distributor-service: 分销商管理
-- campaign-service: 营销活动管理
-- coupon-service: 优惠券系统
-- ai-service: AI推荐和分析
-- trace-service: 溯源和区块链
-- wms-service: 仓储管理
-- ledger-service: 财务和对账
-- ops-service: 运维监控和告警
-
-基础设施服务:
-- notification-service: 消息通知和推送
-- customer-service: 客服系统和工单
-- analytics-service: 数据分析和报表
-- risk-service: 风控和反欺诈
-- logistics-service: 物流和配送
-- supplier-service: 供应商管理
-- social-service: 社交和分享功能
-```
-
-### 技术架构要求
-1. **CQRS + 事件溯源**: 核心业务实体使用事件溯源模式
-2. **多级缓存**: Redis缓存 + CDN + 应用缓存
-3. **适配器模式**: Payment/AI/Trace等第三方服务抽象
-4. **规则引擎**: 支持动态业务规则配置
-5. **向量数据库**: 支持AI推荐和语义搜索
 
 ## 目标用户
 

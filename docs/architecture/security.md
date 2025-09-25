@@ -278,100 +278,53 @@ class User(Base):
 ## API 安全防护
 
 ### 请求验证
-```python
-from pydantic import BaseModel, validator
-from typing import Optional
 
-class ProductCreateRequest(BaseModel):
-    name: str
-    price: float
-    category_id: int
-    description: Optional[str] = None
-    
-    @validator('name')
-    def validate_name(cls, v):
-        if len(v) < 1 or len(v) > 200:
-            raise ValueError('商品名称长度必须在1-200字符之间')
-        # XSS 防护
-        if '<script>' in v.lower() or 'javascript:' in v.lower():
-            raise ValueError('商品名称包含非法字符')
-        return v
-    
-    @validator('price')
-    def validate_price(cls, v):
-        if v < 0:
-            raise ValueError('价格不能为负数')
-        if v > 999999.99:
-            raise ValueError('价格不能超过999999.99')
-        return v
+**设计原则**:
+- 所有API输入必须进行严格验证
+- 防止XSS、SQL注入等常见攻击
+- 参数长度、格式、范围验证
+- 恶意内容过滤和清理
 
-# SQL 注入防护
-class ProductRepository:
-    def get_by_category(self, category_id: int):
-        # 使用参数化查询防止 SQL 注入
-        query = """
-        SELECT * FROM products 
-        WHERE category_id = :category_id 
-        AND status = 'active'
-        """
-        return self.db.execute(query, {"category_id": category_id})
-```
+**架构决策**:
+- 输入验证：使用 Pydantic 模型进行请求验证
+- XSS防护：过滤恶意脚本标签和JavaScript代码
+- SQL注入防护：使用参数化查询，禁止动态SQL拼接
+- 数据范围验证：价格、长度、数值范围验证
+
+> **具体验证实现方案**: 详见 [API安全设计](../design/api/security-design.md)
 
 ### 速率限制
-```python
-from slowapi import Limiter, _rate_limit_exceeded_handler
-from slowapi.util import get_remote_address
-from slowapi.errors import RateLimitExceeded
+**设计原则**:
+- 防止恶意用户过度调用API接口
+- 不同用户角色实施不同的速率限制
+- 敏感接口（登录、支付）实施更严格限制
+- 支持基于IP和用户的多维度限流
 
-# 限流器配置
-limiter = Limiter(
-    key_func=get_remote_address,
-    default_limits=["100 per minute"]
-)
+**架构决策**:
+- 限流器：使用 slowapi 实现分布式限流
+- 限流策略：IP限流 + 用户角色限流
+- 限流级别：全局默认 + 接口定制 + 用户角色定制
+- 限流存储：Redis存储限流计数器
 
-# 应用限流
-@app.get("/api/v1/products")
-@limiter.limit("10 per minute")
-def get_products(request: Request):
-    return ProductService.get_all()
-
-@app.post("/api/v1/auth/login")
-@limiter.limit("5 per minute")  # 登录接口更严格的限制
-def login(request: Request, credentials: LoginRequest):
-    return AuthService.login(credentials)
-
-# 自定义限流策略
-class UserBasedLimiter:
-    def __init__(self):
-        self.limits = {
-            'guest': "50 per minute",
-            'user': "200 per minute",
-            'premium': "500 per minute",
-            'admin': "1000 per minute"
-        }
-    
-    def get_limit(self, user_role):
-        return self.limits.get(user_role, "50 per minute")
-```
+> **具体限流实现方案**: 详见 [API限流设计](../design/api/rate-limiting-design.md)
 
 ## 支付安全
 
 ### 支付数据保护
-```python
-class PaymentSecurity:
-    @staticmethod
-    def mask_card_number(card_number):
-        """银行卡号脱敏"""
-        if len(card_number) < 8:
-            return card_number
-        return card_number[:4] + '*' * (len(card_number) - 8) + card_number[-4:]
-    
-    @staticmethod
-    def generate_payment_signature(data, secret_key):
-        """生成支付签名"""
-        sorted_data = sorted(data.items())
-        sign_string = '&'.join([f"{k}={v}" for k, v in sorted_data])
-        sign_string += f"&key={secret_key}"
+
+**设计原则**:
+- 银行卡号等敏感信息必须脱敏处理
+- 支付签名验证确保数据完整性
+- 支付日志记录但不存储敏感信息
+- 支付数据传输全程加密
+
+**架构决策**:
+- 数据脱敏：银行卡号、手机号等敏感信息脱敏显示
+- 签名验证：支付数据使用HMAC-SHA256签名验证
+- 日志安全：支付操作日志记录但脱敏处理
+- 传输加密：支付接口使用HTTPS + 额外加密层
+
+> **具体支付安全实现**: 详见 [支付安全设计](../design/payment/security-design.md)
         return hashlib.md5(sign_string.encode()).hexdigest().upper()
     
     @staticmethod
