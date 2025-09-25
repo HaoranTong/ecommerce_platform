@@ -61,4 +61,4 @@ system/
 - [架构层文档](../../architecture/README.md) - 系统架构原则和策略
 - [模块设计文档](../modules/README.md) - 业务模块详细设计
 - [组件设计文档](../components/README.md) - 技术组件详细设计
-- [文档标准规范](../../standards/document-standards.md) - 文档管理标准
+- [文档管理标准](../../standards/document-management-standards.md) - 文档管理标准

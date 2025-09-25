@@ -227,5 +227,5 @@ point_transactions -- 积分变动历史表
 - [实现细节文档](./implementation.md) - 具体实现方案
 
 ---
-📄 **规范遵循**: 严格按照 [document-standards.md](../../../docs/standards/document-standards.md) 标准制作  
+📄 **规范遵循**: 严格按照 [document-management-standards.md](../../../docs/standards/document-management-standards.md) 标准制作  
 🔄 **文档更新**: 2025-09-18 - 创建符合标准的设计决策文档

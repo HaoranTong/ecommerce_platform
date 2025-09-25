@@ -84,7 +84,7 @@ design/
 - `api-implementation.md` - 实现细节
 
 ## 相关文档
-- [文档标准规范](../standards/document-standards.md) - 文档管理标准
+- [文档管理标准](../standards/document-management-standards.md) - 文档管理标准
 - [需求层文档](../requirements/README.md) - 业务需求层
 - [架构层文档](../architecture/README.md) - 系统架构层
 - [标准层文档](../standards/README.md) - 开发规范层

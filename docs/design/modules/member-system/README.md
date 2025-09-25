@@ -49,5 +49,5 @@
 - **技术咨询**: 架构师团队
 
 ---
-📄 **文档规范**: 遵循 [document-standards.md](../../../docs/standards/document-standards.md)  
+📄 **文档规范**: 遵循 [document-management-standards.md](../../../docs/standards/document-management-standards.md)  
 🔄 **最后更新**: 2025-09-18 - 创建标准模块导航文档
