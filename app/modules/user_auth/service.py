@@ -1,14 +1,14 @@
 """
-文件名：user_service.py
-文件路径：app/services/user_service.py
+文件名：service.py
+文件路径：app/modules/user_auth/service.py
 功能描述：用户管理相关的业务逻辑服务
 主要功能：
 - 用户注册、登录业务逻辑
 - 用户信息管理和验证
 - 用户权限控制逻辑
 使用说明：
-- 导入：from app.services.user_service import UserService
-- 在路由中调用：UserService.register_user(user_data)
+- 导入：from app.modules.user_auth.service import UserService
+- 在路由中调用：UserService.create_user(db, user_data)
 """
 
 from typing import Optional, List

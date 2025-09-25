@@ -13,22 +13,25 @@
 
 | 方法 | 路径 | 功能 | 认证要求 | 权限要求 | 状态 |
 |------|------|------|----------|----------|------|
-| POST | /api/v1/user-auth/register | 用户注册 | 无 | 公开 | ✅ 已定义 |
-| POST | /api/v1/user-auth/login | 用户登录 | 无 | 公开 | ✅ 已定义 |
-| POST | /api/v1/user-auth/logout | 用户登出 | Bearer Token | 已登录用户 | ✅ 已定义 |
-| POST | /api/v1/user-auth/refresh | 刷新令牌 | Refresh Token | 已登录用户 | ✅ 已定义 |
-| POST | /api/v1/user-auth/password/reset-request | 请求密码重置 | 无 | 公开 | ✅ 已定义 |
-| POST | /api/v1/user-auth/password/reset-confirm | 确认密码重置 | Reset Token | 公开 | ✅ 已定义 |
-| PUT | /api/v1/user-auth/password | 修改密码 | Bearer Token | 已登录用户 | ✅ 已定义 |
-| GET | /api/v1/user-auth/profile | 获取用户信息 | Bearer Token | 已登录用户 | ✅ 已定义 |
-| PUT | /api/v1/user-auth/profile | 更新用户信息 | Bearer Token | 已登录用户 | ✅ 已定义 |
-| GET | /api/v1/user-auth/users | 用户列表管理 | Bearer Token | 管理员权限 | ✅ 已定义 |
-| PUT | /api/v1/user-auth/users/{id}/role | 修改用户角色 | Bearer Token | 管理员权限 | ✅ 已定义 |
-| GET | /api/v1/user-auth/health | 健康检查 | 无 | 公开 | ✅ 已定义 |
+| POST | /user-auth/register | 用户注册 | 无 | 公开 | ✅ 已实现 |
+| POST | /user-auth/login | 用户登录 | 无 | 公开 | ✅ 已实现 |
+| POST | /user-auth/logout | 用户登出 | Bearer Token | 已登录用户 | ✅ 已实现 |
+| POST | /user-auth/refresh | 刷新令牌 | Refresh Token | 已登录用户 | ✅ 已实现 |
+| POST | /user-auth/password/reset-request | 请求密码重置 | 无 | 公开 | ❌ 待实现 |
+| POST | /user-auth/password/reset-confirm | 确认密码重置 | Reset Token | 公开 | ❌ 待实现 |
+| PUT | /user-auth/password | 修改密码 | Bearer Token | 已登录用户 | ✅ 已实现 |
+| GET | /user-auth/me | 获取用户信息 | Bearer Token | 已登录用户 | ✅ 已实现 |
+| PUT | /user-auth/me | 更新用户信息 | Bearer Token | 已登录用户 | ✅ 已实现 |
+| GET | /user-auth/users | 用户列表管理 | Bearer Token | 管理员权限 | ✅ 已实现 |
+| GET | /user-auth/users/{user_id} | 获取指定用户信息 | Bearer Token | 管理员权限 | ✅ 已实现 |
+| PUT | /user-auth/users/{id}/role | 修改用户角色 | Bearer Token | 管理员权限 | ❌ 待实现 |
+| GET | /user-auth/health | 健康检查 | 无 | 公开 | ❌ 待实现 |
+
+**注意**: 路径在main.py中自动添加全局前缀`/api/v1`，最终访问路径为`/api/v1/user-auth/register`等
 
 ## 详细接口规范
 
-### 1. 用户注册 POST /api/v1/user-auth/register
+### 1. 用户注册 POST /user-auth/register
 
 #### 请求参数
 ```json
@@ -96,7 +99,7 @@
 }
 ```
 
-### 2. 用户登录 POST /api/v1/user-auth/login
+### 2. 用户登录 POST /user-auth/login
 
 #### 请求参数
 ```json

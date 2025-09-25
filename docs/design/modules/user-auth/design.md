@@ -30,8 +30,8 @@
 |--------|----------|------|----------|
 | 认证机制 | JWT双令牌 | 无状态、可扩展、安全性高 | Session存储、单令牌 |
 | 密码加密 | bcrypt | 自适应、防暴力破解、成熟稳定 | PBKDF2、scrypt |
-| 权限模型 | 基于角色的访问控制(RBAC) | 简单易理解、满足电商需求 | 基于属性的访问控制(ABAC) |
-| 数据库方案 | 用户表扩展role字段 | 简化设计、高性能查询 | 独立角色权限表 |
+| 权限模型 | 基于角色的访问控制(RBAC) | 灵活权限管理、企业级需求 | 简单角色字段 |
+| 数据库方案 | 完整RBAC权限表设计 | 支持复杂权限控制、可扩展 | 用户表扩展role字段 |
 
 ## 系统架构设计
 
@@ -55,13 +55,17 @@ graph TB
 user_auth/
 ├── router.py           # API路由层 - 请求接收和响应
 ├── service.py          # 业务逻辑层 - 认证核心逻辑
-├── repository.py       # 数据访问层 - 用户数据CRUD
-├── models.py           # 数据模型层 - User实体定义
+├── models.py           # 数据模型层 - RBAC权限模型实体定义
 ├── schemas.py          # 数据传输对象 - API请求响应结构
 ├── dependencies.py     # 依赖注入 - 权限检查装饰器
-├── exceptions.py       # 异常处理 - 认证相关异常
-└── utils.py            # 工具函数 - JWT和密码工具
+├── README.md           # 模块说明文档
+└── __init__.py         # 模块初始化文件
 ```
+
+**注意**: 数据访问层(repository)、异常处理(exceptions)、JWT工具(utils)已集成到核心组件：
+- 数据访问: 直接在service.py中通过SQLAlchemy ORM实现
+- 异常处理: 使用`app/core/auth.py`中的`AuthenticationError`
+- JWT工具: 使用`app/core/auth.py`中的JWT相关函数
 
 ### 层次职责
 - **API层**: 处理HTTP请求、参数验证、响应格式化、错误处理
@@ -71,25 +75,110 @@ user_auth/
 ## 数据库设计
 
 ### 表结构设计
+
+**实际实现：完整RBAC权限模型**
+
 ```sql
--- 用户表 (扩展现有表结构)
+-- 用户表
 CREATE TABLE users (
     id INT PRIMARY KEY AUTO_INCREMENT COMMENT '用户唯一标识',
     username VARCHAR(50) NOT NULL UNIQUE COMMENT '用户名，唯一约束',
-    email VARCHAR(200) NOT NULL UNIQUE COMMENT '邮箱地址，唯一约束',
+    email VARCHAR(255) NOT NULL UNIQUE COMMENT '邮箱地址，唯一约束',  -- 调整长度为255
     password_hash VARCHAR(255) NOT NULL COMMENT 'bcrypt加密密码',
-    role VARCHAR(20) NOT NULL DEFAULT 'user' COMMENT '用户角色：user/admin/super_admin',
+    phone VARCHAR(20) NULL COMMENT '手机号',
+    real_name VARCHAR(100) NULL COMMENT '真实姓名',
+    role VARCHAR(50) NOT NULL DEFAULT 'user' COMMENT '主要角色标识',
+    status VARCHAR(20) NOT NULL DEFAULT 'active' COMMENT '用户状态：active/inactive/suspended',
     is_active BOOLEAN DEFAULT TRUE COMMENT '账户状态：激活/禁用',
-    last_login DATETIME NULL COMMENT '最后登录时间',
-    login_attempts INT DEFAULT 0 COMMENT '连续登录失败次数',
+    email_verified BOOLEAN DEFAULT FALSE COMMENT '邮箱验证状态',
+    phone_verified BOOLEAN DEFAULT FALSE COMMENT '手机验证状态',
+    two_factor_enabled BOOLEAN DEFAULT FALSE COMMENT 'MFA启用状态',
+    wx_openid VARCHAR(100) NULL COMMENT '微信OpenID',
+    wx_unionid VARCHAR(100) NULL COMMENT '微信UnionID',
+    last_login_at DATETIME NULL COMMENT '最后登录时间',  -- 字段名调整
+    failed_login_attempts INT DEFAULT 0 COMMENT '连续登录失败次数',  -- 字段名调整
     locked_until DATETIME NULL COMMENT '账户锁定截止时间',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间'
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    is_deleted BOOLEAN DEFAULT FALSE COMMENT '软删除标记',
+    deleted_at DATETIME NULL COMMENT '删除时间'
 );
 
--- 用户会话表 (Redis存储，此处为结构参考)
--- Key: session:{user_id}:{device_id}
--- Value: JSON格式会话信息
+-- 角色表
+CREATE TABLE roles (
+    id INT PRIMARY KEY AUTO_INCREMENT COMMENT '角色ID',
+    name VARCHAR(50) NOT NULL UNIQUE COMMENT '角色名称',
+    description TEXT NULL COMMENT '角色描述',
+    is_active BOOLEAN DEFAULT TRUE COMMENT '角色状态',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    is_deleted BOOLEAN DEFAULT FALSE,
+    deleted_at DATETIME NULL
+);
+
+-- 权限表
+CREATE TABLE permissions (
+    id INT PRIMARY KEY AUTO_INCREMENT COMMENT '权限ID',
+    name VARCHAR(100) NOT NULL UNIQUE COMMENT '权限名称',
+    resource VARCHAR(50) NOT NULL COMMENT '资源标识',
+    action VARCHAR(50) NOT NULL COMMENT '操作类型',
+    description TEXT NULL COMMENT '权限描述',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    is_deleted BOOLEAN DEFAULT FALSE,
+    deleted_at DATETIME NULL
+);
+
+-- 用户角色关联表
+CREATE TABLE user_roles (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    user_id INT NOT NULL COMMENT '用户ID',
+    role_id INT NOT NULL COMMENT '角色ID',
+    granted_at DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '授权时间',
+    granted_by INT NULL COMMENT '授权人ID',
+    expires_at DATETIME NULL COMMENT '过期时间',
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (role_id) REFERENCES roles(id) ON DELETE CASCADE,
+    FOREIGN KEY (granted_by) REFERENCES users(id) ON DELETE SET NULL,
+    UNIQUE KEY uk_user_role (user_id, role_id)
+);
+
+-- 角色权限关联表
+CREATE TABLE role_permissions (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    role_id INT NOT NULL COMMENT '角色ID',
+    permission_id INT NOT NULL COMMENT '权限ID',
+    granted_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    granted_by INT NULL COMMENT '授权人ID',
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (role_id) REFERENCES roles(id) ON DELETE CASCADE,
+    FOREIGN KEY (permission_id) REFERENCES permissions(id) ON DELETE CASCADE,
+    FOREIGN KEY (granted_by) REFERENCES users(id) ON DELETE SET NULL,
+    UNIQUE KEY uk_role_permission (role_id, permission_id)
+);
+
+-- 用户会话表
+CREATE TABLE sessions (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    user_id INT NOT NULL COMMENT '用户ID',
+    token_hash VARCHAR(255) NOT NULL UNIQUE COMMENT 'Token哈希',
+    expires_at DATETIME NOT NULL COMMENT '过期时间',
+    last_accessed_at DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '最后访问时间',
+    is_active BOOLEAN DEFAULT TRUE,
+    ip_address VARCHAR(45) NULL COMMENT 'IP地址',
+    user_agent TEXT NULL COMMENT '用户代理',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    INDEX idx_sessions_user (user_id),
+    INDEX idx_sessions_expires (expires_at),
+    INDEX idx_sessions_active (is_active, last_accessed_at)
+);
 ```
 
 ### 索引设计
@@ -98,13 +187,23 @@ CREATE TABLE users (
 | users | idx_username | username | UNIQUE | 用户名登录查询 |
 | users | idx_email | email | UNIQUE | 邮箱登录查询 |
 | users | idx_role_active | role, is_active | BTREE | 权限检查和用户管理 |
-| users | idx_last_login | last_login | BTREE | 用户活跃度分析 |
+| users | idx_last_login | last_login_at | BTREE | 用户活跃度分析 |
+| users | idx_phone | phone | INDEX | 手机号查询 |
+| users | idx_wx_openid | wx_openid | INDEX | 微信登录查询 |
+| user_roles | uk_user_role | user_id, role_id | UNIQUE | 防止重复授权 |
+| user_roles | idx_user_roles_user | user_id | INDEX | 用户权限查询 |
+| user_roles | idx_user_roles_role | role_id | INDEX | 角色用户查询 |
+| role_permissions | uk_role_permission | role_id, permission_id | UNIQUE | 防止重复授权 |
+| role_permissions | idx_role_permissions_role | role_id | INDEX | 角色权限查询 |
+| permissions | idx_permissions_resource | resource, action | INDEX | 权限验证查询 |
 
 ### 数据关系
-- **自包含设计**: 用户表包含角色信息，避免复杂关联查询
-- **扩展预留**: 预留字段支持未来功能扩展（手机号、微信openid等）
-- **缓存集成**: 会话数据存储在Redis，减少数据库压力
-- **历史兼容**: 保持与现有用户数据的兼容性，支持平滑迁移
+- **完整RBAC设计**: 实现用户-角色-权限的多对多关系模型
+- **灵活权限控制**: 支持细粒度权限管理和动态权限分配
+- **扩展功能支持**: 包含邮箱验证、双因子认证、微信登录等现代认证特性
+- **缓存集成**: 会话数据可选择存储在MySQL或Redis
+- **审计追踪**: 权限授权记录包含授权人和授权时间
+- **软删除支持**: 所有核心表支持软删除，保证数据完整性
 
 ## API设计
 
@@ -115,19 +214,25 @@ CREATE TABLE users (
 - **错误处理**: 统一错误码和消息格式
 
 ### 端点设计
-| 方法 | 路径 | 功能 | 认证要求 | 权限要求 |
-|------|------|------|----------|----------|
-| POST | `/api/v1/user-auth/register` | 用户注册 | 无 | 公开 |
-| POST | `/api/v1/user-auth/login` | 用户登录 | 无 | 公开 |
-| POST | `/api/v1/user-auth/logout` | 用户登出 | Bearer Token | 已登录用户 |
-| POST | `/api/v1/user-auth/refresh` | 刷新令牌 | Refresh Token | 已登录用户 |
-| POST | `/api/v1/user-auth/password/reset-request` | 请求密码重置 | 无 | 公开 |
-| POST | `/api/v1/user-auth/password/reset-confirm` | 确认密码重置 | Reset Token | 公开 |
-| PUT | `/api/v1/user-auth/password` | 修改密码 | Bearer Token | 已登录用户 |
-| GET | `/api/v1/user-auth/profile` | 获取用户信息 | Bearer Token | 已登录用户 |
-| PUT | `/api/v1/user-auth/profile` | 更新用户信息 | Bearer Token | 已登录用户 |
-| GET | `/api/v1/user-auth/users` | 用户列表管理 | Bearer Token | 管理员权限 |
-| PUT | `/api/v1/user-auth/users/{id}/role` | 修改用户角色 | Bearer Token | 管理员权限 |
+| 方法 | 路径 | 功能 | 认证要求 | 权限要求 | 实现状态 |
+|------|------|------|----------|----------|----------|
+| POST | `/user-auth/register` | 用户注册 | 无 | 公开 | ✅ 已实现 |
+| POST | `/user-auth/login` | 用户登录 | 无 | 公开 | ✅ 已实现 |
+| POST | `/user-auth/logout` | 用户登出 | Bearer Token | 已登录用户 | ✅ 已实现 |
+| POST | `/user-auth/refresh` | 刷新令牌 | Refresh Token | 已登录用户 | ✅ 已实现 |
+| POST | `/user-auth/password/reset-request` | 请求密码重置 | 无 | 公开 | ❌ 待实现 |
+| POST | `/user-auth/password/reset-confirm` | 确认密码重置 | Reset Token | 公开 | ❌ 待实现 |
+| PUT | `/user-auth/password` | 修改密码 | Bearer Token | 已登录用户 | ✅ 已实现 |
+| GET | `/user-auth/me` | 获取用户信息 | Bearer Token | 已登录用户 | ✅ 已实现 |
+| PUT | `/user-auth/me` | 更新用户信息 | Bearer Token | 已登录用户 | ✅ 已实现 |
+| GET | `/user-auth/users` | 用户列表管理 | Bearer Token | 管理员权限 | ✅ 已实现 |
+| GET | `/user-auth/users/{user_id}` | 获取指定用户信息 | Bearer Token | 管理员权限 | ✅ 已实现 |
+| PUT | `/user-auth/users/{id}/role` | 修改用户角色 | Bearer Token | 管理员权限 | ❌ 待实现 |
+| GET | `/user-auth/health` | 健康检查 | 无 | 公开 | ❌ 待实现 |
+
+**注意**: 
+- 实际路径会在main.py中自动添加全局前缀`/api/v1`
+- 最终访问路径为: `/api/v1/user-auth/register`等
 
 ### 错误处理设计
 ```json
