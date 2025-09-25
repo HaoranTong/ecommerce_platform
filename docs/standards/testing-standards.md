@@ -366,7 +366,7 @@ my_test.py                   # 个人化命名
 | **单元测试** | `test_{module}.py` | `test_users.py`, `test_products.py` |
 | **集成测试** | `test_{module}_integration.py` | `test_cart_integration.py` |
 | **端到端测试** | `test_{scenario}_e2e.py` | `test_order_flow_e2e.py` |
-| **系统测试脚本** | `test_{system}.ps1` | `test_cart_system.ps1` |
+| **系统测试** | `test_{module}_complete.py` | `test_cart_complete.py` |
 
 ### 测试函数命名规范
 ```python

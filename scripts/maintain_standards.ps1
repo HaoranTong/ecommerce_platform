@@ -60,9 +60,9 @@ scripts/maintain_standards.ps1 -Action backup -Target "phase3-complete"
 #>
 
 param(
-    [Parameter(Mandatory=$true)]
+    [Parameter(Mandatory=$false)]
     [ValidateSet("check", "update", "report", "backup", "restore")]
-    [string]$Action,
+    [string]$Action = "check",
     
     [string]$Target = "",
     [string]$OutputPath = "."
@@ -180,7 +180,7 @@ function Invoke-HealthCheck {
         $hasNamingConventions = $deps -contains "naming-conventions-standards.md"
         $hasProjectFoundation = $deps -contains "PROJECT-FOUNDATION.md"
         
-        if (-not $hasNamingConventions -or -not $hasProjectStructure) {
+        if (-not $hasNamingConventions -or -not $hasProjectFoundation) {
             $dependencyIssues += $doc.Name
         }
     }

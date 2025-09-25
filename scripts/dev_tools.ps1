@@ -37,7 +37,9 @@ except Exception as e:
     
     'test-cart' {
         Write-Host "🛒 执行购物车测试..." -ForegroundColor Yellow
-        . .\tests\integration\test_cart_system.ps1
+        Write-Host "⚠️ 购物车PowerShell测试已移除，使用Python测试替代:" -ForegroundColor Yellow
+        Write-Host "   pytest tests/integration/test_shopping_cart_complete.py" -ForegroundColor Cyan
+        pytest tests/integration/test_shopping_cart_complete.py
     }
     
     'start-api' {

@@ -13,7 +13,8 @@
 
 #### 用户与购物功能  
 - `test_users.py` - 用户管理API完整测试套件
-- `test_shopping_cart.py` - 购物车API完整测试套件
+- `test_shopping_cart_complete.py` - 购物车API完整测试套件
+- `test_shopping_cart_integration.py` - 购物车集成测试
 
 ### 业务流程集成测试
 测试跨模块的完整业务流程和复杂场景。
@@ -22,18 +23,8 @@
 - `test_auth_integration.py` - 认证系统集成测试
 
 #### 订单与库存
-- `test_order_management.py` - 订单管理完整业务流程测试  
+- `test_order_management_full_integration.py` - 订单管理完整业务流程测试  
 - `test_inventory_management_complete.py` - 库存管理完整业务流程测试
-
-### 系统级测试脚本
-- `test_cart_system.ps1` - PowerShell脚本，测试购物车系统端到端流程
-
-## 测试环境
-
-集成测试使用：
-- TestClient进行HTTP请求模拟
-- 真实数据库连接（测试数据库）
-- 模拟外部服务依赖
 
 ## 运行方式
 
@@ -43,9 +34,6 @@ pytest tests/integration/
 
 # 运行API测试
 pytest tests/integration/test_*.py
-
-# 运行PowerShell测试脚本
-.\tests\integration\test_cart_system.ps1
 
 # 带详细输出运行
 pytest tests/integration/ -v -s

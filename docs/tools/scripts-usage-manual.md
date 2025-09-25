@@ -212,6 +212,75 @@
 
 ---
 
+### setup_dev_env.ps1 - 统一开发环境配置
+
+**功能描述**: 整合开发环境配置和环境变量同步功能，提供统一的开发环境管理解决方案  
+**执行时机**: 开发开始前、环境问题排查、新环境初始化  
+**输出格式**: 环境配置状态和操作结果摘要  
+**错误处理**: 配置失败时提供详细的错误信息和修复建议
+
+**脚本特性**:
+- 🔧 **虚拟环境管理**: 自动激活虚拟环境
+- ⚙️ **环境变量配置**: 设置数据库、Redis、安全等配置  
+- 🐳 **Docker服务检查**: 验证MySQL和Redis容器状态
+- 🚀 **API服务监控**: 检查API服务运行状态
+- 📄 **环境文件生成**: 创建或更新.env文件
+
+**参数表格**:
+| 参数名 | 类型 | 必需 | 默认值 | 说明 | AI使用提示 |
+|--------|------|------|--------|------|------------|
+| `-Action` | String | ✗ | "setup" | 执行操作类型 | setup/check/sync/create-env |
+| `-CreateEnvFile` | Switch | ✗ | false | 是否创建.env文件 | 初次环境设置或配置更新时使用 |
+
+**操作模式详解**:
+```powershell
+# setup: 完整环境配置（默认）
+# - 激活虚拟环境
+# - 设置环境变量  
+# - 检查Docker服务
+# - 验证API服务
+# - 显示可用命令
+
+# check: 仅检查环境状态
+# - 虚拟环境状态
+# - 环境变量配置
+# - Docker服务状态
+# - API服务状态
+
+# sync: 仅同步环境变量
+# - 设置开发环境变量
+# - 验证配置完整性
+
+# create-env: 创建环境文件
+# - 生成标准.env文件
+# - 包含数据库、Redis、安全等配置
+```
+
+**AI使用模式**:
+```powershell
+# 完整开发环境配置
+.\scripts\setup_dev_env.ps1
+
+# 仅检查环境状态
+.\scripts\setup_dev_env.ps1 -Action check
+
+# 同步环境变量
+.\scripts\setup_dev_env.ps1 -Action sync
+
+# 创建环境文件
+.\scripts\setup_dev_env.ps1 -Action create-env
+
+# 完整配置并创建环境文件
+.\scripts\setup_dev_env.ps1 -CreateEnvFile
+```
+
+**合并历史**: 此脚本合并了原有的`dev_env.ps1`和`sync_env.ps1`功能，提供更语义化的命名和统一的参数接口  
+**关联文档**: `docs/development/environment-setup.md`, `docker-compose.yml`  
+**触发场景**: 开发开始前、环境问题排查、Docker服务重启后  
+**下游脚本**: 环境配置完成后可执行测试脚本如 `smoke_test.ps1`
+
+---
+
 ### sync_readme.ps1 - 文档同步更新
 
 **功能描述**: 自动同步更新README文档，确保文档与代码结构一致  

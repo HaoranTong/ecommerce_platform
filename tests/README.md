@@ -1,6 +1,23 @@
 # 测试目录说明
 
-## 📁 目录结构
+## � 最近更新 (2025-09-25)
+
+### 测试文件清理
+- ✅ **重复文件清理**: 删除了重复的集成测试文件，保留最完整版本
+- ✅ **规范化清理**: 移除不规范的PowerShell测试文件
+- ✅ **文档同步**: 更新了所有相关文档和引用链接
+
+### 清理详情
+**删除的重复文件**:
+- `test_shopping_cart.py` → 保留 `test_shopping_cart_complete.py`
+- `test_shopping_cart_full_integration.py` → 合并到 `test_shopping_cart_integration.py`
+- `test_order_integration.py` + `test_order_management.py` → 保留 `test_order_management_full_integration.py`
+- `test_inventory_integration_strict.py` → 保留 `test_inventory_management_complete.py`
+
+**移除的不规范文件**:
+- `test_cart_system.ps1` - PowerShell脚本不应在Python测试目录中
+
+## �📁 目录结构
 
 ```
 tests/

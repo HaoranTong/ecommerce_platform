@@ -2,29 +2,28 @@
 
 ## 📁 脚本分类概览
 
-### 🔧 AI开发辅助脚本 (3个)
+### 🔧 AI开发辅助脚本 (4个)
 | 脚本名称 | 功能 | 使用场景 | 详细文档 |
 |---------|------|----------|----------|
 | `ai_checkpoint.ps1` | AI检查点验证 | AI开发流程验证 | [📖](../docs/tools/scripts-usage-manual.md#ai_checkpoint) |
 | `dev_checkpoint.ps1` | 开发检查点 | 代码质量检查 | [📖](../docs/tools/scripts-usage-manual.md#dev_checkpoint) |
 | `validate_standards.ps1` | 🆕 标准文档验证 | Phase 3.1自动化质量保证 | [📖](../docs/tools/scripts-usage-manual.md#validate_standards) |
-| `maintain_standards.ps1` | 🆕 标准文档综合维护 | Phase 3.3维护工具集合 | [📖](../docs/tools/scripts-usage-manual.md#maintain_standards) |
+| `maintain_standards.ps1` | 🆕 标准文档综合维护 | Phase 3.3维护工具集合（备份/恢复/版本管理） | [📖](../docs/tools/scripts-usage-manual.md#maintain_standards) |
 
-### 📋 项目管理脚本 (6个)
+### 📋 项目管理脚本 (5个)
 | 脚本名称 | 功能 | 使用场景 | 详细文档 |
 |---------|------|----------|----------|
 | `feature_finish.ps1` | 功能完成流程 | 功能开发完成后 | [📖](../docs/tools/scripts-usage-manual.md#feature_finish) |
 | `release_to_main.ps1` | 发布到主分支 | 版本发布流程 | [📖](../docs/tools/scripts-usage-manual.md#release_to_main) |
-| `sync_env.ps1` | 环境状态同步 | 环境配置同步 | [📖](../docs/tools/scripts-usage-manual.md#sync_env) |
+| `setup_dev_env.ps1` | 🆕 开发环境配置 | 统一环境配置（合并dev_env.ps1+sync_env.ps1） | [📖](../docs/tools/scripts-usage-manual.md#setup_dev_env) |
 | `sync_readme.ps1` | 文档同步 | 文档更新后同步 | [📖](../docs/tools/scripts-usage-manual.md#sync_readme) |
 | `log_status.ps1` | 状态日志记录 | 工作状态记录 | [📖](../docs/tools/scripts-usage-manual.md#log_status) |
 | `update_module_status.ps1` | 模块状态更新 | 模块开发状态维护 | [📖](../docs/tools/scripts-usage-manual.md#update_module_status) |
 
-### 🔍 代码质量检查脚本 (6个)
+### 🔍 代码质量检查脚本 (5个)
 | 脚本名称 | 功能 | 使用场景 | 详细文档 |
 |---------|------|----------|----------|
 | `check_code_standards.ps1` | 代码规范检查 | 代码质量验证+sku_id类型检查 | [📖](../docs/tools/scripts-usage-manual.md#check_code_standards) |
-| `check_docs.ps1` | 文档检查 | 文档质量验证 | [📖](../docs/tools/scripts-usage-manual.md#check_docs) |
 | `check_naming_compliance.ps1` | 命名规范检查 | 命名标准验证 | [📖](../docs/tools/scripts-usage-manual.md#check_naming_compliance) |
 | `quick_structure_check.ps1` | 快速结构检查 | 项目结构验证 | [📖](../docs/tools/scripts-usage-manual.md#quick_structure_check) |
 | `validate_pydantic_v2.py` | Pydantic验证 | 数据模型验证 | [📖](../docs/tools/scripts-usage-manual.md#validate_pydantic_v2) |
@@ -52,11 +51,14 @@
 | `diagnose_test_fixtures.ps1` | `check_test_env.ps1` | 功能重叠，fixture诊断是环境检查的一部分 | ✅ 已删除 |
 | `check_sku_id_types.ps1` | `check_code_standards.ps1` | 数据类型检查属于代码规范的一部分 | ✅ 已删除 |
 | `test_product_system.ps1` | `run_module_tests.ps1` | 重复功能，统一使用模块测试脚本 | ⚠️ 已弃用 |
+| `dev_env.ps1` + `sync_env.ps1` | `setup_dev_env.ps1` | 环境配置功能合并，提供统一开发环境管理 | ✅ 已合并 |
+| `check_docs.ps1` | `validate_standards.ps1` | 文档验证功能重复70%，统一使用标准验证工具 | ✅ 已删除 |
 
-#### 🎯 整合效果
-- **简化维护**: 从12个测试脚本精简到9个核心脚本
-- **功能增强**: 合并后的脚本功能更全面，检查更全面
+#### 🎯 整合效果  
+- **简化维护**: 从原来的脚本精简到当前的核心脚本集合
+- **功能增强**: 合并后的脚本功能更全面，检查更全面  
 - **一致性**: 统一的参数和使用模式
+- **语义化**: 脚本名称更符合功能语义（如setup_dev_env.ps1）
 
 ### ⚙️ 系统维护脚本 (8个)
 | 脚本名称 | 功能 | 使用场景 | 详细文档 |

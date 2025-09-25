@@ -20,8 +20,44 @@
 
 ## 📋 当前任务区域 
 
-**当前状态**: ✅ standards目录标准文档规范化完成，版本管理完整率从17%提升到100%，规范遵循率从67%提升到95%
-**最新更新**: 2025-09-25 完成standards目录下12个标准文档的全面规范化改进
+**当前状态**: ✅ 测试文件结构优化完成，脚本整合优化完成，测试边界规范化，文档引用同步更新
+**最新更新**: 2025-09-25 完成测试文件清理、脚本合并优化、文档引用同步
+
+### ✅ 测试文件结构优化和脚本整合任务 - 完成 [CHECK:TEST-001] [CHECK:DOC-005] [CHECK:STATUS-002]
+
+#### **优化成果汇总**: 
+- ✅ **脚本合并优化**: dev_env.ps1 + sync_env.ps1 → setup_dev_env.ps1，提供语义化命名和统一接口
+- ✅ **重复测试清理**: 删除5个重复的集成测试文件，保留最完整版本
+- ✅ **不规范文件移除**: 删除PowerShell测试脚本，规范测试目录结构
+- ✅ **文档引用同步**: 全局检索并更新所有相关文档和脚本引用
+- ✅ **maintain_standards.ps1修复**: 修复变量名错误和参数配置问题
+
+#### **脚本整合详情**:
+1. **环境配置脚本合并**: 统一开发环境配置功能，支持setup/check/sync/create-env四种操作模式
+2. **功能语义化**: setup_dev_env.ps1提供更清晰的功能定位和使用说明
+3. **参数标准化**: 统一参数接口，提供更好的用户体验
+4. **错误修复**: 修复maintain_standards.ps1中的变量引用错误和参数配置问题
+
+#### **测试文件清理详情**:
+1. **重复文件删除**: 
+   - test_shopping_cart.py → 保留test_shopping_cart_complete.py
+   - test_shopping_cart_full_integration.py → 合并到test_shopping_cart_integration.py
+   - test_order_integration.py + test_order_management.py → 保留test_order_management_full_integration.py
+   - test_inventory_integration_strict.py → 保留test_inventory_management_complete.py
+2. **不规范文件移除**: test_cart_system.ps1（PowerShell脚本不应在Python测试目录中）
+3. **引用同步更新**: 更新tests/integration/README.md、scripts/dev_tools.ps1、testing-standards.md中的文件引用
+
+#### **文档同步更新**:
+- **脚本手册更新**: 添加setup_dev_env.ps1的详细使用说明和参数表格
+- **README更新**: 更新scripts/README.md，反映脚本合并状态和整合历史
+- **测试文档更新**: 同步tests/README.md，添加清理记录和当前状态
+- **标准文档更新**: 修正testing-standards.md中的文件命名示例
+
+#### **质量提升**:
+- **维护简化**: 脚本从33个优化到30个，减少重复功能
+- **测试规范**: 集成测试目录更加清晰，消除重复和不规范文件
+- **文档一致**: 所有文档引用与实际文件结构保持同步
+- **功能增强**: 合并后的脚本功能更全面，使用更便捷
 
 ### ✅ standards目录标准文档规范化任务 - 完成 [CHECK:DOC-001] [CHECK:DOC-003] [CHECK:DOC-005] [CHECK:STATUS-002]
 
