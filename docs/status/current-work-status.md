@@ -98,8 +98,8 @@
 2. **DEV-003**: `docs/architecture/data-models.md` → 修复为 `docs/architecture/data-architecture.md`
 3. **DEV-003**: 命名规范行号错误 → 修复为 `docs/standards/database-standards.md` 第200-250行
 4. **DEV-006**: API安全行号错误 → 修复为 `docs/standards/api-standards.md` 第441-490行
-5. **DEV-011**: `docs/operations/backup-recovery.md` → 修复为 `docs/operations/maintenance-guide.md`
-6. **DEV-011**: `docs/operations/database-operations.md` → 修复为 `docs/operations/maintenance-guide.md`
+5. **DEV-011**: `docs/operations/backup-recovery.md` → 修复为 `docs/standards/maintenance-guide.md`
+6. **DEV-011**: `docs/operations/database-operations.md` → 修复为 `docs/standards/maintenance-guide.md`
 7. **DEV-012**: `docs/operations/environment-config.md` → 修复为 `docs/operations/environment-variables.md`
 
 #### **验证通过的引用示例**:

@@ -950,9 +950,9 @@ scripts\run_performance_tests.ps1 -Module [模块名] -LoadLevel [负载级别]
 **检查重点**: 迁移脚本正确性、数据完整性、回滚机制
 **精准导航**:
 1. **迁移脚本** → `alembic/versions/` 目录迁移文件
-2. **备份策略** → `docs/operations/maintenance-guide.md` 第300-330行备份管理
+2. **备份策略** → `docs/standards/maintenance-guide.md` 第300-330行备份管理
 3. **数据测试** → `docs/standards/testing-standards.md` 第200-250行数据库测试规范
-4. **回滚机制** → `docs/operations/maintenance-guide.md` 第365-390行回滚方案
+4. **回滚机制** → `docs/standards/maintenance-guide.md` 第365-390行回滚方案
 
 **验证清单**:
 □ 迁移脚本语法正确

@@ -660,7 +660,7 @@ scripts/maintain_standards.ps1 -Action restore -Target "milestone-v1.0"
 
 ### 🔗 关联文档
 
-- [维护手册详细说明](../operations/maintenance-guide.md)
+- [维护手册详细说明](../standards/maintenance-guide.md)
 - [技术文档导航中心](../README.md)  
 - [validate_standards.ps1文档](#validate_standardsps1---标准文档验证)
 
