@@ -7,16 +7,18 @@
     python scripts/validate_test_config.py
 
 验证内容：
-1. 单元测试配置验证（内存SQLite）
-2. 烟雾测试配置验证（文件SQLite）
-3. 集成测试配置验证（MySQL连接）
-4. 测试依赖包验证
-5. 测试fixture功能验证
+1. 虚拟环境检查和激活提示
+2. 单元测试配置验证（内存SQLite）
+3. 烟雾测试配置验证（文件SQLite）
+4. 集成测试配置验证（MySQL连接）
+5. 测试依赖包验证
+6. 测试fixture功能验证
 """
 
 import sys
 import os
 import tempfile
+import subprocess
 from pathlib import Path
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
@@ -25,6 +27,76 @@ from sqlalchemy.orm import sessionmaker
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
+def check_virtual_environment():
+    """检查并处理虚拟环境状态"""
+    print("🔍 检查虚拟环境状态")
+    print("=" * 50)
+    
+    # 检查是否在虚拟环境中
+    in_venv = hasattr(sys, 'real_prefix') or (hasattr(sys, 'base_prefix') and sys.base_prefix != sys.prefix)
+    
+    if in_venv:
+        print(f"✅ 虚拟环境已激活: {sys.prefix}")
+        return True
+    
+    print(f"❌ 未检测到虚拟环境，当前Python路径: {sys.prefix}")
+    print()
+    print("🔧 尝试自动激活虚拟环境...")
+    
+    # 寻找常见的虚拟环境路径
+    possible_venv_paths = [
+        project_root / "venv",
+        project_root / ".venv", 
+        project_root / "env",
+        project_root / ".env"
+    ]
+    
+    for venv_path in possible_venv_paths:
+        if venv_path.exists():
+            print(f"📁 发现虚拟环境目录: {venv_path}")
+            
+            # 检查激活脚本
+            if os.name == 'nt':  # Windows
+                activate_script = venv_path / "Scripts" / "activate.bat"
+                powershell_script = venv_path / "Scripts" / "Activate.ps1"
+            else:  # Unix/Linux/Mac
+                activate_script = venv_path / "bin" / "activate"
+                powershell_script = None
+            
+            if activate_script.exists() or (powershell_script and powershell_script.exists()):
+                print()
+                print("⚠️  请手动激活虚拟环境后再运行此脚本：")
+                print()
+                if os.name == 'nt':  # Windows
+                    if powershell_script and powershell_script.exists():
+                        print(f"   PowerShell: & '{powershell_script}'")
+                    if activate_script.exists():
+                        print(f"   Command Prompt: {activate_script}")
+                else:
+                    print(f"   source {activate_script}")
+                print()
+                print("然后重新运行：python scripts/validate_test_config.py")
+                return False
+    
+    print()
+    print("❌ 未找到虚拟环境目录")
+    print()
+    print("🆘 请先创建虚拟环境：")
+    print("   python -m venv venv")
+    print("   然后激活虚拟环境：")
+    if os.name == 'nt':  # Windows
+        print("   PowerShell: venv\\Scripts\\Activate.ps1")
+        print("   Command Prompt: venv\\Scripts\\activate.bat")
+    else:
+        print("   source venv/bin/activate")
+    print()
+    print("最后安装依赖：")
+    print("   pip install -r requirements.txt")
+    print("   pip install -r requirements_dev.txt")
+    print()
+    
+    return False
+
 def validate_python_environment():
     """验证Python环境配置"""
     print("=== Python环境验证 ===")
@@ -32,12 +104,6 @@ def validate_python_environment():
     # 检查Python版本
     python_version = sys.version_info
     print(f"✅ Python版本: {python_version.major}.{python_version.minor}.{python_version.micro}")
-    
-    # 检查虚拟环境
-    if hasattr(sys, 'real_prefix') or (hasattr(sys, 'base_prefix') and sys.base_prefix != sys.prefix):
-        print(f"✅ 虚拟环境已激活: {sys.prefix}")
-    else:
-        print(f"⚠️  未检测到虚拟环境: {sys.prefix}")
     
     # 检查项目根目录
     if project_root.exists():
@@ -259,6 +325,13 @@ def main():
     """主验证流程"""
     print("🔍 测试环境配置验证开始")
     print("=" * 50)
+    
+    # 首先检查虚拟环境 - 这是最重要的前置条件
+    if not check_virtual_environment():
+        print("\n❌ 虚拟环境检查失败，请按照上述提示激活虚拟环境后重试")
+        return False
+    
+    print()  # 添加分隔符
     
     # 验证步骤列表
     validation_steps = [

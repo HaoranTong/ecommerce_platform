@@ -455,24 +455,31 @@ factory-boy>=3.2.0
 Faker>=18.0.0              
 ```
 
-## Factory Boy 测试数据工厂
+## 双工厂架构测试数据策略
 
-### 数据工厂标准结构
+### 🏭 工厂架构概览
+
+本项目采用**双工厂架构**，根据测试类型和场景选择不同的数据工厂：
+
+| 工厂类型 | 文件位置 | 适用测试 | 主要特点 |
+|---------|---------|---------|---------|
+| **Factory Boy工厂** | `tests/factories/user_auth_factories.py` | 单元测试<br/>Mock测试 | 内存创建<br/>复杂关系<br/>智能推断 |
+| **统一工厂** | `tests/factories/data_factory.py` | 集成测试<br/>E2E测试 | 真实数据库<br/>跨模块链<br/>类型安全 |
+
+### 📋 Factory Boy工厂标准 (单元测试专用)
+
 ```python
-# tests/factories/__init__.py
-from .user_factory import UserFactory
-from .product_factory import ProductFactory
-
-# tests/factories/user_factory.py
+# tests/factories/user_auth_factories.py
 import factory
 from faker import Faker
-from app.modules.user_auth.models import User
+from app.modules.user_auth.models import User, Role, Permission
 
 fake = Faker('zh_CN')
 
-class UserFactory(factory.Factory):
+class UserFactory(factory.alchemy.SQLAlchemyModelFactory):
     class Meta:
         model = User
+        sqlalchemy_session_persistence = "flush"
 
     email = factory.LazyFunction(lambda: fake.email())
     username = factory.LazyFunction(lambda: fake.user_name())
@@ -480,12 +487,107 @@ class UserFactory(factory.Factory):
     is_active = True
     created_at = factory.LazyFunction(lambda: fake.date_time())
 
-# 使用示例
-def test_user_creation(unit_test_db):
-    user = UserFactory.build()  # 创建对象但不保存
-    unit_test_db.add(user)
-    unit_test_db.commit()
-    assert user.email is not None
+class RoleFactory(factory.alchemy.SQLAlchemyModelFactory):
+    class Meta:
+        model = Role
+        sqlalchemy_session_persistence = "flush"
+
+    name = factory.Sequence(lambda n: f"role_{n}")
+    description = factory.LazyFunction(lambda: fake.sentence())
+
+# 使用示例 - 单元测试
+def test_user_permission_logic(mocker):
+    user = UserFactory(is_active=True)  # 仅在内存创建
+    role = RoleFactory(name='admin')
+    
+    # Mock外部依赖
+    mock_auth = mocker.patch('app.services.AuthService')
+    mock_auth.get_user_roles.return_value = [role]
+    
+    # 测试纯业务逻辑
+    assert user.has_role('admin') is True
+```
+
+### 🌐 统一工厂标准 (集成测试专用)
+
+```python
+# tests/factories/data_factory.py
+from sqlalchemy.orm import Session
+from app.modules.user_auth.models import User
+from app.modules.product_catalog.models import Category, Product
+
+class StandardTestDataFactory:
+    @staticmethod
+    def create_user_data(db: Session, **overrides) -> User:
+        """创建用户数据 - 真实数据库操作"""
+        user_data = {
+            'username': f'testuser_{fake.random_int()}',
+            'email': fake.email(),
+            'password_hash': 'hashed_password',
+            'is_active': True,
+            **overrides
+        }
+        user = User(**user_data)
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+        return user
+    
+    @staticmethod
+    def create_complete_chain(db: Session):
+        """创建完整业务数据链"""
+        user = StandardTestDataFactory.create_user_data(db)
+        category = StandardTestDataFactory.create_category_data(db)
+        brand = StandardTestDataFactory.create_brand_data(db)
+        product = StandardTestDataFactory.create_product_data(
+            db, category_id=category.id, brand_id=brand.id
+        )
+        sku = StandardTestDataFactory.create_sku_data(
+            db, product_id=product.id
+        )
+        return user, category, brand, product, sku
+
+# 使用示例 - 集成测试
+def test_order_creation_workflow(integration_test_db):
+    # 创建真实的完整业务数据
+    user, category, brand, product, sku = StandardTestDataFactory.create_complete_chain(
+        integration_test_db
+    )
+    
+    # 测试跨模块集成
+    order_service = OrderService(integration_test_db)
+    result = order_service.create_order(user.id, sku.id, quantity=2)
+    assert result.success is True
+```
+
+### ⚠️ 工厂使用强制规范
+
+#### ✅ **正确使用模式**
+```python
+# 单元测试 - 使用Factory Boy
+def test_user_logic(mocker):
+    user = UserFactory()  # ✅ 快速、轻量、Mock友好
+
+# 集成测试 - 使用统一工厂
+def test_order_integration(integration_test_db):
+    user, _, _, _, sku = StandardTestDataFactory.create_complete_chain(
+        integration_test_db
+    )  # ✅ 完整、真实、类型安全
+```
+
+#### ❌ **禁止的错误用法**
+```python
+# ❌ 错误1：单元测试使用统一工厂 (太重)
+def test_user_logic():
+    user, _, _, _, _ = StandardTestDataFactory.create_complete_chain(db)  # ❌ 过度
+
+# ❌ 错误2：集成测试使用Factory Boy (Mock不适用)
+def test_order_integration():
+    user = UserFactory()  # ❌ Mock数据不适用于真实集成
+
+# ❌ 错误3：硬编码测试数据 (维护困难)
+def test_user_creation():
+    user = User(name="test", email="test@test.com")  # ❌ CI警告
 ```
 
 ### Docker环境配置 (集成测试必需)
@@ -1139,31 +1241,52 @@ class TestUserJourney:
 
 ## 测试数据管理
 
-### 测试数据工厂
+### 双工厂架构数据策略
+
+根据测试类型选择合适的数据工厂：
+
 ```python
-# tests/factories.py
-from factory import Factory, Faker, SubFactory
-from app.models.user import User
-from app.models.product import Product
+# 单元测试 - 使用Factory Boy工厂
+# tests/unit/user_auth/test_user_service.py
+from tests.factories.user_auth_factories import UserFactory, RoleFactory
 
-class UserFactory(Factory):
-    class Meta:
-        model = User
+def test_user_permission_check(mocker):
+    # 快速创建测试数据，无数据库I/O
+    user = UserFactory(is_active=True)
+    role = RoleFactory(name='admin')
     
-    email = Faker('email')
-    username = Faker('user_name')
-    hashed_password = Faker('password')
-    is_active = True
+    # Mock外部依赖
+    mock_service = mocker.patch('app.services.PermissionService')
+    mock_service.get_user_roles.return_value = [role]
+    
+    # 测试纯逻辑
+    assert user.has_admin_access() is True
 
-class ProductFactory(Factory):
-    class Meta:
-        model = Product
+# 集成测试 - 使用统一工厂
+# tests/integration/test_order_workflow.py
+from tests.factories.data_factory import StandardTestDataFactory
+
+def test_complete_order_process(integration_test_db):
+    # 创建完整业务数据链，真实数据库操作
+    user, category, brand, product, sku = StandardTestDataFactory.create_complete_chain(
+        integration_test_db
+    )
     
-    name = Faker('word')
-    description = Faker('text')
-    price = Faker('pydecimal', left_digits=3, right_digits=2, positive=True)
-    stock_quantity = Faker('random_int', min=0, max=100)
+    # 测试跨模块集成
+    order_service = OrderService(integration_test_db)
+    result = order_service.create_order(user.id, sku.id, quantity=2)
+    
+    assert result.success is True
+    assert result.order.user_id == user.id
 ```
+
+### 工厂选择指南
+
+| 测试类型 | 推荐工厂 | 理由 | 示例场景 |
+|---------|---------|-----|---------|
+| **单元测试** | Factory Boy<br/>`user_auth_factories.py` | 快速、轻量<br/>Mock友好<br/>专业关系处理 | 权限检查<br/>密码验证<br/>业务规则 |
+| **集成测试** | 统一工厂<br/>`data_factory.py` | 真实数据库<br/>跨模块支持<br/>类型安全 | 订单流程<br/>用户注册<br/>库存管理 |
+| **E2E测试** | 统一工厂<br/>`data_factory.py` | 完整数据链<br/>业务完整性 | 购物流程<br/>支付流程 |
 
 ### Fixture使用
 ```python

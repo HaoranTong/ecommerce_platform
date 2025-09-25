@@ -289,6 +289,126 @@ docker rm mysql_test 2>$null
 .\scripts\setup_test_env.ps1 -TestType unit
 ```
 
+## 🏭 双工厂架构使用指南
+
+### 📋 工厂选择决策表
+
+| 测试类型 | 推荐工厂 | 主要用途 | 示例场景 |
+|---------|---------|---------|---------|
+| **单元测试** | `user_auth_factories.py`<br/>(Factory Boy) | 纯逻辑测试<br/>Mock配合测试<br/>复杂关系测试 | 权限验证<br/>密码加密<br/>业务规则 |
+| **集成测试** | `data_factory.py`<br/>(统一工厂) | 跨模块测试<br/>数据库集成<br/>API接口测试 | 用户注册流程<br/>订单创建<br/>库存扣减 |
+| **E2E测试** | `data_factory.py`<br/>(统一工厂) | 完整业务流程<br/>真实数据链 | 完整购物流程<br/>支付流程 |
+| **烟雾测试** | `data_factory.py`<br/>(统一工厂) | 基础功能验证<br/>环境健康检查 | 系统启动<br/>基础API |
+
+### 🔧 Factory Boy工厂使用 (单元测试)
+
+```python
+# tests/unit/user_auth/test_user_permissions.py
+from tests.factories.user_auth_factories import UserFactory, RoleFactory, PermissionFactory
+import pytest
+from unittest.mock import Mock
+
+class TestUserPermissions:
+    
+    def test_user_has_admin_permission(self, mocker):
+        """测试用户权限检查逻辑"""
+        # Factory Boy + Mock的完美组合
+        user = UserFactory(is_active=True)
+        admin_role = RoleFactory(name='admin')
+        admin_permission = PermissionFactory(resource='user', action='manage')
+        
+        # Mock外部依赖
+        mock_auth_service = mocker.patch('app.services.AuthService')
+        mock_auth_service.get_user_permissions.return_value = [admin_permission]
+        
+        # 测试业务逻辑
+        result = user.has_permission('user.manage')
+        assert result is True
+        
+    def test_password_encryption(self):
+        """测试密码加密逻辑"""
+        user = UserFactory(password='plain_password')
+        # Factory Boy自动处理复杂的密码加密逻辑
+        assert user.password_hash != 'plain_password'
+        assert user.verify_password('plain_password')
+```
+
+### 🌐 统一工厂使用 (集成测试)
+
+```python
+# tests/integration/test_order_workflow.py
+from tests.factories.data_factory import StandardTestDataFactory
+import pytest
+
+class TestOrderWorkflow:
+    
+    def test_complete_order_creation(self, integration_test_db):
+        """测试完整订单创建流程"""
+        # 创建完整业务数据链
+        user, category, brand, product, sku = StandardTestDataFactory.create_complete_chain(
+            integration_test_db
+        )
+        
+        # 测试真实的订单服务
+        order_service = OrderService(integration_test_db)
+        result = order_service.create_order(
+            user_id=user.id,
+            sku_id=sku.id,
+            quantity=2
+        )
+        
+        assert result.success is True
+        assert result.order.user_id == user.id
+        assert result.order.total_amount > 0
+        
+    def test_inventory_deduction(self, integration_test_db):
+        """测试库存扣减集成"""
+        user, _, _, _, sku = StandardTestDataFactory.create_complete_chain(
+            integration_test_db
+        )
+        
+        initial_stock = sku.current_stock
+        order_service = OrderService(integration_test_db)
+        
+        # 测试库存扣减
+        order_service.create_order(user.id, sku.id, quantity=1)
+        
+        # 验证库存变化
+        integration_test_db.refresh(sku)
+        assert sku.current_stock == initial_stock - 1
+```
+
+### ⚠️ 工厂使用注意事项
+
+#### ✅ **正确做法**
+- 单元测试使用Factory Boy工厂 + pytest-mock
+- 集成测试使用统一工厂 + 真实数据库
+- 根据测试类型选择合适的数据库fixture
+- 遵循测试架构的数据库策略
+
+#### ❌ **避免的错误**
+```python
+# 错误1: 在单元测试中使用统一工厂 (创建真实数据库记录)
+def test_user_logic():
+    user, _, _, _, _ = StandardTestDataFactory.create_complete_chain(db)  # ❌ 太重
+
+# 错误2: 在集成测试中过度使用Factory Boy (Mock不适用)
+def test_order_integration():
+    user = UserFactory()  # ❌ Mock数据不适用于真实数据库集成
+
+# 错误3: 混用不同工厂类型
+def test_mixed():
+    user = UserFactory()  # Factory Boy
+    order_data = StandardTestDataFactory.create_order_data(db, user.id)  # ❌ 不匹配
+```
+
+### 🎯 最佳实践建议
+
+1. **测试前先确定类型**: 单元测试 → Factory Boy，集成测试 → 统一工厂
+2. **保持一致性**: 一个测试文件内使用同一种工厂类型
+3. **利用工厂优势**: Factory Boy处理复杂关系，统一工厂保证数据完整性
+4. **合理使用Mock**: 单元测试中Mock外部依赖，集成测试中测试真实交互
+
 ## 📊 测试执行最佳实践
 
 ### 开发阶段测试策略
@@ -332,8 +452,11 @@ from unittest.mock import Mock, patch
 import sqlalchemy
 from sqlalchemy.orm import Session
 
-# 2. 工厂导入 (数据测试必须)
-from tests.factories import UserFactory, ProductFactory
+# 2. 工厂导入 (数据测试必须) - 根据测试类型选择
+# 单元测试 - 使用专用Factory Boy工厂
+from tests.factories.user_auth_factories import UserFactory, RoleFactory
+# 集成测试 - 使用统一数据工厂
+from tests.factories.data_factory import StandardTestDataFactory
 
 # 3. 配置导入 (必须)
 from tests.conftest import test_db_session
@@ -424,9 +547,12 @@ def mock_user_service(mocker):
 # from unittest.mock import Mock  # CI会报错
 
 # 3. 数据工厂标准检查 (自动)  
-# ✅ 必须使用统一的Factory模式
-def test_create_user():
-    user = UserFactory.create()  # 标准做法
+# ✅ 必须使用双工厂架构模式
+def test_create_user_unit():  # 单元测试
+    user = UserFactory.create()  # 使用Factory Boy工厂
+    
+def test_order_workflow_integration():  # 集成测试  
+    user, category, brand, product, sku = StandardTestDataFactory.create_complete_chain(db)
     
 # ❌ 禁止硬编码测试数据
 # user = User(name="test", email="test@example.com")  # CI会警告
@@ -553,8 +679,11 @@ from unittest.mock import Mock
 import sqlalchemy
 from sqlalchemy.orm import Session
 
-# 测试工厂导入
-from tests.factories import UserFactory, ProductFactory
+# 测试工厂导入 - 选择合适的工厂类型
+# 单元测试使用Factory Boy
+from tests.factories.user_auth_factories import UserFactory, RoleFactory
+# 集成测试使用统一工厂
+from tests.factories.data_factory import StandardTestDataFactory
 
 # 配置导入
 from tests.conftest import test_db_session
@@ -576,7 +705,10 @@ class Test{function_name.title().replace('_', '')}:
     
     def setup_method(self):
         """每个测试方法执行前的准备工作"""
-        self.test_data = UserFactory.build()
+        # 使用工厂创建测试数据 (根据测试类型选择工厂)
+        self.test_data = UserFactory.build()  # Factory Boy (单元测试)
+        # 或者: 
+        # user, _, _, _, _ = StandardTestDataFactory.create_complete_chain(db)  # 统一工厂 (集成测试)
     
     def test_{function_name}_with_valid_data_returns_expected_result(self):
         """
@@ -653,6 +785,7 @@ class Test{function_name.title().replace('_', '')}Integration:
     def test_{function_name}_database_integration(self, test_db_session):
         """测试数据库集成"""
         # 使用真实数据库会话进行测试
+        # 使用工厂创建测试用户 (Factory Boy方式，适用于单元测试)
         user = UserFactory.create()
         test_db_session.add(user)
         test_db_session.commit()

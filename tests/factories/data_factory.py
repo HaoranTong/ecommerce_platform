@@ -1,24 +1,64 @@
 """
-统一测试数据工厂 - 解决sku_id类型问题
+统一测试数据工厂 - 跨模块集成测试专用
 
-这个工厂类确保所有测试都使用正确的数据类型：
-- sku_id 必须是整数（SKU表的主键id）
-- sku_code 是字符串（SKU的业务代码）
+📋 **使用场景**：
+- ✅ 集成测试 (tests/integration/) - 真实数据库环境
+- ✅ E2E测试 (tests/e2e/) - 完整业务流程测试  
+- ✅ 烟雾测试 (tests/smoke/) - 基础功能验证
+- ✅ 跨模块业务测试 - 完整数据链创建
+- ❌ 单元测试 - 推荐使用模块专用Factory Boy工厂
 
-使用方式：
-from tests.factories.test_data_factory import StandardTestDataFactory
+📊 **与专用Factory Boy的分工**：
+- **本工厂(统一工厂)**: 真实数据库、集成测试、业务流程测试
+- **专用工厂(Factory Boy)**: Mock测试、单元测试、复杂关系测试
 
-# 创建完整的测试数据
-user, category, brand, product, sku = StandardTestDataFactory.create_complete_chain(db)
+🎯 **核心优势**：
+- 跨模块数据链创建 (用户→分类→品牌→商品→SKU→库存→订单)
+- 数据类型安全保证 (解决sku_id类型问题)
+- 真实数据库环境优化
+- 支持完整业务流程数据准备
 
-# 单独创建SKU（会返回整数ID）
-sku = StandardTestDataFactory.create_sku(db, product_id=1)
-assert isinstance(sku.id, int)  # ✅ 正确
-assert isinstance(sku.sku_code, str)  # ✅ 正确
+🔧 **使用方法**：
+```python
+# 集成测试中使用 - 推荐场景
+from tests.factories.data_factory import StandardTestDataFactory
 
-# 错误使用示例
-# ❌ 错误：sku_id=sku.id  # 🔧 修复：使用整数ID而不是字符串  - 不要这样做！
-# ✅ 正确：sku_id=sku.id     - 使用整数ID
+def test_complete_order_workflow(integration_test_db):
+    # 创建完整业务数据链
+    user, category, brand, product, sku = StandardTestDataFactory.create_complete_chain(integration_test_db)
+    
+    # 确保数据类型正确
+    assert isinstance(sku.id, int)  # ✅ sku_id是整数
+    assert isinstance(sku.sku_code, str)  # ✅ sku_code是字符串
+    
+    # 进行集成测试
+    order_service = OrderService(integration_test_db)
+    result = order_service.create_order(user.id, sku.id, quantity=2)
+    assert result.success is True
+
+# 单独创建各种数据
+user = StandardTestDataFactory.create_user(db, username="testuser")
+product = StandardTestDataFactory.create_product(db, name="测试商品")
+```
+
+🚨 **重要说明**：
+- 确保所有测试都使用正确的数据类型 (sku_id必须是整数)
+- 适用于需要真实数据库操作的测试场景
+- 自动处理数据关联和完整性约束
+- 与SQLite内存数据库、MySQL Docker完美配合
+
+⚠️ **数据类型问题解决方案**：
+本工厂专门解决了以下常见问题：
+- sku_id类型混乱 (确保使用整数ID而非字符串)
+- 外键关系错误
+- 数据完整性约束违反
+- 跨模块数据创建复杂性
+
+---
+
+创建时间: 2025-09-20
+更新时间: 2025-09-25 22:35:00
+支持模块: user_auth, product_catalog, shopping_cart, inventory_management, order_management
 """
 
 from sqlalchemy.orm import Session

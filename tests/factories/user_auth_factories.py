@@ -1,26 +1,58 @@
 """
-智能生成的Factory Boy测试数据工厂 - user_auth模块
+用户认证模块专用Factory Boy数据工厂
 
-自动生成时间: 2025-09-21 17:30:47
-生成模型数量: 6
-智能特性: 
-- 自动推断字段类型和合理测试值
-- 处理外键关系和唯一约束  
+📋 **使用场景**：
+- ✅ 单元测试 (tests/unit/) - Mock框架配合使用
+- ✅ 复杂RBAC权限测试 - 完整的用户-角色-权限关系
+- ✅ 关联数据测试 - 自动处理外键关系和唯一约束
+- ❌ 集成测试 - 推荐使用 data_factory.py 统一工厂
+
+📊 **与统一工厂的分工**：
+- **本工厂(Factory Boy)**: 复杂关系、Mock测试、单元测试
+- **统一工厂(data_factory.py)**: 跨模块集成、业务流程测试
+
+🎯 **核心优势**：
+- Factory Boy标准模式，支持智能数据生成
+- 完整RBAC模型支持 (User, Role, Permission, UserRole, RolePermission, Session)
+- 自动处理外键关系和数据一致性
 - 支持复杂业务场景数据创建
+
+🔧 **使用方法**：
+```python
+# 单元测试中使用 - 推荐场景
+from tests.factories.user_auth_factories import UserFactory, RoleFactory
+
+def test_user_permissions(mocker):
+    # Factory Boy + Mock的组合
+    user = UserFactory(is_active=True)
+    role = RoleFactory(name='admin')
+    
+    # 测试复杂权限逻辑
+    assert user.has_permission('user.create')
+
+# 创建完整权限关系链
+user = UserFactory()
+role = RoleFactory()  
+permission = PermissionFactory()
+user_role = UserRoleFactory(user=user, role=role)
+role_permission = RolePermissionFactory(role=role, permission=permission)
+```
+
+🚨 **注意事项**：
+- 必须配置SQLAlchemy session: `Factory._meta.sqlalchemy_session = db`
+- 适用于复杂关系测试，简单CRUD测试推荐使用统一工厂
+- 与pytest-mock框架完美配合
+
+---
+
+自动生成时间: 2025-09-21 17:30:47 (已优化)
+更新时间: 2025-09-25 22:30:00
+生成模型数量: 6 (User, Role, Permission, UserRole, RolePermission, Session)
 
 符合标准:
 - [CHECK:TEST-002] Factory Boy测试数据标准
 - [CHECK:DEV-009] 代码生成质量标准
-
-使用示例:
-    from tests.factories.user_auth_factories import *
-    
-    # 创建测试数据
-    user = UserFactory()
-    role = RoleFactory()
-    
-    # 创建关联数据
-    user_with_role = UserFactory(role=RoleFactory())
+- [CHECK:TEST-001] pytest-mock统一使用标准
 """
 
 import factory
