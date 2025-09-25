@@ -14,7 +14,7 @@
 ```
 tools/
 ├── README.md                    # 本文档 - 工具总览导航
-├── analyze_simple_markers.md   # 📋 代码块格式分析工具使用指南
+├── checkpoint-cards.md          # 🎯 AI检查点卡片系统 (MASTER.md配套)
 ├── scripts-usage-manual.md     # 开发脚本详细使用手册
 ├── testing-tools.md            # 测试工具配置和使用指南  
 ├── test-management.md          # 测试文件生命周期管理
@@ -25,17 +25,20 @@ tools/
 
 ## 🎯 使用导航
 
+### 🎯 AI检查点系统
+- **[检查点卡片系统](checkpoint-cards.md)** - MASTER.md配套的AI检查验证程序
+  - 完整覆盖文档驱动开发的每个环节
+  - REQ/ARCH/DEV/TEST/DOC/STATUS等6大类检查卡片
+  - 精准导航到具体文档位置和验证清单
+
 ### 🔧 开发脚本工具
-- **[📋 代码块格式分析工具](analyze_simple_markers.md)** - Markdown代码块格式问题诊断
-  - 检测代码块配对错误和语言标识符缺失
-  - 提供详细的问题分析报告和修复建议
-  - 成功案例：修复testing-standards.md的67个代码块问题
 - **[脚本使用手册](scripts-usage-manual.md)** - 13个开发脚本的详细使用说明
   - AI检查点验证脚本
   - 代码质量检查脚本
   - 🆕 **标准文档验证脚本** (Phase 3.1新增)  
   - 项目管理脚本
   - 测试执行脚本
+  - 📋 **代码块格式分析工具** - 已整合到脚本使用手册中
 
 ### 🧪 测试工具套件
 - **[测试工具配置](testing-tools.md)** - 测试环境配置和工具使用
@@ -103,4 +106,4 @@ tools/
 - **文档维护**: 遵循 [文档标准](../standards/document-management-standards.md) 进行维护
 
 ---
-*目录重构时间: 2025-09-22 | 来源: docs/development/ → docs/tools/*
+*目录重构时间: 2025-09-25 | 更新: 同步删除analyze_simple_markers.md，添加checkpoint-cards.md说明*
