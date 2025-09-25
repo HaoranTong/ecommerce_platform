@@ -4,7 +4,6 @@
 operations/
 ├── deployment.md              # 系统部署流程和步骤
 ├── development-setup.md       # 开发环境配置指南
-├── testing-environment.md     # 测试环境配置管理
 ├── production-config.md       # 生产环境部署配置
 ├── environment-variables.md   # 环境变量管理指南
 ├── monitoring.md              # 系统监控和告警配置
@@ -19,7 +18,6 @@ operations/
 |-----|------|---------|
 | **deployment.md** | 系统部署流程和步骤 | 运维工程师、部署人员 |
 | **development-setup.md** | 开发环境配置指南 | 开发人员、新入职工程师 |
-| **testing-environment.md** | 测试环境配置管理 | 测试人员、QA工程师 |
 | **production-config.md** | 生产环境部署配置 | 运维人员、系统管理员 |
 | **environment-variables.md** | 环境变量管理指南 | 开发和运维人员 |
 | **monitoring.md** | 系统监控和告警配置 | 运维人员、SRE工程师 |
@@ -51,9 +49,8 @@ operations/
 
 ### 开发人员
 1. **[开发环境配置](development-setup.md)** - 本地开发环境搭建
-2. **[测试环境配置](testing-environment.md)** - 测试环境配置管理
-3. **[环境变量管理](environment-variables.md)** - 环境变量详细说明
-4. **[监控运维](monitoring.md)** - 设置监控和告警
+2. **[环境变量管理](environment-variables.md)** - 环境变量详细说明
+3. **[监控运维](monitoring.md)** - 设置监控和告警
 
 ### 运维人员
 1. **[运维手册](runbook.md)** - 日常运维操作指南
@@ -77,7 +74,6 @@ operations/
 ```
 📁 环境配置文档架构
 ├── 🔧 development-setup.md     # 开发环境 - 本地开发配置
-├── 🧪 testing-environment.md   # 测试环境 - CI/CD和测试配置 
 ├── 🏭 production-config.md     # 生产环境 - 生产部署和安全配置
 └── 🔐 environment-variables.md # 环境变量 - 跨环境变量管理
 ```
@@ -95,7 +91,6 @@ operations/
 ```
 deployment.md (核心) 
     ├── → development-setup.md (开发环境)
-    ├── → testing-environment.md (测试环境)
     ├── → production-config.md (生产环境)
     ├── → environment-variables.md (环境变量)
     ├── → monitoring.md (监控配置)

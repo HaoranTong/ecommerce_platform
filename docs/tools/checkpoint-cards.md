@@ -968,7 +968,7 @@ scripts\run_performance_tests.ps1 -Module [模块名] -LoadLevel [负载级别]
 1. **环境配置** → `docs/operations/environment-variables.md` 第15-60行环境变量管理
 2. **密钥管理** → `docs/architecture/security-architecture.md` 第180-220行密钥策略
 3. **配置验证** → `docs/standards/deployment-standards.md` 第40-80行配置检查
-4. **环境隔离** → `docs/operations/testing-environment.md` 第20-50行环境隔离策略
+4. **环境隔离** → `tests/conftest.py` 第37-40行测试环境隔离策略
 
 **验证清单**:
 □ 环境变量配置正确

@@ -4,7 +4,7 @@
 - **内容**：本地开发环境搭建、工具配置、开发流程
 - **使用者**：开发人员、新入职工程师
 - **更新频率**：开发工具和流程变更时更新
-- **关联文档**：[测试环境](testing-environment.md)、[环境变量管理](environment-variables.md)、[部署指南](deployment.md)
+- **关联文档**：[测试环境配置](../../tests/README.md)、[环境变量管理](environment-variables.md)、[部署指南](deployment.md)
 
 **[CHECK:DOC-001]** 开发环境配置必须支持一键启动
 
@@ -721,7 +721,7 @@ docker exec redis redis-cli --latency -h localhost -p 6379
 ---
 
 ## 相关文档
-- [测试环境配置](testing-environment.md) - 测试环境搭建和配置
+- [测试环境配置](../../tests/README.md) - 测试环境搭建和配置
 - [生产环境配置](production-config.md) - 生产环境部署配置  
 - [环境变量管理](environment-variables.md) - 环境变量详细管理
 - [工具使用手册](../tools/scripts-usage-manual.md) - 开发脚本详细说明

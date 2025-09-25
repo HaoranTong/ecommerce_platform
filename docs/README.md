@@ -114,7 +114,6 @@ docs/
 │   ├── README.md            # 运维指南导航
 │   ├── deployment.md        # 部署指南
 │   ├── development-setup.md # 开发环境配置
-│   ├── testing-environment.md # 测试环境配置
 │   ├── production-config.md # 生产环境配置
 │   ├── environment-variables.md # 环境变量管理
 │   ├── maintenance-guide.md # 维护指南
@@ -221,8 +220,8 @@ docs/
 🔧 tools/testing-tools.md        # 测试工具配置
 📊 analysis/README.md            # 测试分析报告
 
-# 测试环境
-🚀 operations/testing-environment.md # 测试环境配置
+# 测试环境  
+🚀 tests/README.md               # 测试目录说明和配置
 📝 templates/README.md           # 测试模板库
 ```
 

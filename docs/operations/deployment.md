@@ -1089,7 +1089,7 @@ spec:
 - [故障排除](troubleshooting.md) - 常见问题解决方案  
 - [运维手册](runbook.md) - 日常运维操作指南
 - [开发环境配置](development-setup.md) - 开发环境详细配置
-- [测试环境配置](testing-environment.md) - 测试环境配置管理
+- [测试环境配置](../../tests/README.md) - 测试环境配置管理
 - [生产环境配置](production-config.md) - 生产环境安全配置
 - [环境变量管理](environment-variables.md) - 环境变量配置指南
 - [MASTER工作流程](../MASTER.md) - 部署流程检查点
