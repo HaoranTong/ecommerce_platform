@@ -40,10 +40,10 @@ design/
 │   └── README.md                     # 业务模块索引
 ├── components/       # 技术组件设计
 │   ├── application-core/             # 应用核心组件
+│   ├── base-models/                  # 基础模型组件
 │   ├── database-core/                # 数据库核心组件
 │   ├── database-utils/               # 数据库工具组件
 │   ├── redis-cache/                  # Redis缓存组件
-│   ├── base-models/                  # 基础模型组件
 │   └── README.md                     # 技术组件索引
 └── README.md         # 设计层说明文档（本文档）
 ```
