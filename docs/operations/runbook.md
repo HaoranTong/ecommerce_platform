@@ -709,4 +709,4 @@ done
 - [部署指南](deployment.md) - 部署操作和流程
 - [监控告警](monitoring.md) - 监控配置和告警处理
 - [故障排除](troubleshooting.md) - 故障诊断和处理流程
-- [MASTER工作流程](../MASTER.md) - 运维操作检查点
+- [MASTER工作流程](../../MASTER.md) - 运维操作检查点

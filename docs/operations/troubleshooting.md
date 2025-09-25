@@ -488,4 +488,4 @@ async def global_exception_handler(request: Request, exc: Exception):
 - [部署指南](deployment.md) - 部署相关故障排除
 - [监控告警](monitoring.md) - 监控配置和告警处理
 - [运维手册](runbook.md) - 日常运维操作指南  
-- [MASTER工作流程](../MASTER.md) - 故障处理检查点
+- [MASTER工作流程](../../MASTER.md) - 故障处理检查点

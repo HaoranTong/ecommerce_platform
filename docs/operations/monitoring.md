@@ -528,4 +528,4 @@ services:
 - [部署指南](deployment.md) - 监控组件部署配置
 - [故障排除](troubleshooting.md) - 监控告警处理流程
 - [运维手册](runbook.md) - 日常监控操作指南
-- [MASTER工作流程](../MASTER.md) - 监控配置检查点
+- [MASTER工作流程](../../MASTER.md) - 监控配置检查点

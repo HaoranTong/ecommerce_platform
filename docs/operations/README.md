@@ -1,4 +1,8 @@
-# 运维## 📁 目录结构
+# 运维文档导航
+
+运维相关操作指南和环境管理相关文档。
+
+## 📁 目录结构
 
 ```
 operations/
@@ -22,23 +26,7 @@ operations/
 | **environment-variables.md** | 环境变量管理指南 | 开发和运维人员 |
 | **monitoring.md** | 系统监控和告警配置 | 运维人员、SRE工程师 |
 | **troubleshooting.md** | 运维故障排除指南 | 运维人员、技术支持 |
-| **runbook.md** | 日常运维操作手册 | 运维团队、值班人员 |和环境管理相关文档。
-
-## � 目录结构
-
-```
-operations/
-├── deployment.md          # 系统部署流程和步骤
-├── environment.md         # 环境变量和配置管理
-└── README.md              # 本文档
-```
-
-## 📋 文档说明
-
-| 文档 | 用途 | 适用人员 |
-|-----|------|---------|
-| **deployment.md** | 系统部署流程和步骤 | 运维工程师、部署人员 |
-| **environment.md** | 环境变量和配置管理 | 开发和运维人员 |
+| **runbook.md** | 日常运维操作手册 | 运维团队、值班人员 |
 
 ## 🎯 使用指南
 
@@ -105,8 +93,8 @@ deployment.md (核心)
 ## 📚 相关文档
 
 ### 上级文档
-- [MASTER工作流程](../MASTER.md) - 运维操作检查点和标准
-- [文档标准规范](../standards/document-standards.md) - 文档编写标准
+- [MASTER工作流程](../../MASTER.md) - 运维操作检查点和标准
+- [文档管理标准](../standards/document-management-standards.md) - 文档编写标准
 
 ### 平级文档  
 - [工具使用指南](../tools/README.md) - 开发和运维工具

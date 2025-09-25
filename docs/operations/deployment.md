@@ -1092,6 +1092,6 @@ spec:
 - [测试环境配置](../../tests/README.md) - 测试环境配置管理
 - [生产环境配置](production-config.md) - 生产环境安全配置
 - [环境变量管理](environment-variables.md) - 环境变量配置指南
-- [MASTER工作流程](../MASTER.md) - 部署流程检查点
+- [MASTER工作流程](../../MASTER.md) - 部署流程检查点
 
 **[CHECK:DOC-003]** 相关文档必须保持最新和准确的交叉引用
