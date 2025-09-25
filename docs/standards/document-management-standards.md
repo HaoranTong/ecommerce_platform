@@ -284,10 +284,17 @@
 **6.1 tools/ - 工具文档层**：
 **功能定位**: 开发工具使用指南和脚本配置文档
 **必须包含**: 
+- README.md - 工具使用总览和导航
 - scripts-usage-manual.md - 脚本使用手册
 - testing-tools.md - 测试工具配置和使用
 - test-management.md - 测试管理流程
 - troubleshooting.md - 工具问题排查
+
+**特殊文档**:
+- checkpoint-cards.md - AI检查点卡片系统（MASTER.md配套工具）
+
+**可选包含**:
+- 具体工具的详细使用指南（应整合到scripts-usage-manual.md中）
 
 **禁止包含**: 业务逻辑文档、架构设计内容、具体代码实现
 **边界要求**: 专注工具操作指导，不涉及业务架构

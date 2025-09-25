@@ -28,7 +28,7 @@
 | `check_naming_compliance.ps1` | 命名规范检查 | 命名标准验证 | [📖](../docs/tools/scripts-usage-manual.md#check_naming_compliance) |
 | `quick_structure_check.ps1` | 快速结构检查 | 项目结构验证 | [📖](../docs/tools/scripts-usage-manual.md#quick_structure_check) |
 | `validate_pydantic_v2.py` | Pydantic验证 | 数据模型验证 | [📖](../docs/tools/scripts-usage-manual.md#validate_pydantic_v2) |
-| `analyze_simple_markers.ps1` | 📋 **代码块格式分析** | Markdown代码块配对问题诊断 | [📖](../docs/tools/analyze_simple_markers.md) |
+| `analyze_simple_markers.ps1` | 📋 **代码块格式分析** | Markdown代码块配对问题诊断 | [📖](../docs/tools/scripts-usage-manual.md#analyze_simple_markers) |
 
 ### 🧪 测试与验证脚本 (9个)
 | 脚本名称 | 功能 | 使用场景 | 详细文档 |

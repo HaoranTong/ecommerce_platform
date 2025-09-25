@@ -245,6 +245,31 @@
 
 ## 🔍 代码质量检查脚本
 
+### analyze_simple_markers.ps1 - 代码块格式分析
+
+**功能描述**: 专门分析Markdown文档中代码块格式问题的工具，检测代码块配对错误和语言标识符缺失  
+**执行时机**: 文档格式验证、代码块问题诊断时使用  
+**输出格式**: 详细的代码块分析报告，包含问题位置和修复建议  
+**错误处理**: 精确定位问题行号，提供具体的修复指导
+
+**参数表格**:
+| 参数名 | 类型 | 必需 | 默认值 | 说明 | AI使用提示 |
+|--------|------|------|--------|------|------------|
+| `-FilePath` | String | ✓ | 无 | 要分析的Markdown文件路径 | 使用相对路径如"docs/standards/testing-standards.md" |
+
+**AI使用模式**:
+```powershell
+# 分析单个文档的代码块格式
+.\scripts\analyze_simple_markers.ps1 -FilePath "docs\standards\testing-standards.md"
+
+# 分析API文档格式
+.\scripts\analyze_simple_markers.ps1 -FilePath "docs\design\api\overview.md"
+```
+
+**关联文档**: 原为独立文档，现已整合到本手册中  
+**触发场景**: 发现Markdown文档显示异常、代码块高亮错误时执行  
+**成功案例**: 成功修复testing-standards.md的67个代码块问题
+
 ### check_code_standards.ps1 - 代码规范检查
 
 **功能描述**: 检查代码是否遵循项目编码规范，包括格式、命名、结构等  

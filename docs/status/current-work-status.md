@@ -216,7 +216,7 @@
   - **问题识别**: 发现docs/README.md记录的目录结构与真实文件系统严重不匹配，遗漏29个文件
   - **系统性修复**: 按照document-management-standards.md的强制同步原则，逐一核实并修复所有不一致
   - **架构层修复**: 补充architecture/目录中遗漏的performance-architecture.md、security-architecture.md、_archive/等4个文件
-  - **工具层修复**: 补充tools/目录中遗漏的analyze_simple_markers.md、checkpoint-cards.md等2个文件
+  - **工具层修复**: 补充tools/目录中遗漏的checkpoint-cards.md等文件，analyze_simple_markers.md已整合到scripts-usage-manual.md中
   - **运维层修复**: 补充operations/目录中遗漏的maintenance-guide.md等文件
   - **管理层修复**: 补充adr/、status/、templates/、analysis/目录中的所有遗漏文件
   - **格式规范**: 修复文档树状结构格式错误，确保精确反映真实目录层次

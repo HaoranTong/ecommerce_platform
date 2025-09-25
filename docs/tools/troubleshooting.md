@@ -1,4 +1,103 @@
-# 智能测试生成工具故障排查手册
+# 开发脚本故障排查手册
+
+## 🎯 故障排查总览
+
+本手册涵盖项目中所有开发脚本的故障排查，包括AI检查点、代码质量检查、测试执行、文档管理等工具脚本的常见问题和解决方案。
+
+### 📋 快速诊断流程
+1. **确认基础环境** → PowerShell 5.0+, Python 3.8+
+2. **检查脚本权限** → 执行策略和文件权限
+3. **验证依赖项** → 必需的模块和工具
+4. **查看具体错误** → 对应脚本的专项故障排查
+
+---
+
+## 🚨 通用故障处理
+
+### 环境问题
+```powershell
+# 检查PowerShell版本
+$PSVersionTable.PSVersion
+
+# 检查执行策略
+Get-ExecutionPolicy
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+
+# 检查Python环境
+python --version
+pip list | findstr -i "requirements"
+```
+
+### 权限问题
+```powershell
+# 检查脚本文件权限
+Get-Acl scripts\*.ps1
+icacls scripts\*.ps1
+
+# 解决权限问题
+takeown /F scripts\*.ps1
+icacls scripts\*.ps1 /grant %username%:F
+```
+
+---
+
+## 🤖 AI检查点脚本故障排查
+
+### ai_checkpoint.ps1 常见问题
+
+#### ❌ 问题：检查点卡片找不到
+```
+错误: Cannot find checkpoint cards file
+```
+
+**诊断步骤**:
+```powershell
+# 检查文件存在
+Test-Path "docs\tools\checkpoint-cards.md"
+Get-ChildItem docs\tools\checkpoint-cards.md -ErrorAction SilentlyContinue
+```
+
+**解决方案**:
+```powershell
+# 确认文件位置正确
+ls docs\tools\checkpoint-cards.md
+
+# 检查引用路径
+grep -r "checkpoint-cards" docs\tools\scripts-usage-manual.md
+```
+
+---
+
+## 🔍 代码质量检查脚本故障排查
+
+### check_code_standards.ps1 常见问题
+
+#### ❌ 问题：模块导入失败
+```
+错误: 无法导入app.modules模块
+```
+
+**诊断步骤**:
+```powershell
+# 检查Python路径
+python -c "import sys; print('\n'.join(sys.path))"
+
+# 检查模块结构
+Get-ChildItem app\modules -Recurse -Filter "*.py"
+```
+
+**解决方案**:
+```powershell
+# 设置Python路径
+$env:PYTHONPATH = "$(pwd);$env:PYTHONPATH"
+
+# 检查__init__.py文件
+Get-ChildItem app -Recurse -Filter "__init__.py"
+```
+
+---
+
+## 🧪 智能测试生成工具故障排查（详细版）
 
 ## 🚨 紧急故障处理
 
