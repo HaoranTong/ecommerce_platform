@@ -42,80 +42,29 @@
 
 ## 计算资源架构
 
-### 容器化基础设施
+> **具体部署配置方案**: 详见 [部署实现设计](../design/system/deployment-design.md)
 
-```yaml
-# Kubernetes集群架构
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: ecommerce-platform
+### 容器化部署策略
 
----
-# 应用部署配置
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: ecommerce-web
-  namespace: ecommerce-platform
-spec:
-  replicas: 3  # 高可用部署
-  selector:
-    matchLabels:
-      app: ecommerce-web
-  template:
-    metadata:
-      labels:
-        app: ecommerce-web
-    spec:
-      containers:
-      - name: web
-        image: ecommerce-platform:latest
-        ports:
-        - containerPort: 8000
-        env:
-        - name: DATABASE_URL
-          valueFrom:
-            secretKeyRef:
-              name: db-secret
-              key: database-url
-        resources:
-          requests:
-            memory: "256Mi"
-            cpu: "250m"
-          limits:
-            memory: "512Mi"
-            cpu: "500m"
-        livenessProbe:
-          httpGet:
-            path: /health
-            port: 8000
-          initialDelaySeconds: 30
-          periodSeconds: 10
-        readinessProbe:
-          httpGet:
-            path: /ready
-            port: 8000
-          initialDelaySeconds: 5
-          periodSeconds: 5
+**容器编排原则**:
+- **高可用部署**: 应用服务至少3个实例，支持滚动更新和零停机部署
+- **资源隔离**: 通过Namespace和ResourceQuota实现多环境资源隔离
+- **健康检查**: 配置存活性和就绪性检查，确保服务健康状态
+- **配置分离**: 敏感配置通过Secret管理，普通配置通过ConfigMap
 
----
-# 负载均衡服务
-apiVersion: v1
-kind: Service
-metadata:
-  name: ecommerce-web-service
-  namespace: ecommerce-platform
-spec:
-  selector:
-    app: ecommerce-web
-  ports:
-  - port: 80
-    targetPort: 8000
-  type: LoadBalancer
-```
+**服务发现机制**:
+- **内部服务**: 通过Kubernetes Service实现服务间发现和负载均衡
+- **外部暴露**: 通过Ingress Controller统一入口和路由管理
+- **服务网格**: 未来可考虑引入Istio实现更复杂的服务治理
+- **DNS解析**: 基于CoreDNS的内部服务名称解析
 
-### 自动扩缩容策略
+### 自动扩缩容架构
+
+**水平扩缩容策略**:
+- **CPU指标**: CPU使用率超过70%时自动扩容，低于30%时缩容
+- **内存指标**: 内存使用率超过80%时自动扩容，避免OOM
+- **自定义指标**: 基于QPS、响应时间等业务指标的扩缩容
+- **时间窗口**: 扩容立即生效，缩容需要稳定观察窗口
 
 ```yaml
 # HPA (Horizontal Pod Autoscaler)
@@ -170,87 +119,49 @@ mysql_master:
   image: mysql:8.0
   environment:
     - MYSQL_ROOT_PASSWORD=${DB_ROOT_PASSWORD}
-    - MYSQL_DATABASE=ecommerce_platform
-    - MYSQL_USER=ecommerce_user
-    - MYSQL_PASSWORD=${DB_PASSWORD}
-  volumes:
-    - mysql_master_data:/var/lib/mysql
-    - ./conf/mysql/master.cnf:/etc/mysql/mysql.conf.d/mysqld.cnf
-  command: --server-id=1 --log-bin=mysql-bin --binlog-format=ROW
-  
-# 从数据库配置  
-mysql_slave:
-  image: mysql:8.0
-  environment:
-    - MYSQL_ROOT_PASSWORD=${DB_ROOT_PASSWORD}
-  volumes:
-    - mysql_slave_data:/var/lib/mysql
-    - ./conf/mysql/slave.cnf:/etc/mysql/mysql.conf.d/mysqld.cnf
-  command: --server-id=2 --relay-log=mysql-relay-bin
-  depends_on:
-    - mysql_master
+## 存储资源架构
 
-# 数据库连接池配置
-connection_pool:
-  max_connections: 100
-  min_connections: 10
-  connection_timeout: 30
-  idle_timeout: 600
-  max_lifetime: 3600
-```
+### 数据库架构策略
 
-### Redis集群架构
+**高可用部署**:
+- **主从架构**: 一主多从的读写分离架构，主库负责写入，从库负责读取
+- **故障切换**: 自动检测主库故障并切换到从库，最小化服务中断时间
+- **数据同步**: 基于二进制日志的异步复制，确保数据最终一致性
+- **备份策略**: 定时全量备份和增量备份，支持点时间恢复
 
-```yaml
-# Redis集群配置
-redis_cluster:
-  image: redis/redis-stack:latest
-  deploy:
-    replicas: 6  # 3主3从
-  command: 
-    - redis-server
-    - /usr/local/etc/redis/redis.conf
-    - --cluster-enabled yes
-    - --cluster-config-file nodes.conf
-    - --cluster-node-timeout 5000
-    - --appendonly yes
-  volumes:
-    - redis_data:/data
-  environment:
-    - REDIS_PASSWORD=${REDIS_PASSWORD}
+**连接池管理**:
+- **连接复用**: 通过连接池减少连接建立开销，提升数据库性能
+- **连接监控**: 监控连接池状态，及时发现连接泄露和异常
+- **动态调整**: 根据业务负载动态调整连接池大小
+- **超时控制**: 合理设置连接超时和查询超时时间
 
-# Redis哨兵配置
-redis_sentinel:
-  image: redis:7.0-alpine
-  deploy:
-    replicas: 3
-  command:
-    - redis-sentinel
-    - /usr/local/etc/redis/sentinel.conf
-  volumes:
-    - ./conf/redis/sentinel.conf:/usr/local/etc/redis/sentinel.conf
-```
+### 缓存架构策略
+
+**Redis集群部署**:
+- **高可用集群**: 采用Redis Cluster模式，支持数据分片和自动故障转移
+- **主从复制**: 每个主节点配置从节点，提供数据冗余和读取扩展
+- **哨兵监控**: 部署Redis Sentinel监控集群状态，自动故障发现和切换
+- **数据持久化**: 配置RDB快照和AOF日志双重持久化机制
+
+**缓存策略原则**:
+- **多层缓存**: 应用内存缓存、Redis分布式缓存、CDN边缘缓存
+- **缓存预热**: 系统启动时预加载热点数据，减少冷启动影响
+- **失效策略**: 基于TTL和LRU的缓存失效策略，合理利用内存资源
+- **一致性保证**: 缓存与数据库的数据一致性保证机制
 
 ### 对象存储架构
 
-```yaml
-# 对象存储配置 (兼容S3 API)
-object_storage:
-  provider: "aliyun_oss"  # 或 "tencent_cos", "aws_s3"
-  config:
-    endpoint: "https://oss-cn-hangzhou.aliyuncs.com"
-    bucket_name: "ecommerce-platform-assets"
-    access_key_id: "${OSS_ACCESS_KEY}"
-    access_key_secret: "${OSS_ACCESS_SECRET}"
-    region: "cn-hangzhou"
-    
-# CDN加速配置
-cdn_config:
-  provider: "aliyun_cdn"
-  domains:
-    - "assets.ecommerce-platform.com"  # 静态资源域名
-    - "images.ecommerce-platform.com"  # 图片资源域名
-  cache_rules:
+**云存储集成**:
+- **多云支持**: 支持阿里云OSS、腾讯云COS、AWS S3等主流对象存储
+- **存储分层**: 热数据标准存储，冷数据归档存储，降低存储成本
+- **访问控制**: 基于权限的文件访问控制，防止未授权访问
+- **备份冗余**: 跨地域备份，确保数据安全和可用性
+
+**CDN加速策略**:
+- **全球分发**: 通过CDN节点就近访问，提升静态资源加载速度
+- **智能缓存**: 根据访问频率和地理位置智能缓存热点内容
+- **HTTPS加速**: 全站HTTPS传输，兼顾安全性和性能
+- **实时刷新**: 支持缓存内容的实时刷新和预加载
     - pattern: "*.jpg,*.png,*.gif"
       ttl: 86400  # 图片缓存24小时
     - pattern: "*.js,*.css"

@@ -247,32 +247,25 @@ ROLE_PERMISSIONS = {
 - **随机数**: 使用加密安全的随机数生成器
 - **盐值策略**: 为每个密码生成唯一的盐值
 
-> **具体加密实现方案**: 详见 [系统安全设计](../design/system/security-design.md)
-    
-    @staticmethod
-    def verify_password(password, hashed):
-        """密码验证"""
-        return bcrypt.checkpw(password.encode('utf-8'), hashed)
+### 敏感数据加密策略
 
-# 数据库敏感字段加密
-class User(Base):
-    __tablename__ = 'users'
-    
-    id = Column(Integer, primary_key=True)
-    username = Column(String(50), nullable=False)
-    email = Column(String(100), nullable=False)
-    phone_encrypted = Column(Text)  # 加密存储的手机号
-    password_hash = Column(String(255), nullable=False)
-    
-    @property
-    def phone(self):
-        if self.phone_encrypted:
-            return encryption.decrypt_sensitive_data(self.phone_encrypted)
-        return None
-    
-    @phone.setter
-    def phone(self, value):
-        self.phone_encrypted = encryption.encrypt_sensitive_data(value)
+**加密算法选择**:
+- **对称加密**: AES-256-GCM用于敏感数据存储加密
+- **非对称加密**: RSA-2048用于密钥交换和数字签名  
+- **散列算法**: bcrypt用于密码散列存储
+- **消息摘要**: SHA-256用于数据完整性验证
+
+**数据分类加密**:
+- **核心敏感数据**: 用户密码、银行卡号、身份证号等使用不可逆散列
+- **重要业务数据**: 手机号、邮箱等使用可逆对称加密
+- **一般业务数据**: 地址信息等使用部分加密或脱敏
+- **公开展示数据**: 不加密，但需要防XSS处理
+
+**密钥管理策略**:
+- **密钥轮换**: 定期更换加密密钥，建立密钥版本管理
+- **密钥分离**: 加密密钥与应用代码分离存储
+- **访问控制**: 密钥访问需要多重身份验证
+- **备份恢复**: 建立密钥的安全备份和恢复机制
 ```
 
 ## API 安全防护
@@ -324,67 +317,46 @@ class User(Base):
 - 日志安全：支付操作日志记录但脱敏处理
 - 传输加密：支付接口使用HTTPS + 额外加密层
 
-> **具体支付安全实现**: 详见 [支付安全设计](../design/payment/security-design.md)
-        return hashlib.md5(sign_string.encode()).hexdigest().upper()
-    
-    @staticmethod
-    def verify_payment_callback(data, signature, secret_key):
-        """验证支付回调签名"""
-        expected_signature = PaymentSecurity.generate_payment_signature(
-            data, secret_key
-        )
-        return signature == expected_signature
+### 支付安全架构
 
-# 支付风控
-class PaymentRiskControl:
-    def __init__(self):
-        self.risk_rules = [
-            self.check_amount_limit,
-            self.check_frequency_limit,
-            self.check_device_fingerprint,
-            self.check_ip_blacklist
-        ]
-    
-    def evaluate_risk(self, payment_request):
-        risk_score = 0
-        for rule in self.risk_rules:
-            risk_score += rule(payment_request)
-        
-        if risk_score > 80:
-            return "HIGH_RISK"
-        elif risk_score > 50:
-            return "MEDIUM_RISK"
-        else:
-            return "LOW_RISK"
+**支付数据保护**:
+- **传输安全**: 所有支付请求使用TLS 1.3加密传输
+- **签名验证**: 使用RSA或HMAC-SHA256验证支付回调签名
+- **敏感信息**: 支付密码、银行卡号等不在系统中存储
+- **第三方集成**: 通过安全适配器与支付服务商对接
+
+**支付风控策略**:
+- **金额限制**: 单笔/日累计金额限制，超限需要额外验证
+- **频率控制**: 同用户/IP/设备的支付频率限制
+- **异常检测**: 基于用户行为模式的异常支付检测
+- **黑名单机制**: IP黑名单、设备黑名单、风险用户黑名单
+
+**支付状态管理**:
+- **状态机控制**: 严格的支付状态流转控制
+- **超时处理**: 支付超时自动取消和资源释放
+- **补偿机制**: 支付失败的订单状态补偿和库存释放
+- **对账机制**: 定时与第三方支付平台进行数据对账
 ```
 
-## 安全监控与审计
+### 安全审计架构
 
-### 操作审计
-```python
-class AuditLog(Base):
-    __tablename__ = 'audit_logs'
-    
-    id = Column(Integer, primary_key=True)
-    user_id = Column(Integer, nullable=True)
-    action = Column(String(50), nullable=False)
-    resource_type = Column(String(50), nullable=False)
-    resource_id = Column(String(100), nullable=True)
-    ip_address = Column(String(45), nullable=True)
-    user_agent = Column(Text, nullable=True)
-    request_data = Column(JSON, nullable=True)
-    response_data = Column(JSON, nullable=True)
-    created_at = Column(TIMESTAMP, default=func.now())
+**审计日志策略**:
+- **全量审计**: 所有涉及敏感数据的操作必须记录审计日志
+- **分级记录**: 根据操作重要性分级记录，核心操作记录详细信息
+- **结构化存储**: 使用结构化格式存储，便于后续分析和查询
+- **长期保存**: 审计日志至少保存6个月，关键日志保存2年以上
 
-def audit_log(action, resource_type, resource_id=None):
-    def decorator(func):
-        @wraps(func)
-        def wrapper(*args, **kwargs):
-            request = get_current_request()
-            user = get_current_user()
-            
-            # 记录请求信息
-            audit = AuditLog(
+**审计内容规范**:
+- **用户行为**: 登录、权限变更、敏感操作等用户行为轨迹
+- **系统事件**: 配置变更、系统启停、异常事件等系统级操作
+- **数据访问**: 敏感数据的查询、修改、删除等数据操作
+- **安全事件**: 攻击尝试、权限异常、安全策略触发等安全事件
+
+**审计分析机制**:
+- **实时监控**: 关键安全事件实时监控和告警
+- **异常检测**: 基于机器学习的异常行为检测
+- **合规报告**: 定期生成合规性审计报告
+- **取证支持**: 支持安全事件的证据收集和分析
                 user_id=user.id if user else None,
                 action=action,
                 resource_type=resource_type,
@@ -425,53 +397,27 @@ class SecurityMonitor:
         self.threat_patterns = [
             self.detect_sql_injection,
             self.detect_xss_attempt,
-            self.detect_brute_force,
-            self.detect_unusual_activity
-        ]
-    
-    def analyze_request(self, request):
-        threats = []
-        for pattern in self.threat_patterns:
-            threat = pattern(request)
-            if threat:
-                threats.append(threat)
-        
-        if threats:
-            self.alert_security_team(threats, request)
-        
-        return threats
-    
-    def detect_sql_injection(self, request):
-        sql_patterns = [
-            r"union.*select",
-            r"drop.*table",
-            r"insert.*into",
-            r"delete.*from"
-        ]
-        
-        content = str(request.json()) + str(request.query_params)
-        for pattern in sql_patterns:
-            if re.search(pattern, content, re.IGNORECASE):
-                return {
-                    "type": "SQL_INJECTION",
-                    "pattern": pattern,
-                    "content": content[:100]
-                }
-        return None
-    
-    def detect_brute_force(self, request):
-        if request.url.path.endswith('/login'):
-            ip = request.client.host
-            # 检查该IP的登录失败次数
-            failed_attempts = get_failed_login_attempts(ip, 
-                                                      last_minutes=10)
-            if failed_attempts > 5:
-                return {
-                    "type": "BRUTE_FORCE",
-                    "ip": ip,
-                    "attempts": failed_attempts
-                }
-        return None
+### 威胁检测架构
+
+**实时威胁检测**:
+- **攻击模式识别**: 识别SQL注入、XSS、CSRF等常见Web攻击模式  
+- **异常行为检测**: 检测用户异常登录、批量操作、权限越权等行为
+- **暴力破解防护**: 限制登录尝试次数，实施账户锁定和IP封禁
+- **设备指纹识别**: 识别异常设备和可疑操作环境
+
+**威胁响应机制**:
+- **自动响应**: 对确认的攻击行为自动实施阻断和防护措施
+- **告警通知**: 实时告警安全团队，提供威胁详情和影响评估
+- **证据保全**: 自动收集和保存攻击证据，支持后续分析
+- **恢复机制**: 攻击后的系统恢复和数据完整性验证
+
+## 安全合规架构
+
+### 数据保护合规
+- **GDPR合规**: 用户数据收集授权、数据删除权、数据导出权
+- **个人信息保护法**: 个人信息处理规则、敏感信息特殊保护
+- **网络安全法**: 网络安全等级保护、数据本地化存储
+- **行业标准**: 支付卡行业数据安全标准(PCI DSS)合规
 ```
 
 ## 合规性要求
@@ -525,57 +471,29 @@ class PCIDSSCompliance:
 ## 安全配置管理
 
 ### 环境配置
-```python
-# 安全配置
-SECURITY_CONFIG = {
-    # JWT 配置
-    "jwt": {
-        "secret_key": os.getenv("JWT_SECRET_KEY"),
-        "algorithm": "HS256",
-        "access_token_expire": 3600,
-        "refresh_token_expire": 86400
-    },
-    
-    # 加密配置
-    "encryption": {
-        "key": os.getenv("ENCRYPTION_KEY"),
-        "algorithm": "AES-256-GCM"
-    },
-    
-    # 密码策略
-    "password": {
-        "min_length": 8,
-        "require_uppercase": True,
-        "require_lowercase": True,
-        "require_numbers": True,
-        "require_symbols": False,
-        "max_age_days": 90
-    },
-    
-    # 会话配置
-    "session": {
-        "timeout": 3600,
-        "secure": True,
-        "http_only": True,
-        "same_site": "strict"
-    }
-}
-```
+### 安全配置管理架构
 
-### 安全头配置
-```python
-from fastapi.middleware.trustedhost import TrustedHostMiddleware
-from fastapi.middleware.cors import CORSMiddleware
+> **具体安全实现方案**: 详见 [安全实现设计](../design/system/security-design.md)
 
-# 安全中间件
-app.add_middleware(
-    TrustedHostMiddleware, 
-    allowed_hosts=["api.example.com", "*.example.com"]
-)
+**配置安全原则**:
+- **配置分离**: 安全配置与应用代码分离，使用环境变量或配置中心
+- **加密存储**: 敏感配置信息加密存储，防止配置泄露  
+- **权限控制**: 严格控制配置文件的访问和修改权限
+- **版本管理**: 配置变更的版本控制和变更审计
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["https://app.example.com"],
+**核心安全配置**:
+- **JWT配置**: 密钥管理、令牌过期时间、签名算法选择
+- **加密配置**: 加密算法、密钥轮换、密钥强度要求
+- **密码策略**: 复杂度要求、过期策略、历史密码限制
+- **会话配置**: 超时设置、Cookie安全属性、会话存储策略
+
+### 安全中间件架构
+
+**中间件分层**:
+- **网络安全层**: WAF、DDoS防护、IP白名单/黑名单
+- **传输安全层**: HTTPS强制、HSTS、SSL证书管理
+- **应用安全层**: 认证授权、输入验证、安全头设置  
+- **数据安全层**: 加密解密、敏感数据过滤、审计日志
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE"],
     allow_headers=["*"],

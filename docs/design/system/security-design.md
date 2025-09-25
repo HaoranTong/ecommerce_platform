@@ -1,15 +1,14 @@
-# 安全实现设计和加密方案
+# 安全实现设计
 
 ## 文档概述
 **承接架构层**: [security.md](../../architecture/security.md) - 安全架构策略  
 **设计职责**: 具体安全实现、加密算法、认证授权方案  
 **边界约束**: 安全技术实现，不涉及具体业务安全规则  
 
-## 认证授权实现
+## JWT认证实现
 
-### JWT认证实现
+### JWT配置参数
 ```python
-# JWT配置参数 - 迁移自architecture/security.md
 import jwt
 from datetime import datetime, timedelta
 from typing import Optional
@@ -26,8 +25,10 @@ JWT_CONFIG = {
     "issuer": "ecommerce-platform",
     "audience": "api-users"
 }
+```
 
-# JWT Token生成实现
+### JWT Token生成实现
+```python
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     to_encode = data.copy()
     if expires_delta:
@@ -48,6 +49,88 @@ def verify_token(token: str):
             token, 
             SECRET_KEY, 
             algorithms=[JWT_ALGORITHM],
+            audience=JWT_CONFIG["audience"],
+            issuer=JWT_CONFIG["issuer"]
+        )
+        return payload
+    except jwt.InvalidTokenError as e:
+        raise AuthenticationError(f"Token验证失败: {str(e)}")
+```
+
+## 密码加密实现
+
+### 密码散列实现
+```python
+import bcrypt
+import hashlib
+from app.core.config import settings
+
+class PasswordManager:
+    @staticmethod
+    def hash_password(password: str) -> str:
+        """密码散列"""
+        salt = bcrypt.gensalt(rounds=12)
+        hashed = bcrypt.hashpw(password.encode('utf-8'), salt)
+        return hashed.decode('utf-8')
+    
+    @staticmethod
+    def verify_password(password: str, hashed: str) -> bool:
+        """密码验证"""
+        return bcrypt.checkpw(password.encode('utf-8'), hashed.encode('utf-8'))
+```
+
+### 敏感数据加密实现
+```python
+from cryptography.fernet import Fernet
+import base64
+
+class DataEncryption:
+    def __init__(self, key: bytes):
+        self.cipher_suite = Fernet(key)
+    
+    def encrypt_sensitive_data(self, data: str) -> str:
+        """加密敏感数据"""
+        encrypted_data = self.cipher_suite.encrypt(data.encode())
+        return base64.b64encode(encrypted_data).decode()
+    
+    def decrypt_sensitive_data(self, encrypted_data: str) -> str:
+        """解密敏感数据"""
+        encrypted_bytes = base64.b64decode(encrypted_data)
+        decrypted_data = self.cipher_suite.decrypt(encrypted_bytes)
+        return decrypted_data.decode()
+```
+
+## 数据库模型加密设计
+
+### 用户敏感字段加密
+```python
+from sqlalchemy import Column, Integer, String, Text
+from sqlalchemy.ext.hybrid import hybrid_property
+from app.shared.base_models import BaseModel
+from app.core.security import encryption
+
+class User(BaseModel):
+    __tablename__ = 'users'
+    
+    id = Column(Integer, primary_key=True)
+    username = Column(String(50), nullable=False)
+    email = Column(String(100), nullable=False)
+    phone_encrypted = Column(Text)  # 加密存储的手机号
+    password_hash = Column(String(255), nullable=False)
+    
+    @hybrid_property
+    def phone(self):
+        if self.phone_encrypted:
+            return encryption.decrypt_sensitive_data(self.phone_encrypted)
+        return None
+    
+    @phone.setter
+    def phone(self, value):
+        if value:
+            self.phone_encrypted = encryption.encrypt_sensitive_data(value)
+        else:
+            self.phone_encrypted = None
+```
             audience=JWT_CONFIG["audience"],
             issuer=JWT_CONFIG["issuer"]
         )

@@ -28,79 +28,29 @@
 
 ## 适配器架构设计
 
-### 基础适配器接口
-```python
-from abc import ABC, abstractmethod
-from typing import Any, Dict, Optional
-from dataclasses import dataclass
+> **具体适配器实现方案**: 详见 [第三方集成实现设计](../design/system/integration-design.md)
 
-@dataclass
-class IntegrationResult:
-    """集成调用结果"""
-    success: bool
-    data: Optional[Dict[str, Any]] = None
-    error_code: Optional[str] = None
-    error_message: Optional[str] = None
-    raw_response: Optional[Dict[str, Any]] = None
+### 第三方集成原则
 
-class BaseAdapter(ABC):
-    """第三方服务适配器基类"""
-    
-    def __init__(self, config: Dict[str, Any]):
-        self.config = config
-        self.name = self.__class__.__name__
-    
-    @abstractmethod
-    def is_available(self) -> bool:
-        """检查服务是否可用"""
-        pass
-    
-    @abstractmethod
-    def get_health_status(self) -> Dict[str, Any]:
-        """获取服务健康状态"""
-        pass
-    
-    def before_request(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """请求前置处理"""
-        return params
-    
-    def after_request(self, result: IntegrationResult) -> IntegrationResult:
-        """请求后置处理"""
-        return result
-    
-    def handle_error(self, error: Exception) -> IntegrationResult:
-        """统一错误处理"""
-        return IntegrationResult(
-            success=False,
-            error_code="INTEGRATION_ERROR",
-            error_message=str(error)
-        )
-```
+**统一适配器接口**:
+- **标准化接口**: 所有第三方服务通过统一的适配器接口进行集成
+- **可替换性**: 支持同类型服务的热切换，降低厂商锁定风险
+- **降级策略**: 第三方服务不可用时的备选方案和降级处理
+- **监控告警**: 统一监控所有第三方服务的可用性和性能指标
 
-### 支付服务适配器
-```python
-class PaymentAdapter(BaseAdapter):
-    """支付服务适配器基类"""
-    
-    @abstractmethod
-    def create_payment(self, order_data: Dict[str, Any]) -> IntegrationResult:
-        """创建支付订单"""
-        pass
-    
-    @abstractmethod
-    def query_payment(self, payment_id: str) -> IntegrationResult:
-        """查询支付状态"""
-        pass
-    
-    @abstractmethod
-    def refund_payment(self, refund_data: Dict[str, Any]) -> IntegrationResult:
-        """申请退款"""
-        pass
-    
-    @abstractmethod
-    def verify_callback(self, callback_data: Dict[str, Any]) -> IntegrationResult:
-        """验证支付回调"""
-        pass
+**错误处理策略**:
+- **重试机制**: 对临时性错误实施指数退避重试策略
+- **断路器**: 防止级联失败，快速失败和自动恢复机制
+- **超时控制**: 设置合理的请求超时时间，避免长时间等待
+- **错误隔离**: 第三方服务异常不影响核心业务流程
+
+### 支付服务集成架构
+
+**支付渠道管理**:
+- **多支付方式**: 支持微信支付、支付宝、银联、数字人民币等
+- **渠道路由**: 根据用户偏好、金额大小、风险等级选择支付渠道
+- **对账机制**: 定期与支付渠道进行订单和资金对账
+- **风控集成**: 集成支付渠道的风控能力，提升支付安全性
 
 class WechatPayAdapter(PaymentAdapter):
     """微信支付适配器"""
