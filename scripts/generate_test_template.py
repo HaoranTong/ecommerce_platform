@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 """
-智能五层架构测试生成器 - 增强版
+智能测试生成器 - 增强版
 
 集成智能模型分析功能，支持AST+运行时双重分析
-自动生成完整的五层测试架构：70%单元、20%集成、6%E2E、2%烟雾、2%专项
+自动生成完整测试架构：72%单元、22%集成、6%E2E (烟雾测试使用通用scripts/smoke_test.ps1)
 
 主要功能：
 1. 智能模型分析 - 自动解析SQLAlchemy模型结构
 2. 智能数据工厂生成 - 基于模型自动生成Factory Boy类  
-3. 五层测试生成 - 完整测试架构自动生成
+3. 分层测试生成 - 单元+集成+E2E测试架构自动生成
 4. 质量自动验证 - 语法、导入、执行验证
 
 使用方法:
@@ -440,21 +440,38 @@ class IntelligentTestGenerator:
             
         # 提取关系信息
         if hasattr(model_class, '__mapper__'):
-            for rel_name, relationship in model_class.__mapper__.relationships.items():
-                try:
-                    rel_info = RelationshipInfo(
-                        name=rel_name,
-                        related_model=relationship.mapper.class_.__name__,
-                        relationship_type=self._determine_relationship_type(relationship),
-                        back_populates=relationship.back_populates,
-                        cascade=str(relationship.cascade) if relationship.cascade else None,
-                        foreign_keys=[str(fk.parent.name) for fk in getattr(relationship, 'foreign_keys', [])]
-                    )
-                    model_info['relationships'].append(rel_info)
-                except Exception as e:
-                    print(f"⚠️ 关系{rel_name}分析失败: {e}")
-                    continue
-                
+                for rel_name, relationship in model_class.__mapper__.relationships.items():
+                    try:
+                        rel_info = RelationshipInfo(
+                            name=rel_name,
+                            related_model=relationship.mapper.class_.__name__,
+                            relationship_type=self._determine_relationship_type(relationship),
+                            back_populates=relationship.back_populates,
+                            cascade=str(relationship.cascade) if relationship.cascade else None,
+                            foreign_keys=[str(fk.parent.name) for fk in getattr(relationship, 'foreign_keys', [])]
+                        )
+                        model_info['relationships'].append(rel_info)
+                    except AttributeError as e:
+                        # 关系配置错误，记录详细信息但继续处理
+                        print(f"⚠️ 关系{rel_name}配置错误: {e}")
+                        # 创建一个基础关系信息，避免丢失重要关联
+                        try:
+                            fallback_rel_info = RelationshipInfo(
+                                name=rel_name,
+                                related_model=relationship.mapper.class_.__name__ if hasattr(relationship, 'mapper') else 'Unknown',
+                                relationship_type='unknown',
+                                back_populates=getattr(relationship, 'back_populates', None),
+                                cascade=None,
+                                foreign_keys=[]
+                            )
+                            model_info['relationships'].append(fallback_rel_info)
+                        except Exception:
+                            print(f"❌ 关系{rel_name}完全无法解析，跳过")
+                    except Exception as e:
+                        # 其他严重错误，记录并跳过
+                        print(f"❌ 关系{rel_name}分析失败: {type(e).__name__}: {e}")
+                        continue
+                        
         return model_info
         
     def _get_python_type(self, column_type) -> str:
@@ -618,6 +635,7 @@ class IntelligentTestGenerator:
 
 import factory
 import factory.fuzzy
+import uuid
 from datetime import datetime, timedelta
 from decimal import Decimal
 from sqlalchemy.orm import Session
@@ -713,12 +731,16 @@ from {module_import_path} import (
             return self._generate_datetime_field_definition(field)
         elif field.column_type.upper() == 'TEXT':
             return self._generate_text_field_definition(field)
+        elif field.column_type.upper() == 'JSON' or field.python_type == 'dict':
+            return self._generate_json_field_definition(field)
+        elif field.column_type.upper() == 'UUID' or field.python_type == 'UUID':
+            return self._generate_uuid_field_definition(field)
         else:
             # 默认处理
             return self._generate_default_field_definition(field)
             
     def _generate_foreign_key_definition(self, field: FieldInfo, all_models: Dict[str, ModelInfo]) -> str:
-        """生成外键字段定义"""
+        """生成外键字段定义 - 修复版"""
         # 尝试解析外键引用的模型
         fk_parts = field.foreign_key.split('.')
         if len(fk_parts) == 2:
@@ -731,28 +753,59 @@ from {module_import_path} import (
                     break
                     
             if target_model:
-                # 处理潜在的循环依赖 - 对于某些关系使用LazyFunction
-                if self._has_circular_dependency(field.name, target_model):
-                    return f"{field.name} = factory.LazyFunction(lambda: 1)  # 避免循环依赖"
+                # 改进的循环依赖检测和处理
+                dependency_info = self._analyze_circular_dependency(field.name, target_model, all_models)
+                if dependency_info['has_cycle']:
+                    if dependency_info['safe_to_use_subfactory']:
+                        # 使用SubFactory但延迟创建
+                        return f"{field.name} = factory.LazyAttribute(lambda obj: {target_model}Factory().id)"
+                    else:
+                        # 使用合理的默认外键值
+                        return f"{field.name} = factory.LazyFunction(lambda: self._get_safe_foreign_key('{target_model}', '{column_name}'))"
                 else:
                     return f"{field.name} = factory.SubFactory({target_model}Factory)"
         
-        # 如果无法解析，生成一个简单的整数外键
+        # 如果无法解析，生成一个序列外键
         return f"{field.name} = factory.Sequence(lambda n: n + 1)"
         
-    def _has_circular_dependency(self, field_name: str, target_model: str) -> bool:
-        """检查是否存在循环依赖"""
-        # 简单的循环依赖检测 - 可以根据需要扩展
-        circular_patterns = [
+    def _analyze_circular_dependency(self, field_name: str, target_model: str, all_models: Dict[str, ModelInfo]) -> Dict[str, Any]:
+        """改进的循环依赖分析"""
+        # 检查是否为简单的自引用
+        is_self_reference = any(
+            pattern in field_name.lower() 
+            for pattern in ['parent_id', 'manager_id', 'created_by', 'updated_by']
+        )
+        
+        # 检查是否为已知的安全循环模式
+        safe_patterns = [
             ('user_id', 'User'),
-            ('session_id', 'Session'),
-            ('granted_by', 'User')  # 通常granted_by会引用User，但User也可能有session
+            ('role_id', 'Role'),
+            ('granted_by', 'User')
         ]
         
-        for pattern_field, pattern_model in circular_patterns:
-            if field_name == pattern_field and target_model == pattern_model:
-                return True
-        return False
+        is_safe_pattern = any(
+            field_name == pattern[0] and target_model == pattern[1] 
+            for pattern in safe_patterns
+        )
+        
+        return {
+            'has_cycle': is_self_reference or is_safe_pattern,
+            'safe_to_use_subfactory': not is_self_reference,
+            'cycle_type': 'self_reference' if is_self_reference else 'cross_reference'
+        }
+        
+    def _get_safe_foreign_key(self, target_model: str, column_name: str = 'id') -> int:
+        """获取安全的外键值"""
+        # 为常见的外键提供合理的默认值
+        safe_defaults = {
+            'User': 1,
+            'Role': 1, 
+            'Permission': 1,
+            'Category': 1,
+            'Brand': 1,
+            'Product': 1
+        }
+        return safe_defaults.get(target_model, 1)
         
     def _generate_string_field_definition(self, field: FieldInfo) -> str:
         """生成字符串字段定义"""
@@ -832,7 +885,31 @@ from {module_import_path} import (
             
     def _generate_text_field_definition(self, field: FieldInfo) -> str:
         """生成TEXT字段定义"""
-        return f"{field.name} = factory.Faker('text', max_nb_chars=500)"
+        field_name = field.name.lower()
+        
+        if 'description' in field_name or 'content' in field_name:
+            return f"{field.name} = factory.Faker('text', max_nb_chars=200)"
+        elif 'note' in field_name or 'comment' in field_name:
+            return f"{field.name} = factory.Faker('sentence', nb_words=10)"
+        else:
+            return f"{field.name} = factory.Faker('text', max_nb_chars=100)"
+            
+    def _generate_json_field_definition(self, field: FieldInfo) -> str:
+        """生成JSON字段定义"""
+        field_name = field.name.lower()
+        
+        if 'config' in field_name or 'setting' in field_name:
+            return f"{field.name} = factory.LazyAttribute(lambda obj: {{'enabled': True, 'timeout': 30}})"
+        elif 'metadata' in field_name or 'meta' in field_name:
+            return f"{field.name} = factory.LazyAttribute(lambda obj: {{'version': '1.0', 'source': 'test'}})"
+        elif 'attribute' in field_name or 'attrs' in field_name:
+            return f"{field.name} = factory.LazyAttribute(lambda obj: {{'color': 'blue', 'size': 'M'}})"
+        else:
+            return f"{field.name} = factory.LazyAttribute(lambda obj: {{'key': 'value'}})"
+            
+    def _generate_uuid_field_definition(self, field: FieldInfo) -> str:
+        """生成UUID字段定义"""
+        return f"{field.name} = factory.LazyFunction(uuid.uuid4)"
         
     def _generate_default_field_definition(self, field: FieldInfo) -> str:
         """生成默认字段定义"""
@@ -842,13 +919,26 @@ from {module_import_path} import (
             return f"{field.name} = factory.Faker('word')"
             
     def _extract_string_length(self, column_type: str) -> Optional[int]:
-        """从列类型字符串中提取长度限制"""
+        """从列类型字符串中提取长度限制 - 修复版"""
         try:
-            if 'VARCHAR(' in column_type.upper():
-                start = column_type.upper().find('VARCHAR(') + 8
-                end = column_type.find(')', start)
-                return int(column_type[start:end])
-        except (ValueError, IndexError):
+            column_type_upper = column_type.upper()
+            if 'VARCHAR(' in column_type_upper:
+                start = column_type_upper.find('VARCHAR(') + 8
+                # 在原始字符串中查找结束位置，但使用正确的起始索引
+                remaining = column_type[start:]
+                if ')' in remaining:
+                    end_pos = remaining.find(')')
+                    if ',' in remaining[:end_pos]:
+                        # 处理 VARCHAR(50, 'utf8') 格式
+                        length_str = remaining[:remaining.find(',')]
+                    else:
+                        # 处理 VARCHAR(50) 格式
+                        length_str = remaining[:end_pos]
+                    
+                    length_str = length_str.strip()
+                    if length_str.isdigit():
+                        return int(length_str)
+        except (ValueError, IndexError, AttributeError):
             pass
         return None
         
@@ -931,6 +1021,10 @@ from {module_import_path} import (
             valid_value = 'datetime.now()'
         elif python_type == 'Decimal':
             valid_value = "Decimal('99.99')"
+        elif python_type == 'dict' or field.column_type.upper() == 'JSON':
+            valid_value = "{'test': 'data'}"
+        elif python_type == 'UUID' or field.column_type.upper() == 'UUID':
+            valid_value = "uuid.uuid4()"
         else:
             valid_value = "'test_value'"
             
@@ -947,6 +1041,10 @@ from {module_import_path} import (
             invalid_values = ['"invalid_bool"']
         elif python_type == 'datetime':
             invalid_values = ['"invalid_datetime"', '123']
+        elif python_type == 'dict' or field.column_type.upper() == 'JSON':
+            invalid_values = ['"invalid_json"', '123']
+        elif python_type == 'UUID' or field.column_type.upper() == 'UUID':
+            invalid_values = ['"invalid_uuid"', '123']
             
         return {
             'valid': f"{{'{field.name}': {valid_value}}}",
@@ -961,7 +1059,9 @@ from {module_import_path} import (
             'bool': 'bool',
             'datetime': 'datetime',
             'Decimal': 'Decimal',
-            'float': 'float'
+            'float': 'float',
+            'dict': 'dict',
+            'UUID': 'UUID'
         }
         return type_mapping.get(python_type, 'str')
         
@@ -1020,8 +1120,9 @@ from {module_import_path} import (
             generated_files.update(e2e_files)
             
         if test_type in ['all', 'smoke']:
+            # 烟雾测试使用通用脚本，不生成模块特定文件
             smoke_files = self._generate_smoke_tests(module_name, models)
-            generated_files.update(smoke_files)
+            generated_files.update(smoke_files)  # 通常为空字典
             
         if test_type in ['all', 'specialized']:
             specialized_files = self._generate_specialized_tests(module_name, models)
@@ -1040,6 +1141,14 @@ from {module_import_path} import (
             self._save_validation_report(module_name, validation_report)
             
         print(f"✅ 生成完成，共 {len(generated_files)} 个测试文件")
+        
+        # 如果包含烟雾测试类型，提供烟雾测试运行指南
+        if test_type in ['all', 'smoke']:
+            print("ℹ️  烟雾测试运行方式:")
+            print("   - 通用脚本: .\\scripts\\smoke_test.ps1")  
+            print("   - pytest方式: python -m pytest tests/smoke/ -v")
+            print("   - 涵盖: API连通性、系统健康检查、基础功能验证")
+            
         return generated_files, validation_report
         
     def _generate_unit_tests(self, module_name: str, models: Dict[str, ModelInfo]) -> Dict[str, str]:
@@ -1101,9 +1210,10 @@ import pytest
 from unittest.mock import Mock, patch, MagicMock
 from datetime import datetime, date
 from decimal import Decimal
+import uuid
 
 # 测试工厂导入
-from tests.factories.test_data_factory import StandardTestDataFactory
+from tests.factories.data_factory import StandardTestDataFactory
 
 '''
 
@@ -1443,11 +1553,12 @@ class Test{model_name}Model:
         Returns:
             str: 服务方法测试代码
         """
+        newline = "\\n"
         if not models:
-            return '''    def test_service_basic_functionality(self, unit_test_db: Session):
+            return f'''    def test_service_basic_functionality(self, unit_test_db: Session):
         """测试服务基本功能"""
-        print("\\n🔍 测试基本功能...")
-        service = ''' + service_class_name + '''(unit_test_db)
+        print(f"{newline}🔍 测试基本功能...")
+        service = {service_class_name}(unit_test_db)
         # 添加具体的服务方法测试
         assert True  # 占位符'''
         
@@ -1455,9 +1566,10 @@ class Test{model_name}Model:
         test_methods = []
         
         for model_name, model_info in models.items():
+            newline = "\\n"
             model_tests = f'''    def test_{model_name.lower()}_crud_operations(self, unit_test_db: Session):
         """测试{model_name}的CRUD操作"""
-        print("\\n📋 测试{model_name} CRUD操作...")
+        print(f"{newline}📋 测试{model_name} CRUD操作...")
         
         service = {service_class_name}(unit_test_db)
         self.factory_manager.setup_factories(unit_test_db)
@@ -1489,7 +1601,7 @@ class Test{model_name}Model:
             
     def test_{model_name.lower()}_business_logic(self, unit_test_db: Session):
         """测试{model_name}相关业务逻辑"""
-        print("\\n💼 测试{model_name}业务逻辑...")
+        print(f"{newline}💼 测试{model_name}业务逻辑...")
         
         service = {service_class_name}(unit_test_db)
         
@@ -1517,6 +1629,7 @@ class Test{model_name}Model:
         # 生成服务方法测试
         service_methods = self._generate_service_method_tests(module_name, models, service_class_name)
         
+        newline = "\\n"
         return f'''"""
 {module_name.title()} 服务层测试
 
@@ -1546,7 +1659,7 @@ from sqlalchemy.exc import IntegrityError
 
 # 测试基础设施
 from tests.conftest import unit_test_db
-from tests.factories.test_data_factory import StandardTestDataFactory
+from tests.factories.data_factory import StandardTestDataFactory
 from tests.factories.{module_name}_factories import {module_name.title().replace('_', '')}FactoryManager
 
 # 被测服务和模型
@@ -1558,7 +1671,7 @@ except ImportError as e:
     print(f"⚠️ 导入警告: {{e}}")
     from unittest.mock import Mock
     {service_class_name} = Mock()
-    {' = Mock()\\n    '.join(models.keys())} = Mock()
+    {f' = Mock(){newline}    '.join(models.keys())} = Mock()
 
 
 @pytest.mark.unit
@@ -1573,7 +1686,8 @@ class {test_class_name}:
         
     def test_service_initialization(self, unit_test_db: Session):
         """测试服务初始化和依赖注入"""
-        print("\\n🔧 测试服务初始化...")
+        newline = "\\n"
+        print(f"{newline}🔧 测试服务初始化...")
         
         # 测试正常初始化
         service = {service_class_name}(unit_test_db)
@@ -1585,7 +1699,7 @@ class {test_class_name}:
         
     def test_service_factory_integration(self, unit_test_db: Session):
         """测试服务与Factory数据工厂的集成"""
-        print("\\n🏭 测试Factory集成...")
+        print(f"{newline}🏭 测试Factory集成...")
         
         service = {service_class_name}(unit_test_db)
         self.factory_manager.setup_factories(unit_test_db)
@@ -1602,7 +1716,7 @@ class {test_class_name}:
     
     def test_error_handling_and_validation(self, unit_test_db: Session):
         """测试错误处理和数据验证"""
-        print("\\n⚠️ 测试错误处理...")
+        print(f"{newline}⚠️ 测试错误处理...")
         
         service = {service_class_name}(unit_test_db)
         
@@ -1621,7 +1735,7 @@ class {test_class_name}:
             
     def test_transaction_handling(self, unit_test_db: Session):
         """测试事务处理和数据一致性"""
-        print("\\n💾 测试事务处理...")
+        print(f"{newline}💾 测试事务处理...")
         
         service = {service_class_name}(unit_test_db)
         
@@ -1658,11 +1772,12 @@ class {test_class_name}:
         Returns:
             str: 工作流场景测试代码
         """
+        newline = "\\n"
         if not models:
-            return '''    def test_basic_workflow_scenario(self, unit_test_db: Session):
+            return f'''    def test_basic_workflow_scenario(self, unit_test_db: Session):
         """测试基础工作流场景"""
-        print("\\n📋 执行基础工作流...")
-        service = ''' + service_class_name + '''(unit_test_db)
+        print(f"{newline}📋 执行基础工作流...")
+        service = {service_class_name}(unit_test_db)
         # 添加具体的工作流测试
         assert service is not None'''
         
@@ -1672,7 +1787,7 @@ class {test_class_name}:
         # 场景1: 正常业务流程
         scenarios.append(f'''    def test_normal_business_scenario(self, unit_test_db: Session):
         """测试正常业务场景"""
-        print("\\n✅ 执行正常业务场景...")
+        print(f"{newline}✅ 执行正常业务场景...")
         
         service = {service_class_name}(unit_test_db)
         self.factory_manager.setup_factories(unit_test_db)
@@ -1687,7 +1802,7 @@ class {test_class_name}:
         # 场景2: 边界条件测试  
         scenarios.append(f'''    def test_edge_case_scenarios(self, unit_test_db: Session):
         """测试边界条件场景"""
-        print("\\n⚠️ 执行边界条件测试...")
+        print(f"{newline}⚠️ 执行边界条件测试...")
         
         service = {service_class_name}(unit_test_db)
         
@@ -1710,7 +1825,7 @@ class {test_class_name}:
         # 场景3: 异常处理测试
         scenarios.append(f'''    def test_exception_handling_scenarios(self, unit_test_db: Session):
         """测试异常处理场景"""
-        print("\\n🚫 执行异常处理测试...")
+        print(f"{newline}🚫 执行异常处理测试...")
         
         service = {service_class_name}(unit_test_db)
         
@@ -1730,7 +1845,7 @@ class {test_class_name}:
         # 场景4: 性能关键路径测试
         scenarios.append(f'''    def test_performance_critical_paths(self, unit_test_db: Session):
         """测试性能关键路径"""
-        print("\\n⚡ 执行性能关键路径测试...")
+        print(f"{newline}⚡ 执行性能关键路径测试...")
         
         service = {service_class_name}(unit_test_db)
         self.factory_manager.setup_factories(unit_test_db)
@@ -1800,7 +1915,7 @@ from sqlalchemy.exc import IntegrityError
 
 # 测试基础设施
 from tests.conftest import unit_test_db
-from tests.factories.test_data_factory import StandardTestDataFactory
+from tests.factories.data_factory import StandardTestDataFactory
 from tests.factories.{module_name}_factories import {module_name.title().replace('_', '')}FactoryManager
 
 # 被测模块组件
@@ -1812,7 +1927,7 @@ except ImportError as e:
     print(f"⚠️ 组件导入警告: {{e}}")
     from unittest.mock import Mock
     {service_class_name} = Mock()
-    {' = Mock()\\n    '.join(models.keys())} = Mock()
+    {f' = Mock(){newline}    '.join(models.keys())} = Mock()
     COMPONENTS_AVAILABLE = False
 
 
@@ -1830,7 +1945,7 @@ class Test{module_name.title().replace('_', '')}Workflow:
     @pytest.mark.critical
     def test_complete_{module_name}_workflow(self, unit_test_db: Session):
         """测试完整{module_name}业务流程 - 关键路径"""
-        print("\\n🔄 执行完整业务流程测试...")
+        print(f"{newline}🔄 执行完整业务流程测试...")
         
         if not COMPONENTS_AVAILABLE:
             pytest.skip("组件不可用，跳过业务流程测试")
@@ -1943,7 +2058,8 @@ class Test{module_name.title().replace('_', '')}Workflow:
     
     def _generate_user_auth_integration_tests(self) -> str:
         """生成用户认证模块的完整集成测试 - 基于test_auth_integration.py最佳实践"""
-        return '''"""
+        newline = "\\n"
+        return f'''"""
 User Auth 集成测试套件 - 完整业务流程验证
 
 测试类型: 集成测试 (Integration) - 20%覆盖率
@@ -1987,7 +2103,7 @@ class TestUserAuthIntegration:
     
     def test_jwt_token_integration(self, mysql_integration_db: Session):
         """测试JWT令牌完整功能集成"""
-        print("\\n🔐 测试JWT令牌完整功能...")
+        print(f"{newline}🔐 测试JWT令牌完整功能...")
         
         # 1. 测试访问令牌创建
         token_data = {'sub': '1', 'username': 'integration_user', 'role': 'user'}
@@ -2031,7 +2147,7 @@ class TestUserAuthIntegration:
 
     def test_user_registration_integration(self, mysql_integration_db: Session):
         """测试用户注册完整业务流程集成"""
-        print("\\n📝 测试用户注册完整流程...")
+        print(f"{newline}📝 测试用户注册完整流程...")
         
         # 1. 初始化服务
         user_service = UserService()
@@ -2076,7 +2192,7 @@ class TestUserAuthIntegration:
 
     def test_user_login_authentication_integration(self, mysql_integration_db: Session):
         """测试用户登录认证完整流程集成"""
-        print("\\n🔑 测试用户登录认证流程...")
+        print(f"{newline}🔑 测试用户登录认证流程...")
         
         user_service = UserService()
         
@@ -2123,7 +2239,7 @@ class TestUserAuthIntegration:
 
     def test_user_auth_api_integration(self, api_client, mysql_integration_db: Session):
         """测试用户认证API端点集成"""
-        print("\\n🌐 测试用户认证API端点...")
+        print(f"{newline}🌐 测试用户认证API端点...")
         
         # 1. 测试健康检查API
         health_response = api_client.get("/health")
@@ -2157,7 +2273,7 @@ class TestUserAuthIntegration:
 
     def test_database_integration_verification(self, mysql_integration_db: Session):
         """测试数据库集成验证"""
-        print("\\n🗄️ 测试数据库集成...")
+        print(f"{newline}🗄️ 测试数据库集成...")
         
         # 1. 验证数据库连接
         assert mysql_integration_db is not None
@@ -2190,7 +2306,7 @@ class TestUserAuthIntegration:
 
     def test_permission_system_integration(self, mysql_integration_db: Session):
         """测试权限系统集成（如果实现）"""
-        print("\\n🛡️ 测试权限系统集成...")
+        print(f"{newline}🛡️ 测试权限系统集成...")
         
         # 1. 测试角色和权限模型（如果存在）
         try:
@@ -2283,7 +2399,8 @@ class Test{module_name.title().replace('_', '')}Integration:
     
     def _generate_user_auth_unit_tests(self) -> str:
         """生成用户认证模块的完整单元测试"""
-        return '''"""
+        newline = "\\n"
+        return f'''"""
 User Auth 单元测试套件 - 核心功能验证
 
 测试类型: 单元测试 (Unit) - 70%覆盖率
@@ -2323,7 +2440,7 @@ class TestUserModel:
     
     def test_user_model_creation(self):
         """测试用户模型创建"""
-        print("\\n🧪 测试用户模型创建...")
+        print(f"{newline}🧪 测试用户模型创建...")
         
         # 创建用户实例
         user = User(
@@ -2348,7 +2465,7 @@ class TestUserModel:
     
     def test_user_model_defaults(self):
         """测试用户模型默认值"""
-        print("\\n🧪 测试用户模型默认值...")
+        print(f"{newline}🧪 测试用户模型默认值...")
         
         user = User(
             username="default_test_user",
@@ -2370,7 +2487,7 @@ class TestPasswordHashing:
     
     def test_password_hash_generation(self):
         """测试密码哈希生成"""
-        print("\\n🔐 测试密码哈希生成...")
+        print(f"{newline}🔐 测试密码哈希生成...")
         
         password = "UnitTestPassword123!"
         hashed = get_password_hash(password)
@@ -2383,7 +2500,7 @@ class TestPasswordHashing:
     
     def test_password_verification_success(self):
         """测试密码验证成功"""
-        print("\\n🔐 测试密码验证成功...")
+        print(f"{newline}🔐 测试密码验证成功...")
         
         password = "CorrectPassword123!"
         hashed = get_password_hash(password)
@@ -2393,7 +2510,7 @@ class TestPasswordHashing:
     
     def test_password_verification_failure(self):
         """测试密码验证失败"""
-        print("\\n🔐 测试密码验证失败...")
+        print(f"{newline}🔐 测试密码验证失败...")
         
         correct_password = "CorrectPassword123!"
         wrong_password = "WrongPassword123!"
@@ -2409,7 +2526,7 @@ class TestJWTTokens:
     
     def test_access_token_creation(self):
         """测试访问令牌创建"""
-        print("\\n🎟️ 测试访问令牌创建...")
+        print(f"{newline}🎟️ 测试访问令牌创建...")
         
         token_data = {'sub': '123', 'username': 'unit_user', 'role': 'user'}
         token = create_access_token(token_data)
@@ -2421,7 +2538,7 @@ class TestJWTTokens:
     
     def test_refresh_token_creation(self):
         """测试刷新令牌创建"""
-        print("\\n🎟️ 测试刷新令牌创建...")
+        print(f"{newline}🎟️ 测试刷新令牌创建...")
         
         token_data = {'sub': '123', 'username': 'unit_user'}
         refresh_token = create_refresh_token(token_data)
@@ -2434,7 +2551,7 @@ class TestJWTTokens:
     @patch('app.core.auth.SECRET_KEY', 'test_secret_key_for_unit_testing')
     def test_token_decode_success(self):
         """测试令牌解码成功"""
-        print("\\n🎟️ 测试令牌解码...")
+        print(f"{newline}🎟️ 测试令牌解码...")
         
         token_data = {'sub': '123', 'username': 'unit_user', 'role': 'user'}
         
@@ -2456,7 +2573,7 @@ class TestUserService:
     
     def test_service_initialization(self):
         """测试服务初始化"""
-        print("\\n🔧 测试用户服务初始化...")
+        print(f"{newline}🔧 测试用户服务初始化...")
         
         service = UserService()
         assert service is not None
@@ -2465,7 +2582,7 @@ class TestUserService:
     @patch('app.modules.user_auth.service.Session')
     def test_create_user_mock(self, mock_db):
         """测试用户创建（Mock数据库）"""
-        print("\\n🔧 测试用户创建（Mock）...")
+        print(f"{newline}🔧 测试用户创建（Mock）...")
         
         # Mock数据库会话
         mock_db_session = MagicMock()
@@ -2492,7 +2609,7 @@ class TestUserService:
     @patch('app.modules.user_auth.service.Session')
     def test_authenticate_user_mock(self, mock_db):
         """测试用户认证（Mock数据库）"""
-        print("\\n🔧 测试用户认证（Mock）...")
+        print(f"{newline}🔧 测试用户认证（Mock）...")
         
         # Mock数据库操作
         mock_db_session = MagicMock()
@@ -2511,7 +2628,7 @@ class TestValidationLogic:
     
     def test_username_validation_patterns(self):
         """测试用户名验证模式"""
-        print("\\n✅ 测试用户名验证...")
+        print(f"{newline}✅ 测试用户名验证...")
         
         # 有效用户名
         valid_usernames = ["user123", "test_user", "TestUser", "user-123"]
@@ -2539,7 +2656,7 @@ class TestValidationLogic:
     
     def test_email_validation_patterns(self):
         """测试邮箱验证模式"""
-        print("\\n📧 测试邮箱验证...")
+        print(f"{newline}📧 测试邮箱验证...")
         
         import re
         
@@ -2618,8 +2735,18 @@ class Test{module_name.title().replace('_', '')}Service:
         return {}  # 占位符，需要实现
         
     def _generate_smoke_tests(self, module_name: str, models: Dict[str, ModelInfo]) -> Dict[str, str]:
-        """生成烟雾测试 (2%)"""
-        return {}  # 占位符，需要实现
+        """烟雾测试使用通用脚本，不需要为每个模块单独生成
+        
+        现有的 scripts/smoke_test.ps1 和 tests/smoke/ 目录已经提供了：
+        - 通用API连通性测试
+        - 系统健康检查
+        - 基础功能验证
+        - 自动服务器管理
+        
+        因此，不生成模块特定的烟雾测试文件。
+        """
+        print(f"ℹ️  烟雾测试使用通用脚本 scripts/smoke_test.ps1，跳过 {module_name} 模块特定生成")
+        return {}  # 返回空字典，不生成任何文件
         
     def _generate_specialized_tests(self, module_name: str, models: Dict[str, ModelInfo]) -> Dict[str, str]:
         """生成专项测试 (2%)"""

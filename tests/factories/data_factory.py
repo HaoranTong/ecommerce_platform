@@ -199,9 +199,13 @@ class StandardTestDataFactory:
         db.commit()
         db.refresh(sku)
         
-        # 验证返回的ID是整数
-        assert isinstance(sku.id, int), f"SKU ID必须是整数，当前类型: {type(sku.id)}"
+        # 验证返回的ID是数值类型（支持int和long类型）
+        assert isinstance(sku.id, (int, type(2**63))), f"SKU ID必须是数值类型，当前类型: {type(sku.id)}"
         assert isinstance(sku.sku_code, str), f"SKU代码必须是字符串，当前类型: {type(sku.sku_code)}"
+        
+        # 确保ID可以用作外键（转换为int如果需要）
+        if not isinstance(sku.id, int):
+            sku.id = int(sku.id)
         
         return sku
     
