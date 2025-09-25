@@ -9,8 +9,8 @@
 ## 依赖标准
 
 本标准依赖以下L1核心标准：
-- `naming-conventions-standards.md` - 数据库命名规范（表名、字段名、索引命名标准）
-- `../../PROJECT-FOUNDATION.md` - 项目结构和模块组织标准
+- **[命名规范标准](naming-conventions-standards.md)** - 数据库表名命名（模块+复数形式）、字段名命名（主键外键时间戳规则）、索引命名标准（idx_前缀规则）
+- **[项目基础定义](../../PROJECT-FOUNDATION.md)** - 数据库配置位置（alembic/目录管理）、模块数据边界（业务模块数据独立性）、迁移文件组织标准
 
 ## 具体标准
 ⬆️ **模块命名映射**: 参见 [PROJECT-FOUNDATION.md](../../PROJECT-FOUNDATION.md#业务模块标准结构-垂直切片)

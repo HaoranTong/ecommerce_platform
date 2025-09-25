@@ -9,8 +9,8 @@
 ## 依赖标准
 
 本标准依赖以下L1核心标准：
-- `naming-conventions-standards.md` - API命名规范（路由路径、参数、端点命名标准）  
-- `../../PROJECT-FOUNDATION.md` - 项目结构和模块组织标准
+- **[命名规范标准](naming-conventions-standards.md)** - API路由路径命名（RESTful路径规则）、参数命名（请求响应字段）、端点命名标准（HTTP动词映射）
+- **[项目基础定义](../../PROJECT-FOUNDATION.md)** - 模块组织结构（业务模块边界）、目录结构标准（API文档存放位置）、模块命名映射关系
 
 ## 具体标准
 ⬆️ **模块命名映射**: 参见 [PROJECT-FOUNDATION.md](../../PROJECT-FOUNDATION.md#业务模块标准结构-垂直切片)
