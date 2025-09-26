@@ -516,6 +516,12 @@ echo "Pre-commit检查完成"
 .\dev_tools.ps1 test
 .\dev_tools.ps1 test-coverage
 
+# 🆕 测试环境管理 (推荐使用)
+.\scripts\check_test_env.ps1 -TestMode lite    # 轻量测试环境检查
+.\scripts\check_test_env.ps1 -TestMode full    # 完整测试环境检查
+.\scripts\setup_test_env.ps1 -TestMode lite    # 设置轻量测试环境
+.\scripts\setup_test_env.ps1 -TestMode full    # 设置完整测试环境
+
 # 代码质量
 .\dev_tools.ps1 format
 .\dev_tools.ps1 lint

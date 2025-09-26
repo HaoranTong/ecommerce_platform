@@ -43,6 +43,9 @@ from unittest.mock import Mock
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
+# 全局常量
+NEWLINE = "\\n"
+
 
 @dataclass
 class FieldInfo:
@@ -1553,11 +1556,10 @@ class Test{model_name}Model:
         Returns:
             str: 服务方法测试代码
         """
-        newline = "\\n"
         if not models:
             return f'''    def test_service_basic_functionality(self, unit_test_db: Session):
         """测试服务基本功能"""
-        print(f"{newline}🔍 测试基本功能...")
+        print(f"{NEWLINE}🔍 测试基本功能...")
         service = {service_class_name}(unit_test_db)
         # 添加具体的服务方法测试
         assert True  # 占位符'''
@@ -1566,10 +1568,9 @@ class Test{model_name}Model:
         test_methods = []
         
         for model_name, model_info in models.items():
-            newline = "\\n"
             model_tests = f'''    def test_{model_name.lower()}_crud_operations(self, unit_test_db: Session):
         """测试{model_name}的CRUD操作"""
-        print(f"{newline}📋 测试{model_name} CRUD操作...")
+        print(f"{NEWLINE}📋 测试{model_name} CRUD操作...")
         
         service = {service_class_name}(unit_test_db)
         self.factory_manager.setup_factories(unit_test_db)
@@ -1601,7 +1602,7 @@ class Test{model_name}Model:
             
     def test_{model_name.lower()}_business_logic(self, unit_test_db: Session):
         """测试{model_name}相关业务逻辑"""
-        print(f"{newline}💼 测试{model_name}业务逻辑...")
+        print(f"{NEWLINE}💼 测试{model_name}业务逻辑...")
         
         service = {service_class_name}(unit_test_db)
         
@@ -1628,8 +1629,6 @@ class Test{model_name}Model:
         
         # 生成服务方法测试
         service_methods = self._generate_service_method_tests(module_name, models, service_class_name)
-        
-        newline = "\\n"
         return f'''"""
 {module_name.title()} 服务层测试
 
@@ -1671,7 +1670,7 @@ except ImportError as e:
     print(f"⚠️ 导入警告: {{e}}")
     from unittest.mock import Mock
     {service_class_name} = Mock()
-    {f' = Mock(){newline}    '.join(models.keys())} = Mock()
+    {f' = Mock(){NEWLINE}    '.join(models.keys())} = Mock()
 
 
 @pytest.mark.unit
@@ -1686,8 +1685,7 @@ class {test_class_name}:
         
     def test_service_initialization(self, unit_test_db: Session):
         """测试服务初始化和依赖注入"""
-        newline = "\\n"
-        print(f"{newline}🔧 测试服务初始化...")
+        print(f"{NEWLINE}🔧 测试服务初始化...")
         
         # 测试正常初始化
         service = {service_class_name}(unit_test_db)
@@ -1699,7 +1697,7 @@ class {test_class_name}:
         
     def test_service_factory_integration(self, unit_test_db: Session):
         """测试服务与Factory数据工厂的集成"""
-        print(f"{newline}🏭 测试Factory集成...")
+        print(f"{NEWLINE}🏭 测试Factory集成...")
         
         service = {service_class_name}(unit_test_db)
         self.factory_manager.setup_factories(unit_test_db)
@@ -1716,7 +1714,7 @@ class {test_class_name}:
     
     def test_error_handling_and_validation(self, unit_test_db: Session):
         """测试错误处理和数据验证"""
-        print(f"{newline}⚠️ 测试错误处理...")
+        print(f"{NEWLINE}⚠️ 测试错误处理...")
         
         service = {service_class_name}(unit_test_db)
         
@@ -1735,7 +1733,7 @@ class {test_class_name}:
             
     def test_transaction_handling(self, unit_test_db: Session):
         """测试事务处理和数据一致性"""
-        print(f"{newline}💾 测试事务处理...")
+        print(f"{NEWLINE}💾 测试事务处理...")
         
         service = {service_class_name}(unit_test_db)
         
@@ -1772,11 +1770,10 @@ class {test_class_name}:
         Returns:
             str: 工作流场景测试代码
         """
-        newline = "\\n"
         if not models:
             return f'''    def test_basic_workflow_scenario(self, unit_test_db: Session):
         """测试基础工作流场景"""
-        print(f"{newline}📋 执行基础工作流...")
+        print(f"{NEWLINE}📋 执行基础工作流...")
         service = {service_class_name}(unit_test_db)
         # 添加具体的工作流测试
         assert service is not None'''
@@ -1787,7 +1784,7 @@ class {test_class_name}:
         # 场景1: 正常业务流程
         scenarios.append(f'''    def test_normal_business_scenario(self, unit_test_db: Session):
         """测试正常业务场景"""
-        print(f"{newline}✅ 执行正常业务场景...")
+        print(f"{NEWLINE}✅ 执行正常业务场景...")
         
         service = {service_class_name}(unit_test_db)
         self.factory_manager.setup_factories(unit_test_db)
@@ -1802,7 +1799,7 @@ class {test_class_name}:
         # 场景2: 边界条件测试  
         scenarios.append(f'''    def test_edge_case_scenarios(self, unit_test_db: Session):
         """测试边界条件场景"""
-        print(f"{newline}⚠️ 执行边界条件测试...")
+        print(f"{NEWLINE}⚠️ 执行边界条件测试...")
         
         service = {service_class_name}(unit_test_db)
         
@@ -1825,7 +1822,7 @@ class {test_class_name}:
         # 场景3: 异常处理测试
         scenarios.append(f'''    def test_exception_handling_scenarios(self, unit_test_db: Session):
         """测试异常处理场景"""
-        print(f"{newline}🚫 执行异常处理测试...")
+        print(f"{NEWLINE}🚫 执行异常处理测试...")
         
         service = {service_class_name}(unit_test_db)
         
@@ -1845,7 +1842,7 @@ class {test_class_name}:
         # 场景4: 性能关键路径测试
         scenarios.append(f'''    def test_performance_critical_paths(self, unit_test_db: Session):
         """测试性能关键路径"""
-        print(f"{newline}⚡ 执行性能关键路径测试...")
+        print(f"{NEWLINE}⚡ 执行性能关键路径测试...")
         
         service = {service_class_name}(unit_test_db)
         self.factory_manager.setup_factories(unit_test_db)
@@ -1927,7 +1924,7 @@ except ImportError as e:
     print(f"⚠️ 组件导入警告: {{e}}")
     from unittest.mock import Mock
     {service_class_name} = Mock()
-    {f' = Mock(){newline}    '.join(models.keys())} = Mock()
+    {f' = Mock(){NEWLINE}    '.join(models.keys())} = Mock()
     COMPONENTS_AVAILABLE = False
 
 
@@ -1945,7 +1942,7 @@ class Test{module_name.title().replace('_', '')}Workflow:
     @pytest.mark.critical
     def test_complete_{module_name}_workflow(self, unit_test_db: Session):
         """测试完整{module_name}业务流程 - 关键路径"""
-        print(f"{newline}🔄 执行完整业务流程测试...")
+        print(f"{NEWLINE}🔄 执行完整业务流程测试...")
         
         if not COMPONENTS_AVAILABLE:
             pytest.skip("组件不可用，跳过业务流程测试")
@@ -2058,7 +2055,6 @@ class Test{module_name.title().replace('_', '')}Workflow:
     
     def _generate_user_auth_integration_tests(self) -> str:
         """生成用户认证模块的完整集成测试 - 基于test_auth_integration.py最佳实践"""
-        newline = "\\n"
         return f'''"""
 User Auth 集成测试套件 - 完整业务流程验证
 
@@ -2103,7 +2099,7 @@ class TestUserAuthIntegration:
     
     def test_jwt_token_integration(self, mysql_integration_db: Session):
         """测试JWT令牌完整功能集成"""
-        print(f"{newline}🔐 测试JWT令牌完整功能...")
+        print(f"{NEWLINE}🔐 测试JWT令牌完整功能...")
         
         # 1. 测试访问令牌创建
         token_data = {'sub': '1', 'username': 'integration_user', 'role': 'user'}
@@ -2147,7 +2143,7 @@ class TestUserAuthIntegration:
 
     def test_user_registration_integration(self, mysql_integration_db: Session):
         """测试用户注册完整业务流程集成"""
-        print(f"{newline}📝 测试用户注册完整流程...")
+        print(f"{NEWLINE}📝 测试用户注册完整流程...")
         
         # 1. 初始化服务
         user_service = UserService()
@@ -2192,7 +2188,7 @@ class TestUserAuthIntegration:
 
     def test_user_login_authentication_integration(self, mysql_integration_db: Session):
         """测试用户登录认证完整流程集成"""
-        print(f"{newline}🔑 测试用户登录认证流程...")
+        print(f"{NEWLINE}🔑 测试用户登录认证流程...")
         
         user_service = UserService()
         
@@ -2239,7 +2235,7 @@ class TestUserAuthIntegration:
 
     def test_user_auth_api_integration(self, api_client, mysql_integration_db: Session):
         """测试用户认证API端点集成"""
-        print(f"{newline}🌐 测试用户认证API端点...")
+        print(f"{NEWLINE}🌐 测试用户认证API端点...")
         
         # 1. 测试健康检查API
         health_response = api_client.get("/health")
@@ -2273,7 +2269,7 @@ class TestUserAuthIntegration:
 
     def test_database_integration_verification(self, mysql_integration_db: Session):
         """测试数据库集成验证"""
-        print(f"{newline}🗄️ 测试数据库集成...")
+        print(f"{NEWLINE}🗄️ 测试数据库集成...")
         
         # 1. 验证数据库连接
         assert mysql_integration_db is not None
@@ -2306,7 +2302,7 @@ class TestUserAuthIntegration:
 
     def test_permission_system_integration(self, mysql_integration_db: Session):
         """测试权限系统集成（如果实现）"""
-        print(f"{newline}🛡️ 测试权限系统集成...")
+        print(f"{NEWLINE}🛡️ 测试权限系统集成...")
         
         # 1. 测试角色和权限模型（如果存在）
         try:
@@ -2399,7 +2395,6 @@ class Test{module_name.title().replace('_', '')}Integration:
     
     def _generate_user_auth_unit_tests(self) -> str:
         """生成用户认证模块的完整单元测试"""
-        newline = "\\n"
         return f'''"""
 User Auth 单元测试套件 - 核心功能验证
 
@@ -2440,7 +2435,7 @@ class TestUserModel:
     
     def test_user_model_creation(self):
         """测试用户模型创建"""
-        print(f"{newline}🧪 测试用户模型创建...")
+        print(f"{NEWLINE}🧪 测试用户模型创建...")
         
         # 创建用户实例
         user = User(
@@ -2465,7 +2460,7 @@ class TestUserModel:
     
     def test_user_model_defaults(self):
         """测试用户模型默认值"""
-        print(f"{newline}🧪 测试用户模型默认值...")
+        print(f"{NEWLINE}🧪 测试用户模型默认值...")
         
         user = User(
             username="default_test_user",
@@ -2487,7 +2482,7 @@ class TestPasswordHashing:
     
     def test_password_hash_generation(self):
         """测试密码哈希生成"""
-        print(f"{newline}🔐 测试密码哈希生成...")
+        print(f"{NEWLINE}🔐 测试密码哈希生成...")
         
         password = "UnitTestPassword123!"
         hashed = get_password_hash(password)
@@ -2500,7 +2495,7 @@ class TestPasswordHashing:
     
     def test_password_verification_success(self):
         """测试密码验证成功"""
-        print(f"{newline}🔐 测试密码验证成功...")
+        print(f"{NEWLINE}🔐 测试密码验证成功...")
         
         password = "CorrectPassword123!"
         hashed = get_password_hash(password)
@@ -2510,7 +2505,7 @@ class TestPasswordHashing:
     
     def test_password_verification_failure(self):
         """测试密码验证失败"""
-        print(f"{newline}🔐 测试密码验证失败...")
+        print(f"{NEWLINE}🔐 测试密码验证失败...")
         
         correct_password = "CorrectPassword123!"
         wrong_password = "WrongPassword123!"
@@ -2526,7 +2521,7 @@ class TestJWTTokens:
     
     def test_access_token_creation(self):
         """测试访问令牌创建"""
-        print(f"{newline}🎟️ 测试访问令牌创建...")
+        print(f"{NEWLINE}🎟️ 测试访问令牌创建...")
         
         token_data = {'sub': '123', 'username': 'unit_user', 'role': 'user'}
         token = create_access_token(token_data)
@@ -2538,7 +2533,7 @@ class TestJWTTokens:
     
     def test_refresh_token_creation(self):
         """测试刷新令牌创建"""
-        print(f"{newline}🎟️ 测试刷新令牌创建...")
+        print(f"{NEWLINE}🎟️ 测试刷新令牌创建...")
         
         token_data = {'sub': '123', 'username': 'unit_user'}
         refresh_token = create_refresh_token(token_data)
@@ -2551,7 +2546,7 @@ class TestJWTTokens:
     @patch('app.core.auth.SECRET_KEY', 'test_secret_key_for_unit_testing')
     def test_token_decode_success(self):
         """测试令牌解码成功"""
-        print(f"{newline}🎟️ 测试令牌解码...")
+        print(f"{NEWLINE}🎟️ 测试令牌解码...")
         
         token_data = {'sub': '123', 'username': 'unit_user', 'role': 'user'}
         
@@ -2573,7 +2568,7 @@ class TestUserService:
     
     def test_service_initialization(self):
         """测试服务初始化"""
-        print(f"{newline}🔧 测试用户服务初始化...")
+        print(f"{NEWLINE}🔧 测试用户服务初始化...")
         
         service = UserService()
         assert service is not None
@@ -2582,7 +2577,7 @@ class TestUserService:
     @patch('app.modules.user_auth.service.Session')
     def test_create_user_mock(self, mock_db):
         """测试用户创建（Mock数据库）"""
-        print(f"{newline}🔧 测试用户创建（Mock）...")
+        print(f"{NEWLINE}🔧 测试用户创建（Mock）...")
         
         # Mock数据库会话
         mock_db_session = MagicMock()
@@ -2609,7 +2604,7 @@ class TestUserService:
     @patch('app.modules.user_auth.service.Session')
     def test_authenticate_user_mock(self, mock_db):
         """测试用户认证（Mock数据库）"""
-        print(f"{newline}🔧 测试用户认证（Mock）...")
+        print(f"{NEWLINE}🔧 测试用户认证（Mock）...")
         
         # Mock数据库操作
         mock_db_session = MagicMock()
@@ -2628,7 +2623,7 @@ class TestValidationLogic:
     
     def test_username_validation_patterns(self):
         """测试用户名验证模式"""
-        print(f"{newline}✅ 测试用户名验证...")
+        print(f"{NEWLINE}✅ 测试用户名验证...")
         
         # 有效用户名
         valid_usernames = ["user123", "test_user", "TestUser", "user-123"]
@@ -2656,7 +2651,7 @@ class TestValidationLogic:
     
     def test_email_validation_patterns(self):
         """测试邮箱验证模式"""
-        print(f"{newline}📧 测试邮箱验证...")
+        print(f"{NEWLINE}📧 测试邮箱验证...")
         
         import re
         

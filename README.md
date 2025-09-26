@@ -2,6 +2,26 @@
 
 > 基于FastAPI构建的模块化农产品电商平台，采用文档驱动开发和标准化架构
 
+## 🚀 快速开始
+
+**新手开发者**: [📖 开发环境配置指南](docs/operations/development-setup.md) - 快速搭建开发环境
+
+**核心命令**:
+```powershell
+# 1. 克隆并设置环境
+git clone https://github.com/HaoranTong/ecommerce_platform.git
+cd ecommerce_platform && python -m venv .venv && .venv\Scripts\Activate.ps1
+
+# 2. 安装依赖并检查环境
+pip install -r requirements.txt
+.\scripts\check_test_env.ps1 -TestMode lite
+
+# 3. 运行测试验证
+pytest tests/unit/ -v
+```
+
+**进阶开发**: [📖 AI开发控制文档](MASTER.md) - 深度掌握项目架构和开发流程
+
 ## 🎯 核心特性
 - 🏗️ **模块化单体架构** - 垂直切片模块化设计，清晰边界
 - 🌾 **农产品电商** - 专注农产品溯源、质量认证、冷链物流

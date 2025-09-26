@@ -384,6 +384,44 @@ function Test-CodeQuality($ModuleName, $FilePath) {
 function Test-TestEnvironment($ModuleName) {
     Write-Host "📋 测试环境配置验证 - $ModuleName" -ForegroundColor Yellow
     
+    # 第一步：运行完整的环境检查
+    Write-Host "🔍 执行环境检查..." -ForegroundColor Cyan
+    $envCheck = & "$PSScriptRoot/check_test_env.ps1" 2>&1
+    $envCheckPassed = $LASTEXITCODE -eq 0
+    
+    if (-not $envCheckPassed) {
+        Write-Host "⚠️  环境检查发现问题，尝试自动修复..." -ForegroundColor Yellow
+        
+        # 第二步：尝试自动环境设置
+        Write-Host "🔧 启动环境自动修复..." -ForegroundColor Cyan
+        try {
+            & "$PSScriptRoot/setup_test_env.ps1" -SetupOnly -TestType unit
+            $setupSuccess = $LASTEXITCODE -eq 0
+            
+            if ($setupSuccess) {
+                Write-Host "✅ 环境自动修复成功，重新验证..." -ForegroundColor Green
+                # 第三步：重新验证
+                $envCheck = & "$PSScriptRoot/check_test_env.ps1" 2>&1
+                $envCheckPassed = $LASTEXITCODE -eq 0
+                
+                if ($envCheckPassed) {
+                    Write-Host "✅ 环境验证通过" -ForegroundColor Green
+                } else {
+                    Write-Host "❌ 环境修复后仍有问题，需要手动处理" -ForegroundColor Red
+                    Write-Host "详细信息:" -ForegroundColor Gray
+                    Write-Host $envCheck -ForegroundColor Gray
+                }
+            } else {
+                Write-Host "❌ 环境自动修复失败" -ForegroundColor Red
+            }
+        } catch {
+            Write-Host "❌ 环境修复过程中出错: $_" -ForegroundColor Red
+        }
+    } else {
+        Write-Host "✅ 环境检查通过" -ForegroundColor Green
+    }
+    
+    # 第四步：检查模块特定配置
     $TestConfigs = @("conftest.py", "tests/conftest.py", "tests/conftest_standalone.py")
     
     foreach ($Config in $TestConfigs) {
@@ -398,13 +436,23 @@ function Test-TestEnvironment($ModuleName) {
     } else {
         Write-Host "   ❌ 测试目录不存在" -ForegroundColor Red
     }
+    
+    return $envCheckPassed
 }
 
 function Test-UnitTests($ModuleName, $FilePath) {
     Write-Host "📋 单元测试验证 - $ModuleName" -ForegroundColor Yellow
     
-    $TestPattern = "tests/**/test_*$ModuleName*.py"
-    $TestFiles = Get-ChildItem $TestPattern -Recurse -ErrorAction SilentlyContinue
+    # 排除归档目录，只在活跃测试目录中搜索
+    $TestPaths = @("tests/unit", "tests/generated")
+    $TestFiles = @()
+    
+    foreach ($TestPath in $TestPaths) {
+        if (Test-Path $TestPath) {
+            $Files = Get-ChildItem "$TestPath" -Filter "*$ModuleName*.py" -Recurse -ErrorAction SilentlyContinue
+            $TestFiles += $Files
+        }
+    }
     
     if ($TestFiles) {
         Write-Host "   ✅ 发现单元测试: $($TestFiles.Count) 个文件" -ForegroundColor Green
@@ -423,7 +471,9 @@ function Test-IntegrationTests($ModuleName, $FilePath) {
     
     $IntegrationPath = "tests/integration"
     if (Test-Path $IntegrationPath) {
-        $TestFiles = Get-ChildItem "$IntegrationPath/*$ModuleName*" -ErrorAction SilentlyContinue
+        # 排除归档文件，只检查活跃的集成测试
+        $TestFiles = Get-ChildItem "$IntegrationPath" -Filter "*$ModuleName*.py" -ErrorAction SilentlyContinue | 
+                     Where-Object { $_.FullName -notmatch "_archive" }
         if ($TestFiles) {
             Write-Host "   ✅ 发现集成测试: $($TestFiles.Count) 个" -ForegroundColor Green
         } else {
@@ -435,7 +485,17 @@ function Test-IntegrationTests($ModuleName, $FilePath) {
 function Test-APITests($ModuleName, $FilePath) {
     Write-Host "📋 API测试验证 - $ModuleName" -ForegroundColor Yellow
     
-    $APITestFiles = Get-ChildItem "tests" -Filter "*api*" -Recurse -ErrorAction SilentlyContinue
+    # 排除归档目录，只在活跃测试目录中搜索API测试
+    $APITestPaths = @("tests/integration", "tests/e2e", "tests/generated")
+    $APITestFiles = @()
+    
+    foreach ($TestPath in $APITestPaths) {
+        if (Test-Path $TestPath) {
+            $Files = Get-ChildItem "$TestPath" -Filter "*api*" -Recurse -ErrorAction SilentlyContinue |
+                     Where-Object { $_.FullName -notmatch "_archive" }
+            $APITestFiles += $Files
+        }
+    }
     
     if ($APITestFiles) {
         Write-Host "   ✅ 发现API测试文件" -ForegroundColor Green

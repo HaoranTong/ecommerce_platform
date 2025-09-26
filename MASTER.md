@@ -195,7 +195,8 @@
 - **docs/status/README.md** - 状态文档说明
 
 ## ⚡ 常用工具脚本
-- **测试环境检查**: `scripts/check_test_env.ps1`
+- **测试环境管理**: `scripts/setup_test_env.ps1 -TestMode <lite|full>`
+- **测试环境检查**: `scripts/check_test_env.ps1 -TestMode <lite|full>`
 - **代码规范检查**: `scripts/check_code_standards.ps1` 
 - **文档同步**: `scripts/sync_readme.ps1`
 - **测试模板生成**: `python scripts/generate_test_template.py [module]`

@@ -207,10 +207,10 @@
 
 **执行脚本**:
 1. `scripts/check_test_env.ps1` - 快速环境检查
-2. `scripts/setup_test_env.ps1 -SetupOnly` - 环境准备
+2. `scripts/setup_test_env.ps1 -TestMode lite -CheckOnly` - 环境检查
 3. `python scripts/validate_test_config.py` - 深度诊断
 
-**辅助脚本**: `scripts/check_test_env.ps1`
+**辅助脚本**: `scripts/check_test_env.ps1 -TestMode lite`
 
 ### TEST-002: 测试数据一致性
 **触发条件**: 编写单元测试、使用模型数据
@@ -241,8 +241,8 @@
 4. **Mock策略标准** → `docs/standards/testing-standards.md` 第200-220行
 
 **执行脚本**: 
-1. `scripts/setup_test_env.ps1 -TestType integration`
-2. `scripts/run_module_tests.ps1 -Module {module} -TestType integration`
+1. `scripts/setup_test_env.ps1 -TestMode full`
+2. `scripts/run_module_tests.ps1 -Module {module} -TestMode full`
 
 ### TEST-004: 性能与安全测试
 **触发条件**: 压力测试、安全验证
@@ -267,7 +267,7 @@
 4. **错误处理标准** → `docs/standards/api-standards.md` 第200-240行
 
 **执行脚本**:
-1. `scripts/setup_test_env.ps1 -TestType e2e`
+1. `scripts/setup_test_env.ps1 -TestMode full`  # E2E测试建议使用full模式
 2. `pytest tests/e2e/ -v`
 
 ### TEST-006: 性能测试验证

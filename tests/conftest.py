@@ -37,7 +37,7 @@ from app.modules.payment_service.models import Payment, Refund
 UNIT_TEST_DATABASE_URL = "sqlite:///:memory:"  # 单元测试：内存数据库
 SMOKE_TEST_DATABASE_URL = "sqlite:///./tests/smoke_test.db"  # 烟雾测试：文件数据库
 # Integration Test Database Configuration (MySQL Docker) - 与setup_test_env.ps1一致
-INTEGRATION_TEST_DATABASE_URL = "mysql+pymysql://test_user:test_pass@localhost:3308/test_ecommerce"
+INTEGRATION_TEST_DATABASE_URL = "mysql+pymysql://root:test_password@localhost:3308/ecommerce_platform_test"
 
 # ========== Mock框架配置 [CHECK:TEST-001] ==========
 @pytest.fixture(autouse=True)
@@ -474,7 +474,7 @@ def sample_product_data():
 # ========== E2E和专项测试配置 [CHECK:TEST-001] [CHECK:TEST-004] ==========
 
 # E2E测试数据库配置（专用MySQL实例）- 使用独立数据库名
-E2E_TEST_DATABASE_URL = "mysql+pymysql://test_user:test_pass@localhost:3308/test_ecommerce_e2e"
+E2E_TEST_DATABASE_URL = "mysql+pymysql://root:test_password@localhost:3308/ecommerce_platform_test"
 
 @pytest.fixture(scope="session")
 def mysql_e2e_db():

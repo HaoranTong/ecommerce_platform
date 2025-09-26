@@ -34,8 +34,8 @@
 |---------|------|----------|----------|
 | `smoke_test.ps1` | 系统健康检查 | CI/CD快速验证，SQLite轻量测试 | [📖](../docs/tools/scripts-usage-manual.md#smoke_test) |
 | `integration_test.ps1` | 集成测试 | MySQL Docker完整集成验证 | [📖](../docs/tools/scripts-usage-manual.md#integration_test) |
-| `setup_test_env.ps1` | 测试环境管理 | 多环境配置(unit/smoke/integration) | [📖](../docs/tools/scripts-usage-manual.md#setup_test_env) |
-| `check_test_env.ps1` | 环境诊断 | 环境验证+fixture依赖诊断 | [📖](../docs/tools/scripts-usage-manual.md#check_test_env) |
+| `setup_test_env.ps1` | 测试环境管理 | 双模式配置(lite/full)，统一环境管理 | [📖](../docs/tools/scripts-usage-manual.md#setup_test_env) |
+| `check_test_env.ps1` | 环境检查 | 智能化环境验证，分层检查机制 | [📖](../docs/tools/scripts-usage-manual.md#check_test_env) |
 | `run_module_tests.ps1` | 模块测试执行 | 统一的参数化模块测试 | [📖](../docs/tools/scripts-usage-manual.md#run_module_tests) |
 | `generate_test_template.py` | 智能测试生成 | 5层测试架构自动生成 | [📖](../docs/tools/scripts-usage-manual.md#generate_test_template) |
 | `validate_test_config.py` | 配置验证 | pytest.ini, conftest.py验证 | [📖](../docs/tools/scripts-usage-manual.md#validate_test_config) |
@@ -104,8 +104,9 @@
 #### 🧪 测试验证流程
 ```powershell  
 # 测试环境准备
-.\setup_test_env.ps1
-.\check_test_env.ps1
+.\setup_test_env.ps1 -TestMode lite -CheckOnly  # 检查轻量环境
+.\setup_test_env.ps1 -TestMode full             # 设置完整环境
+.\check_test_env.ps1 -TestMode full              # 单独环境检查
 
 # 执行测试
 .\run_module_tests.ps1 -Module "user_auth"

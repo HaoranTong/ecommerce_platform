@@ -74,9 +74,50 @@ python scripts/migrate_generated_test.py tests/generated/test_cart_complete.py u
 
 ---
 
-### `check_test_env.ps1` - 环境检查工具
+### `check_test_env.ps1` - 智能测试环境检查工具
 
-#### 使用示例
+**功能描述**: 电商平台专用的智能化测试环境验证工具，支持分层检查和模式分离。
+
+#### 核心特性
+- **分层验证**: 虚拟环境 → 基础依赖 → 项目结构 → 模式特定检查
+- **快速失败**: 关键步骤失败立即停止，提供明确修复建议
+- **双模式支持**: lite模式（单元测试）和full模式（集成测试）
+- **智能检测**: 自动识别Docker状态和服务运行情况
+
+#### 使用方法
+```powershell
+# 轻量模式检查（默认）- 适用于单元测试
+.\scripts\check_test_env.ps1
+.\scripts\check_test_env.ps1 -TestMode lite
+
+# 完整模式检查 - 适用于集成测试  
+.\scripts\check_test_env.ps1 -TestMode full
+```
+
+#### 检查流程
+
+**第1步: 虚拟环境激活与验证**
+- 自动激活.venv虚拟环境
+- 验证Python版本（3.8+）
+- 确认虚拟环境路径正确
+
+**第2步: 基础依赖验证**
+- pytest (测试框架)
+- sqlalchemy (数据库ORM)
+- fastapi (Web框架)
+- httpx (HTTP客户端)
+- pydantic (数据验证)
+
+**第3步: 项目结构验证**
+- 测试目录结构 (tests/, tests/unit/, tests/factories/)
+- 配置文件 (pyproject.toml, tests/conftest.py)
+- pytest配置验证
+
+**第4步: 模式特定检查**
+- **lite模式**: pytest-mock, factory_boy, SQLite内存数据库
+- **full模式**: Docker环境, docker-compose服务, MySQL/Redis连接
+
+#### 输出示例
 ```powershell
 # 基本使用
 .\scripts\check_test_env.ps1
@@ -97,36 +138,127 @@ python scripts/migrate_generated_test.py tests/generated/test_cart_complete.py u
 ✅ SQLite数据库
 ✅ Docker (集成测试可选)
 
-🎉 所有检查通过！测试环境就绪。
-您可以运行以下命令开始测试:
-  pytest tests/unit/ -v           # 单元测试
-  pytest tests/integration/ -v    # 集成测试
-  pytest tests/ -v                # 全部测试
-```
-
-### 2. setup_test_env.ps1 - 标准测试流程
-
-#### 功能说明
-完整的测试环境设置、验证、执行、清理流程。
-
-#### 参数详解
 ```powershell
--TestType <类型>    # unit|smoke|integration|all
--SetupOnly         # 仅设置环境，不运行测试
--SkipValidation    # 跳过环境验证 (不推荐)
+# lite模式成功输出
+ℹ️  🔍 测试环境检查 - lite 模式
+==================================================
+
+📋 第1步：虚拟环境激活与验证
+==================================================
+✅ 虚拟环境激活
+   Python路径: E:\ecommerce_platform\.venv\Scripts\python.exe
+✅ Python版本
+   Python 3.11.9
+
+📋 第2步：基础依赖验证
+==================================================
+✅ 数据验证 - Python包: pydantic
+✅ 测试框架 - Python包: pytest
+✅ 数据库ORM - Python包: sqlalchemy
+✅ HTTP客户端 - Python包: httpx
+✅ Web框架 - Python包: fastapi
+
+📋 第3步：项目结构验证
+==================================================
+✅ 测试根目录 - tests
+✅ 单元测试目录 - tests/unit
+✅ 测试工厂目录 - tests/factories
+✅ 项目配置文件 - pyproject.toml
+✅ pytest配置 - pyproject.toml中的[tool.pytest.ini_options]
+
+📋 第4步：轻量模式特定检查
+==================================================
+✅ Mock功能 - Python包: pytest-mock
+✅ 测试数据工厂 - Python包: factory_boy
+✅ SQLite内存数据库 - 轻量模式数据库
+✅ 🎉 轻量模式环境检查通过！
+
+ℹ️  可以运行以下测试命令:
+  pytest tests/unit/ -v           # 单元测试
+  pytest tests/unit/ --cov=app    # 单元测试 + 覆盖率
 ```
+
+---
+
+### `setup_test_env.ps1` - 统一测试环境管理工具
+
+**功能描述**: 电商平台测试环境的统一管理入口，支持环境检查和设置的完整工作流程。
+
+#### 核心特性
+- **统一入口**: 所有测试环境操作的单一入口点
+- **职责分离**: 委托专业脚本进行环境检查
+- **双工作模式**: CheckOnly（仅检查）和Setup（检查+设置）
+- **参数标准化**: 使用TestMode参数替代旧版TestType
+
+#### 参数说明
+```powershell
+-TestMode <模式>    # lite|full (默认: lite)
+-CheckOnly         # 仅检查环境，不进行设置
+-AutoFix          # 自动修复发现的问题
+-Verbose          # 显示详细信息
+```
+
+#### 使用方法
+
+**基础使用**
+```powershell
+# 默认lite模式，进行环境设置
+.\scripts\setup_test_env.ps1
+
+# 仅检查lite环境状态
+.\scripts\setup_test_env.ps1 -CheckOnly
+
+# 仅检查full环境状态（包括Docker）
+.\scripts\setup_test_env.ps1 -TestMode full -CheckOnly
+```
+
+**高级使用**
+```powershell
+# 设置完整测试环境
+.\scripts\setup_test_env.ps1 -TestMode full
+
+# 自动修复环境问题
+.\scripts\setup_test_env.ps1 -TestMode full -AutoFix
+
+# 详细模式显示更多信息
+.\scripts\setup_test_env.ps1 -TestMode full -Verbose
+```
+
+#### 工作流程
+
+**CheckOnly模式（仅检查）**:
+1. 调用check_test_env.ps1进行专业检查
+2. 返回详细的环境状态报告
+3. 不进行任何修改或设置操作
+
+**Setup模式（检查+设置）**:
+1. 首先执行完整环境检查
+2. 根据TestMode启动相应服务
+3. 进行必要的环境配置
+4. 验证设置结果
+
+#### 环境模式对比
+
+| 特性 | lite模式 | full模式 |
+|------|---------|----------|
+| **用途** | 单元测试 | 集成测试 |
+| **数据库** | SQLite内存 | MySQL (Docker) |
+| **Mock** | pytest-mock | 真实服务 |
+| **Docker** | 不需要 | 必需 |
+| **启动时间** | < 5秒 | 30-60秒 |
+| **资源占用** | 低 | 中等 |
 
 #### 使用场景
 
-**场景1：标准单元测试** 
+**场景1：快速单元测试** 
 ```powershell
-.\scripts\setup_test_env.ps1 -TestType unit
+.\scripts\setup_test_env.ps1 -TestMode lite
 
 ```bash
-.\scripts\setup_test_env.ps1 -TestType unit           # 单元测试
-.\scripts\setup_test_env.ps1 -TestType integration    # 集成测试  
-.\scripts\setup_test_env.ps1 -TestType all            # 全部测试
-.\scripts\setup_test_env.ps1 -SetupOnly               # 仅环境准备
+.\scripts\setup_test_env.ps1 -TestMode lite           # 轻量测试（单元测试）
+.\scripts\setup_test_env.ps1 -TestMode full          # 完整测试（集成测试）
+.\scripts\setup_test_env.ps1 -TestMode full           # 全部测试（推荐full模式）
+.\scripts\setup_test_env.ps1 -TestMode lite -CheckOnly      # 仅检查环境，不进行设置
 ```
 
 ### validate_test_config.py 诊断工具
@@ -135,7 +267,7 @@ python scripts/migrate_generated_test.py tests/generated/test_cart_complete.py u
 
 #### 详细验证内容
 ```powershell
-.\scripts\setup_test_env.ps1 -TestType integration
+.\scripts\setup_test_env.ps1 -TestMode full
 
 # 执行流程：
 # 1-5. 同上环境准备
@@ -146,7 +278,7 @@ python scripts/migrate_generated_test.py tests/generated/test_cart_complete.py u
 
 **场景4：完整测试套件**
 ```powershell
-.\scripts\setup_test_env.ps1 -TestType all
+.\scripts\setup_test_env.ps1 -TestMode full
 
 # 执行流程：
 # 1. 准备所有测试环境
@@ -251,7 +383,7 @@ docker --version
 
 # 启动Docker Desktop
 # 然后重新运行测试
-.\scripts\setup_test_env.ps1 -TestType integration
+.\scripts\setup_test_env.ps1 -TestMode full
 ```
 
 #### 问题5：SQLAlchemy模型关系错误
@@ -268,7 +400,7 @@ python -c "from app.modules.user_auth.models import User; print('OK')"
 
 # 重新生成数据库
 rm tests/smoke_test.db
-.\scripts\setup_test_env.ps1 -TestType smoke
+.\scripts\setup_test_env.ps1 -TestMode lite  # smoke测试建议使用轻量模式
 ```
 
 ### 环境重置步骤
@@ -278,15 +410,18 @@ rm tests/smoke_test.db
 # 第一步：清理测试数据库文件
 Remove-Item tests/smoke_test.db -Force -ErrorAction SilentlyContinue
 
-# 第二步：停止并清理Docker容器
-docker stop mysql_test 2>$null
-docker rm mysql_test 2>$null
+# 第二步：停止并清理Docker容器（如果使用docker-compose）
+docker-compose down
+docker-compose up -d
+
+# 或者重启特定的测试容器
+docker restart ecommerce_platform-mysql-test
 
 # 第三步：重新验证环境
 .\scripts\check_test_env.ps1
 
 # 第四步：重新运行测试
-.\scripts\setup_test_env.ps1 -TestType unit
+.\scripts\setup_test_env.ps1 -TestMode lite
 ```
 
 ## 🏭 双工厂架构使用指南
@@ -414,13 +549,13 @@ def test_mixed():
 ### 开发阶段测试策略
 ```powershell
 # 开发过程中：频繁运行单元测试
-.\scripts\setup_test_env.ps1 -TestType unit
+.\scripts\setup_test_env.ps1 -TestMode lite
 
 # 功能完成后：运行集成测试
-.\scripts\setup_test_env.ps1 -TestType integration
+.\scripts\setup_test_env.ps1 -TestMode full
 
 # 提交前：运行完整测试套件
-.\scripts\setup_test_env.ps1 -TestType all
+.\scripts\setup_test_env.ps1 -TestMode full
 ```
 
 ### 持续集成环境配置
@@ -431,10 +566,10 @@ steps:
     run: .\scripts\check_test_env.ps1
     
   - name: Run Unit Tests
-    run: .\scripts\setup_test_env.ps1 -TestType unit
+    run: .\scripts\setup_test_env.ps1 -TestMode lite
     
   - name: Run Integration Tests
-    run: .\scripts\setup_test_env.ps1 -TestType integration
+    run: .\scripts\setup_test_env.ps1 -TestMode full
 ```
 
 ## 🧪 测试脚本编写强制标准
@@ -850,7 +985,7 @@ python scripts/generate_test_template.py user_service authenticate
 python scripts/validate_test_structure.py
 
 # 4. 运行测试验证
-.\scripts\setup_test_env.ps1 -TestType unit
+.\scripts\setup_test_env.ps1 -TestMode lite
 ```
 
 ## 相关文档
