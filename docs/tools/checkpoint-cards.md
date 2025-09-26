@@ -177,7 +177,7 @@
 
 **执行脚本**:
 1. `scripts/check_code_standards.ps1 -FilePath {file_path}`
-2. `scripts/validate_code_quality.ps1 -Module {module}`
+2. `scripts/ai_checkpoint.ps1 -CardType DEV-008 -ModuleName {module}`
 
 ### DEV-009: 代码开发前强制检查验证
 **触发条件**: 开始编写代码前、创建代码文件前
@@ -189,8 +189,8 @@
 4. **数据模型标准** → `docs/standards/database-standards.md` 第10-65行
 
 **执行脚本**:
-1. `scripts/pre_development_check.ps1 -Module {module}`
-2. `scripts/validate_naming_compliance.ps1 -FilePath {file_path}`
+1. `scripts/dev_checkpoint.ps1 -Phase PRE_DEV -Module {module}`
+2. `scripts/check_naming_compliance.ps1 -FilePath {file_path}`
 
 **辅助脚本**: `scripts/ai_checkpoint.ps1 -CardType DEV-009`
 
@@ -280,8 +280,8 @@
 4. **性能测试标准** → `docs/standards/testing-standards.md` 第240-280行
 
 **执行脚本**:
-1. `scripts/performance_test.ps1 -Module {module}`
-2. `scripts/load_test.ps1 -TestLevel stress`
+1. `scripts/ai_checkpoint.ps1 -CardType TEST-005 -ModuleName {module}`
+2. `scripts/generate_test_template.py --test-type performance --module {module}`
 
 ### TEST-007: 安全测试验证
 **触发条件**: 安全功能测试、漏洞扫描
@@ -293,8 +293,8 @@
 4. **数据保护标准** → `docs/architecture/security-architecture.md` 第160-200行
 
 **执行脚本**:
-1. `scripts/security_scan.ps1 -Module {module}`
-2. `scripts/vulnerability_test.ps1`
+1. `scripts/ai_checkpoint.ps1 -CardType TEST-006 -ModuleName {module}`
+2. `scripts/generate_test_template.py --test-type security --module {module}`
 
 ### TEST-008: 测试阶段完成验证
 **触发条件**: 模块测试完成、代码提交前
