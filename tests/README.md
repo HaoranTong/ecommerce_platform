@@ -51,7 +51,64 @@ tests/
 | **烟雾测试** | 2% | `smoke/` | 系统基本功能检查 |
 | **专项测试** | 2% | `performance/`, `security/` | 性能、安全测试 |
 
-## 📋 目录功能说明
+## � 测试环境配置
+
+### .env.testing
+```bash
+# 测试环境配置
+ENVIRONMENT=testing
+DEBUG=false
+LOG_LEVEL=INFO
+TESTING=true
+
+# 测试数据库（内存数据库）
+DATABASE_URL=mysql+pymysql://root:testpass@mysql-test:3306/ecommerce_test
+TEST_DATABASE_URL=sqlite:///./test.db  # 快速单元测试
+
+# 测试Redis
+REDIS_URL=redis://redis-test:6379/1
+TEST_REDIS_URL=redis://localhost:6379/15
+
+# 测试JWT配置（短过期时间）
+JWT_SECRET_KEY=test-secret-key-for-testing-only
+ACCESS_TOKEN_EXPIRE_MINUTES=60
+
+# 测试用户配置
+TEST_USER_EMAIL=testuser@example.com
+TEST_USER_PASSWORD=testpass123
+TEST_ADMIN_EMAIL=admin@example.com
+TEST_ADMIN_PASSWORD=adminpass123
+
+# 测试文件配置
+TEST_UPLOAD_DIR=/tmp/test_uploads/
+TEST_MAX_FILE_SIZE=1048576  # 1MB for testing
+
+# Mock服务配置（测试环境全部Mock）
+MOCK_EXTERNAL_SERVICES=true
+MOCK_PAYMENT_SERVICE=true
+MOCK_EMAIL_SERVICE=true
+MOCK_SMS_SERVICE=true
+
+# 测试超时配置
+TEST_TIMEOUT_UNIT=10
+TEST_TIMEOUT_INTEGRATION=30
+TEST_TIMEOUT_E2E=120
+```
+
+### CI/CD环境变量
+```yaml
+# GitHub Actions环境变量
+env:
+  DATABASE_URL: mysql+pymysql://root:testpass@127.0.0.1:3306/ecommerce_test
+  REDIS_URL: redis://127.0.0.1:6379/1
+  ENVIRONMENT: testing
+  JWT_SECRET_KEY: test-secret-for-ci
+  MOCK_EXTERNAL_SERVICES: true
+```
+
+**[CHECK:TEST-001]** 测试环境配置必须支持隔离和快速重置
+
+## �📋 目录功能说明
 
 ### 核心测试目录
 - **`unit/`** - 单元测试：包含模型测试、服务测试和独立业务测试

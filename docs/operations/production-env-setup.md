@@ -1,10 +1,10 @@
 # 生产环境配置指南
 
 ## 文档说明
-- **内容**：生产环境部署、安全配置、性能优化、监控告警
+- **内容**：生产环境部署、环境变量配置、安全配置、性能优化、监控告警
 - **使用者**：运维人员、系统管理员、DevOps工程师
 - **更新频率**：生产环境变更时更新
-- **关联文档**：[部署指南](deployment.md)、[监控告警](monitoring.md)、[环境变量管理](environment-variables.md)
+- **关联文档**：[部署指南](deployment.md)、[监控告警](monitoring.md)、[运维手册](runbook.md)
 
 **[CHECK:DOC-004]** 生产环境配置必须经过安全审计
 
@@ -42,7 +42,103 @@
 
 ---
 
-## 🐳 容器化生产部署
+## � 生产环境变量配置
+
+### 环境变量分类
+
+#### 应用基础配置
+```bash
+# 生产环境标识
+ENVIRONMENT=production
+DEBUG=false
+LOG_LEVEL=WARNING
+
+# 应用信息
+PROJECT_NAME=电商平台
+VERSION=1.0.0
+API_V1_STR=/api/v1
+
+# 服务端口
+PORT=8000
+HOST=0.0.0.0
+```
+
+#### 数据库配置
+```bash
+# 生产数据库（从环境变量获取敏感信息）
+DATABASE_URL=mysql+pymysql://${PROD_DB_USER}:${PROD_DB_PASSWORD}@${PROD_DB_HOST}:3306/${PROD_DB_NAME}
+
+# 连接池配置
+DB_POOL_SIZE=20
+DB_POOL_TIMEOUT=30
+DB_POOL_RECYCLE=3600
+DB_POOL_MAX_OVERFLOW=30
+```
+
+#### 缓存配置
+```bash
+# 生产Redis
+REDIS_URL=redis://:${PROD_REDIS_PASSWORD}@${PROD_REDIS_HOST}:6379/0
+
+# Redis连接池
+REDIS_MAX_CONNECTIONS=50
+REDIS_SOCKET_TIMEOUT=5
+REDIS_SOCKET_CONNECT_TIMEOUT=5
+```
+
+#### 安全配置
+```bash
+# 生产JWT配置（高安全性）
+JWT_SECRET_KEY=${PROD_JWT_SECRET}
+ALGORITHM=HS256
+ACCESS_TOKEN_EXPIRE_MINUTES=120  # 2小时
+
+# SSL配置
+SSL_CERT_PATH=/etc/ssl/certs/production.crt
+SSL_KEY_PATH=/etc/ssl/private/production.key
+
+# 安全策略
+CORS_ORIGINS=${PROD_CORS_ORIGINS}
+ALLOWED_HOSTS=${PROD_ALLOWED_HOSTS}
+```
+
+#### 第三方服务配置
+```bash
+# 监控配置
+SENTRY_DSN=${PROD_SENTRY_DSN}
+NEW_RELIC_LICENSE_KEY=${PROD_NEW_RELIC_KEY}
+PROMETHEUS_METRICS_PORT=9090
+
+# 生产支付服务
+ALIPAY_APP_ID=${PROD_ALIPAY_APP_ID}
+ALIPAY_PRIVATE_KEY_PATH=/etc/ssl/keys/alipay_private.pem
+WECHAT_APP_ID=${PROD_WECHAT_APP_ID}
+WECHAT_SECRET=${PROD_WECHAT_SECRET}
+
+# 生产文件存储
+UPLOAD_STORAGE=s3
+S3_BUCKET=${PROD_S3_BUCKET}
+S3_REGION=${PROD_S3_REGION}
+CDN_URL=${PROD_CDN_URL}
+```
+
+#### 性能配置
+```bash
+# 应用服务器配置
+GUNICORN_WORKERS=4
+GUNICORN_TIMEOUT=120
+WORKER_CLASS=uvicorn.workers.UvicornWorker
+
+# 资源限制
+MAX_UPLOAD_SIZE=100MB
+REQUEST_TIMEOUT=60
+```
+
+**[CHECK:DOC-001]** 生产环境变量必须通过外部密钥管理系统注入
+
+---
+
+## �🐳 容器化生产部署
 
 ### 生产Docker配置
 ```yaml

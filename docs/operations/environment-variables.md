@@ -4,7 +4,7 @@
 - **内容**：环境变量配置、管理策略、安全策略、跨环境配置
 - **使用者**：开发团队、运维人员、部署管理员
 - **更新频率**：环境配置变更时更新
-- **关联文档**：[开发环境配置](development-setup.md)、[生产环境配置](production-config.md)、[测试环境配置](../../tests/README.md)
+- **关联文档**：[开发环境配置](../development/dev-env-setup.md)、[生产环境配置](production-env-setup.md)、[测试环境配置](../../tests/README.md)
 
 **[CHECK:DOC-001]** 环境变量管理必须确保敏感信息安全
 
@@ -782,7 +782,7 @@ echo "=== 诊断完成 ==="
 ---
 
 ## 相关文档
-- [开发环境配置](development-setup.md) - 开发环境详细配置
+- [开发环境配置](../development/dev-env-setup.md) - 开发环境详细配置
 - [测试环境配置](../../tests/README.md) - 测试环境配置管理
-- [生产环境配置](production-config.md) - 生产环境安全配置
+- [生产环境配置](production-env-setup.md) - 生产环境安全配置
 - [部署指南](deployment.md) - 配置在部署中的应用

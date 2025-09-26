@@ -4,7 +4,7 @@
 - **内容**：本地开发环境搭建、工具配置、开发流程
 - **使用者**：开发人员、新入职工程师
 - **更新频率**：开发工具和流程变更时更新
-- **关联文档**：[测试环境配置](../../tests/README.md)、[环境变量管理](environment-variables.md)、[部署指南](deployment.md)
+- **关联文档**：[测试环境配置](test-env-setup.md)、[生产环境配置](../operations/production-env-setup.md)、[部署指南](../operations/deployment.md)
 
 **[CHECK:DOC-001]** 开发环境配置必须支持一键启动
 
@@ -328,6 +328,59 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
 # 默认命令（开发模式）
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
 ```
+
+## 📋 开发环境变量配置
+
+### .env.development
+```bash
+# 开发环境配置
+ENVIRONMENT=development
+DEBUG=true
+LOG_LEVEL=DEBUG
+HOT_RELOAD=true
+
+# 本地数据库
+DATABASE_URL=mysql+pymysql://root:devpass@localhost:3307/ecommerce_dev
+MYSQL_ROOT_PASSWORD=devpass
+MYSQL_DATABASE=ecommerce_dev
+
+# 本地Redis
+REDIS_URL=redis://localhost:6379/0
+REDIS_PASSWORD=
+
+# 开发JWT配置
+JWT_SECRET_KEY=dev-secret-key-change-in-production
+ACCESS_TOKEN_EXPIRE_MINUTES=1440  # 24小时，方便开发
+
+# 开发文件配置
+UPLOAD_DIR=uploads/
+MAX_FILE_SIZE=10485760  # 10MB
+ALLOWED_EXTENSIONS=jpg,jpeg,png,gif,pdf
+
+# Mock服务配置
+MOCK_EXTERNAL_SERVICES=false
+MOCK_PAYMENT_SERVICE=true
+MOCK_EMAIL_SERVICE=true
+
+# 开发工具配置
+SHOW_DEBUG_TOOLBAR=true
+ENABLE_PROFILER=true
+```
+
+### 开发环境脚本配置
+```powershell
+# dev_env.ps1 - 开发环境变量设置
+$env:ENVIRONMENT = "development"
+$env:DATABASE_URL = "mysql+pymysql://root:devpass@localhost:3307/ecommerce_dev"
+$env:REDIS_URL = "redis://localhost:6379/0"
+$env:JWT_SECRET_KEY = "dev-secret-key"
+$env:DEBUG = "true"
+$env:LOG_LEVEL = "DEBUG"
+
+Write-Host "✓ 开发环境变量已设置" -ForegroundColor Green
+```
+
+**[CHECK:DEV-002]** 开发环境变量必须支持快速切换和本地覆盖
 
 ---
 
@@ -728,6 +781,6 @@ docker exec redis redis-cli --latency -h localhost -p 6379
 
 ## 相关文档
 - [测试环境配置](../../tests/README.md) - 测试环境搭建和配置
-- [生产环境配置](production-config.md) - 生产环境部署配置  
+- [生产环境配置](../operations/production-env-setup.md) - 生产环境部署配置  
 - [环境变量管理](environment-variables.md) - 环境变量详细管理
 - [工具使用手册](../tools/scripts-usage-manual.md) - 开发脚本详细说明

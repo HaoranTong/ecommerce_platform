@@ -252,5 +252,5 @@ class ProductSchema(BaseModel):
 
 **相关文档**:
 - [技术架构总览](../architecture/overview.md) - 技术选型原则和决策依据
-- [开发环境配置](../operations/development-setup.md) - 环境搭建指南
+- [开发环境配置](../development/dev-env-setup.md) - 环境搭建指南
 - [项目结构标准](project-structure-standards.md) - 代码组织规范

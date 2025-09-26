@@ -29,7 +29,7 @@
 ### 🛠️ 开发工具和环境
 - **[🔧 开发工具指南 (tools/README.md)](tools/README.md)** - 工具使用导航
 - **[📜 开发脚本手册](tools/scripts-usage-manual.md)** - DevOps脚本详细使用
-- **[🚀 环境配置指南](operations/development-setup.md)** - 开发环境快速搭建
+- **[🚀 环境配置指南](development/dev-env-setup.md)** - 开发环境快速搭建
 
 ---
 
@@ -113,10 +113,7 @@ docs/
 ├── 🚀 operations/           # 运维部署层
 │   ├── README.md            # 运维指南导航
 │   ├── deployment.md        # 部署指南
-│   ├── development-setup.md # 开发环境配置
-│   ├── production-config.md # 生产环境配置
-│   ├── environment-variables.md # 环境变量管理
-│   ├── maintenance-guide.md # 维护指南
+│   ├── production-env-setup.md # 生产环境配置和环境变量管理
 │   ├── monitoring.md        # 监控告警配置
 │   ├── troubleshooting.md   # 故障排除指南
 │   └── runbook.md           # 运维操作手册
@@ -195,8 +192,7 @@ docs/
 
 # 具体开发 (按模块访问)
 🎨 design/modules/{module_name}/ # 具体模块设计
-🔧 tools/scripts-usage-manual.md # 开发工具使用
-🚀 operations/development-setup.md # 环境配置
+🔧 development/dev-env-setup.md # 开发环境配置
 ```
 
 ### 🏗️ 系统架构师 (架构决策)
@@ -245,7 +241,7 @@ docs/
 🔧 tools/scripts-usage-manual.md # 脚本使用手册
 
 # 环境管理
-🚀 operations/production-config.md # 生产环境
+🚀 operations/production-env-setup.md # 生产环境
 🚀 operations/monitoring.md        # 监控配置
 ```
 
