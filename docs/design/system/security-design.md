@@ -1,7 +1,7 @@
 # 安全实现设计
 
 ## 文档概述
-**承接架构层**: [security.md](../../architecture/security.md) - 安全架构策略  
+**承接架构层**: [security-architecture.md](../../architecture/security-architecture.md) - 安全架构设计原则  
 **设计职责**: 具体安全实现、加密算法、认证授权方案  
 **边界约束**: 安全技术实现，不涉及具体业务安全规则  
 
@@ -13,48 +13,232 @@ import jwt
 from datetime import datetime, timedelta
 from typing import Optional
 
-JWT_ALGORITHM = "HS256"
-JWT_ACCESS_EXPIRE_MINUTES = 30
-JWT_REFRESH_EXPIRE_DAYS = 7
-
-# JWT配置结构
+# JWT令牌配置（来自架构层定义）
 JWT_CONFIG = {
     "algorithm": "HS256",
-    "access_token_expire": 3600,    # 1小时  
-    "refresh_token_expire": 86400,  # 24小时
+    "access_token_expire": 900,     # 15分钟
+    "refresh_token_expire": 604800, # 7天  
+    "device_token_expire": 2592000, # 30天
     "issuer": "ecommerce-platform",
     "audience": "api-users"
+}
+
+# 令牌类型定义
+TOKEN_TYPES = {
+    "ACCESS": "access",
+    "REFRESH": "refresh", 
+    "DEVICE": "device"
 }
 ```
 
 ### JWT Token生成实现
 ```python
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
+    """创建访问令牌 - 15分钟有效期，包含用户身份和权限"""
     to_encode = data.copy()
     if expires_delta:
         expire = datetime.utcnow() + expires_delta
     else:
-        expire = datetime.utcnow() + timedelta(minutes=JWT_ACCESS_EXPIRE_MINUTES)
+        expire = datetime.utcnow() + timedelta(seconds=JWT_CONFIG["access_token_expire"])
     
     to_encode.update({
         "exp": expire,
         "iss": JWT_CONFIG["issuer"],
-        "aud": JWT_CONFIG["audience"]
+        "aud": JWT_CONFIG["audience"],
+        "type": TOKEN_TYPES["ACCESS"]
     })
-    return jwt.encode(to_encode, SECRET_KEY, algorithm=JWT_ALGORITHM)
+    return jwt.encode(to_encode, SECRET_KEY, algorithm=JWT_CONFIG["algorithm"])
+
+def create_refresh_token(user_id: int) -> str:
+    """创建刷新令牌 - 7天有效期，仅用于刷新访问令牌"""
+    expire = datetime.utcnow() + timedelta(seconds=JWT_CONFIG["refresh_token_expire"])
+    to_encode = {
+        "user_id": user_id,
+        "exp": expire,
+        "type": TOKEN_TYPES["REFRESH"]
+    }
+    return jwt.encode(to_encode, SECRET_KEY, algorithm=JWT_CONFIG["algorithm"])
+
+def create_device_token(user_id: int, device_fingerprint: str) -> str:
+    """创建设备令牌 - 30天有效期，绑定设备指纹"""
+    expire = datetime.utcnow() + timedelta(seconds=JWT_CONFIG["device_token_expire"])
+    to_encode = {
+        "user_id": user_id,
+        "device_fingerprint": device_fingerprint,
+        "exp": expire,
+        "type": TOKEN_TYPES["DEVICE"]
+    }
+    return jwt.encode(to_encode, SECRET_KEY, algorithm=JWT_CONFIG["algorithm"])
 
 def verify_token(token: str):
     try:
         payload = jwt.decode(
             token, 
             SECRET_KEY, 
-            algorithms=[JWT_ALGORITHM],
+            algorithms=[JWT_CONFIG["algorithm"]],
             audience=JWT_CONFIG["audience"],
             issuer=JWT_CONFIG["issuer"]
         )
         return payload
     except jwt.InvalidTokenError as e:
         raise AuthenticationError(f"Token验证失败: {str(e)}")
+```
+
+## RBAC权限控制实现
+
+### 角色权限详细定义
+```python
+from enum import Enum
+
+class Role(Enum):
+    """用户角色定义（来自架构层RBAC模型）"""
+    GUEST = "guest"                 # 访客
+    USER = "user"                   # 普通用户
+    PREMIUM_USER = "premium_user"   # 高级会员
+    DISTRIBUTOR = "distributor"     # 分销商
+    SUPPLIER = "supplier"           # 供应商
+    MERCHANT = "merchant"           # 商户
+    CUSTOMER_SERVICE = "customer_service"  # 客服
+    OPERATIONS = "operations"       # 运营
+    FINANCE = "finance"            # 财务
+    ADMIN = "admin"                # 管理员
+    SUPER_ADMIN = "super_admin"    # 超级管理员
+
+class Permission(Enum):
+    """权限定义 - 基于路径和HTTP方法的细粒度权限控制"""
+    # 商品权限
+    READ_PRODUCTS = "read:products"
+    WRITE_PRODUCTS = "write:products"
+    DELETE_PRODUCTS = "delete:products"
+    
+    # 订单权限
+    READ_ORDERS = "read:orders"
+    WRITE_ORDERS = "write:orders"
+    MANAGE_ORDERS = "manage:orders"
+    
+    # 用户权限
+    READ_USERS = "read:users"
+    WRITE_USERS = "write:users"
+    MANAGE_USERS = "manage:users"
+    
+    # 系统权限
+    SYSTEM_CONFIG = "system:config"
+    SYSTEM_MONITOR = "system:monitor"
+
+# 角色权限映射（具体实现架构层定义的RBAC模型）
+ROLE_PERMISSIONS = {
+    Role.GUEST: [Permission.READ_PRODUCTS],
+    Role.USER: [
+        Permission.READ_PRODUCTS,
+        Permission.READ_ORDERS,
+        Permission.WRITE_ORDERS
+    ],
+    Role.SUPER_ADMIN: [
+        Permission.READ_PRODUCTS, Permission.WRITE_PRODUCTS, Permission.DELETE_PRODUCTS,
+        Permission.READ_ORDERS, Permission.WRITE_ORDERS, Permission.MANAGE_ORDERS,
+        Permission.READ_USERS, Permission.WRITE_USERS, Permission.MANAGE_USERS,
+        Permission.SYSTEM_CONFIG, Permission.SYSTEM_MONITOR
+    ],
+    # ... 其他角色权限映射
+}
+```
+
+## 数据加密实现
+
+### 传输加密配置
+```python
+# TLS 1.3 强制配置（来自架构层传输安全要求）
+HTTPS_CONFIG = {
+    "min_tls_version": "1.3",
+    "cipher_suites": [
+        "TLS_AES_256_GCM_SHA384",
+        "TLS_CHACHA20_POLY1305_SHA256",
+        "TLS_AES_128_GCM_SHA256"
+    ],
+    "hsts_max_age": 31536000,  # 1年
+    "force_https": True
+}
+
+# SSL证书自动化管理
+SSL_CERT_CONFIG = {
+    "auto_renewal": True,
+    "renewal_days_before": 30,
+    "cert_authority": "letsencrypt",
+    "key_size": 2048
+}
+```
+
+### 存储加密实现
+```python
+# AES-256加密实现（来自架构层存储安全要求）
+ENCRYPTION_CONFIG = {
+    "algorithm": "AES-256-GCM",
+    "key_derivation": "PBKDF2",
+    "iterations": 100000,
+    "salt_length": 32
+}
+
+class AESEncryption:
+    """敏感字段AES-256加密存储实现"""
+    
+    def __init__(self, master_key: bytes):
+        self.master_key = master_key
+    
+    def encrypt_sensitive_field(self, data: str, field_type: str) -> str:
+        """加密敏感字段"""
+        # 生成字段专用密钥
+        field_key = self._derive_field_key(field_type)
+        
+        # AES-256-GCM加密
+        cipher = AES.new(field_key, AES.MODE_GCM)
+        ciphertext, tag = cipher.encrypt_and_digest(data.encode('utf-8'))
+        
+        # 返回Base64编码的加密数据
+        encrypted_data = cipher.nonce + tag + ciphertext
+        return base64.b64encode(encrypted_data).decode('utf-8')
+    
+    def _derive_field_key(self, field_type: str) -> bytes:
+        """为不同字段类型派生专用密钥"""
+        return PBKDF2(
+            self.master_key,
+            field_type.encode('utf-8'),
+            ENCRYPTION_CONFIG["iterations"]
+        )[:32]
+```
+
+### 数据脱敏实现策略
+```python
+# 敏感数据脱敏实现（来自架构层脱敏策略）
+MASKING_STRATEGIES = {
+    "phone": {
+        "pattern": r"(\d{3})\d{4}(\d{4})",
+        "replacement": r"\1****\2",
+        "display": "138****5678"
+    },
+    "id_card": {
+        "pattern": r"(\d{3})\d{10}(\d{4})",
+        "replacement": r"\1***********\2", 
+        "display": "320***********1234"
+    },
+    "bank_card": {
+        "pattern": r"\d+(\d{4})",
+        "replacement": r"****\1",
+        "display": "****1234"
+    },
+    "address": {
+        "pattern": r"(.*省.*市).*区(.*)",
+        "replacement": r"\1****区\2",
+        "display": "江苏省南京市****区"
+    }
+}
+
+def mask_sensitive_data(data: str, data_type: str) -> str:
+    """敏感数据脱敏处理"""
+    strategy = MASKING_STRATEGIES.get(data_type)
+    if not strategy:
+        return data
+    
+    return re.sub(strategy["pattern"], strategy["replacement"], data)
 ```
 
 ## 密码加密实现
@@ -373,7 +557,7 @@ async def log_security_event(event_type: str, user_id: int = None, details: dict
 - **数据访问**: 敏感数据访问追踪
 
 ## 相关文档
-- [架构层安全策略](../../architecture/security.md)
+- [安全架构设计原则](../../architecture/security-architecture.md)
 - [技术栈选型](./technology-stack.md)
 - [性能设计方案](./performance-design.md)
 - [用户认证模块设计](../modules/user-auth/design.md)

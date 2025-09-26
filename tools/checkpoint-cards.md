@@ -127,7 +127,7 @@
 **检查重点**: RESTful设计、安全控制、响应格式
 **精准导航**:
 1. **路由设计标准** → `docs/standards/api-standards.md` 第15-40行
-2. **认证授权标准** → `docs/architecture/security.md` 第50-80行
+2. **认证授权实现** → `docs/design/system/security-design.md` 第10-60行
 3. **响应格式标准** → `docs/standards/api-standards.md` 第60-75行
 4. **错误处理标准** → `docs/standards/api-standards.md` 第90-110行
 
@@ -249,7 +249,7 @@
 **检查重点**: 性能指标、安全漏洞、压力边界
 **精准导航**:
 1. **性能指标标准** → `docs/requirements/non-functional.md` 第30-50行
-2. **安全验证标准** → `docs/architecture/security.md` 第100-130行
+2. **安全实现验证** → `docs/design/system/security-design.md` 第60-120行
 3. **性能测试标准** → `docs/standards/testing-standards.md` 第240-260行
 4. **监控标准** → `docs/operations/monitoring.md` 第40-65行
 

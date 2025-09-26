@@ -4,7 +4,7 @@
 - **内容**: API认证集成的设计规范和实施计划
 - **使用方法**: 认证中间件开发和API保护的指导文档
 - **更新方法**: 认证策略变更时更新
-- **引用关系**: 基于架构/security.md，指导各API模块认证实现
+- **引用关系**: 基于architecture/security-architecture.md架构原则，指导各API模块认证实现
 - **更新频率**: 安全策略调整时
 
 ## 设计目标
@@ -205,7 +205,7 @@ class AuthError:
 ## 实施检查清单
 
 ### 开发前检查
-- [x] 阅读安全架构文档 (docs/architecture/security.md)
+- [x] 阅读安全架构文档 (docs/architecture/security-architecture.md)
 - [x] 阅读用户认证API文档
 - [x] 确认命名规范合规
 - [x] 理解现有认证实现

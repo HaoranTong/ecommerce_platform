@@ -692,7 +692,7 @@ IF 修改启动脚本 THEN 更新根目录README.md快速开始部分
 - 性能优化方案
 
 **边界划分**：
-- 与architecture/security.md：security-design是具体方案，architecture是安全原则
+- 与architecture/security-architecture.md：security-design是具体实现方案，security-architecture是安全架构原则
 - 与implementation.md：security-design是设计，implementation是实现记录
 - 与api-spec.md：security-design定义安全机制，api-spec应用安全规范
 

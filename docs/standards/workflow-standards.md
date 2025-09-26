@@ -73,7 +73,7 @@
 - [ ] 遵循 [架构总览](../architecture/overview.md) 的技术栈选择
 - [ ] 按照项目结构标准设计接口层组织
 - [ ] 遵循项目结构标准设计数据模型组织  
-- [ ] 考虑 [安全架构](../architecture/security.md) 要求
+- [ ] 考虑 [安全架构](../architecture/security-architecture.md) 要求
 - [ ] 规划 [第三方集成](../architecture/integration.md) 需求
 
 **1.3 模块文档创建 【待修正-工具验证】**：

@@ -176,7 +176,7 @@
 - **docs/architecture/overview.md** - 技术架构总览
 - **docs/architecture/module-architecture.md** - 模块架构设计
 - **docs/architecture/data-models.md** - 数据模型设计
-- **docs/architecture/security.md** - 安全架构设计
+- **docs/architecture/security-architecture.md** - 安全架构设计原则
 
 ### 🔧 开发规范文档  
 - **docs/standards/README.md** - L0-L1-L2标准导航 ⭐
