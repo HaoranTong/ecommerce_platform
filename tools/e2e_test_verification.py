@@ -570,7 +570,7 @@ def mock_factory():
 ### 🔧 验证环境
 - **Python版本**: {sys.version.split()[0]}
 - **项目根目录**: {self.project_root}
-- **验证脚本**: scripts/e2e_test_verification.py
+- **验证脚本**: tools/e2e_test_verification.py
 
 ### 📊 数据统计
 - **验证耗时**: {self.verification_results.get('execution_time', 0):.2f} 秒
@@ -580,7 +580,7 @@ def mock_factory():
 ## 附录
 
 ### 🔗 相关文档
-- 测试生成工具: `scripts/generate_test_template.py`
+- 测试生成工具: `tools/generate_test_template.py`
 - 质量验证报告: `docs/analysis/{self.test_module}_test_validation_report_*.md`
 - 工作状态记录: `docs/status/current-work-status.md`
 

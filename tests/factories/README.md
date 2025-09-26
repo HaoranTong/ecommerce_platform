@@ -71,7 +71,7 @@ def test_user_has_admin_permission(mocker):
 ## 📚 相关文档
 
 - **[测试标准文档](../../docs/standards/testing-standards.md)** - Factory Boy使用规范和数据库策略
-- **[测试工具手册](../../docs/tools/testing-tools.md)** - 完整的测试环境配置和工具使用说明
+- **[测试环境配置](../../docs/development/testing-environment.md)** - 完整的测试环境配置和工具使用说明
 - **[测试数据工厂使用手册](../../docs/tools/test-factory-usage-guide.md)** - 详细的双工厂使用指南和最佳实践
 
 ## ⚠️ 重要提醒

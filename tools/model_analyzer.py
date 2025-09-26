@@ -9,8 +9,8 @@
 4. 支持复杂关系和混入(Mixin)分析
 
 使用方法:
-    python scripts/model_analyzer.py user_auth
-    python scripts/model_analyzer.py shopping_cart --detailed
+    python tools/model_analyzer.py user_auth
+    python tools/model_analyzer.py shopping_cart --detailed
 """
 
 import ast

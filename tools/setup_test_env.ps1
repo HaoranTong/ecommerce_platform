@@ -41,23 +41,23 @@
     详细模式开关。显示更详细的执行信息和调试日志
 
 .EXAMPLE
-    .\scripts\setup_test_env.ps1
+    .\tools\setup_test_env.ps1
     # 使用默认lite模式进行环境设置
 
 .EXAMPLE
-    .\scripts\setup_test_env.ps1 -TestMode lite -CheckOnly
+    .\tools\setup_test_env.ps1 -TestMode lite -CheckOnly
     # 只检查轻量测试环境状态，不进行设置
 
 .EXAMPLE
-    .\scripts\setup_test_env.ps1 -TestMode full -CheckOnly
+    .\tools\setup_test_env.ps1 -TestMode full -CheckOnly
     # 只检查完整测试环境状态（包括Docker服务）
 
 .EXAMPLE
-    .\scripts\setup_test_env.ps1 -TestMode full
+    .\tools\setup_test_env.ps1 -TestMode full
     # 设置完整测试环境，包括Docker服务启动
 
 .EXAMPLE
-    .\scripts\setup_test_env.ps1 -TestMode full -AutoFix -Verbose
+    .\tools\setup_test_env.ps1 -TestMode full -AutoFix -Verbose
     # 设置完整环境，自动修复问题，显示详细信息
 
 .NOTES
@@ -72,16 +72,16 @@
     - v1.0: 基础测试环境管理功能
     
     依赖脚本：
-    - scripts/check_test_env.ps1 (环境检查)
+    - tools/check_test_env.ps1 (环境检查)
     - docker-compose.yml (Docker服务配置)
     
     相关文档：
-    - docs/tools/testing-tools.md (工具使用说明)
+    - docs/development/testing-environment.md (测试环境配置)
     - docs/standards/testing-standards.md (测试标准)
     - MASTER.md (测试环境管理章节)
 
 .LINK
-    https://github.com/HaoranTong/ecommerce_platform/blob/dev/docs/tools/testing-tools.md
+    https://github.com/HaoranTong/ecommerce_platform/blob/dev/docs/development/testing-environment.md
 #>
 
 [CmdletBinding()]

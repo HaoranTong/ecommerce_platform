@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 测试结构自动验证脚本
-运行: python scripts/validate_test_structure.py
+运行: python tools/validate_test_structure.py
 """
 
 import os

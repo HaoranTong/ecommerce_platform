@@ -3,7 +3,7 @@
 智能测试生成器 - 增强版
 
 集成智能模型分析功能，支持AST+运行时双重分析
-自动生成完整测试架构：72%单元、22%集成、6%E2E (烟雾测试使用通用scripts/smoke_test.ps1)
+自动生成完整测试架构：72%单元、22%集成、6%E2E (烟雾测试使用通用tools/smoke_test.ps1)
 
 主要功能：
 1. 智能模型分析 - 自动解析SQLAlchemy模型结构
@@ -12,8 +12,8 @@
 4. 质量自动验证 - 语法、导入、执行验证
 
 使用方法:
-    python scripts/generate_test_template.py user_auth --type all --validate
-    python scripts/generate_test_template.py shopping_cart --type unit --dry-run
+    python tools/generate_test_template.py user_auth --type all --validate
+    python tools/generate_test_template.py shopping_cart --type unit --dry-run
 
 符合标准:
 - MASTER.md强制检查点规范 [CHECK:DEV-009] [CHECK:TEST-001]
@@ -2732,7 +2732,7 @@ class Test{module_name.title().replace('_', '')}Service:
     def _generate_smoke_tests(self, module_name: str, models: Dict[str, ModelInfo]) -> Dict[str, str]:
         """烟雾测试使用通用脚本，不需要为每个模块单独生成
         
-        现有的 scripts/smoke_test.ps1 和 tests/smoke/ 目录已经提供了：
+        现有的 tools/smoke_test.ps1 和 tests/smoke/ 目录已经提供了：
         - 通用API连通性测试
         - 系统健康检查
         - 基础功能验证
@@ -2740,7 +2740,7 @@ class Test{module_name.title().replace('_', '')}Service:
         
         因此，不生成模块特定的烟雾测试文件。
         """
-        print(f"ℹ️  烟雾测试使用通用脚本 scripts/smoke_test.ps1，跳过 {module_name} 模块特定生成")
+        print(f"ℹ️  烟雾测试使用通用脚本 tools/smoke_test.ps1，跳过 {module_name} 模块特定生成")
         return {}  # 返回空字典，不生成任何文件
         
     def _generate_specialized_tests(self, module_name: str, models: Dict[str, ModelInfo]) -> Dict[str, str]:
@@ -2838,7 +2838,7 @@ Auto Generated Test - 需要人工审查
 
 原始目标路径: {original_path}
 生成时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
-生成工具: scripts/generate_test_template.py v2.0
+生成工具: tools/generate_test_template.py v2.0
 状态: GENERATED - 需要经过审查、验证和优化后方可移动到正式目录
 
 警告: 此文件为自动生成，请勿直接使用于生产测试。
@@ -3531,7 +3531,7 @@ def main():
     """主程序入口 [CHECK:DEV-009]"""
     parser = argparse.ArgumentParser(
         description='智能五层架构测试生成器 v2.0',
-        epilog='示例: python scripts/generate_test_template.py user_auth --type all --validate'
+        epilog='示例: python tools/generate_test_template.py user_auth --type all --validate'
     )
     
     parser.add_argument('module_name', help='模块名称 (如: user_auth, shopping_cart)')

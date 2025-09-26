@@ -15,7 +15,7 @@
 3. **商业模式设计** → `docs/requirements/business.md` 第140-180行
 4. **成功指标定义** → `docs/requirements/business.md` 第200-230行
 
-**执行脚本**: `scripts/validate_business_requirements.ps1`
+**执行脚本**: `tools/validate_business_requirements.ps1`
 
 ### REQ-002: 功能需求分析验证
 **触发条件**: 设计具体功能、模块规划
@@ -26,7 +26,7 @@
 3. **用户故事格式** → `docs/design/modules/{module}/requirements.md` 第35-45行
 4. **验收标准模板** → `docs/design/modules/{module}/requirements.md` 第60-85行
 
-**执行脚本**: `scripts/validate_functional_requirements.ps1`
+**执行脚本**: `tools/validate_functional_requirements.ps1`
 
 ### REQ-003: 非功能需求确认
 **触发条件**: 架构设计前、性能要求确认
@@ -37,7 +37,7 @@
 3. **扩展性标准** → `docs/requirements/non-functional.md` 第140-170行
 4. **合规要求标准** → `docs/requirements/non-functional.md` 第190-220行
 
-**执行脚本**: `scripts/validate_non_functional_requirements.ps1`
+**执行脚本**: `tools/validate_non_functional_requirements.ps1`
 
 ## 🏗️ 架构设计类检查卡片 (ARCH)
 
@@ -50,7 +50,7 @@
 3. **系统架构标准** → `docs/architecture/overview.md` 第110-150行
 4. **扩展规划标准** → `docs/architecture/overview.md` 第170-200行
 
-**执行脚本**: `scripts/validate_system_architecture.ps1`
+**执行脚本**: `tools/validate_system_architecture.ps1`
 
 ### ARCH-002: 模块架构设计验证
 **触发条件**: 模块划分、依赖关系设计
@@ -61,7 +61,7 @@
 3. **依赖管理标准** → `docs/architecture/module-architecture.md` 第150-180行
 4. **集成策略标准** → `docs/architecture/module-architecture.md` 第200-240行
 
-**执行脚本**: `scripts/validate_module_architecture.ps1`
+**执行脚本**: `tools/validate_module_architecture.ps1`
 
 ### ARCH-003: 数据架构设计验证
 **触发条件**: 数据模型设计、存储架构规划
@@ -72,7 +72,7 @@
 3. **数据关系标准** → `docs/architecture/data-models.md` 第130-170行
 4. **数据流标准** → `docs/design/modules/{module}/design.md` 第120-160行
 
-**执行脚本**: `scripts/validate_data_architecture.ps1`
+**执行脚本**: `tools/validate_data_architecture.ps1`
 
 ### ARCH-004: 需求架构调整前置验证
 **触发条件**: 修改业务需求、调整系统架构、变更技术标准
@@ -83,7 +83,7 @@
 3. **架构文档索引** → `docs/architecture/` 目录
 4. **变更记录标准** → `MASTER.md` 第200-250行
 
-**执行脚本**: `scripts/validate_architecture_changes.ps1 -WithADR`
+**执行脚本**: `tools/validate_architecture_changes.ps1 -WithADR`
 
 ## 🚀 开发实施类检查卡片 (DEV)
 
@@ -96,20 +96,20 @@
 3. **设计文档模板** → `docs/design/modules/{module}/design.md` 第35-150行
 4. **API规范模板** → `docs/design/modules/{module}/api-spec.md` 第1-80行
 
-**执行脚本**: `scripts/validate_module_documentation.ps1`
+**执行脚本**: `tools/validate_module_documentation.ps1`
 
 ### DEV-002: 环境与工具准备验证
 **触发条件**: 开始开发工作、环境配置
 **检查重点**: 开发环境、工具配置、脚本准备
 **精准导航**:
-1. **环境配置标准** → `docs/operations/development-setup.md`
+1. **环境配置标准** → `docs/development/environment-setup.md`
 2. **工作流程标准** → `docs/standards/workflow-standards.md` 第51-85行
-3. **脚本工具索引** → `docs/tools/README.md` 第20-50行
+3. **脚本工具索引** → `tools/README.md` 第20-50行
 4. **代码标准索引** → `docs/standards/code-standards.md` 第1-50行
 
 **执行脚本**: 
-1. `scripts/setup_development_environment.ps1`
-2. `scripts/validate_development_tools.ps1`
+1. `tools/setup_development_environment.ps1`
+2. `tools/validate_development_tools.ps1`
 
 ### DEV-003: 数据模型设计验证
 **触发条件**: 操作models.py、设计数据库表
@@ -120,7 +120,7 @@
 3. **索引优化标准** → `docs/standards/database-standards.md` 第80-95行
 4. **命名规范标准** → `docs/standards/database-standards.md` 第200-250行
 
-**执行脚本**: `scripts/validate_data_model.ps1 -Module {module}`
+**执行脚本**: `tools/validate_data_model.ps1 -Module {module}`
 
 ### DEV-004: API设计与路由规范
 **触发条件**: 创建*_routes.py、设计API接口
@@ -131,7 +131,7 @@
 3. **响应格式标准** → `docs/standards/api-standards.md` 第60-75行
 4. **错误处理标准** → `docs/standards/api-standards.md` 第90-110行
 
-**执行脚本**: `scripts/validate_api_design.ps1 -Module {module}`
+**执行脚本**: `tools/validate_api_design.ps1 -Module {module}`
 
 ### DEV-005: 业务逻辑实现验证
 **触发条件**: 实现service.py、业务逻辑开发
@@ -142,7 +142,7 @@
 3. **事务管理标准** → `docs/standards/code-standards.md` 第55-70行
 4. **业务异常标准** → `docs/standards/code-standards.md` 第70-85行
 
-**执行脚本**: `scripts/validate_business_logic.ps1 -Module {module}`
+**执行脚本**: `tools/validate_business_logic.ps1 -Module {module}`
 
 ### DEV-006: 安全控制实现验证
 **触发条件**: 开发安全相关功能、权限控制实现
@@ -153,7 +153,7 @@
 3. **数据保护标准** → `docs/architecture/security-architecture.md` 第140-180行
 4. **权限模型标准** → `docs/architecture/security-architecture.md` 第100-140行
 
-**执行脚本**: `scripts/validate_security_implementation.ps1 -Module {module}`
+**执行脚本**: `tools/validate_security_implementation.ps1 -Module {module}`
 
 ### DEV-007: 错误处理实现验证
 **触发条件**: 异常处理实现、错误响应设计
@@ -164,7 +164,7 @@
 3. **日志规范标准** → `docs/standards/code-standards.md` 第85-100行
 4. **状态码标准** → `docs/standards/api-standards.md` 第130-170行
 
-**执行脚本**: `scripts/validate_error_handling.ps1 -Module {module}`
+**执行脚本**: `tools/validate_error_handling.ps1 -Module {module}`
 
 ### DEV-008: 代码质量验证
 **触发条件**: 代码提交前、Code Review
@@ -176,8 +176,8 @@
 4. **命名规范标准** → `docs/standards/naming-conventions-standards.md` 第150-180行
 
 **执行脚本**:
-1. `scripts/check_code_standards.ps1 -FilePath {file_path}`
-2. `scripts/ai_checkpoint.ps1 -CardType DEV-008 -ModuleName {module}`
+1. `tools/check_code_standards.ps1 -FilePath {file_path}`
+2. `tools/ai_checkpoint.ps1 -CardType DEV-008 -ModuleName {module}`
 
 ### DEV-009: 代码开发前强制检查验证
 **触发条件**: 开始编写代码前、创建代码文件前
@@ -189,10 +189,10 @@
 4. **数据模型标准** → `docs/standards/database-standards.md` 第10-65行
 
 **执行脚本**:
-1. `scripts/dev_checkpoint.ps1 -Phase PRE_DEV -Module {module}`
-2. `scripts/check_naming_compliance.ps1 -FilePath {file_path}`
+1. `tools/dev_checkpoint.ps1 -Phase PRE_DEV -Module {module}`
+2. `tools/check_naming_compliance.ps1 -FilePath {file_path}`
 
-**辅助脚本**: `scripts/ai_checkpoint.ps1 -CardType DEV-009`
+**辅助脚本**: `tools/ai_checkpoint.ps1 -CardType DEV-009`
 
 ## 🧪 测试类检查卡片 (TEST)
 
@@ -206,11 +206,11 @@
 4. **环境变量管理** → `docs/standards/testing-standards.md` 第70-85行
 
 **执行脚本**:
-1. `scripts/check_test_env.ps1` - 快速环境检查
-2. `scripts/setup_test_env.ps1 -TestMode lite -CheckOnly` - 环境检查
-3. `python scripts/validate_test_config.py` - 深度诊断
+1. `tools/check_test_env.ps1` - 快速环境检查
+2. `tools/setup_test_env.ps1 -TestMode lite -CheckOnly` - 环境检查
+3. `python tools/validate_test_config.py` - 深度诊断
 
-**辅助脚本**: `scripts/check_test_env.ps1 -TestMode lite`
+**辅助脚本**: `tools/check_test_env.ps1 -TestMode lite`
 
 ### TEST-002: 测试数据一致性
 **触发条件**: 编写单元测试、使用模型数据
@@ -222,14 +222,14 @@
 4. **断言验证标准** → `docs/standards/testing-standards.md` 第160-180行
 
 **执行脚本**: 
-1. `scripts/check_test_env.ps1` - 环境验证
-2. `python scripts/validate_test_config.py` - 配置诊断
+1. `tools/check_test_env.ps1` - 环境验证
+2. `python tools/validate_test_config.py` - 配置诊断
 
 **常见问题排查**:
 - 如果单元测试连接MySQL → `docs/status/issues-tracking.md` ISS-024
 - 如果fixture配置错误 → `tests/conftest.py` 第15-35行对比
 
-**辅助脚本**: `scripts/ai_checkpoint.ps1 -CardType TEST-002`
+**辅助脚本**: `tools/ai_checkpoint.ps1 -CardType TEST-002`
 
 ### TEST-003: 集成测试设计
 **触发条件**: API测试、跨模块测试
@@ -241,8 +241,8 @@
 4. **Mock策略标准** → `docs/standards/testing-standards.md` 第200-220行
 
 **执行脚本**: 
-1. `scripts/setup_test_env.ps1 -TestMode full`
-2. `scripts/run_module_tests.ps1 -Module {module} -TestMode full`
+1. `tools/setup_test_env.ps1 -TestMode full`
+2. `tools/run_module_tests.ps1 -Module {module} -TestMode full`
 
 ### TEST-004: 性能与安全测试
 **触发条件**: 压力测试、安全验证
@@ -254,8 +254,8 @@
 4. **监控标准** → `docs/operations/monitoring.md` 第40-65行
 
 **执行脚本**:
-1. `scripts/performance_test.ps1` - 性能测试
-2. `scripts/security_scan.ps1` - 安全扫描
+1. `tools/performance_test.ps1` - 性能测试
+2. `tools/security_scan.ps1` - 安全扫描
 
 ### TEST-005: API测试验证
 **触发条件**: API接口测试、端到端验证
@@ -267,7 +267,7 @@
 4. **错误处理标准** → `docs/standards/api-standards.md` 第200-240行
 
 **执行脚本**:
-1. `scripts/setup_test_env.ps1 -TestMode full`  # E2E测试建议使用full模式
+1. `tools/setup_test_env.ps1 -TestMode full`  # E2E测试建议使用full模式
 2. `pytest tests/e2e/ -v`
 
 ### TEST-006: 性能测试验证
@@ -280,8 +280,8 @@
 4. **性能测试标准** → `docs/standards/testing-standards.md` 第240-280行
 
 **执行脚本**:
-1. `scripts/ai_checkpoint.ps1 -CardType TEST-005 -ModuleName {module}`
-2. `scripts/generate_test_template.py --test-type performance --module {module}`
+1. `tools/ai_checkpoint.ps1 -CardType TEST-005 -ModuleName {module}`
+2. `tools/generate_test_template.py --test-type performance --module {module}`
 
 ### TEST-007: 安全测试验证
 **触发条件**: 安全功能测试、漏洞扫描
@@ -293,8 +293,8 @@
 4. **数据保护标准** → `docs/architecture/security-architecture.md` 第160-200行
 
 **执行脚本**:
-1. `scripts/ai_checkpoint.ps1 -CardType TEST-006 -ModuleName {module}`
-2. `scripts/generate_test_template.py --test-type security --module {module}`
+1. `tools/ai_checkpoint.ps1 -CardType TEST-006 -ModuleName {module}`
+2. `tools/generate_test_template.py --test-type security --module {module}`
 
 ### TEST-008: 测试阶段完成验证
 **触发条件**: 模块测试完成、代码提交前
@@ -306,10 +306,10 @@
 4. **状态文档模板** → `docs/status/module-status.md`
 
 **执行脚本**:
-1. `scripts/clean_temp_files.ps1`
-2. `scripts/check_file_locations.ps1`
-3. `scripts/update_module_status.ps1 -Module {module}`
-4. `scripts/pre_commit_check.ps1`
+1. `tools/clean_temp_files.ps1`
+2. `tools/check_file_locations.ps1`
+3. `tools/update_module_status.ps1 -Module {module}`
+4. `tools/pre_commit_check.ps1`
 
 ## 🔧 使用指南
 

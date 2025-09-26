@@ -17,9 +17,9 @@
 自动更新README.md文件（需要确认）
 
 .EXAMPLE
-scripts/sync_readme.ps1 -Path docs/design/modules/user_auth
-scripts/sync_readme.ps1 -CheckOnly -Path scripts
-scripts/sync_readme.ps1 -AutoUpdate -Path docs/standards
+tools/sync_readme.ps1 -Path docs/design/modules/user_auth
+tools/sync_readme.ps1 -CheckOnly -Path tools
+tools/sync_readme.ps1 -AutoUpdate -Path docs/standards
 
 .NOTES
 Author: AI Development Team
@@ -80,7 +80,7 @@ $(foreach ($file in $AllFiles) {
     }
     
     if ($CheckOnly) {
-        Write-Host "💡 建议: 运行 'scripts/sync_readme.ps1 -AutoUpdate -Path $Path' 创建README" -ForegroundColor Yellow
+        Write-Host "💡 建议: 运行 'tools/sync_readme.ps1 -AutoUpdate -Path $Path' 创建README" -ForegroundColor Yellow
     }
     
     return
@@ -128,7 +128,7 @@ if ($UndocumentedFiles.Count -gt 0) {
     }
     
     if ($CheckOnly) {
-        Write-Host "💡 建议: 运行 'scripts/sync_readme.ps1 -AutoUpdate -Path $Path' 自动更新" -ForegroundColor Yellow
+        Write-Host "💡 建议: 运行 'tools/sync_readme.ps1 -AutoUpdate -Path $Path' 自动更新" -ForegroundColor Yellow
     }
 } else {
     Write-Host "   ✅ 所有文件都已在README中说明" -ForegroundColor Green
@@ -157,8 +157,8 @@ if ($UndocumentedFiles.Count -eq 0 -and $MissingSubReadmes.Count -eq 0) {
     
     if (-not $CheckOnly -and -not $AutoUpdate) {
         Write-Host "💡 运行选项:" -ForegroundColor Cyan
-        Write-Host "   检查模式: scripts/sync_readme.ps1 -CheckOnly -Path $Path" -ForegroundColor Gray
-        Write-Host "   自动更新: scripts/sync_readme.ps1 -AutoUpdate -Path $Path" -ForegroundColor Gray
+        Write-Host "   检查模式: tools/sync_readme.ps1 -CheckOnly -Path $Path" -ForegroundColor Gray
+        Write-Host "   自动更新: tools/sync_readme.ps1 -AutoUpdate -Path $Path" -ForegroundColor Gray
     }
 }
 

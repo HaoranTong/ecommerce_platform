@@ -195,12 +195,12 @@
 - **docs/status/README.md** - 状态文档说明
 
 ## ⚡ 常用工具脚本
-- **测试环境管理**: `scripts/setup_test_env.ps1 -TestMode <lite|full>`
-- **测试环境检查**: `scripts/check_test_env.ps1 -TestMode <lite|full>`
-- **代码规范检查**: `scripts/check_code_standards.ps1` 
-- **文档同步**: `scripts/sync_readme.ps1`
-- **测试模板生成**: `python scripts/generate_test_template.py [module]`
-- **检查点验证**: `scripts/ai_checkpoint.ps1 -CardType [编号]`
+- **测试环境管理**: `tools/setup_test_env.ps1 -TestMode <lite|full>`
+- **测试环境检查**: `tools/check_test_env.ps1 -TestMode <lite|full>`
+- **代码规范检查**: `tools/check_code_standards.ps1` 
+- **文档同步**: `tools/sync_readme.ps1`
+- **测试模板生成**: `python tools/generate_test_template.py [module]`
+- **检查点验证**: `tools/ai_checkpoint.ps1 -CardType [编号]`
 
 ## ⚠️ 违规处理流程
 1. **停止当前操作** - 立即暂停正在进行的工作

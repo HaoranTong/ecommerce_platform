@@ -20,9 +20,9 @@
 自动修复可以自动处理的规范问题
 
 .EXAMPLE
-scripts/check_code_standards.ps1 -FilePath app/modules/user_auth/models.py
-scripts/check_code_standards.ps1 -ModulePath app/modules/inventory_management
-scripts/check_code_standards.ps1 -Standard strict -ModulePath app/core
+tools/check_code_standards.ps1 -FilePath app/modules/user_auth/models.py
+tools/check_code_standards.ps1 -ModulePath app/modules/inventory_management
+tools/check_code_standards.ps1 -Standard strict -ModulePath app/core
 
 .NOTES
 Author: AI Development Team  
@@ -288,8 +288,8 @@ if ($TotalIssues -eq 0) {
     
     if (-not $Fix) {
         Write-Host "💡 运行建议:" -ForegroundColor Cyan
-        Write-Host "   自动修复: scripts/check_code_standards.ps1 -Fix" -ForegroundColor Gray
-        Write-Host "   严格检查: scripts/check_code_standards.ps1 -Standard strict" -ForegroundColor Gray
+        Write-Host "   自动修复: tools/check_code_standards.ps1 -Fix" -ForegroundColor Gray
+        Write-Host "   严格检查: tools/check_code_standards.ps1 -Standard strict" -ForegroundColor Gray
     }
     
     exit 1

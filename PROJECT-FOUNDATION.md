@@ -4,7 +4,28 @@
 
 > **文档性质**: 项目宪法级基础设定  
 > **权威级别**: 最高权威 (FOUNDATION级)  
-> **变更控制**: 任何修改需经ADR决策流程  
+> **变更控制*| 目录路径 | 核心职责 | 允许内容 | 🚫 严格禁止 | 管理标准 |
+|---------|---------|---------|-------------|----------|
+| `app/` | 应用程序源代码 | Python模块、业务├── 🔧 ├── 🔧 development/          # 开发阶段：开发环境配置、测试环境配置、问题解决
+│   ├── README.md            # 开发文档导航
+│   ├── dev-env-setup.md     # 开发环境配置指南
+│   ├── test-env-setup.md    # 测试环境配置指南
+│   ├── test-factory-guide.md # 测试数据工厂使用手册
+│   ├── test-dir-management.md # 测试目录管理策略
+│   └── dev-troubleshooting.md # 开发测试过程问题解决方案
+├── 🚀 operations/           # 运维部署层nt/          # 开发阶段：开发环境配置、测试环境配置、问题解决
+│   ├── README.md            # 开发文档导航
+│   ├── dev-env-setup.md     # 开发环境配置指南
+│   ├── test-env-setup.md    # 测试环境配置指南
+│   ├── test-factory-guide.md # 测试数据工厂使用手册
+│   ├── test-dir-management.md # 测试目录管理策略
+│   └── dev-troubleshooting.md # 开发测试过程问题解决方案
+├── 🚀 operations/           # 运维部署层 测试代码、文档文件、日志、临时文件 | code-standards.md |
+| `docs/` | 技术文档和规范 | Markdown文档、架构图、设计文档 | 源代码、可执行文件、日志、临时文件 | document-management-standards.md |
+| `tests/` | 测试代码和测试数据 | 测试脚本、Mock数据、测试配置 | 生产代码、业务逻辑、用户文档 | testing-standards.md |
+| `tools/` | 自动化工具和脚本 | 部署脚本、构建工具、检查脚本、AI检查点卡片 | 业务逻辑、测试代码、用户文档 | scripts-standards.md |
+| `logs/` | 运行时日志记录 | 应用日志、系统日志、审计日志 | 源代码、配置文件、用户数据 | logging-standards.md |
+| `alembic/` | 数据库迁移管理 | 迁移脚本、环境配置 | 业务逻辑、测试数据、用户文档 | database-standards.md |经ADR决策流程  
 > **关联决策**: [ADR-003 文档架构重构决策](docs/adr/ADR-003-document-architecture-restructure.md)  
 > **维护责任**: 系统架构师  
 > **更新频率**: 仅在重大架构调整时变更  
@@ -177,7 +198,7 @@ ecommerce_platform/
 ├── 📂 app/                    # 应用程序源码
 ├── 📂 docs/                   # 技术文档体系  
 ├── 📂 tests/                  # 测试代码体系
-├── 📂 scripts/                # DevOps自动化脚本
+├── 📂 tools/                  # DevOps自动化工具
 ├── 📂 logs/                   # 运行时日志文件
 ├── 📂 alembic/                # 数据库版本迁移
 ├── 📄 PROJECT-FOUNDATION.md   # 本文档 (项目基础设定)
@@ -198,9 +219,9 @@ ecommerce_platform/
 | `app/` | 应用程序源代码 | Python模块、业务逻辑、配置文件 | 测试代码、文档文件、日志、临时文件 | code-standards.md |
 | `docs/` | 技术文档和规范 | Markdown文档、架构图、设计文档 | 源代码、可执行文件、日志、临时文件 | document-management-standards.md |
 | `tests/` | 测试代码和测试数据 | 测试脚本、Mock数据、测试配置 | 生产代码、业务逻辑、用户文档 | testing-standards.md |
-| `scripts/` | 自动化脚本和工具 | 部署脚本、构建工具、检查脚本 | 业务逻辑、测试代码、用户文档 | scripts-standards.md |
-| `logs/` | 应用运行时日志 | 日志文件、错误报告、监控数据 | 源代码、配置文件、用户数据 | logging-standards.md |
-| `alembic/` | 数据库迁移脚本 | 迁移脚本、版本文件、环境配置 | 业务逻辑、测试数据、用户文档 | database-standards.md |
+| `tools/` | 自动化工具和脚本 | 部署脚本、构建工具、检查脚本、AI检查点卡片、工具故障排查手册 | 业务逻辑、测试代码、用户文档 | scripts-standards.md |
+| `logs/` | 运行时日志记录 | 应用日志、系统日志、审计日志 | 源代码、配置文件、用户数据 | logging-standards.md |
+| `alembic/` | 数据库迁移管理 | 迁移脚本、环境配置 | 业务逻辑、测试数据、用户文档 | database-standards.md |
 
 ### 根目录文件权威定义
 
@@ -317,7 +338,14 @@ docs/
 │   ├── testing-standards.md        # L2领域：测试规范
 │   ├── logging-standards.md        # L2领域：日志管理规范
 │   └── openapi.yaml                # API契约定义
-├── 🛠️ tools/                # 开发工具指南
+├── � development/          # 开发阶段：开发环境配置、工具使用、故障排查
+│   ├── README.md            # 开发文档导航
+│   ├── environment-setup.md # 开发环境配置指南
+│   ├── testing-tools.md     # 测试工具配置和使用
+│   ├── test-factory-guide.md # 测试数据工厂使用手册
+│   ├── test-management.md   # 测试管理流程
+│   └── troubleshooting.md   # 开发过程故障排查
+├── �🛠️ tools/                # 工具文档层（已迁移至根目录tools/）
 ├── 🚀 operations/           # 运维部署层
 ├── 📊 planning/             # 项目管理层
 ├── 🗂️ adr/                  # 架构决策记录
@@ -326,6 +354,55 @@ docs/
 ├── 📊 analysis/             # 分析报告归档
 └── 🗂️ _archive/             # 废弃文档备份
 ```
+
+### docs/子目录职责边界定义
+
+#### 🔧 development/ - 开发阶段文档层
+**功能定位**: 开发实施阶段的环境配置、工具使用、问题解决指导
+**职责边界**:
+- ✅ **开发环境配置**: 本地开发环境设置、依赖管理、IDE配置
+- ✅ **测试环境配置**: 开发阶段测试环境设置、工具配置、数据管理
+- ✅ **开发过程问题解决**: 编码、调试、测试过程中的问题解决方案和经验总结
+- ✅ **测试工具使用**: 开发阶段相关的测试工具配置和数据工厂使用
+
+**严格禁止**:
+- ❌ **生产运维配置**: 属于operations/目录职责
+- ❌ **架构设计决策**: 属于architecture/目录职责
+- ❌ **工具脚本故障排查**: 属于根目录tools/troubleshooting.md职责
+- ❌ **开发规范标准**: 属于standards/目录职责
+
+**与其他目录的边界**:
+- **vs operations/**: development专注开发环境，operations专注生产运维
+- **vs tools/**: development提供配置指导，tools/提供脚本实现和故障排查
+- **vs standards/**: development提供实用指导，standards/定义规范标准
+
+#### 🚀 operations/ - 运维部署层
+**功能定位**: 生产环境部署、运维监控、系统管理相关文档
+**职责边界**: 生产环境配置、部署流程、监控运维、故障处理
+
+#### 📊 planning/ - 项目管理层  
+**功能定位**: 项目进度管理、开发规划、里程碑跟踪
+**职责边界**: 项目计划、开发路线图、进度管理、风险控制
+
+#### 🗂️ adr/ - 架构决策记录
+**功能定位**: 重要技术决策的记录和追踪
+**职责边界**: 架构决策记录、技术选型决策、变更决策历史
+
+#### 📊 status/ - 状态管理层
+**功能定位**: 项目当前状态跟踪和工作记录
+**职责边界**: 工作状态、模块状态、问题跟踪、进度记录
+
+#### 📝 templates/ - 文档模板库
+**功能定位**: 标准化文档模板和格式规范
+**职责边界**: 文档模板、格式标准、创建指南
+
+#### 📊 analysis/ - 分析报告归档
+**功能定位**: 代码分析、测试报告、审计结果存档
+**职责边界**: 分析报告、测试报告、代码审计、性能分析
+
+#### 🗂️ _archive/ - 废弃文档备份
+**功能定位**: 历史文档和过期内容的结构化存档
+**职责边界**: 历史文档保存、版本归档、废弃内容管理
 
 ## 🔗 文档依赖关系和技术规则
 
@@ -389,7 +466,7 @@ graph TB
 - ❌ 在 `app/` 目录中放置测试相关文件  
 - ❌ 在 `tests/` 目录中放置生产业务代码
 - ❌ 在 `docs/` 目录中放置可执行文件或源码
-- ❌ 在 `scripts/` 目录中放置业务逻辑代码
+- ❌ 在 `tools/` 目录中放置业务逻辑代码
 - ❌ 在 `logs/` 目录中放置配置文件或源码
 - ❌ 在 `alembic/` 目录中放置非迁移相关文件
 
@@ -443,7 +520,7 @@ graph TB
 - [ ] `app/` 只包含应用程序源码，无测试和文档
 - [ ] `docs/` 只包含文档，无源码和可执行文件
 - [ ] `tests/` 只包含测试代码，无生产业务逻辑
-- [ ] `scripts/` 只包含自动化脚本，无业务逻辑
+- [ ] `tools/` 只包含自动化脚本，无业务逻辑
 - [ ] `logs/` 只包含日志文件，无源码和配置  
 - [ ] `alembic/` 只包含迁移脚本，无业务代码
 
@@ -475,9 +552,9 @@ graph TB
 - **同步执行者**: 全体开发人员
 
 ### 自动化验证工具
-- **结构验证**: `scripts/validate_project_structure.ps1`
-- **依赖检查**: `scripts/validate_document_dependencies.ps1` 
-- **引用验证**: `scripts/validate_document_references.ps1`
+- **结构验证**: `tools/validate_project_structure.ps1`
+- **依赖检查**: `tools/validate_document_dependencies.ps1` 
+- **引用验证**: `tools/validate_document_references.ps1`
 
 ---
 

@@ -22,8 +22,8 @@
 跳过pytest-mock迁移检查
 
 .EXAMPLE
-.\scripts\run_module_tests.ps1 -ModuleName "user_auth" -TestType "all"
-.\scripts\run_module_tests.ps1 -ModuleName "product_catalog" -TestType "unit"
+.\tools\run_module_tests.ps1 -ModuleName "user_auth" -TestType "all"
+.\tools\run_module_tests.ps1 -ModuleName "product_catalog" -TestType "unit"
 #>
 
 param(

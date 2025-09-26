@@ -4,7 +4,7 @@
 用于验证测试环境配置是否正确，独立于实际测试代码运行
 
 使用方法：
-    python scripts/validate_test_config.py
+    python tools/validate_test_config.py
 
 验证内容：
 1. 虚拟环境检查和激活提示
@@ -75,7 +75,7 @@ def check_virtual_environment():
                 else:
                     print(f"   source {activate_script}")
                 print()
-                print("然后重新运行：python scripts/validate_test_config.py")
+                print("然后重新运行：python tools/validate_test_config.py")
                 return False
     
     print()

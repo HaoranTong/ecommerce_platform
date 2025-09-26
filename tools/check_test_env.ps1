@@ -25,15 +25,15 @@
     - full：完整模式，适用于集成测试
 
 .EXAMPLE
-    .\scripts\check_test_env.ps1
+    .\tools\check_test_env.ps1
     # 执行轻量模式检查（默认）
 
 .EXAMPLE
-    .\scripts\check_test_env.ps1 -TestMode lite
+    .\tools\check_test_env.ps1 -TestMode lite
     # 执行轻量模式检查，验证单元测试环境
 
 .EXAMPLE
-    .\scripts\check_test_env.ps1 -TestMode full
+    .\tools\check_test_env.ps1 -TestMode full
     # 执行完整模式检查，验证集成测试环境
 
 .NOTES
@@ -48,12 +48,12 @@
     - docker-compose (full模式)
     
     相关文档：
-    - docs/tools/testing-tools.md
+    - docs/development/testing-environment.md
     - docs/standards/testing-standards.md
     - MASTER.md (第10章节 测试环境管理)
 
 .LINK
-    https://github.com/HaoranTong/ecommerce_platform/blob/dev/docs/tools/testing-tools.md
+    https://github.com/HaoranTong/ecommerce_platform/blob/dev/docs/development/testing-environment.md
 #>
 
 param(

@@ -32,19 +32,19 @@
 
 .EXAMPLE
 # 完整健康检查
-scripts/maintain_standards.ps1 -Action check
+tools/maintain_standards.ps1 -Action check
 
 .EXAMPLE
 # 批量更新版本信息
-scripts/maintain_standards.ps1 -Action update -Target version
+tools/maintain_standards.ps1 -Action update -Target version
 
 .EXAMPLE
 # 生成详细维护报告
-scripts/maintain_standards.ps1 -Action report -Target detailed -OutputPath "docs/reports/"
+tools/maintain_standards.ps1 -Action report -Target detailed -OutputPath "docs/reports/"
 
 .EXAMPLE
 # 创建标准文档备份
-scripts/maintain_standards.ps1 -Action backup -Target "phase3-complete"
+tools/maintain_standards.ps1 -Action backup -Target "phase3-complete"
 
 .NOTES
 创建时间: 2025-09-23 Phase 3.3
@@ -56,7 +56,7 @@ scripts/maintain_standards.ps1 -Action backup -Target "phase3-complete"
 - docs/standards/maintenance-guide.md (维护手册)
 - docs/standards/README.md (L0标准文档导航)
 - PROJECT-FOUNDATION.md (FOUNDATION级项目基础设定)
-- scripts/validate_standards.ps1 (核心验证工具)
+- tools/validate_standards.ps1 (核心验证工具)
 #>
 
 param(
@@ -122,9 +122,9 @@ function Invoke-HealthCheck {
     try {
         if ($SingleFile) {
             Write-Host "   🎯 单文档模式: $SingleFile"
-            $validationResult = & "scripts/validate_standards.ps1" -Action "content" -DocPath $SingleFile 2>&1
+            $validationResult = & "tools/validate_standards.ps1" -Action "content" -DocPath $SingleFile 2>&1
         } else {
-            $validationResult = & "scripts/validate_standards.ps1" -Action "format" 2>&1
+            $validationResult = & "tools/validate_standards.ps1" -Action "format" 2>&1
         }
         $validationSuccess = $LASTEXITCODE -eq 0
     } catch {
@@ -199,7 +199,7 @@ function Invoke-HealthCheck {
         "docs/standards/README.md",
         "PROJECT-FOUNDATION.md", 
         "docs/standards/naming-conventions-standards.md",
-        "scripts/validate_standards.ps1",
+        "tools/validate_standards.ps1",
         "docs/standards/maintenance-guide.md"
     )
     
@@ -332,7 +332,7 @@ function Invoke-VersionUpdate {
     # 更新后验证
     if ($updatedCount -gt 0) {
         Write-Host "🔍 执行更新后验证..." -ForegroundColor Yellow
-        & "scripts/validate_standards.ps1" -Action format | Out-Null
+        & "tools/validate_standards.ps1" -Action format | Out-Null
         
         if ($LASTEXITCODE -eq 0) {
             Write-Host "✅ 更新后验证通过" -ForegroundColor Green
@@ -593,7 +593,7 @@ function Invoke-RestoreManagement {
     Write-Host "🔍 验证恢复结果..."
     
     # 验证恢复结果
-    & "scripts/validate_standards.ps1" -Action full | Out-Null
+    & "tools/validate_standards.ps1" -Action full | Out-Null
     if ($LASTEXITCODE -eq 0) {
         Write-Host "✅ 恢复后验证通过" -ForegroundColor Green
     } else {

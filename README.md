@@ -14,7 +14,7 @@ cd ecommerce_platform && python -m venv .venv && .venv\Scripts\Activate.ps1
 
 # 2. 安装依赖并检查环境
 pip install -r requirements.txt
-.\scripts\check_test_env.ps1 -TestMode lite
+.\tools\check_test_env.ps1 -TestMode lite
 
 # 3. 运行测试验证
 pytest tests/unit/ -v
@@ -106,7 +106,7 @@ ecommerce_platform/
 │   ├── smoke/                 # 冒烟测试
 │   ├── factories/             # 测试数据工厂
 │   └── generated/             # 自动生成测试
-├── 🛠️ scripts/                 # 自动化脚本
+├── 🛠️ tools/                   # 自动化工具
 │   └── README.md              # 脚本使用说明
 ├── 📝 alembic/                 # 数据库迁移
 ├── 📊 logs/                    # 日志文件
@@ -147,7 +147,7 @@ ecommerce_platform/
 | **L2领域** | [部署标准规范](docs/standards/deployment-standards.md) | 容器化和运维标准 | 🚀 部署运维 |
 
 ### 🔧 开发工具快速通道
-- **[脚本工具总览](scripts/README.md)** - 13个自动化开发脚本
+- **[脚本工具总览](tools/README.md)** - 13个自动化开发脚本
 - **[工具使用指南](docs/tools/README.md)** - 详细的工具文档
 - **[标准文档验证](docs/tools/scripts-usage-manual.md#validate_standards.ps1---标准文档验证-)** - 🆕 Phase 3.1质量验证工具
 
@@ -161,7 +161,7 @@ ecommerce_platform/
 
 ### 开发环境配置
 - **[环境搭建指南](docs/development/environment-setup.md)** - 详细的开发环境配置
-- **[快速启动脚本](scripts/README.md)** - 13个自动化开发脚本
+- **[快速启动脚本](tools/README.md)** - 13个自动化开发脚本
 
 ### 部署运维
 - **[部署指南](docs/operations/deployment.md)** - 生产环境部署文档
@@ -188,7 +188,7 @@ ecommerce_platform/
 | **L2领域** | [部署标准规范](docs/standards/deployment-standards.md) | 容器化和运维标准 | 🚀 部署运维 |
 
 ### 🔧 开发工具快速通道
-- **[脚本工具总览](scripts/README.md)** - 13个自动化开发脚本
+- **[脚本工具总览](tools/README.md)** - 13个自动化开发脚本
 - **[工具使用指南](docs/tools/README.md)** - 详细的工具文档
 - **[标准文档验证](docs/tools/scripts-usage-manual.md#validate_standards.ps1---标准文档验证-)** - 🆕 Phase 3.1质量验证工具
 

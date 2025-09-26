@@ -70,6 +70,6 @@ tests/
 ## 📚 相关文档
 
 - **[测试标准文档](../docs/standards/testing-standards.md)** - 完整的测试架构规范和要求
-- **[测试环境配置](../docs/tools/testing-tools.md)** - 测试环境搭建和工具配置
-- **[脚本使用手册](../docs/tools/scripts-usage-manual.md)** - 测试工具和脚本使用指南
-- **[Generated目录管理](../docs/tools/test-management.md)** - 自动生成测试管理策略
+- **[测试环境配置](../docs/development/testing-environment.md)** - 测试环境搭建和配置
+- **[工具脚本导航](../tools/README.md)** - 测试相关脚本使用导航
+- **[Generated目录管理](../docs/development/test-management.md)** - 自动生成测试管理策略

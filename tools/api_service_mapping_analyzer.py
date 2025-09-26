@@ -14,9 +14,9 @@ API与服务层映射分析脚本
 - 自动生成符合实际代码的测试模板
 
 使用方法：
-    python scripts/api_service_mapping_analyzer.py --analyze shopping_cart
-    python scripts/api_service_mapping_analyzer.py --analyze-all
-    python scripts/api_service_mapping_analyzer.py --generate-test shopping_cart
+    python tools/api_service_mapping_analyzer.py --analyze shopping_cart
+    python tools/api_service_mapping_analyzer.py --analyze-all
+    python tools/api_service_mapping_analyzer.py --generate-test shopping_cart
 
 创建时间：2025-09-19
 """

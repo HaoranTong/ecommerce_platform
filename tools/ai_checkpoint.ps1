@@ -16,8 +16,8 @@ AI检查点辅助验证脚本
 具体文件路径 (可选，用于精确检查)
 
 .EXAMPLE
-scripts/ai_checkpoint.ps1 -CardType DEV-001 -ModuleName inventory_management
-scripts/ai_checkpoint.ps1 -CardType TEST-001 -FilePath "tests/unit/test_models/test_inventory.py"
+tools/ai_checkpoint.ps1 -CardType DEV-001 -ModuleName inventory_management
+tools/ai_checkpoint.ps1 -CardType TEST-001 -FilePath "tests/unit/test_models/test_inventory.py"
 #>
 
 param(
@@ -755,14 +755,14 @@ function Test-ToolDocumentation($FilePath) {
             }
         }
         
-        # 检查scripts/README.md更新
-        $ScriptsReadme = "scripts/README.md"
+        # 检查tools/README.md更新
+        $ScriptsReadme = "tools/README.md"
         if (Test-Path $ScriptsReadme) {
             $ReadmeContent = Get-Content $ScriptsReadme -Raw
             if ($ReadmeContent -match [Regex]::Escape($FileName)) {
-                Write-Host "   ✅ 工具已在scripts/README.md中说明" -ForegroundColor Green
+                Write-Host "   ✅ 工具已在tools/README.md中说明" -ForegroundColor Green
             } else {
-                Write-Host "   ❌ 需要在scripts/README.md中添加工具说明" -ForegroundColor Red
+                Write-Host "   ❌ 需要在tools/README.md中添加工具说明" -ForegroundColor Red
             }
         }
         

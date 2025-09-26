@@ -8,8 +8,8 @@ Pydantic V2 强制合规验证工具
 3. 提供实时验证和预防机制
 
 使用方法：
-python scripts/validate_pydantic_v2.py --check     # 检查模式
-python scripts/validate_pydantic_v2.py --fix       # 自动修复模式
+python tools/validate_pydantic_v2.py --check     # 检查模式
+python tools/validate_pydantic_v2.py --fix       # 自动修复模式
 """
 
 import os
@@ -223,7 +223,7 @@ class PydanticV2Validator:
             print(f"  ... 还有 {len(results['issues']) - 10} 个问题")
             
         print(f"\n💡 修复建议:")
-        print(f"   python scripts/validate_pydantic_v2.py --fix")
+        print(f"   python tools/validate_pydantic_v2.py --fix")
 
 
 def main():

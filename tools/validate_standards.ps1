@@ -35,19 +35,19 @@
 
 .EXAMPLE
 # 完整验证(CI/CD推荐)
-scripts/validate_standards.ps1 -Action full
+tools/validate_standards.ps1 -Action full
 
 .EXAMPLE
 # 检查单个文档的重复内容
-scripts/validate_standards.ps1 -Action duplicate -DocPath "docs/standards/api-standards.md" -Detailed
+tools/validate_standards.ps1 -Action duplicate -DocPath "docs/standards/api-standards.md" -Detailed
 
 .EXAMPLE
 # 快速格式检查
-scripts/validate_standards.ps1 -Action format
+tools/validate_standards.ps1 -Action format
 
 .EXAMPLE
 # 依赖关系验证
-scripts/validate_standards.ps1 -Action dependencies
+tools/validate_standards.ps1 -Action dependencies
 
 .NOTES
 创建时间: 2025-09-23 Phase 3.1
@@ -59,7 +59,7 @@ scripts/validate_standards.ps1 -Action dependencies
 - docs/standards/README.md (L0标准文档导航)
 - PROJECT-FOUNDATION.md (FOUNDATION级项目基础设定)
 - docs/adr/ADR-003-document-architecture-restructure.md (重构决策)
-- scripts/README.md (脚本工具说明)
+- tools/README.md (脚本工具说明)
 
 技术债务: 格式检查中的深层标题(>3级)和无语言标识代码块为可接受的细节问题
 #>
