@@ -39,18 +39,39 @@
 
 ### 模块命名规范
 
-#### 模块核心名称定义
-| 模块英文名 | 完整描述名 | 中文名称 | 代码文件前缀 |
+#### 业务模块命名映射表（完整版）
+| 🏷️ 业务概念名 | 🔧 技术实现名 | 📁 目录路径 | 🌐 API路径前缀 | 🗄️ 数据库表前缀 |
+|---------------|---------------|------------|---------------|----------------|
+| user-auth | user_auth | app/modules/user_auth/ | /auth/* | user_, auth_ |
+| shopping-cart | shopping_cart | app/modules/shopping_cart/ | /cart/* | cart_, shopping_ |
+| product-catalog | product_catalog | app/modules/product_catalog/ | /products/* | product_, catalog_ |
+| order-management | order_management | app/modules/order_management/ | /orders/* | order_, payment_ |
+| payment-service | payment_service | app/modules/payment_service/ | /payments/* | payment_, transaction_ |
+| inventory-management | inventory_management | app/modules/inventory_management/ | /inventory/* | inventory_, stock_ |
+| member-system | member_system | app/modules/member_system/ | /members/* | member_, membership_ |
+| logistics-management | logistics_management | app/modules/logistics_management/ | /logistics/* | logistics_, shipping_ |
+| notification-service | notification_service | app/modules/notification_service/ | /notifications/* | notification_, message_ |
+| quality-control | quality_control | app/modules/quality_control/ | /quality/* | quality_, inspection_ |
+| recommendation-system | recommendation_system | app/modules/recommendation_system/ | /recommendations/* | recommendation_, suggest_ |
+| risk-control-system | risk_control_system | app/modules/risk_control_system/ | /risk/* | risk_, control_ |
+| social-features | social_features | app/modules/social_features/ | /social/* | social_, community_ |
+| supplier-management | supplier_management | app/modules/supplier_management/ | /suppliers/* | supplier_, vendor_ |
+| marketing-campaigns | marketing_campaigns | app/modules/marketing_campaigns/ | /campaigns/* | campaign_, promotion_ |
+| customer-service-system | customer_service_system | app/modules/customer_service_system/ | /support/* | support_, ticket_ |
+| data-analytics-platform | data_analytics_platform | app/modules/data_analytics_platform/ | /analytics/* | analytics_, metric_ |
+| distributor-management | distributor_management | app/modules/distributor_management/ | /distributors/* | distributor_, channel_ |
+| batch-traceability | batch_traceability | app/modules/batch_traceability/ | /traceability/* | batch_, trace_ |
+
+#### 技术组件命名映射
+| 组件英文名 | 完整描述名 | 中文名称 | 代码文件前缀 |
 |------------|------------|----------|-------------|
 | `user` | `user-auth` | 用户认证模块 | `user_` |
 | `cart` | `shopping-cart` | 购物车模块 | `cart_` |
 | `product` | `product-catalog` | 商品管理模块 | `product_` |
 | `order` | `order-management` | 订单管理模块 | `order_` |
-| `category` | `category-management` | 分类管理模块 | `category_` |
 | `payment` | `payment-service` | 支付服务模块 | `payment_` |
-| `inventory` | `inventory-management` | 库存管理模块 | `inventory_` |        
-| `notification` | `notification-service` | 通知服务模块 | `notification_` |  
-| `distributor` | `distributor-management` | 分销商管理模块 | `distributor_` |
+| `inventory` | `inventory-management` | 库存管理模块 | `inventory_` |
+| `notification` | `notification-service` | 通知服务模块 | `notification_` |
 | `recommendation` | `recommendation-system` | 推荐系统模块 | `recommendation_` |
 | `batch` | `batch-traceability` | 批次溯源模块 | `batch_` |
 | `app` | `application-core` | 应用核心模块 | `app_` |

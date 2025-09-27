@@ -1,3 +1,8 @@
+# standards 目录导航
+
+本目录收录平台各类开发与管理标准文档，具体内容请参见下列各标准文件。
+
+（详见各标准文档，目录结构与内容以PROJECT-FOUNDATION.md和document-management-standards.md为准）
 <!--version info: v1.0.0, created: 2025-09-23, level: L2, dependencies: naming-conventions-standards.md,project-structure-standards.md-->
 
 # 开发规范标准
@@ -9,6 +14,8 @@
 ```tree
 standards/
 ├── README.md                          # 本文档
+├── ai-collaboration-standards.md      # AI协作开发标准
+├── ai-collaboration-standards-l0.md   # AI协作标准L0上下文
 ├── standards-master-index.md          # L0导航：AI友好统一检索入口
 ├── project-structure-standards.md     # L1核心：项目结构权威标准
 ├── naming-conventions-standards.md    # L1核心：命名规范权威标准
@@ -31,6 +38,8 @@ standards/
 
 | 规范文档 | 适用范围 | 强制程度 | 层级 |
 |---------|---------|---------|-------|
+| **ai-collaboration-standards.md** | AI协作开发标准 | 强制 | L1核心 |
+| **ai-collaboration-standards-l0.md** | AI协作L0上下文 | 强制 | L0上下文 |
 | **standards-master-index.md** | AI友好统一检索入口 | 强制 | L0导航 |
 | **project-structure-standards.md** | 项目结构权威标准 | 强制 | L1核心 |
 | **naming-conventions-standards.md** | 命名规范权威标准 | 强制 | L1核心 |

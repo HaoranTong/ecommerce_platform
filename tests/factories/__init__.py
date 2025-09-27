@@ -16,8 +16,8 @@ from .user_auth_factories import (
     UserAuthFactoryManager
 )
 
-# 从test_data_factory导入通用工厂
-from .test_data_factory import StandardTestDataFactory
+# 从data_factory导入通用工厂
+from .data_factory import StandardTestDataFactory
 
 # 为兼容性提供别名映射
 User_AuthFactory = UserAuthFactoryManager  # 别名映射
