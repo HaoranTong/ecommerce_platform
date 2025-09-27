@@ -1,44 +1,17 @@
 # 电商平台后端服务
 
-> 基于FastAPI构建的模块化农产品电商平台，采用文档驱├── 📝 alembic├── 📊 reports/                 # 测试和分析报告输出
-├── 📂 .github/                 # GitHub工作流和CI/CD配置
-├── 📋 PROJECT-FOUNDATION.md    # 项目基础架构设定 (最高权威文档)
-├── 📄 MASTER.md               # AI开发控制文档
-├── 📄 README.md               # 项目入口导航文档 (本文档)
-├── 📄 requirements.txt         # 生产环境Python依赖
-├── 📄 requirements_dev.txt     # 开发环境Python依赖
-├── 📄 pyproject.toml          # 项目配置和构建设置
-├── 📄 docker-compose.yml      # 容器编排配置
-├── 📄 alembic.ini             # 数据库迁移工具配置
-├── 🚀 start.ps1               # 项目启动脚本
-├── 🔧 .env                    # 环境变量配置 (本地开发)
-├── 📝 .env.example            # 环境变量配置模板
-├── 📝 .envrc                  # direnv自动环境加载配置
-└── 📄 .gitignore              # Git版本控制忽略规则      # 数据库版本迁移
-├── 📊 reports/                 # 测试和分析报告输出
-├── 📂 .github/                 # GitHub工作流和CI/CD配置
-├── 📋 PROJECT-FOUNDATION.md    # 项目基础架构设定 (最高权威文档)
-├── 📄 MASTER.md               # AI开发控制文档
-├── 📄 README.md               # 项目入口导航文档 (本文档)
-├── 📄 requirements.txt         # 生产环境Python依赖
-├── 📄 requirements_dev.txt     # 开发环境Python依赖
-├── 📄 pyproject.toml          # 项目配置和构建设置
-├── 📄 docker-compose.yml      # 容器编排配置
-├── 📄 alembic.ini             # 数据库迁移工具配置
-├── 🚀 start.ps1               # 项目启动脚本
-├── 🔧 .env                    # 环境变量配置 (本地开发)
-├── 📝 .env.example            # 环境变量配置模板
-├── 📝 .envrc                  # direnv自动环境加载配置
-└── 📄 .gitignore              # Git版本控制忽略规则## 🎯 核心特性
+> 基于FastAPI构建的模块化农产品电商平台，采用文档驱动开发和标准化架构
+
+## 🎯 核心特性
 - 🏗️ **模块化单体架构** - 垂直切片模块化设计，清晰边界
 - 🌾 **农产品电商** - 专注农产品溯源、质量认证、冷链物流  
 - 🔐 **JWT认证体系** - 完整的用户认证与权限管理
 - 🛒 **高性能购物车** - 基于Redis的分布式购物车系统
-- � **商品管理系统** - 商品信息、分类管理、库存控制
+- 📦 **商品管理系统** - 商品信息、分类管理、库存控制
 - 💳 **多渠道支付** - 支持多种支付方式和退款处理
 - 🔄 **标准化工具链** - 自动化开发、测试、部署流程
 
-## �🚀 快速开始
+## 🚀 快速开始
 
 **新手开发者**: [📖 开发环境配置指南](docs/operations/development-setup.md) - 快速搭建开发环境
 
@@ -68,20 +41,23 @@ ecommerce_platform/
 ├── 📚 docs/                    # 技术文档体系 (详见 docs/README.md)
 ├── 🧪 tests/                   # 测试代码体系 (6种测试类型)
 ├── 🛠️ tools/                   # 自动化工具和脚本 (13个工具脚本)
-├── � logs/                    # 运行时日志文件
+├── 📊 logs/                    # 运行时日志文件
 ├── 📝 alembic/                 # 数据库版本迁移
-├── � PROJECT-FOUNDATION.md    # 项目基础架构设定 (最高权威文档)
-├── � MASTER.md               # AI开发控制文档
-├── � README.md               # 项目入口导航文档 (本文档)
+├── 📊 reports/                 # 测试和分析报告输出
+├── 📂 .github/                 # GitHub工作流和CI/CD配置
+├── 📋 PROJECT-FOUNDATION.md    # 项目基础架构设定 (最高权威文档)
+├── 📄 MASTER.md               # AI开发控制文档
+├── 📄 README.md               # 项目入口导航文档 (本文档)
 ├── 📄 requirements.txt         # 生产环境Python依赖
 ├── 📄 requirements_dev.txt     # 开发环境Python依赖
 ├── 📄 pyproject.toml          # 项目配置和构建设置
 ├── 📄 docker-compose.yml      # 容器编排配置
 ├── 📄 alembic.ini             # 数据库迁移工具配置
 ├── 🚀 start.ps1               # 项目启动脚本
-├── 🔧 dev_env.ps1             # 开发环境配置脚本
-├── 🛠️ dev_tools.ps1           # 开发工具启动脚本
-└── 📄 .gitignore              # Git版本控制忽略配置
+├── 🔧 .env                    # 环境变量配置 (本地开发)
+├── 📝 .env.example            # 环境变量配置模板
+├── 📝 .envrc                  # direnv自动环境加载配置
+└── 📄 .gitignore              # Git版本控制忽略规则
 ```
 
 > **📖 详细信息**: 

@@ -1,54 +1,4 @@
-<!--version info: v1.0.0### 强制目录结构 (不可变更)
-```tree```tree
-ecommerce_platform/
-├── 📂 app/                    # 应用程序源码
-├── 📚 docs/                   # 技术文档体系  
-├── 🧪 tests/                  # 测试代码体系
-├── 📂 tools/                  # DevOps自动化工具
-├── 📂 logs/                   # 运行时日志文件
-├── 📂 alembic/                # 数据库版本迁移
-├── 📂 reports/                # 测试和分析报告输出
-├── 📂 .github/                # GitHub工作流和配置
-├── 📂 .venv/                  # Python虚拟环境 (开发时)
-├── 📂 .pytest_cache/         # pytest缓存目录 (开发时)
-├── 📋 PROJECT-FOUNDATION.md   # 本文档 (项目基础设定)
-├── 📄 MASTER.md              # AI开发控制文档
-├── 📄 README.md              # 项目入口和概览文档
-├── 📄 requirements.txt        # Python生产环境依赖
-├── 📄 requirements_dev.txt    # Python开发环境依赖
-├── 📄 pyproject.toml         # 项目配置和构建设置  
-├── 📄 docker-compose.yml     # 容器编排配置
-├── 📄 alembic.ini            # 数据库迁移工具配置
-├── 🚀 start.ps1              # 项目启动脚本
-├── 🔧 .env                   # 环境变量配置 (本地)
-├── 📝 .env.example           # 环境变量配置模板
-├── 📝 .envrc                 # direnv自动环境加载
-└── 📄 .gitignore             # Git版本控制忽略规则
-```m/
-├── 📂 app/                    # 应用程序源码
-├── 📚 docs/                   # 技术文档体系  
-├── 🧪 tests/                  # 测试代码体系
-├── 📂 tools/                  # DevOps自动化工具
-├── 📂 logs/                   # 运行时日志文件
-├── 📂 alembic/                # 数据库版本迁移
-├── 📂 reports/                # 测试和分析报告输出
-├── 📂 .github/                # GitHub工作流和配置
-├── 📂 .venv/                  # Python虚拟环境 (开发时)
-├── 📂 .pytest_cache/         # pytest缓存目录 (开发时)
-├── 📋 PROJECT-FOUNDATION.md   # 本文档 (项目基础设定)
-├── 📄 MASTER.md              # AI开发控制文档
-├── 📄 README.md              # 项目入口和概览文档
-├── 📄 requirements.txt        # Python生产环境依赖
-├── 📄 requirements_dev.txt    # Python开发环境依赖
-├── 📄 pyproject.toml         # 项目配置和构建设置  
-├── 📄 docker-compose.yml     # 容器编排配置
-├── 📄 alembic.ini            # 数据库迁移工具配置
-├── 🚀 start.ps1              # 项目启动脚本
-├── 🔧 .env                   # 环境变量配置 (本地)
-├── 📝 .env.example           # 环境变量配置模板
-├── 📝 .envrc                 # direnv自动环境加载
-└── 📄 .gitignore             # Git版本控制忽略规则
-```24, level: FOUNDATION, dependencies: ADR-003-->
+<!--version info: v1.0.0, created: 2025-09-24, level: FOUNDATION, dependencies: ADR-003-->
 
 # 项目基础设定 (PROJECT FOUNDATION)
 
@@ -76,12 +26,16 @@ ecommerce_platform/
 ```tree
 ecommerce_platform/
 ├── 📂 app/                    # 应用程序源码
-├── � docs/                   # 技术文档体系  
-├── � tests/                  # 测试代码体系
+├── 📚 docs/                   # 技术文档体系  
+├── 🧪 tests/                  # 测试代码体系
 ├── 📂 tools/                  # DevOps自动化工具
 ├── 📂 logs/                   # 运行时日志文件
 ├── 📂 alembic/                # 数据库版本迁移
-├── � PROJECT-FOUNDATION.md   # 本文档 (项目基础设定)
+├── 📂 reports/                # 测试和分析报告输出
+├── 📂 .github/                # GitHub工作流和配置
+├── 📂 .venv/                  # Python虚拟环境 (开发时)
+├── 📂 .pytest_cache/         # pytest缓存目录 (开发时)
+├── 📋 PROJECT-FOUNDATION.md   # 本文档 (项目基础设定)
 ├── 📄 MASTER.md              # AI开发控制文档
 ├── 📄 README.md              # 项目入口和概览文档
 ├── 📄 requirements.txt        # Python生产环境依赖
@@ -89,7 +43,11 @@ ecommerce_platform/
 ├── 📄 pyproject.toml         # 项目配置和构建设置  
 ├── 📄 docker-compose.yml     # 容器编排配置
 ├── 📄 alembic.ini            # 数据库迁移工具配置
-└── � start.ps1              # 项目启动脚本
+├── 🚀 start.ps1              # 项目启动脚本
+├── 🔧 .env                   # 环境变量配置 (本地)
+├── 📝 .env.example           # 环境变量配置模板
+├── 📝 .envrc                 # direnv自动环境加载
+└── 📄 .gitignore             # Git版本控制忽略规则
 ```
 
 ### 核心目录职责
@@ -183,5 +141,5 @@ ecommerce_platform/
 **📋 检查点标记**: [CHECK:ARCH-001] [CHECK:DOC-006]  
 **🔗 关联决策**: [ADR-003](docs/adr/ADR-003-document-architecture-restructure.md)  
 **📅 创建时间**: 2025-09-24  
-**� 维护责任**: 系统架构师  
+**🔧 维护责任**: 系统架构师  
 **🔄 下次审查**: 2025-12-24
