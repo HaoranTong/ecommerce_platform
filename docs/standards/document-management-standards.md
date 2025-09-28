@@ -574,7 +574,36 @@ module-specific-standards.md / scripting-standards.md / testing-standards.md
 	- `pwsh tools/create_module_docs.ps1 -ModuleName sample-module -Force` 验证模板变量可渲染并覆盖完整模块文档骨架。
 	- `pwsh tools/analyze_simple_markers.ps1 -FilePath docs/templates/module-template.md` 校验占位符与代码块标记。
 
-#### B4. 工具文档标准
+#### B4. 检查点卡片标准
+
+- **定位**：定义AI工作流程检查点的标准格式，存放于 `tools/checkpoint-cards.md`。
+- **结构要求**：
+	1. 卡片标题（检查点编号 + 功能描述）
+	2. 触发条件（明确的触发场景）
+	3. 检查重点（核心验证项目）
+	4. 精准导航（文档路径 + 行号范围）
+	5. 执行脚本（自动化验证工具）
+	6. 辅助脚本（可选的补充工具）
+- **格式标准**：
+	```markdown
+	### [编号]: [功能描述]
+	**触发条件**: [具体触发场景]
+	**检查重点**: [核心验证要求]
+	**精准导航**:
+	1. **[验证项1]** → `[文档路径]` 第[X-Y]行
+	2. **[验证项2]** → `[文档路径]` 第[X-Y]行
+	**执行脚本**: `[脚本路径]`
+	```
+- **维护规则**：
+	- 所有文档路径必须真实存在且行号准确
+	- 检查重点必须与MASTER.md中的检查点列表对应
+	- 脚本路径必须经过验证确保可执行
+- **禁止内容**：规则描述、标准定义（应引用对应的标准文档）
+- **自动化检测**：
+	- `tools/validate_checkpoint_cards.ps1` 验证卡片格式和引用准确性
+	- `tools/check_docs.ps1` 检查文档路径和脚本存在性
+
+#### B5. 工具文档标准
 
 - **定位**：记录脚本及自动化工具的使用说明，可放置于 `docs/tools/` 或对应 `scripts/` 目录。
 - **结构要求**：
@@ -592,7 +621,25 @@ module-specific-standards.md / scripting-standards.md / testing-standards.md
 	- `pwsh tools/dev_tools.ps1 -Command check-db` 验证文档示例命令真实可执行，及时捕捉接口变化。
 	- `pwsh tools/analyze_simple_markers.ps1 -FilePath docs/tools/<doc>.md` 检查命令示例的 Markdown 结构。
 
-#### B5. 检查点日志标准（checkpoint logs）
+#### B5. 工具文档标准
+
+- **定位**：记录脚本及自动化工具的使用说明，可放置于 `docs/tools/` 或对应 `scripts/` 目录。
+- **结构要求**：
+	1. 工具概述（功能、适用环境）
+	2. 依赖与安装（系统要求、Python 包、权限）
+	3. 使用说明（命令、参数、示例）
+	4. 输出与结果解读（日志路径、成功标准）
+	5. 故障排查（常见错误、恢复步骤）
+	6. 维护计划与责任人
+- **维护规则**：
+	- 工具变更必须同步文档。
+	- 重大升级需记录在 work-history-archive.md。
+- **禁止内容**：暴露密钥、内部 IP、账号密码。
+- **自动化检测**：
+	- `pwsh tools/dev_tools.ps1 -Command check-db` 验证文档示例命令真实可执行，及时捕捉接口变化。
+	- `pwsh tools/analyze_simple_markers.ps1 -FilePath docs/tools/<doc>.md` 检查命令示例的 Markdown 结构。
+
+#### B6. 检查点日志标准（checkpoint logs）
 
 - **定位**：记录阶段性检查、审核结论，存放于 `docs/status/checkpoints/`。
 - **结构要求**：

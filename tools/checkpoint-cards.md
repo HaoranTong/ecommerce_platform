@@ -1,10 +1,8 @@
-<!--version info: v1.0.0, created: 2025-09-23, level: L2, dependencies: naming-conventions-standards.md,../../PROJECT-FOUNDATION.md-->
+# AI检查点卡片系统
 
-# AI检查点卡片系统 (完整版)
+> **作用**：为AI工作流程提供精准导航和文档索引，确保按正确标准执行各类检查点。
 
-基于MASTER.md工作流程的精准导航检查验证程序。全面覆盖文档驱动开发的每个环节。
-
-## 📋 需求分析类检查卡片 (REQ)
+## 📋 需求分析类 (REQ)
 
 ### REQ-001: 业务需求理解验证
 **触发条件**: 开始新功能开发、项目启动
@@ -39,7 +37,7 @@
 
 **执行脚本**: `tools/validate_non_functional_requirements.ps1`
 
-## 🏗️ 架构设计类检查卡片 (ARCH)
+## 🏗️ 架构设计类 (ARCH)
 
 ### ARCH-001: 系统架构设计验证
 **触发条件**: 开始架构设计、技术选型
@@ -85,7 +83,7 @@
 
 **执行脚本**: `tools/validate_architecture_changes.ps1 -WithADR`
 
-## 🚀 开发实施类检查卡片 (DEV)
+## � 开发实施类 (DEV)
 
 ### DEV-001: 模块文档完整性验证
 **触发条件**: 开始编码前、模块实施前
@@ -194,14 +192,69 @@
 
 **辅助脚本**: `tools/ai_checkpoint.ps1 -CardType DEV-009`
 
-## 🧪 测试类检查卡片 (TEST)
+### DEV-010: 代码审查验证
+**触发条件**: 代码提交前、Pull Request创建
+**检查重点**: 代码规范、逻辑正确性、安全性检查
+**精准导航**:
+1. **代码审查标准** → `docs/standards/code-standards.md` 第100-130行
+2. **安全检查清单** → `docs/standards/code-standards.md` 第130-150行
+3. **性能审查要点** → `docs/standards/performance-standards.md` 第60-90行
+4. **测试覆盖率要求** → `docs/standards/testing-standards.md` 第40-60行
+
+**执行脚本**: `tools/code_review_checklist.ps1 -Module {module}`
+
+### DEV-011: 数据迁移验证
+**触发条件**: 数据库结构变更、数据迁移脚本编写
+**检查重点**: 迁移脚本安全性、数据完整性、回滚方案
+**精准导航**:
+1. **迁移脚本标准** → `docs/standards/database-standards.md` 第300-350行
+2. **数据备份策略** → `docs/standards/database-standards.md` 第350-380行
+3. **回滚方案设计** → `docs/standards/database-standards.md` 第380-400行
+4. **迁移测试要求** → `docs/standards/testing-standards.md` 第200-230行
+
+**执行脚本**: `tools/validate_migration.ps1 -Module {module}`
+
+### DEV-012: 配置管理验证
+**触发条件**: 环境配置变更、配置文件修改
+**检查重点**: 配置安全性、环境一致性、版本管理
+**精准导航**:
+1. **配置管理标准** → `docs/standards/deployment-standards.md` 第50-80行
+2. **环境变量规范** → `docs/standards/deployment-standards.md` 第80-100行
+3. **密钥管理标准** → `docs/standards/security-architecture.md` 第200-230行
+4. **配置版本控制** → `docs/standards/workflow-standards.md` 第80-100行
+
+**执行脚本**: `tools/validate_config.ps1 -Environment {env}`
+
+### DEV-013: 依赖管理验证
+**触发条件**: 新增依赖、版本升级、依赖变更
+**检查重点**: 依赖安全性、版本兼容性、许可证合规
+**精准导航**:
+1. **依赖安全检查** → `docs/standards/security-architecture.md` 第230-260行
+2. **版本管理策略** → `docs/standards/workflow-standards.md` 第50-80行
+3. **许可证合规要求** → `docs/requirements/non-functional.md` 第250-280行
+4. **依赖文档标准** → `docs/standards/code-standards.md` 第150-180行
+
+**执行脚本**: `tools/check_dependencies.ps1 -Module {module}`
+
+### DEV-014: 性能基准验证
+**触发条件**: 性能关键代码开发、优化实施
+**检查重点**: 性能基准达标、资源使用合理、监控埋点
+**精准导航**:
+1. **性能基准定义** → `docs/standards/performance-standards.md` 第30-60行
+2. **监控埋点标准** → `docs/standards/performance-standards.md` 第90-120行
+3. **资源使用限制** → `docs/standards/performance-standards.md` 第120-150行
+4. **性能测试要求** → `docs/standards/testing-standards.md` 第240-280行
+
+**执行脚本**: `tools/performance_benchmark.ps1 -Module {module}`
+
+## 🧪 测试类 (TEST)
 
 ### TEST-001: 测试环境配置
 **触发条件**: 开始测试会话、配置CI/CD
 **检查重点**: 环境隔离、数据库配置、依赖管理
 **精准导航**:
 1. **环境分离标准** → `docs/standards/testing-standards.md` 第40-60行
-2. **数据库配置指南** → `docs/tools/testing-tools.md` 第25-45行
+2. **数据库配置指南** → `docs/standards/database-standards.md` 第25-45行
 3. **依赖注入配置** → `tests/conftest.py` 第15-35行
 4. **环境变量管理** → `docs/standards/testing-standards.md` 第70-85行
 
@@ -311,74 +364,15 @@
 3. `tools/update_module_status.ps1 -Module {module}`
 4. `tools/pre_commit_check.ps1`
 
-## 🔧 使用指南
+---
 
-### 卡片执行流程
-1. **触发识别** → MASTER.md路由表确定卡片类型
-2. **精准导航** → 直接定位到具体文档行号范围
-3. **脚本执行** → 使用推荐脚本进行自动化检查
-4. **结果记录** → 在TODO中标记检查完成
+## 📋 检查点索引
 
-### 导航精准度
-- **文档路径**: 精确到具体文件
-- **行号范围**: 精确到具体章节  
-- **检查重点**: 避免无用信息检索
-- **执行脚本**: 自动化验证工具
+| 类别 | 编号范围 | 检查点数量 |
+|------|----------|------------|
+| 需求分析类 | REQ-001 ~ REQ-003 | 3个 |
+| 架构设计类 | ARCH-001 ~ ARCH-004 | 4个 |
+| 开发实施类 | DEV-001 ~ DEV-014 | 14个 |
+| 测试验证类 | TEST-001 ~ TEST-008 | 8个 |
 
-### 边界职责说明
-- **检查卡片**: 仅提供文档索引和脚本执行引导
-- **标准文档**: 定义规则、流程、标准  
-- **工具文档**: 提供配置步骤、操作指导
-
-### 卡片更新原则
-- **内容边界**: 严禁在卡片中定义规则和标准
-- **职责清晰**: 只做导航和脚本引导，不做规则描述
-- **权威唯一**: 所有标准以相应的标准文档为准
-
-## 📋 检查卡片索引
-
-### 需求分析类 (REQ)
-- **REQ-001**: 业务需求理解验证
-- **REQ-002**: 功能需求分析验证  
-- **REQ-003**: 非功能需求确认
-
-### 架构设计类 (ARCH)
-- **ARCH-001**: 系统架构设计验证
-- **ARCH-002**: 模块架构设计验证
-- **ARCH-003**: 数据架构设计验证
-- **ARCH-004**: 需求架构调整前置验证
-
-### 开发实施类 (DEV)
-- **DEV-001**: 模块文档完整性验证
-- **DEV-002**: 环境与工具准备验证
-- **DEV-003**: 数据模型设计验证
-- **DEV-004**: API设计与路由规范
-- **DEV-005**: 业务逻辑实现验证
-- **DEV-006**: 安全控制实现验证
-- **DEV-007**: 错误处理实现验证
-- **DEV-008**: 代码质量验证
-- **DEV-009**: 代码开发前强制检查验证
-
-### 测试验证类 (TEST)
-- **TEST-001**: 测试环境配置
-- **TEST-002**: 测试数据一致性
-- **TEST-003**: 集成测试设计
-- **TEST-004**: 性能与安全测试
-- **TEST-005**: API测试验证
-- **TEST-006**: 性能测试验证
-- **TEST-007**: 安全测试验证
-- **TEST-008**: 测试阶段完成验证
-
-### 文档管理类 (DOC)
-- **DOC-001**: 架构文档完整性
-- **DOC-002**: 模块文档规范性
-- **DOC-003**: API文档同步性
-- **DOC-004**: 运维文档维护
-3. **文件管理** → `docs/standards/workflow-standards.md` 第100-130行提交规范
-4. **状态文档** → `docs/status/module-status.md` 状态同步验证
-
-**验证清单**:
-□ 单元测试通过率达到100%
-□ 集成测试通过率达到预设目标(≥85%)
-□ 所有测试文件语法正确，无编译错误
-□ 清理__pycache__目录和临时文件
+**总计**: 29个检查点卡片

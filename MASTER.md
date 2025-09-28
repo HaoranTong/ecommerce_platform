@@ -69,58 +69,58 @@
 - **接收任务时** → [CHECK:AI-START] 确认理解任务并制定计划
 
 ### 📋 需求分析类  
-- **项目启动** → [CHECK:REQ-001] ⚠️ [必读卡片](docs/tools/checkpoint-cards.md#req-001)
-- **功能规划** → [CHECK:REQ-002] ⚠️ [必读卡片](docs/tools/checkpoint-cards.md#req-002)
-- **架构设计前** → [CHECK:REQ-003] ⚠️ [必读卡片](docs/tools/checkpoint-cards.md#req-003)
+- **项目启动** → [CHECK:REQ-001] ⚠️ [必读卡片](tools/checkpoint-cards.md#req-001)
+- **功能规划** → [CHECK:REQ-002] ⚠️ [必读卡片](tools/checkpoint-cards.md#req-002)
+- **架构设计前** → [CHECK:REQ-003] ⚠️ [必读卡片](tools/checkpoint-cards.md#req-003)
 
 ### 🏗️ 架构设计类
-- **系统架构** → [CHECK:ARCH-001] ⚠️ [必读卡片](docs/tools/checkpoint-cards.md#arch-001)
-- **模块架构** → [CHECK:ARCH-002] ⚠️ [必读卡片](docs/tools/checkpoint-cards.md#arch-002)
-- **数据架构** → [CHECK:ARCH-003] ⚠️ [必读卡片](docs/tools/checkpoint-cards.md#arch-003) + [数据库标准](docs/standards/database-standards.md)
-- **架构调整** → [CHECK:ARCH-004] ⚠️ [必读卡片](docs/tools/checkpoint-cards.md#arch-004)
+- **系统架构** → [CHECK:ARCH-001] ⚠️ [必读卡片](tools/checkpoint-cards.md#arch-001)
+- **模块架构** → [CHECK:ARCH-002] ⚠️ [必读卡片](tools/checkpoint-cards.md#arch-002)
+- **数据架构** → [CHECK:ARCH-003] ⚠️ [必读卡片](tools/checkpoint-cards.md#arch-003) + [数据库标准](docs/standards/database-standards.md)
+- **架构调整** → [CHECK:ARCH-004] ⚠️ [必读卡片](tools/checkpoint-cards.md#arch-004)
 
 ### 💻 开发实施类
-- **编码准备** → [CHECK:DEV-001] ⚠️ [必读卡片](docs/tools/checkpoint-cards.md#dev-001)
-- **环境配置** → [CHECK:DEV-002] ⚠️ [必读卡片](docs/tools/checkpoint-cards.md#dev-002)
-- **数据模型** → [CHECK:DEV-003] ⚠️ [必读卡片](docs/tools/checkpoint-cards.md#dev-003) + [数据库标准](docs/standards/database-standards.md)
-- **API路由** → [CHECK:DEV-004] ⚠️ [必读卡片](docs/tools/checkpoint-cards.md#dev-004) + [API标准](docs/standards/api-standards.md)
-- **业务逻辑** → [CHECK:DEV-005] ⚠️ [必读卡片](docs/tools/checkpoint-cards.md#dev-005)
-- **安全功能** → [CHECK:DEV-006] ⚠️ [必读卡片](docs/tools/checkpoint-cards.md#dev-006)
-- **异常处理** → [CHECK:DEV-007] ⚠️ [必读卡片](docs/tools/checkpoint-cards.md#dev-007)
-- **代码质量** → [CHECK:DEV-008] ⚠️ [必读卡片](docs/tools/checkpoint-cards.md#dev-008) + [命名标准](docs/standards/naming-conventions-standards.md)
-- **强制检查** → [CHECK:DEV-009] ⚠️ [必读卡片](docs/tools/checkpoint-cards.md#dev-009)
-- **代码审查** → [CHECK:DEV-010] ⚠️ [必读卡片](docs/tools/checkpoint-cards.md#dev-010)
-- **数据迁移** → [CHECK:DEV-011] ⚠️ [必读卡片](docs/tools/checkpoint-cards.md#dev-011) + [数据库标准](docs/standards/database-standards.md)
-- **配置管理** → [CHECK:DEV-012] ⚠️ [必读卡片](docs/tools/checkpoint-cards.md#dev-012)
-- **依赖管理** → [CHECK:DEV-013] ⚠️ [必读卡片](docs/tools/checkpoint-cards.md#dev-013)
-- **性能基准** → [CHECK:DEV-014] ⚠️ [必读卡片](docs/tools/checkpoint-cards.md#dev-014)
+- **编码准备** → [CHECK:DEV-001] ⚠️ [必读卡片](tools/checkpoint-cards.md#dev-001)
+- **环境配置** → [CHECK:DEV-002] ⚠️ [必读卡片](tools/checkpoint-cards.md#dev-002)
+- **数据模型** → [CHECK:DEV-003] ⚠️ [必读卡片](tools/checkpoint-cards.md#dev-003) + [数据库标准](docs/standards/database-standards.md)
+- **API路由** → [CHECK:DEV-004] ⚠️ [必读卡片](tools/checkpoint-cards.md#dev-004) + [API标准](docs/standards/api-standards.md)
+- **业务逻辑** → [CHECK:DEV-005] ⚠️ [必读卡片](tools/checkpoint-cards.md#dev-005)
+- **安全功能** → [CHECK:DEV-006] ⚠️ [必读卡片](tools/checkpoint-cards.md#dev-006)
+- **异常处理** → [CHECK:DEV-007] ⚠️ [必读卡片](tools/checkpoint-cards.md#dev-007)
+- **代码质量** → [CHECK:DEV-008] ⚠️ [必读卡片](tools/checkpoint-cards.md#dev-008) + [命名标准](docs/standards/naming-conventions-standards.md)
+- **强制检查** → [CHECK:DEV-009] ⚠️ [必读卡片](tools/checkpoint-cards.md#dev-009)
+- **代码审查** → [CHECK:DEV-010] ⚠️ [必读卡片](tools/checkpoint-cards.md#dev-010)
+- **数据迁移** → [CHECK:DEV-011] ⚠️ [必读卡片](tools/checkpoint-cards.md#dev-011) + [数据库标准](docs/standards/database-standards.md)
+- **配置管理** → [CHECK:DEV-012] ⚠️ [必读卡片](tools/checkpoint-cards.md#dev-012)
+- **依赖管理** → [CHECK:DEV-013] ⚠️ [必读卡片](tools/checkpoint-cards.md#dev-013)
+- **性能基准** → [CHECK:DEV-014] ⚠️ [必读卡片](tools/checkpoint-cards.md#dev-014)
 
 ### 🧪 测试验证类
-- **测试环境** → [CHECK:TEST-001] ⚠️ [必读卡片](docs/tools/checkpoint-cards.md#test-001)
-- **单元测试** → [CHECK:TEST-002] ⚠️ [必读卡片](docs/tools/checkpoint-cards.md#test-002)
-- **Mock统一** → [CHECK:TEST-003] ⚠️ [必读卡片](docs/tools/checkpoint-cards.md#test-003)
-- **集成测试** → [CHECK:TEST-004] ⚠️ [必读卡片](docs/tools/checkpoint-cards.md#test-004)
-- **接口测试** → [CHECK:TEST-005] ⚠️ [必读卡片](docs/tools/checkpoint-cards.md#test-005)
-- **性能测试** → [CHECK:TEST-006] ⚠️ [必读卡片](docs/tools/checkpoint-cards.md#test-006)
-- **安全测试** → [CHECK:TEST-007] ⚠️ [必读卡片](docs/tools/checkpoint-cards.md#test-007)
-- **测试完成** → [CHECK:TEST-008] ⚠️ [必读卡片](docs/tools/checkpoint-cards.md#test-008)
+- **测试环境** → [CHECK:TEST-001] ⚠️ [必读卡片](tools/checkpoint-cards.md#test-001)
+- **单元测试** → [CHECK:TEST-002] ⚠️ [必读卡片](tools/checkpoint-cards.md#test-002)
+- **Mock统一** → [CHECK:TEST-003] ⚠️ [必读卡片](tools/checkpoint-cards.md#test-003)
+- **集成测试** → [CHECK:TEST-004] ⚠️ [必读卡片](tools/checkpoint-cards.md#test-004)
+- **接口测试** → [CHECK:TEST-005] ⚠️ [必读卡片](tools/checkpoint-cards.md#test-005)
+- **性能测试** → [CHECK:TEST-006] ⚠️ [必读卡片](tools/checkpoint-cards.md#test-006)
+- **安全测试** → [CHECK:TEST-007] ⚠️ [必读卡片](tools/checkpoint-cards.md#test-007)
+- **测试完成** → [CHECK:TEST-008] ⚠️ [必读卡片](tools/checkpoint-cards.md#test-008)
 
 ### 📊 状态管理类
-- **状态读取** → [CHECK:STATUS-001] ⚠️ [必读卡片](docs/tools/checkpoint-cards.md#status-001)
-- **状态更新** → [CHECK:STATUS-002] ⚠️ [必读卡片](docs/tools/checkpoint-cards.md#status-002)
-- **工作归档** → [CHECK:STATUS-003] ⚠️ [必读卡片](docs/tools/checkpoint-cards.md#status-003)
-- **状态恢复** → [CHECK:STATUS-004] ⚠️ [必读卡片](docs/tools/checkpoint-cards.md#status-004)
+- **状态读取** → [CHECK:STATUS-001] ⚠️ [必读卡片](tools/checkpoint-cards.md#status-001)
+- **状态更新** → [CHECK:STATUS-002] ⚠️ [必读卡片](tools/checkpoint-cards.md#status-002)
+- **工作归档** → [CHECK:STATUS-003] ⚠️ [必读卡片](tools/checkpoint-cards.md#status-003)
+- **状态恢复** → [CHECK:STATUS-004] ⚠️ [必读卡片](tools/checkpoint-cards.md#status-004)
 
 ### 📖 文档同步类
-- **代码文档** → [CHECK:DOC-001] ⚠️ [必读卡片](docs/tools/checkpoint-cards.md#doc-001)
-- **API文档** → [CHECK:DOC-002] ⚠️ [必读卡片](docs/tools/checkpoint-cards.md#doc-002)
-- **架构文档** → [CHECK:DOC-003] ⚠️ [必读卡片](docs/tools/checkpoint-cards.md#doc-003)
-- **部署文档** → [CHECK:DOC-004] ⚠️ [必读卡片](docs/tools/checkpoint-cards.md#doc-004)
-- **目录同步** → [CHECK:DOC-005] ⚠️ [必读卡片](docs/tools/checkpoint-cards.md#doc-005)
-- **工具文档** → [CHECK:DOC-006] ⚠️ [必读卡片](docs/tools/checkpoint-cards.md#doc-006)
+- **代码文档** → [CHECK:DOC-001] ⚠️ [必读卡片](tools/checkpoint-cards.md#doc-001)
+- **API文档** → [CHECK:DOC-002] ⚠️ [必读卡片](tools/checkpoint-cards.md#doc-002)
+- **架构文档** → [CHECK:DOC-003] ⚠️ [必读卡片](tools/checkpoint-cards.md#doc-003)
+- **部署文档** → [CHECK:DOC-004] ⚠️ [必读卡片](tools/checkpoint-cards.md#doc-004)
+- **目录同步** → [CHECK:DOC-005] ⚠️ [必读卡片](tools/checkpoint-cards.md#doc-005)
+- **工具文档** → [CHECK:DOC-006] ⚠️ [必读卡片](tools/checkpoint-cards.md#doc-006)
 
 ### 🚨 应急处理类
-- **文件重建** → [CHECK:EMERGENCY-001] ⚠️ [必读卡片](docs/tools/checkpoint-cards.md#emergency-001)
+- **文件重建** → [CHECK:EMERGENCY-001] ⚠️ [必读卡片](tools/checkpoint-cards.md#emergency-001)
 
 ## 📚 重要文档快速索引
 
