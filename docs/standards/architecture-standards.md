@@ -1,8 +1,29 @@
+---
+title: "Architecture Design Standards"
+version: "v1.0.0"
+status: "Active"
+created: "2025-09-29"
+updated: "2025-09-29"
+owner: "Architecture Standards Board"
+dependencies:
+	- "../../PROJECT-FOUNDATION.md"
+	- "./naming-conventions-standards.md"
+	- "./requirements-standards.md"
+labels:
+	- "standard"
+	- "l1"
+	- "architecture"
+	- "design"
+---
+
 # 架构设计标准
 
 > **版本**: v1.0.0  
+> **状态**: 执行中（Active）  
 > **更新日期**: 2025-09-29  
+> **发布单位**: 架构标准委员会（Architecture Standards Board）  
 > **适用范围**: 电商平台项目系统架构设计和实施全流程  
+> **关键依赖**: [PROJECT-FOUNDATION.md](../../PROJECT-FOUNDATION.md)、[naming-conventions-standards.md](./naming-conventions-standards.md)、[requirements-standards.md](./requirements-standards.md)
 
 ## 概述
 
@@ -474,13 +495,13 @@ class Container(containers.DeclarativeContainer):
 ## 相关文档引用
 
 - **项目基础定义**: `PROJECT-FOUNDATION.md`
+- **需求管理标准**: `docs/standards/requirements-standards.md`
 - **软件开发生命周期标准**: `docs/standards/software-development-lifecycle-standards.md`
 - **API设计标准**: `docs/standards/api-standards.md`
 - **数据库设计标准**: `docs/standards/database-standards.md`
 - **代码质量标准**: `docs/standards/code-standards.md`
 - **测试标准**: `docs/standards/testing-standards.md`
-- **部署和运维标准**: `docs/standards/deployment-standards.md`
-- **安全标准**: `docs/standards/security-standards.md`
+- **命名规范标准**: `docs/standards/naming-conventions-standards.md`
 
 ## 检查点对照
 

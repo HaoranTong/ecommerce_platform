@@ -104,6 +104,10 @@
 - **性能测试** → [CHECK:TEST-006] ⚠️ [必读卡片](tools/checkpoint-cards.md#test-006)
 - **安全测试** → [CHECK:TEST-007] ⚠️ [必读卡片](tools/checkpoint-cards.md#test-007)
 - **测试完成** → [CHECK:TEST-008] ⚠️ [必读卡片](tools/checkpoint-cards.md#test-008)
+- **测试工作流** → [CHECK:TEST-009] ⚠️ [必读卡片](tools/checkpoint-cards.md#test-009) + [测试标准](docs/standards/testing-standards.md)
+- **测试工具** → [CHECK:TEST-010] ⚠️ [必读卡片](tools/checkpoint-cards.md#test-010)
+- **数据工厂** → [CHECK:TEST-011] ⚠️ [必读卡片](tools/checkpoint-cards.md#test-011)
+- **Generated管理** → [CHECK:TEST-012] ⚠️ [必读卡片](tools/checkpoint-cards.md#test-012)
 
 ### 📊 状态管理类
 - **状态读取** → [CHECK:STATUS-001] ⚠️ [必读卡片](tools/checkpoint-cards.md#status-001)
@@ -159,9 +163,12 @@
 ## ⚡ 常用工具脚本
 - **测试环境管理**: `tools/setup_test_env.ps1 -TestMode <lite|full>`
 - **测试环境检查**: `tools/check_test_env.ps1 -TestMode <lite|full>`
+- **测试执行脚本**: `tools/run_module_tests.ps1 -Module [模块名]`
+- **集成测试**: `tools/integration_test.ps1`
 - **代码规范检查**: `tools/check_code_standards.ps1` 
 - **文档同步**: `tools/sync_readme.ps1`
 - **测试模板生成**: `python tools/generate_test_template.py [module]`
+- **测试结构验证**: `python tools/validate_test_structure.py`
 - **检查点验证**: `tools/ai_checkpoint.ps1 -CardType [编号]`
 
 ---

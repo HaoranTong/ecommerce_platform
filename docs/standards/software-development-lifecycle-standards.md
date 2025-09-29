@@ -1,17 +1,32 @@
-<!--version info: v1.0.0, created: 2025-09-29, level: L1, dependencies: naming-conventions-standards.md,../../PROJECT-FOUNDATION.md-->
+---
+title: "Software Development Lifecycle Standards"
+version: "v1.0.0"
+status: "Active"
+created: "2025-09-29"
+updated: "2025-09-29"
+owner: "Development Standards Board"
+dependencies:
+	- "../../PROJECT-FOUNDATION.md"
+	- "./naming-conventions-standards.md"
+labels:
+	- "standard"
+	- "l1"
+	- "development"
+	- "lifecycle"
+---
 
 # 软件开发生命周期流程标准
+
+> **版本**: v1.0.0  
+> **状态**: 执行中（Active）  
+> **更新日期**: 2025-09-29  
+> **发布单位**: 开发标准委员会（Development Standards Board）  
+> **适用范围**: 电商平台项目软件开发全生命周期流程  
+> **关键依赖**: [PROJECT-FOUNDATION.md](../../PROJECT-FOUNDATION.md)、[naming-conventions-standards.md](./naming-conventions-standards.md)
 
 ## 概述
 
 本文档定义软件开发全生命周期的标准流程，不涉及AI协作内容，专注于流程原则、执行顺序和质量门禁。适用于所有软件开发项目，确保开发过程的标准化、可控性和高质量交付。
-
-## 依赖标准
-
-本标准依赖以下L1核心标准：
-
-- **[项目基础定义](../../PROJECT-FOUNDATION.md)** - 定义开发流程中涉及的文件和目录结构
-- **[命名规范标准](./naming-conventions-standards.md)** - 开发流程中文件、分支、标签等命名规则
 
 ## 核心原则
 
@@ -281,7 +296,25 @@
 - **API文档模板**: `docs/templates/api-documentation-template.md`
 - **测试报告模板**: `docs/templates/test-report-template.md`
 
----
+## 相关文档引用
 
-**版本历史**:
-- v1.0.0 (2025-09-29): 初始版本，建立标准SDLC流程框架
+- **项目基础定义**: `PROJECT-FOUNDATION.md`
+- **需求管理标准**: `docs/standards/requirements-standards.md`
+- **架构设计标准**: `docs/standards/architecture-standards.md`
+- **API设计标准**: `docs/standards/api-standards.md`
+- **数据库设计标准**: `docs/standards/database-standards.md`
+- **代码质量标准**: `docs/standards/code-standards.md`
+- **测试标准**: `docs/standards/testing-standards.md`
+- **命名规范标准**: `docs/standards/naming-conventions-standards.md`
+
+## 检查点对照
+
+本标准支持以下MASTER检查点：
+- **需求阶段**: [REQ-001] [REQ-002] [REQ-003]
+- **架构阶段**: [ARCH-001] [ARCH-002] [ARCH-003]
+- **设计阶段**: [DEV-001]
+- **开发阶段**: [DEV-002~014]
+- **测试阶段**: [TEST-001~012]
+
+---
+*本文档遵循项目文档管理标准，定期更新维护*
