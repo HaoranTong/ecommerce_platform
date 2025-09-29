@@ -114,9 +114,10 @@
 **检查重点**: 数据类型一致性、关系完整性、命名规范
 **精准导航**:
 1. **字段类型标准** → `docs/standards/database-standards.md` 第45-70行
-2. **数据架构标准** → `docs/architecture/data-architecture.md` 第25-50行
-3. **索引优化标准** → `docs/standards/database-standards.md` 第80-95行
-4. **命名规范标准** → `docs/standards/database-standards.md` 第200-250行
+2. **模型文件** → `app/modules/{module}/models.py`
+3. **数据架构标准** → `docs/architecture/data-architecture.md` 第25-50行
+4. **索引优化标准** → `docs/standards/database-standards.md` 第80-95行
+5. **命名规范标准** → `docs/standards/database-standards.md` 第200-250行
 
 **执行脚本**: `tools/validate_data_model.ps1 -Module {module}`
 
@@ -125,9 +126,10 @@
 **检查重点**: RESTful设计、安全控制、响应格式
 **精准导航**:
 1. **路由设计标准** → `docs/standards/api-standards.md` 第15-40行
-2. **认证授权实现** → `docs/design/system/security-design.md` 第10-60行
-3. **响应格式标准** → `docs/standards/api-standards.md` 第60-75行
-4. **错误处理标准** → `docs/standards/api-standards.md` 第90-110行
+2. **路由文件** → `app/modules/{module}/router.py`
+3. **认证授权实现** → `docs/design/system/security-design.md` 第10-60行
+4. **响应格式标准** → `docs/standards/api-standards.md` 第60-75行
+5. **错误处理标准** → `docs/standards/api-standards.md` 第90-110行
 
 **执行脚本**: `tools/validate_api_design.ps1 -Module {module}`
 
@@ -164,6 +166,10 @@
 
 **执行脚本**: `tools/validate_error_handling.ps1 -Module {module}`
 
+**异常处理**:
+- 确保所有关键函数(`init`,`dependencies`,`models`,`router`,`schemas`,`service`)至少包含一个try-catch块
+- 日志记录异常细节，使用统一日志格式
+
 ### DEV-008: 代码质量验证
 **触发条件**: 代码提交前、Code Review
 **检查重点**: 代码规范、注释完整性、性能优化
@@ -190,7 +196,10 @@
 1. `tools/dev_checkpoint.ps1 -Phase PRE_DEV -Module {module}`
 2. `tools/check_naming_compliance.ps1 -FilePath {file_path}`
 
-**辅助脚本**: `tools/ai_checkpoint.ps1 -CardType DEV-009`
+**附加检查**:
+- **注释密度要求**: ≥ 15%（函数和类应有文档注释）
+
+**辅助脚本**: `tools/ai_checkpoint.ps1 -CardType DEV-009 -ModuleName {module} -FilePath {file_path}`
 
 ### DEV-010: 代码审查验证
 **触发条件**: 代码提交前、Pull Request创建
@@ -202,6 +211,46 @@
 4. **测试覆盖率要求** → `docs/standards/testing-standards.md` 第40-60行
 
 **执行脚本**: `tools/code_review_checklist.ps1 -Module {module}`
+
+### DEV-011: 数据迁移验证
+**触发条件**: 数据库结构变更、编写迁移脚本前
+**检查重点**: 迁移脚本安全性、数据完整性、回滚方案
+**精准导航**:
+1. **迁移脚本标准** → `docs/standards/database-standards.md` 第300-350行
+2. **数据备份策略** → `docs/standards/database-standards.md` 第350-380行
+3. **回滚方案设计** → `docs/standards/database-standards.md` 第380-400行
+4. **迁移测试要求** → `docs/standards/testing-standards.md` 第200-230行
+**执行脚本**: `tools/validate_migration.ps1 -Module {module}`
+
+### DEV-012: 配置管理验证
+**触发条件**: 更改环境或配置文件时
+**检查重点**: 配置安全性、一致性、版本管理
+**精准导航**:
+1. **配置管理标准** → `docs/standards/deployment-standards.md` 第50-80行
+2. **环境变量规范** → `docs/standards/deployment-standards.md` 第80-100行
+3. **密钥管理标准** → `docs/standards/security-architecture.md` 第200-230行
+4. **配置版本控制** → `docs/standards/workflow-standards.md` 第80-100行
+**执行脚本**: `tools/validate_config.ps1 -Environment {module}`
+
+### DEV-013: 依赖管理验证
+**触发条件**: 添加或升级依赖时
+**检查重点**: 依赖安全性、兼容性、许可证合规
+**精准导航**:
+1. **依赖安全检查** → `docs/standards/security-architecture.md` 第230-260行
+2. **版本管理策略** → `docs/standards/workflow-standards.md` 第50-80行
+3. **许可证合规要求** → `docs/requirements/non-functional.md` 第250-280行
+4. **依赖文档标准** → `docs/standards/code-standards.md` 第150-180行
+**执行脚本**: `tools/check_dependencies.ps1 -Module {module}`
+
+### DEV-014: 性能基准验证
+**触发条件**: 性能优化或关键代码开发后
+**检查重点**: 性能基准达标、资源使用、监控埋点
+**精准导航**:
+1. **性能基准定义** → `docs/standards/performance-standards.md` 第30-60行
+2. **监控埋点标准** → `docs/standards/performance-standards.md` 第90-120行
+3. **资源使用限制** → `docs/standards/performance-standards.md` 第120-150行
+4. **性能测试要求** → `docs/standards/testing-standards.md` 第240-280行
+**执行脚本**: `tools/performance_benchmark.ps1 -Module {module}`
 
 ### DEV-011: 数据迁移验证
 **触发条件**: 数据库结构变更、数据迁移脚本编写

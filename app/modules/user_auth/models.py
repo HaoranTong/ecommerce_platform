@@ -19,19 +19,21 @@
 - Session: 会话管理
 """
 
-from sqlalchemy import Column, String, Boolean, DateTime, Text, ForeignKey, Integer
-from sqlalchemy.sql import func
+from sqlalchemy import (Boolean, Column, DateTime, ForeignKey, Integer, String,
+                        Text)
 from sqlalchemy.orm import relationship
+from sqlalchemy.sql import func
 
 # 从技术基础设施层导入统一的Base类和混入
 from app.core.database import Base
-from app.shared.base_models import TimestampMixin, SoftDeleteMixin, ModelRegistry
+from app.shared.base_models import (ModelRegistry, SoftDeleteMixin,
+                                    TimestampMixin)
 
 
 @ModelRegistry.register
 class User(Base, TimestampMixin, SoftDeleteMixin):
     """用户模型 - 管理平台用户信息和认证
-    
+
     根据数据模型文档规范实现，包含：
     - 主键使用Integer
     - 唯一约束字段（username, email, wx_openid, wx_unionid）
@@ -39,7 +41,8 @@ class User(Base, TimestampMixin, SoftDeleteMixin):
     - 微信集成字段
     - 时间戳自动维护
     """
-    __tablename__ = 'users'
+
+    __tablename__ = "users"
 
     # 主键 - 严格遵循docs/standards/database-standards.md规定
     id = Column(Integer, primary_key=True, autoincrement=True, index=True)
@@ -51,7 +54,9 @@ class User(Base, TimestampMixin, SoftDeleteMixin):
 
     # 用户状态
     is_active = Column(Boolean, default=True, nullable=False)
-    status = Column(String(20), default='active', nullable=False)  # active, inactive, suspended
+    status = Column(
+        String(20), default="active", nullable=False
+    )  # active, inactive, suspended
 
     # 验证状态
     email_verified = Column(Boolean, default=False, nullable=False)
@@ -66,7 +71,7 @@ class User(Base, TimestampMixin, SoftDeleteMixin):
     # 基础信息
     phone = Column(String(20), nullable=True)
     real_name = Column(String(100), nullable=True)
-    role = Column(String(20), default='user', nullable=False)  # 基础角色
+    role = Column(String(20), default="user", nullable=False)  # 基础角色
 
     # 微信相关字段（业务扩展）
     wx_openid = Column(String(100), unique=True, nullable=True)
@@ -81,8 +86,15 @@ class User(Base, TimestampMixin, SoftDeleteMixin):
     # - updated_at: DateTime, server_default=func.now(), onupdate=func.now(), nullable=False
 
     # 关系定义
-    user_roles = relationship("UserRole", back_populates="user", cascade="all, delete-orphan", foreign_keys="UserRole.user_id")
-    sessions = relationship("Session", back_populates="user", cascade="all, delete-orphan")
+    user_roles = relationship(
+        "UserRole",
+        back_populates="user",
+        cascade="all, delete-orphan",
+        foreign_keys="UserRole.user_id",
+    )
+    sessions = relationship(
+        "Session", back_populates="user", cascade="all, delete-orphan"
+    )
 
     def __repr__(self):
         return f"<User(id={self.id}, username='{self.username}', email='{self.email}')>"
@@ -91,7 +103,8 @@ class User(Base, TimestampMixin, SoftDeleteMixin):
 @ModelRegistry.register
 class Role(Base, TimestampMixin):
     """角色模型 - 定义系统角色和权限层级"""
-    __tablename__ = 'roles'
+
+    __tablename__ = "roles"
 
     # 主键 - 严格遵循docs/standards/database-standards.md规定
     id = Column(Integer, primary_key=True, autoincrement=True, index=True)
@@ -102,8 +115,12 @@ class Role(Base, TimestampMixin):
     level = Column(Integer, nullable=False)  # 角色层级，数字越大权限越高
 
     # 关系定义
-    role_permissions = relationship("RolePermission", back_populates="role", cascade="all, delete-orphan")
-    user_roles = relationship("UserRole", back_populates="role", cascade="all, delete-orphan")
+    role_permissions = relationship(
+        "RolePermission", back_populates="role", cascade="all, delete-orphan"
+    )
+    user_roles = relationship(
+        "UserRole", back_populates="role", cascade="all, delete-orphan"
+    )
 
     def __repr__(self):
         return f"<Role(id={self.id}, name='{self.name}', level={self.level})>"
@@ -112,7 +129,8 @@ class Role(Base, TimestampMixin):
 @ModelRegistry.register
 class Permission(Base, TimestampMixin):
     """权限模型 - 定义系统具体权限"""
-    __tablename__ = 'permissions'
+
+    __tablename__ = "permissions"
 
     # 主键 - 严格遵循docs/standards/database-standards.md规定
     id = Column(Integer, primary_key=True, autoincrement=True, index=True)
@@ -120,11 +138,13 @@ class Permission(Base, TimestampMixin):
     # 权限信息
     name = Column(String(100), unique=True, nullable=False, index=True)
     resource = Column(String(100), nullable=False)  # 资源类型
-    action = Column(String(50), nullable=False)     # 操作类型
+    action = Column(String(50), nullable=False)  # 操作类型
     description = Column(Text, nullable=True)
 
     # 关系定义
-    role_permissions = relationship("RolePermission", back_populates="permission", cascade="all, delete-orphan")
+    role_permissions = relationship(
+        "RolePermission", back_populates="permission", cascade="all, delete-orphan"
+    )
 
     def __repr__(self):
         return f"<Permission(id={self.id}, name='{self.name}', resource='{self.resource}', action='{self.action}')>"
@@ -133,14 +153,15 @@ class Permission(Base, TimestampMixin):
 @ModelRegistry.register
 class UserRole(Base, TimestampMixin):
     """用户角色关联模型"""
-    __tablename__ = 'user_roles'
+
+    __tablename__ = "user_roles"
 
     # 联合主键 - 遵循docs/standards/database-standards.md规定使用Integer外键
-    user_id = Column(Integer, ForeignKey('users.id'), primary_key=True)
-    role_id = Column(Integer, ForeignKey('roles.id'), primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"), primary_key=True)
+    role_id = Column(Integer, ForeignKey("roles.id"), primary_key=True)
 
     # 分配信息
-    assigned_by = Column(Integer, ForeignKey('users.id'), nullable=True)
+    assigned_by = Column(Integer, ForeignKey("users.id"), nullable=True)
     assigned_at = Column(DateTime, server_default=func.now(), nullable=False)
 
     # 关系定义
@@ -155,14 +176,15 @@ class UserRole(Base, TimestampMixin):
 @ModelRegistry.register
 class RolePermission(Base, TimestampMixin):
     """角色权限关联模型"""
-    __tablename__ = 'role_permissions'
+
+    __tablename__ = "role_permissions"
 
     # 联合主键 - 遵循docs/standards/database-standards.md规定使用Integer外键
-    role_id = Column(Integer, ForeignKey('roles.id'), primary_key=True)
-    permission_id = Column(Integer, ForeignKey('permissions.id'), primary_key=True)
+    role_id = Column(Integer, ForeignKey("roles.id"), primary_key=True)
+    permission_id = Column(Integer, ForeignKey("permissions.id"), primary_key=True)
 
     # 授权信息
-    granted_by = Column(Integer, ForeignKey('users.id'), nullable=True)
+    granted_by = Column(Integer, ForeignKey("users.id"), nullable=True)
     granted_at = Column(DateTime, server_default=func.now(), nullable=False)
 
     # 关系定义
@@ -177,13 +199,14 @@ class RolePermission(Base, TimestampMixin):
 @ModelRegistry.register
 class Session(Base, TimestampMixin):
     """会话模型 - 用户登录会话管理"""
-    __tablename__ = 'sessions'
+
+    __tablename__ = "sessions"
 
     # 主键 - 严格遵循docs/standards/database-standards.md规定
     id = Column(Integer, primary_key=True, autoincrement=True, index=True)
 
     # 关联用户
-    user_id = Column(Integer, ForeignKey('users.id'), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
 
     # 会话信息
     token_hash = Column(String(255), nullable=False, unique=True, index=True)

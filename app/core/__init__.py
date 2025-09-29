@@ -9,6 +9,6 @@
 - 依赖注入
 """
 
+from .auth import *
 from .database import *
 from .redis_client import *
-from .auth import *

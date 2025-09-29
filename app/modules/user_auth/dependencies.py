@@ -5,7 +5,8 @@
 """
 
 from fastapi import Depends
-from app.core.auth import get_current_user, get_current_active_user
+
+from app.core.auth import get_current_active_user, get_current_user
 
 
 def get_authenticated_user():

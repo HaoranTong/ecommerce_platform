@@ -23,13 +23,8 @@
 最后修改：2025-09-15
 """
 
+from . import models, schemas
 from .router import router
 from .service import InventoryService
-from . import models, schemas
 
-__all__ = [
-    "router",
-    "InventoryService", 
-    "models",
-    "schemas"
-]
+__all__ = ["router", "InventoryService", "models", "schemas"]

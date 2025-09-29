@@ -2,8 +2,7 @@ import os
 import sys
 from logging.config import fileConfig
 
-from sqlalchemy import engine_from_config
-from sqlalchemy import pool
+from sqlalchemy import engine_from_config, pool
 
 from alembic import context
 
@@ -21,22 +20,24 @@ if config.config_file_name is not None:
 
 # 导入所有模型以确保metadata包含所有表定义
 from app.core.database import Base
-
+from app.modules.inventory_management.models import (  # 库存管理模型
+    InventoryReservation, InventoryStock, InventoryTransaction)
+from app.modules.member_system.models import (ActivityParticipation,  # 会员系统模型
+                                              BenefitUsage, Member,
+                                              MemberActivity,
+                                              MembershipBenefit,
+                                              MembershipLevel,
+                                              PointTransaction, SystemConfig)
+from app.modules.order_management.models import (Order, OrderItem,  # 订单管理模型
+                                                 OrderStatusHistory)
+from app.modules.product_catalog.models import (SKU, Brand, Category,  # 产品目录模型
+                                                Product, ProductAttribute,
+                                                ProductImage, ProductTag,
+                                                SKUAttribute)
 # 导入所有模块的模型
-from app.modules.user_auth.models import User, Role, Permission, UserRole, RolePermission, Session  # 用户认证模型
-from app.modules.product_catalog.models import (
-    Category, Product, Brand, SKU, ProductAttribute, ProductImage, ProductTag, SKUAttribute
-)  # 产品目录模型
-from app.modules.inventory_management.models import (
-    InventoryStock, InventoryReservation, InventoryTransaction
-)  # 库存管理模型
-from app.modules.order_management.models import (
-    Order, OrderItem, OrderStatusHistory
-)  # 订单管理模型
-from app.modules.member_system.models import (
-    MembershipLevel, Member, MembershipBenefit, PointTransaction, 
-    MemberActivity, ActivityParticipation, BenefitUsage, SystemConfig
-)  # 会员系统模型
+from app.modules.user_auth.models import (Permission, Role,  # 用户认证模型
+                                          RolePermission, Session, User,
+                                          UserRole)
 
 # 设置target_metadata为Base的metadata
 target_metadata = Base.metadata
@@ -60,7 +61,11 @@ def run_migrations_offline() -> None:
 
     """
     # 优先使用环境变量中的数据库URL
-    url = os.getenv("ALEMBIC_DSN") or os.getenv("DATABASE_URL") or config.get_main_option("sqlalchemy.url")
+    url = (
+        os.getenv("ALEMBIC_DSN")
+        or os.getenv("DATABASE_URL")
+        or config.get_main_option("sqlalchemy.url")
+    )
     context.configure(
         url=url,
         target_metadata=target_metadata,
@@ -81,12 +86,12 @@ def run_migrations_online() -> None:
     """
     # 获取配置section
     configuration = config.get_section(config.config_ini_section, {})
-    
+
     # 如果环境变量中有数据库URL，使用环境变量覆盖配置文件
     database_url = os.getenv("ALEMBIC_DSN") or os.getenv("DATABASE_URL")
     if database_url:
         configuration["sqlalchemy.url"] = database_url
-    
+
     connectable = engine_from_config(
         configuration,
         prefix="sqlalchemy.",
@@ -94,9 +99,7 @@ def run_migrations_online() -> None:
     )
 
     with connectable.connect() as connection:
-        context.configure(
-            connection=connection, target_metadata=target_metadata
-        )
+        context.configure(connection=connection, target_metadata=target_metadata)
 
         with context.begin_transaction():
             context.run_migrations()

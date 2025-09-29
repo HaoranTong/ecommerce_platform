@@ -7,7 +7,7 @@
 
 主要功能：
 1. 智能模型分析 - 自动解析SQLAlchemy模型结构
-2. 智能数据工厂生成 - 基于模型自动生成Factory Boy类  
+2. 智能数据工厂生成 - 基于模型自动生成Factory Boy类
 3. 分层测试生成 - 单元+集成+E2E测试架构自动生成
 4. 质量自动验证 - 语法、导入、执行验证
 
@@ -25,18 +25,18 @@
 创建时间: 2025-09-20
 """
 
-import sys
-import os
 import argparse
 import ast
-import inspect
 import importlib.util
+import inspect
 import json
-from pathlib import Path
-from datetime import datetime
-from typing import Dict, List, Any, Optional, Tuple
+import os
+import sys
 from dataclasses import dataclass
+from datetime import datetime
 from decimal import Decimal
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
 from unittest.mock import Mock
 
 # 添加项目根目录到Python路径
@@ -50,6 +50,7 @@ NEWLINE = "\\n"
 @dataclass
 class FieldInfo:
     """数据模型字段信息"""
+
     name: str
     column_type: str
     python_type: str
@@ -59,11 +60,12 @@ class FieldInfo:
     unique: bool
     default: Any
     constraints: List[str]
-    
-    
-@dataclass  
+
+
+@dataclass
 class RelationshipInfo:
     """数据模型关系信息"""
+
     name: str
     related_model: str
     relationship_type: str
@@ -75,6 +77,7 @@ class RelationshipInfo:
 @dataclass
 class ModelInfo:
     """完整的数据模型信息"""
+
     name: str
     tablename: str
     fields: List[FieldInfo]
@@ -87,50 +90,50 @@ class ModelInfo:
 
 class IntelligentTestGenerator:
     """智能测试生成器 - 集成模型分析和测试生成 [CHECK:DEV-009] [CHECK:TEST-001]"""
-    
+
     def __init__(self):
         """初始化生成器"""
         self.project_root = Path(__file__).parent.parent
         self.test_distributions = {
-            'unit': 0.70,      # 70% 单元测试
-            'integration': 0.20, # 20% 集成测试  
-            'e2e': 0.06,       # 6% E2E测试
-            'smoke': 0.02,     # 2% 烟雾测试
-            'specialized': 0.02 # 2% 专项测试
+            "unit": 0.70,  # 70% 单元测试
+            "integration": 0.20,  # 20% 集成测试
+            "e2e": 0.06,  # 6% E2E测试
+            "smoke": 0.02,  # 2% 烟雾测试
+            "specialized": 0.02,  # 2% 专项测试
         }
         self.models_cache = {}
-        
+
     def analyze_module_models(self, module_name: str) -> Dict[str, ModelInfo]:
         """智能分析模块中的所有数据模型 [CHECK:TEST-001]
-        
+
         Args:
             module_name: 模块名称，如 'user_auth'
-            
+
         Returns:
             Dict[str, ModelInfo]: 模型名称到模型信息的映射
-            
+
         Raises:
             FileNotFoundError: 当模型文件不存在时
             ImportError: 当模块导入失败时
         """
         if module_name in self.models_cache:
             return self.models_cache[module_name]
-            
+
         print(f"🔍 开始智能分析模块: {module_name}")
-        
+
         # 1. 验证模块文件存在
         models_file = self.project_root / f"app/modules/{module_name}/models.py"
         if not models_file.exists():
             raise FileNotFoundError(f"模型文件不存在: {models_file}")
-            
+
         # 2. AST语法分析
         ast_models = self._analyze_with_ast(models_file)
         print(f"📋 AST分析发现 {len(ast_models)} 个模型类")
-        
+
         # 3. 运行时分析
         runtime_models = self._analyze_with_runtime(module_name)
         print(f"🏃 运行时分析发现 {len(runtime_models)} 个模型类")
-        
+
         # 4. 合并分析结果
         if runtime_models or ast_models:
             merged_models = self._merge_analysis_results(ast_models, runtime_models)
@@ -138,90 +141,92 @@ class IntelligentTestGenerator:
         else:
             print("❌ 未发现任何数据模型")
             merged_models = {}
-        
+
         # 5. 缓存结果
         self.models_cache[module_name] = merged_models
         return merged_models
-        
+
     def _analyze_with_ast(self, models_file: Path) -> Dict[str, Dict]:
         """使用AST分析源代码结构
-        
+
         Args:
             models_file: 模型文件路径
-            
+
         Returns:
             Dict[str, Dict]: AST分析结果
         """
         try:
-            with open(models_file, 'r', encoding='utf-8') as f:
+            with open(models_file, "r", encoding="utf-8") as f:
                 content = f.read()
-                
+
             tree = ast.parse(content)
             models = {}
-            
+
             for node in ast.walk(tree):
                 if isinstance(node, ast.ClassDef):
                     if self._is_sqlalchemy_model_class(node):
                         model_info = self._extract_ast_model_info(node)
                         models[node.name] = model_info
-                        
+
             return models
-            
+
         except Exception as e:
             print(f"⚠️ AST分析失败: {e}")
             return {}
-            
+
     def _is_sqlalchemy_model_class(self, class_node: ast.ClassDef) -> bool:
         """检查是否为SQLAlchemy模型类
-        
+
         Args:
             class_node: AST类节点
-            
+
         Returns:
             bool: 是否为模型类
         """
         # 检查是否继承Base
         for base in class_node.bases:
-            if isinstance(base, ast.Name) and base.id == 'Base':
+            if isinstance(base, ast.Name) and base.id == "Base":
                 return True
-                
+
         # 检查是否有__tablename__属性
         for item in class_node.body:
             if isinstance(item, ast.Assign):
                 for target in item.targets:
-                    if isinstance(target, ast.Name) and target.id == '__tablename__':
+                    if isinstance(target, ast.Name) and target.id == "__tablename__":
                         return True
-                        
+
         return False
-        
+
     def _extract_ast_model_info(self, class_node: ast.ClassDef) -> Dict:
         """从AST节点提取模型信息
-        
+
         Args:
             class_node: AST类节点
-            
+
         Returns:
             Dict: 模型基础信息
         """
         model_info = {
-            'name': class_node.name,
-            'tablename': None,
-            'fields': [],
-            'relationships': [],
-            'mixins': [base.id for base in class_node.bases if isinstance(base, ast.Name)],
-            'docstring': ast.get_docstring(class_node)
+            "name": class_node.name,
+            "tablename": None,
+            "fields": [],
+            "relationships": [],
+            "mixins": [
+                base.id for base in class_node.bases if isinstance(base, ast.Name)
+            ],
+            "docstring": ast.get_docstring(class_node),
         }
-        
+
         # 分析类体内容
         for item in class_node.body:
             if isinstance(item, ast.Assign):
                 self._analyze_ast_assignment(item, model_info)
-                
+
         return model_info
-        
+
     def _analyze_ast_assignment(self, assign_node: ast.Assign, model_info: Dict):
         """分析AST赋值语句
-        
+
         Args:
             assign_node: 赋值节点
             model_info: 模型信息字典
@@ -229,28 +234,32 @@ class IntelligentTestGenerator:
         for target in assign_node.targets:
             if isinstance(target, ast.Name):
                 attr_name = target.id
-                
-                if attr_name == '__tablename__':
+
+                if attr_name == "__tablename__":
                     if isinstance(assign_node.value, ast.Constant):
-                        model_info['tablename'] = assign_node.value.value
-                        
+                        model_info["tablename"] = assign_node.value.value
+
                 elif isinstance(assign_node.value, ast.Call):
                     func_name = self._get_ast_function_name(assign_node.value.func)
-                    
-                    if func_name == 'Column':
-                        field_info = self._analyze_ast_column(attr_name, assign_node.value)
-                        model_info['fields'].append(field_info)
-                        
-                    elif func_name == 'relationship':
-                        rel_info = self._analyze_ast_relationship(attr_name, assign_node.value)
-                        model_info['relationships'].append(rel_info)
-                        
+
+                    if func_name == "Column":
+                        field_info = self._analyze_ast_column(
+                            attr_name, assign_node.value
+                        )
+                        model_info["fields"].append(field_info)
+
+                    elif func_name == "relationship":
+                        rel_info = self._analyze_ast_relationship(
+                            attr_name, assign_node.value
+                        )
+                        model_info["relationships"].append(rel_info)
+
     def _get_ast_function_name(self, func_node) -> str:
         """获取AST函数名称
-        
+
         Args:
             func_node: 函数节点
-            
+
         Returns:
             str: 函数名称
         """
@@ -258,86 +267,86 @@ class IntelligentTestGenerator:
             return func_node.id
         elif isinstance(func_node, ast.Attribute):
             return func_node.attr
-        return ''
-        
+        return ""
+
     def _analyze_ast_column(self, field_name: str, call_node: ast.Call) -> Dict:
         """分析AST Column定义
-        
+
         Args:
             field_name: 字段名称
             call_node: 调用节点
-            
+
         Returns:
             Dict: 字段信息
         """
         field_info = {
-            'name': field_name,
-            'column_type': 'Unknown',
-            'nullable': True,
-            'primary_key': False,
-            'unique': False,
-            'default': None
+            "name": field_name,
+            "column_type": "Unknown",
+            "nullable": True,
+            "primary_key": False,
+            "unique": False,
+            "default": None,
         }
-        
+
         # 分析位置参数（类型）
         if call_node.args:
             type_arg = call_node.args[0]
             if isinstance(type_arg, ast.Name):
-                field_info['column_type'] = type_arg.id
+                field_info["column_type"] = type_arg.id
             elif isinstance(type_arg, ast.Call):
-                field_info['column_type'] = self._get_ast_function_name(type_arg.func)
-                
+                field_info["column_type"] = self._get_ast_function_name(type_arg.func)
+
         # 分析关键字参数
         for keyword in call_node.keywords:
-            if keyword.arg == 'nullable':
-                field_info['nullable'] = self._extract_ast_boolean(keyword.value)
-            elif keyword.arg == 'primary_key':
-                field_info['primary_key'] = self._extract_ast_boolean(keyword.value)
-            elif keyword.arg == 'unique':
-                field_info['unique'] = self._extract_ast_boolean(keyword.value)
-            elif keyword.arg == 'default':
-                field_info['default'] = self._extract_ast_value(keyword.value)
-                
+            if keyword.arg == "nullable":
+                field_info["nullable"] = self._extract_ast_boolean(keyword.value)
+            elif keyword.arg == "primary_key":
+                field_info["primary_key"] = self._extract_ast_boolean(keyword.value)
+            elif keyword.arg == "unique":
+                field_info["unique"] = self._extract_ast_boolean(keyword.value)
+            elif keyword.arg == "default":
+                field_info["default"] = self._extract_ast_value(keyword.value)
+
         return field_info
-        
+
     def _analyze_ast_relationship(self, rel_name: str, call_node: ast.Call) -> Dict:
         """分析AST relationship定义
-        
+
         Args:
             rel_name: 关系名称
             call_node: 调用节点
-            
+
         Returns:
             Dict: 关系信息
         """
         rel_info = {
-            'name': rel_name,
-            'related_model': None,
-            'back_populates': None,
-            'cascade': None
+            "name": rel_name,
+            "related_model": None,
+            "back_populates": None,
+            "cascade": None,
         }
-        
+
         # 分析位置参数（相关模型）
         if call_node.args:
             model_arg = call_node.args[0]
             if isinstance(model_arg, ast.Constant):
-                rel_info['related_model'] = model_arg.value
-                
+                rel_info["related_model"] = model_arg.value
+
         # 分析关键字参数
         for keyword in call_node.keywords:
-            if keyword.arg == 'back_populates':
-                rel_info['back_populates'] = self._extract_ast_value(keyword.value)
-            elif keyword.arg == 'cascade':
-                rel_info['cascade'] = self._extract_ast_value(keyword.value)
-                
+            if keyword.arg == "back_populates":
+                rel_info["back_populates"] = self._extract_ast_value(keyword.value)
+            elif keyword.arg == "cascade":
+                rel_info["cascade"] = self._extract_ast_value(keyword.value)
+
         return rel_info
-        
+
     def _extract_ast_boolean(self, value_node) -> bool:
         """提取AST布尔值
-        
+
         Args:
             value_node: 值节点
-            
+
         Returns:
             bool: 布尔值
         """
@@ -346,13 +355,13 @@ class IntelligentTestGenerator:
         elif isinstance(value_node, ast.NameConstant):  # Python < 3.8
             return bool(value_node.value)
         return False
-        
+
     def _extract_ast_value(self, value_node) -> Any:
         """提取AST值
-        
+
         Args:
             value_node: 值节点
-            
+
         Returns:
             Any: 提取的值
         """
@@ -361,13 +370,13 @@ class IntelligentTestGenerator:
         elif isinstance(value_node, ast.NameConstant):  # Python < 3.8
             return value_node.value
         return None
-        
+
     def _analyze_with_runtime(self, module_name: str) -> Dict[str, Any]:
         """使用运行时反射分析模型
-        
+
         Args:
             module_name: 模块名称
-            
+
         Returns:
             Dict[str, Any]: 运行时分析结果
         """
@@ -375,57 +384,57 @@ class IntelligentTestGenerator:
             # 动态导入模块
             module_path = f"app.modules.{module_name}.models"
             spec = importlib.util.spec_from_file_location(
-                module_path, 
-                self.project_root / f"app/modules/{module_name}/models.py"
+                module_path, self.project_root / f"app/modules/{module_name}/models.py"
             )
             module = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(module)
-            
+
             models = {}
-            
+
             # 获取模块中的所有SQLAlchemy模型类
             for name, obj in inspect.getmembers(module, inspect.isclass):
                 if self._is_sqlalchemy_model_runtime(obj):
                     models[name] = self._extract_runtime_model_info(obj)
-                    
+
             return models
-            
+
         except Exception as e:
             print(f"⚠️ 运行时分析失败: {e}")
             return {}
-            
+
     def _is_sqlalchemy_model_runtime(self, model_class) -> bool:
         """检查是否为SQLAlchemy模型类（运行时）
-        
+
         Args:
             model_class: 模型类
-            
+
         Returns:
             bool: 是否为模型类
         """
-        return (hasattr(model_class, '__tablename__') and 
-                hasattr(model_class, '__table__'))
-                
+        return hasattr(model_class, "__tablename__") and hasattr(
+            model_class, "__table__"
+        )
+
     def _extract_runtime_model_info(self, model_class) -> Dict:
         """从运行时模型类提取完整信息
-        
+
         Args:
             model_class: SQLAlchemy模型类
-            
+
         Returns:
             Dict: 完整的模型信息
         """
         table = model_class.__table__
-        
+
         model_info = {
-            'name': model_class.__name__,
-            'tablename': table.name,
-            'fields': [],
-            'relationships': [],
-            'primary_keys': [col.name for col in table.primary_key.columns],
-            'unique_constraints': []
+            "name": model_class.__name__,
+            "tablename": table.name,
+            "fields": [],
+            "relationships": [],
+            "primary_keys": [col.name for col in table.primary_key.columns],
+            "unique_constraints": [],
         }
-        
+
         # 提取字段信息
         for column in table.columns:
             field_info = FieldInfo(
@@ -437,66 +446,79 @@ class IntelligentTestGenerator:
                 foreign_key=self._get_foreign_key(column),
                 unique=column.unique,
                 default=self._get_default_value(column),
-                constraints=self._get_field_constraints(column)
+                constraints=self._get_field_constraints(column),
             )
-            model_info['fields'].append(field_info)
-            
+            model_info["fields"].append(field_info)
+
         # 提取关系信息
-        if hasattr(model_class, '__mapper__'):
-                for rel_name, relationship in model_class.__mapper__.relationships.items():
+        if hasattr(model_class, "__mapper__"):
+            for rel_name, relationship in model_class.__mapper__.relationships.items():
+                try:
+                    rel_info = RelationshipInfo(
+                        name=rel_name,
+                        related_model=relationship.mapper.class_.__name__,
+                        relationship_type=self._determine_relationship_type(
+                            relationship
+                        ),
+                        back_populates=relationship.back_populates,
+                        cascade=(
+                            str(relationship.cascade) if relationship.cascade else None
+                        ),
+                        foreign_keys=[
+                            str(fk.parent.name)
+                            for fk in getattr(relationship, "foreign_keys", [])
+                        ],
+                    )
+                    model_info["relationships"].append(rel_info)
+                except AttributeError as e:
+                    # 关系配置错误，记录详细信息但继续处理
+                    print(f"⚠️ 关系{rel_name}配置错误: {e}")
+                    # 创建一个基础关系信息，避免丢失重要关联
                     try:
-                        rel_info = RelationshipInfo(
+                        fallback_rel_info = RelationshipInfo(
                             name=rel_name,
-                            related_model=relationship.mapper.class_.__name__,
-                            relationship_type=self._determine_relationship_type(relationship),
-                            back_populates=relationship.back_populates,
-                            cascade=str(relationship.cascade) if relationship.cascade else None,
-                            foreign_keys=[str(fk.parent.name) for fk in getattr(relationship, 'foreign_keys', [])]
+                            related_model=(
+                                relationship.mapper.class_.__name__
+                                if hasattr(relationship, "mapper")
+                                else "Unknown"
+                            ),
+                            relationship_type="unknown",
+                            back_populates=getattr(
+                                relationship, "back_populates", None
+                            ),
+                            cascade=None,
+                            foreign_keys=[],
                         )
-                        model_info['relationships'].append(rel_info)
-                    except AttributeError as e:
-                        # 关系配置错误，记录详细信息但继续处理
-                        print(f"⚠️ 关系{rel_name}配置错误: {e}")
-                        # 创建一个基础关系信息，避免丢失重要关联
-                        try:
-                            fallback_rel_info = RelationshipInfo(
-                                name=rel_name,
-                                related_model=relationship.mapper.class_.__name__ if hasattr(relationship, 'mapper') else 'Unknown',
-                                relationship_type='unknown',
-                                back_populates=getattr(relationship, 'back_populates', None),
-                                cascade=None,
-                                foreign_keys=[]
-                            )
-                            model_info['relationships'].append(fallback_rel_info)
-                        except Exception:
-                            print(f"❌ 关系{rel_name}完全无法解析，跳过")
-                    except Exception as e:
-                        # 其他严重错误，记录并跳过
-                        print(f"❌ 关系{rel_name}分析失败: {type(e).__name__}: {e}")
-                        continue
-                        
+                        model_info["relationships"].append(fallback_rel_info)
+                    except Exception:
+                        print(f"❌ 关系{rel_name}完全无法解析，跳过")
+                except Exception as e:
+                    # 其他严重错误，记录并跳过
+                    print(f"❌ 关系{rel_name}分析失败: {type(e).__name__}: {e}")
+                    continue
+
         return model_info
-        
+
     def _get_python_type(self, column_type) -> str:
         """获取字段的Python类型
-        
+
         Args:
             column_type: SQLAlchemy列类型
-            
+
         Returns:
             str: Python类型名称
         """
         try:
             return column_type.python_type.__name__
         except (AttributeError, NotImplementedError):
-            return 'str'  # 默认为字符串类型
-            
+            return "str"  # 默认为字符串类型
+
     def _get_foreign_key(self, column) -> Optional[str]:
         """获取外键信息
-        
+
         Args:
             column: SQLAlchemy列对象
-            
+
         Returns:
             Optional[str]: 外键目标表.列名，如 'users.id'
         """
@@ -504,50 +526,50 @@ class IntelligentTestGenerator:
             fk = list(column.foreign_keys)[0]
             return str(fk.target_fullname)
         return None
-        
+
     def _get_default_value(self, column) -> Any:
         """获取默认值
-        
+
         Args:
             column: SQLAlchemy列对象
-            
+
         Returns:
             Any: 默认值
         """
         if column.default is not None:
             return column.default.arg
         return None
-        
+
     def _get_field_constraints(self, column) -> List[str]:
         """获取字段约束信息
-        
+
         Args:
             column: SQLAlchemy列对象
-            
+
         Returns:
             List[str]: 约束列表
         """
         constraints = []
-        
+
         if column.primary_key:
-            constraints.append('PRIMARY KEY')
+            constraints.append("PRIMARY KEY")
         if not column.nullable:
-            constraints.append('NOT NULL')
+            constraints.append("NOT NULL")
         if column.unique:
-            constraints.append('UNIQUE')
+            constraints.append("UNIQUE")
         if column.foreign_keys:
-            constraints.append('FOREIGN KEY')
+            constraints.append("FOREIGN KEY")
         if column.index:
-            constraints.append('INDEX')
-            
+            constraints.append("INDEX")
+
         return constraints
-        
+
     def _determine_relationship_type(self, relationship) -> str:
         """确定关系类型
-        
+
         Args:
             relationship: SQLAlchemy关系对象
-            
+
         Returns:
             str: 关系类型
         """
@@ -555,61 +577,67 @@ class IntelligentTestGenerator:
             return "one-to-many" if not relationship.secondary else "many-to-many"
         else:
             return "one-to-one"
-            
-    def _merge_analysis_results(self, ast_models: Dict, runtime_models: Dict) -> Dict[str, ModelInfo]:
+
+    def _merge_analysis_results(
+        self, ast_models: Dict, runtime_models: Dict
+    ) -> Dict[str, ModelInfo]:
         """合并AST和运行时分析结果
-        
+
         Args:
             ast_models: AST分析结果
             runtime_models: 运行时分析结果
-            
+
         Returns:
             Dict[str, ModelInfo]: 合并后的完整模型信息
         """
         merged = {}
-        
+
         # 以运行时分析为主，AST分析作为补充
         for model_name, runtime_info in runtime_models.items():
             ast_info = ast_models.get(model_name, {})
-            
+
             try:
                 merged[model_name] = ModelInfo(
                     name=model_name,
-                    tablename=runtime_info['tablename'],
-                    fields=runtime_info['fields'],
-                    relationships=runtime_info['relationships'],
-                    mixins=ast_info.get('mixins', []),
-                    docstring=ast_info.get('docstring'),
-                    primary_keys=runtime_info.get('primary_keys', []),
-                    unique_constraints=runtime_info.get('unique_constraints', [])
+                    tablename=runtime_info["tablename"],
+                    fields=runtime_info["fields"],
+                    relationships=runtime_info["relationships"],
+                    mixins=ast_info.get("mixins", []),
+                    docstring=ast_info.get("docstring"),
+                    primary_keys=runtime_info.get("primary_keys", []),
+                    unique_constraints=runtime_info.get("unique_constraints", []),
                 )
-                print(f"🔗 合并模型: {model_name} ({len(runtime_info['fields'])}字段, {len(runtime_info['relationships'])}关系)")
+                print(
+                    f"🔗 合并模型: {model_name} ({len(runtime_info['fields'])}字段, {len(runtime_info['relationships'])}关系)"
+                )
             except Exception as e:
                 print(f"⚠️ 模型{model_name}合并失败: {e}")
                 continue
-            
+
         return merged
-        
-    def generate_intelligent_factories(self, module_name: str, models: Dict[str, ModelInfo]) -> str:
+
+    def generate_intelligent_factories(
+        self, module_name: str, models: Dict[str, ModelInfo]
+    ) -> str:
         """智能生成Factory Boy类 [CHECK:TEST-002] [CHECK:DEV-009]
-        
+
         基于模型分析结果自动生成Factory Boy工厂类，包括：
-        1. 智能推断字段数据类型和合理测试值  
+        1. 智能推断字段数据类型和合理测试值
         2. 处理外键关系和唯一约束
         3. 生成完整的测试数据工厂
-        
+
         Args:
             module_name: 模块名称
             models: 模型分析结果
-            
+
         Returns:
             str: 生成的工厂类代码
         """
         print(f"🏭 开始生成智能测试数据工厂: {module_name}")
-        
+
         # 获取模型导入路径
         module_import_path = f"app.modules.{module_name}.models"
-        
+
         # 生成工厂文件头部
         factory_code = f'''"""
 智能生成的Factory Boy测试数据工厂 - {module_name}模块
@@ -652,30 +680,33 @@ from {module_import_path} import (
 
         # 为每个模型生成Factory类
         for model_name, model_info in models.items():
-            factory_class = self._generate_single_factory(model_name, model_info, models)
+            factory_class = self._generate_single_factory(
+                model_name, model_info, models
+            )
             factory_code += factory_class + "\n\n"
-            
+
         # 生成工厂管理器类
         manager_class = self._generate_factory_manager(module_name, models)
         factory_code += manager_class
-        
+
         print(f"✅ 工厂生成完成，共{len(models)}个Factory类")
         return factory_code
-        
-    def _generate_single_factory(self, model_name: str, model_info: ModelInfo, 
-                               all_models: Dict[str, ModelInfo]) -> str:
+
+    def _generate_single_factory(
+        self, model_name: str, model_info: ModelInfo, all_models: Dict[str, ModelInfo]
+    ) -> str:
         """生成单个模型的Factory类
-        
+
         Args:
             model_name: 模型名称
             model_info: 模型信息
             all_models: 所有模型信息，用于解析外键关系
-            
+
         Returns:
             str: Factory类代码
         """
         factory_name = f"{model_name}Factory"
-        
+
         # 生成类定义
         class_def = f'''class {factory_name}(factory.alchemy.SQLAlchemyModelFactory):
     """智能生成的{model_name}工厂类"""
@@ -687,65 +718,83 @@ from {module_import_path} import (
 
         # 生成字段定义
         field_definitions = []
-        
+
         for field in model_info.fields:
-            if field.name in ['id'] and field.primary_key:
+            if field.name in ["id"] and field.primary_key:
                 # 主键通常由数据库自动生成，跳过
                 continue
-                
+
             field_def = self._generate_field_definition(field, model_info, all_models)
             if field_def:
                 field_definitions.append(f"    {field_def}")
-        
+
         # 添加字段定义到类中
         if field_definitions:
             class_def += "\n" + "\n".join(field_definitions) + "\n"
         else:
             class_def += "\n    pass\n"
-            
+
         return class_def
-        
-    def _generate_field_definition(self, field: FieldInfo, model_info: ModelInfo, 
-                                 all_models: Dict[str, ModelInfo]) -> str:
+
+    def _generate_field_definition(
+        self, field: FieldInfo, model_info: ModelInfo, all_models: Dict[str, ModelInfo]
+    ) -> str:
         """生成单个字段的Factory定义
-        
+
         Args:
             field: 字段信息
             model_info: 当前模型信息
             all_models: 所有模型信息
-            
+
         Returns:
             str: 字段定义代码
         """
         # 处理外键关系
         if field.foreign_key:
             return self._generate_foreign_key_definition(field, all_models)
-            
+
         # 根据字段类型生成合适的Factory定义
-        if field.column_type.upper().startswith('VARCHAR') or field.python_type == 'str':
+        if (
+            field.column_type.upper().startswith("VARCHAR")
+            or field.python_type == "str"
+        ):
             return self._generate_string_field_definition(field)
-        elif field.column_type.upper().startswith('INTEGER') or field.python_type == 'int':
+        elif (
+            field.column_type.upper().startswith("INTEGER")
+            or field.python_type == "int"
+        ):
             return self._generate_integer_field_definition(field)
-        elif field.column_type.upper().startswith('BOOLEAN') or field.python_type == 'bool':
+        elif (
+            field.column_type.upper().startswith("BOOLEAN")
+            or field.python_type == "bool"
+        ):
             return self._generate_boolean_field_definition(field)
-        elif field.column_type.upper().startswith('DECIMAL') or field.python_type == 'Decimal':
+        elif (
+            field.column_type.upper().startswith("DECIMAL")
+            or field.python_type == "Decimal"
+        ):
             return self._generate_decimal_field_definition(field)
-        elif field.column_type.upper().startswith('DATETIME') or field.python_type == 'datetime':
+        elif (
+            field.column_type.upper().startswith("DATETIME")
+            or field.python_type == "datetime"
+        ):
             return self._generate_datetime_field_definition(field)
-        elif field.column_type.upper() == 'TEXT':
+        elif field.column_type.upper() == "TEXT":
             return self._generate_text_field_definition(field)
-        elif field.column_type.upper() == 'JSON' or field.python_type == 'dict':
+        elif field.column_type.upper() == "JSON" or field.python_type == "dict":
             return self._generate_json_field_definition(field)
-        elif field.column_type.upper() == 'UUID' or field.python_type == 'UUID':
+        elif field.column_type.upper() == "UUID" or field.python_type == "UUID":
             return self._generate_uuid_field_definition(field)
         else:
             # 默认处理
             return self._generate_default_field_definition(field)
-            
-    def _generate_foreign_key_definition(self, field: FieldInfo, all_models: Dict[str, ModelInfo]) -> str:
+
+    def _generate_foreign_key_definition(
+        self, field: FieldInfo, all_models: Dict[str, ModelInfo]
+    ) -> str:
         """生成外键字段定义 - 修复版"""
         # 尝试解析外键引用的模型
-        fk_parts = field.foreign_key.split('.')
+        fk_parts = field.foreign_key.split(".")
         if len(fk_parts) == 2:
             table_name, column_name = fk_parts
             # 找到对应的模型
@@ -754,12 +803,14 @@ from {module_import_path} import (
                 if model_info.tablename == table_name:
                     target_model = model_name
                     break
-                    
+
             if target_model:
                 # 改进的循环依赖检测和处理
-                dependency_info = self._analyze_circular_dependency(field.name, target_model, all_models)
-                if dependency_info['has_cycle']:
-                    if dependency_info['safe_to_use_subfactory']:
+                dependency_info = self._analyze_circular_dependency(
+                    field.name, target_model, all_models
+                )
+                if dependency_info["has_cycle"]:
+                    if dependency_info["safe_to_use_subfactory"]:
                         # 使用SubFactory但延迟创建
                         return f"{field.name} = factory.LazyAttribute(lambda obj: {target_model}Factory().id)"
                     else:
@@ -767,71 +818,75 @@ from {module_import_path} import (
                         return f"{field.name} = factory.LazyFunction(lambda: self._get_safe_foreign_key('{target_model}', '{column_name}'))"
                 else:
                     return f"{field.name} = factory.SubFactory({target_model}Factory)"
-        
+
         # 如果无法解析，生成一个序列外键
         return f"{field.name} = factory.Sequence(lambda n: n + 1)"
-        
-    def _analyze_circular_dependency(self, field_name: str, target_model: str, all_models: Dict[str, ModelInfo]) -> Dict[str, Any]:
+
+    def _analyze_circular_dependency(
+        self, field_name: str, target_model: str, all_models: Dict[str, ModelInfo]
+    ) -> Dict[str, Any]:
         """改进的循环依赖分析"""
         # 检查是否为简单的自引用
         is_self_reference = any(
-            pattern in field_name.lower() 
-            for pattern in ['parent_id', 'manager_id', 'created_by', 'updated_by']
+            pattern in field_name.lower()
+            for pattern in ["parent_id", "manager_id", "created_by", "updated_by"]
         )
-        
+
         # 检查是否为已知的安全循环模式
         safe_patterns = [
-            ('user_id', 'User'),
-            ('role_id', 'Role'),
-            ('granted_by', 'User')
+            ("user_id", "User"),
+            ("role_id", "Role"),
+            ("granted_by", "User"),
         ]
-        
+
         is_safe_pattern = any(
-            field_name == pattern[0] and target_model == pattern[1] 
+            field_name == pattern[0] and target_model == pattern[1]
             for pattern in safe_patterns
         )
-        
+
         return {
-            'has_cycle': is_self_reference or is_safe_pattern,
-            'safe_to_use_subfactory': not is_self_reference,
-            'cycle_type': 'self_reference' if is_self_reference else 'cross_reference'
+            "has_cycle": is_self_reference or is_safe_pattern,
+            "safe_to_use_subfactory": not is_self_reference,
+            "cycle_type": "self_reference" if is_self_reference else "cross_reference",
         }
-        
-    def _get_safe_foreign_key(self, target_model: str, column_name: str = 'id') -> int:
+
+    def _get_safe_foreign_key(self, target_model: str, column_name: str = "id") -> int:
         """获取安全的外键值"""
         # 为常见的外键提供合理的默认值
         safe_defaults = {
-            'User': 1,
-            'Role': 1, 
-            'Permission': 1,
-            'Category': 1,
-            'Brand': 1,
-            'Product': 1
+            "User": 1,
+            "Role": 1,
+            "Permission": 1,
+            "Category": 1,
+            "Brand": 1,
+            "Product": 1,
         }
         return safe_defaults.get(target_model, 1)
-        
+
     def _generate_string_field_definition(self, field: FieldInfo) -> str:
         """生成字符串字段定义"""
         field_name = field.name.lower()
-        
+
         # 根据字段名推断合适的生成策略
-        if 'email' in field_name:
-            return f"{field.name} = factory.Sequence(lambda n: f'user{{n}}@example.com')"
-        elif 'username' in field_name or 'name' in field_name:
+        if "email" in field_name:
+            return (
+                f"{field.name} = factory.Sequence(lambda n: f'user{{n}}@example.com')"
+            )
+        elif "username" in field_name or "name" in field_name:
             return f"{field.name} = factory.Sequence(lambda n: f'{field_name}_{{n}}')"
-        elif 'code' in field_name:
+        elif "code" in field_name:
             return f"{field.name} = factory.Sequence(lambda n: f'{field.name.upper()}_{{n:06d}}')"
-        elif 'description' in field_name:
+        elif "description" in field_name:
             return f"{field.name} = factory.Faker('text', max_nb_chars=200)"
-        elif 'title' in field_name:
+        elif "title" in field_name:
             return f"{field.name} = factory.Faker('sentence', nb_words=4)"
-        elif 'url' in field_name or 'link' in field_name:
+        elif "url" in field_name or "link" in field_name:
             return f"{field.name} = factory.Faker('url')"
-        elif 'phone' in field_name:
+        elif "phone" in field_name:
             return f"{field.name} = factory.Faker('phone_number')"
-        elif 'address' in field_name:
+        elif "address" in field_name:
             return f"{field.name} = factory.Faker('address')"
-        elif 'password' in field_name:
+        elif "password" in field_name:
             return f"{field.name} = 'hashed_password_123'"
         elif field.unique:
             return f"{field.name} = factory.Sequence(lambda n: f'{field_name}_{{n}}')"
@@ -842,116 +897,122 @@ from {module_import_path} import (
                 return f"{field.name} = factory.Faker('word')"
             else:
                 return f"{field.name} = factory.Faker('text', max_nb_chars={min(max_length or 200, 200)})"
-                
+
     def _generate_integer_field_definition(self, field: FieldInfo) -> str:
         """生成整数字段定义"""
         if field.unique:
             return f"{field.name} = factory.Sequence(lambda n: n + 1)"
         else:
             return f"{field.name} = factory.Faker('random_int', min=1, max=1000)"
-            
+
     def _generate_boolean_field_definition(self, field: FieldInfo) -> str:
         """生成布尔字段定义"""
         field_name = field.name.lower()
-        
+
         # 根据字段名推断默认值
-        if any(word in field_name for word in ['active', 'enabled', 'verified', 'valid']):
+        if any(
+            word in field_name for word in ["active", "enabled", "verified", "valid"]
+        ):
             return f"{field.name} = True"
-        elif any(word in field_name for word in ['deleted', 'disabled', 'hidden']):
+        elif any(word in field_name for word in ["deleted", "disabled", "hidden"]):
             return f"{field.name} = False"
         else:
             return f"{field.name} = factory.Faker('boolean')"
-            
+
     def _generate_decimal_field_definition(self, field: FieldInfo) -> str:
         """生成Decimal字段定义"""
         field_name = field.name.lower()
-        
-        if 'price' in field_name or 'cost' in field_name or 'amount' in field_name:
+
+        if "price" in field_name or "cost" in field_name or "amount" in field_name:
             return f"{field.name} = factory.LazyAttribute(lambda obj: Decimal('99.99'))"
-        elif 'rate' in field_name or 'ratio' in field_name:
+        elif "rate" in field_name or "ratio" in field_name:
             return f"{field.name} = factory.LazyAttribute(lambda obj: Decimal('0.1'))"
         else:
             return f"{field.name} = factory.LazyAttribute(lambda obj: Decimal('10.00'))"
-            
+
     def _generate_datetime_field_definition(self, field: FieldInfo) -> str:
         """生成datetime字段定义"""
         field_name = field.name.lower()
-        
-        if 'created' in field_name:
+
+        if "created" in field_name:
             return f"{field.name} = factory.LazyFunction(datetime.now)"
-        elif 'updated' in field_name or 'modified' in field_name:
+        elif "updated" in field_name or "modified" in field_name:
             return f"{field.name} = factory.LazyFunction(datetime.now)"
-        elif 'expired' in field_name or 'expires' in field_name:
+        elif "expired" in field_name or "expires" in field_name:
             return f"{field.name} = factory.LazyFunction(lambda: datetime.now() + timedelta(days=30))"
         else:
             return f"{field.name} = factory.Faker('date_time_this_year')"
-            
+
     def _generate_text_field_definition(self, field: FieldInfo) -> str:
         """生成TEXT字段定义"""
         field_name = field.name.lower()
-        
-        if 'description' in field_name or 'content' in field_name:
+
+        if "description" in field_name or "content" in field_name:
             return f"{field.name} = factory.Faker('text', max_nb_chars=200)"
-        elif 'note' in field_name or 'comment' in field_name:
+        elif "note" in field_name or "comment" in field_name:
             return f"{field.name} = factory.Faker('sentence', nb_words=10)"
         else:
             return f"{field.name} = factory.Faker('text', max_nb_chars=100)"
-            
+
     def _generate_json_field_definition(self, field: FieldInfo) -> str:
         """生成JSON字段定义"""
         field_name = field.name.lower()
-        
-        if 'config' in field_name or 'setting' in field_name:
+
+        if "config" in field_name or "setting" in field_name:
             return f"{field.name} = factory.LazyAttribute(lambda obj: {{'enabled': True, 'timeout': 30}})"
-        elif 'metadata' in field_name or 'meta' in field_name:
+        elif "metadata" in field_name or "meta" in field_name:
             return f"{field.name} = factory.LazyAttribute(lambda obj: {{'version': '1.0', 'source': 'test'}})"
-        elif 'attribute' in field_name or 'attrs' in field_name:
+        elif "attribute" in field_name or "attrs" in field_name:
             return f"{field.name} = factory.LazyAttribute(lambda obj: {{'color': 'blue', 'size': 'M'}})"
         else:
-            return f"{field.name} = factory.LazyAttribute(lambda obj: {{'key': 'value'}})"
-            
+            return (
+                f"{field.name} = factory.LazyAttribute(lambda obj: {{'key': 'value'}})"
+            )
+
     def _generate_uuid_field_definition(self, field: FieldInfo) -> str:
         """生成UUID字段定义"""
         return f"{field.name} = factory.LazyFunction(uuid.uuid4)"
-        
+
     def _generate_default_field_definition(self, field: FieldInfo) -> str:
         """生成默认字段定义"""
         if field.nullable:
             return f"{field.name} = None"
         else:
             return f"{field.name} = factory.Faker('word')"
-            
+
     def _extract_string_length(self, column_type: str) -> Optional[int]:
         """从列类型字符串中提取长度限制 - 修复版"""
         try:
             column_type_upper = column_type.upper()
-            if 'VARCHAR(' in column_type_upper:
-                start = column_type_upper.find('VARCHAR(') + 8
+            if "VARCHAR(" in column_type_upper:
+                start = column_type_upper.find("VARCHAR(") + 8
                 # 在原始字符串中查找结束位置，但使用正确的起始索引
                 remaining = column_type[start:]
-                if ')' in remaining:
-                    end_pos = remaining.find(')')
-                    if ',' in remaining[:end_pos]:
+                if ")" in remaining:
+                    end_pos = remaining.find(")")
+                    if "," in remaining[:end_pos]:
                         # 处理 VARCHAR(50, 'utf8') 格式
-                        length_str = remaining[:remaining.find(',')]
+                        length_str = remaining[: remaining.find(",")]
                     else:
                         # 处理 VARCHAR(50) 格式
                         length_str = remaining[:end_pos]
-                    
+
                     length_str = length_str.strip()
                     if length_str.isdigit():
                         return int(length_str)
         except (ValueError, IndexError, AttributeError):
             pass
         return None
-        
-    def _generate_factory_manager(self, module_name: str, models: Dict[str, ModelInfo]) -> str:
+
+    def _generate_factory_manager(
+        self, module_name: str, models: Dict[str, ModelInfo]
+    ) -> str:
         """生成工厂管理器类，提供便捷的数据创建方法
-        
+
         Args:
             module_name: 模块名称
             models: 模型信息
-            
+
         Returns:
             str: 工厂管理器代码
         """
@@ -969,8 +1030,10 @@ from {module_import_path} import (
         # 为每个工厂设置session
         for model_name in models.keys():
             factory_name = f"{model_name}Factory"
-            manager_class += f"        {factory_name}._meta.sqlalchemy_session = session\n"
-        
+            manager_class += (
+                f"        {factory_name}._meta.sqlalchemy_session = session\n"
+            )
+
         # 生成常用的数据创建方法
         manager_class += f'''
     @staticmethod
@@ -984,9 +1047,12 @@ from {module_import_path} import (
         # 为每个模型生成样本数据
         for model_name in models.keys():
             factory_name = f"{model_name}Factory"
-            manager_class += f"        data['{model_name.lower()}'] = {factory_name}()\n"
-            
-        manager_class += '''        
+            manager_class += (
+                f"        data['{model_name.lower()}'] = {factory_name}()\n"
+            )
+
+        manager_class += (
+            '''        
         session.commit()
         return data
         
@@ -994,211 +1060,224 @@ from {module_import_path} import (
     def create_test_scenario(session: Session, scenario: str = 'basic') -> dict:
         """创建特定测试场景的数据"""
         # 可以根据具体业务需求扩展不同场景
-        return ''' + f"{module_name.title().replace('_', '')}FactoryManager.create_sample_data(session)"
+        return '''
+            + f"{module_name.title().replace('_', '')}FactoryManager.create_sample_data(session)"
+        )
 
         return manager_class
-        
+
     def _get_test_values_for_field(self, field: FieldInfo) -> dict:
         """为字段生成测试值"""
         field_name = field.name.lower()
         python_type = field.python_type
-        
+
         # 生成有效值
         valid_value = None
-        if python_type == 'str':
-            if 'email' in field_name:
+        if python_type == "str":
+            if "email" in field_name:
                 valid_value = "'test@example.com'"
-            elif 'password' in field_name:
+            elif "password" in field_name:
                 valid_value = "'hashed_password_123'"
-            elif 'phone' in field_name:
+            elif "phone" in field_name:
                 valid_value = "'13800138000'"
             elif field.unique:
                 valid_value = f"f'unique_{field_name}_{{datetime.now().microsecond}}'"
             else:
                 valid_value = f"'test_{field_name}'"
-        elif python_type == 'int':
-            valid_value = '123'
-        elif python_type == 'bool':
-            valid_value = 'True'
-        elif python_type == 'datetime':
-            valid_value = 'datetime.now()'
-        elif python_type == 'Decimal':
+        elif python_type == "int":
+            valid_value = "123"
+        elif python_type == "bool":
+            valid_value = "True"
+        elif python_type == "datetime":
+            valid_value = "datetime.now()"
+        elif python_type == "Decimal":
             valid_value = "Decimal('99.99')"
-        elif python_type == 'dict' or field.column_type.upper() == 'JSON':
+        elif python_type == "dict" or field.column_type.upper() == "JSON":
             valid_value = "{'test': 'data'}"
-        elif python_type == 'UUID' or field.column_type.upper() == 'UUID':
+        elif python_type == "UUID" or field.column_type.upper() == "UUID":
             valid_value = "uuid.uuid4()"
         else:
             valid_value = "'test_value'"
-            
+
         # 生成无效值
         invalid_values = []
-        if python_type == 'str':
-            if 'email' in field_name:
-                invalid_values = ['123', '""', 'None']
+        if python_type == "str":
+            if "email" in field_name:
+                invalid_values = ["123", '""', "None"]
             elif not field.nullable:
-                invalid_values = ['None']
-        elif python_type == 'int':
-            invalid_values = ['"invalid_int"', 'None'] if not field.nullable else ['"invalid_int"']
-        elif python_type == 'bool':
+                invalid_values = ["None"]
+        elif python_type == "int":
+            invalid_values = (
+                ['"invalid_int"', "None"] if not field.nullable else ['"invalid_int"']
+            )
+        elif python_type == "bool":
             invalid_values = ['"invalid_bool"']
-        elif python_type == 'datetime':
-            invalid_values = ['"invalid_datetime"', '123']
-        elif python_type == 'dict' or field.column_type.upper() == 'JSON':
-            invalid_values = ['"invalid_json"', '123']
-        elif python_type == 'UUID' or field.column_type.upper() == 'UUID':
-            invalid_values = ['"invalid_uuid"', '123']
-            
+        elif python_type == "datetime":
+            invalid_values = ['"invalid_datetime"', "123"]
+        elif python_type == "dict" or field.column_type.upper() == "JSON":
+            invalid_values = ['"invalid_json"', "123"]
+        elif python_type == "UUID" or field.column_type.upper() == "UUID":
+            invalid_values = ['"invalid_uuid"', "123"]
+
         return {
-            'valid': f"{{'{field.name}': {valid_value}}}",
-            'invalid': invalid_values
+            "valid": f"{{'{field.name}': {valid_value}}}",
+            "invalid": invalid_values,
         }
-        
+
     def _get_python_type_tuple(self, python_type: str) -> str:
         """获取Python类型的元组字符串"""
         type_mapping = {
-            'str': 'str',
-            'int': 'int', 
-            'bool': 'bool',
-            'datetime': 'datetime',
-            'Decimal': 'Decimal',
-            'float': 'float',
-            'dict': 'dict',
-            'UUID': 'UUID'
+            "str": "str",
+            "int": "int",
+            "bool": "bool",
+            "datetime": "datetime",
+            "Decimal": "Decimal",
+            "float": "float",
+            "dict": "dict",
+            "UUID": "UUID",
         }
-        return type_mapping.get(python_type, 'str')
-        
+        return type_mapping.get(python_type, "str")
+
     def _generate_empty_string_test(self, field: FieldInfo) -> str:
         """生成空字符串测试"""
-        if field.python_type == 'str':
-            return f'''if isinstance('{field.name}', str):
+        if field.python_type == "str":
+            return f"""if isinstance('{field.name}', str):
             with pytest.raises((ValueError, ValidationError)):
-                instance = factory(**{{'{field.name}': ''}})'''
-        return '# 非字符串字段，跳过空字符串测试'
-        
+                instance = factory(**{{'{field.name}': ''}})"""
+        return "# 非字符串字段，跳过空字符串测试"
+
     def _extract_fk_target_model(self, foreign_key: str) -> str:
         """从外键字符串提取目标模型名"""
-        if '.' in foreign_key:
-            table_name = foreign_key.split('.')[0]
-            # 简单的表名到模型名转换 
-            return table_name.title().replace('_', '')
-        return 'UnknownModel'
-            
-    def generate_tests(self, module_name: str, test_type: str = 'all', 
-                      dry_run: bool = False, validate: bool = True) -> Dict[str, str]:
+        if "." in foreign_key:
+            table_name = foreign_key.split(".")[0]
+            # 简单的表名到模型名转换
+            return table_name.title().replace("_", "")
+        return "UnknownModel"
+
+    def generate_tests(
+        self,
+        module_name: str,
+        test_type: str = "all",
+        dry_run: bool = False,
+        validate: bool = True,
+    ) -> Dict[str, str]:
         """生成测试文件
-        
+
         Args:
             module_name: 模块名称
             test_type: 测试类型 ('all', 'unit', 'integration', 'e2e', 'smoke', 'specialized')
             dry_run: 是否为试运行（不写入文件）
             validate: 是否验证生成的代码
-            
+
         Returns:
             Dict[str, str]: 文件路径到内容的映射
         """
         # 1. 分析模型
         models = self.analyze_module_models(module_name)
-        
+
         # 2. 生成智能数据工厂 [CHECK:TEST-002]
         factory_code = self.generate_intelligent_factories(module_name, models)
-        
+
         # 3. 生成测试文件
         generated_files = {}
-        
+
         # 添加工厂文件到生成结果
-        factory_file_path = f'tests/factories/{module_name}_factories.py'
+        factory_file_path = f"tests/factories/{module_name}_factories.py"
         generated_files[factory_file_path] = factory_code
-        
-        if test_type in ['all', 'unit']:
+
+        if test_type in ["all", "unit"]:
             unit_files = self._generate_unit_tests(module_name, models)
             generated_files.update(unit_files)
-            
-        if test_type in ['all', 'integration']:
+
+        if test_type in ["all", "integration"]:
             integration_files = self._generate_integration_tests(module_name, models)
             generated_files.update(integration_files)
-            
-        if test_type in ['all', 'e2e']:
+
+        if test_type in ["all", "e2e"]:
             e2e_files = self._generate_e2e_tests(module_name, models)
             generated_files.update(e2e_files)
-            
-        if test_type in ['all', 'smoke']:
+
+        if test_type in ["all", "smoke"]:
             # 烟雾测试使用通用脚本，不生成模块特定文件
             smoke_files = self._generate_smoke_tests(module_name, models)
             generated_files.update(smoke_files)  # 通常为空字典
-            
-        if test_type in ['all', 'specialized']:
+
+        if test_type in ["all", "specialized"]:
             specialized_files = self._generate_specialized_tests(module_name, models)
             generated_files.update(specialized_files)
-            
+
         # 3. 写入文件（如果不是试运行）
         if not dry_run:
             self._write_test_files(generated_files)
-            
+
         # 4. 验证生成的代码（如果需要）
         validation_report = None
         if validate and not dry_run:
             validation_report = self._validate_generated_tests(generated_files)
-            
+
             # 保存验证报告
             self._save_validation_report(module_name, validation_report)
-            
+
         print(f"✅ 生成完成，共 {len(generated_files)} 个测试文件")
-        
+
         # 如果包含烟雾测试类型，提供烟雾测试运行指南
-        if test_type in ['all', 'smoke']:
+        if test_type in ["all", "smoke"]:
             print("ℹ️  烟雾测试运行方式:")
-            print("   - 通用脚本: .\\scripts\\smoke_test.ps1")  
+            print("   - 通用脚本: .\\scripts\\smoke_test.ps1")
             print("   - pytest方式: python -m pytest tests/smoke/ -v")
             print("   - 涵盖: API连通性、系统健康检查、基础功能验证")
-            
+
         return generated_files, validation_report
-        
-    def _generate_unit_tests(self, module_name: str, models: Dict[str, ModelInfo]) -> Dict[str, str]:
+
+    def _generate_unit_tests(
+        self, module_name: str, models: Dict[str, ModelInfo]
+    ) -> Dict[str, str]:
         """生成单元测试 (70%) - 三种独立脚本 [CHECK:TEST-001]
-        
+
         根据testing-standards.md标准生成三个独立的单元测试脚本：
         1. test_models/ - 100% Mock测试，无数据库依赖
         2. test_services/ - SQLite内存数据库测试
         3. *_standalone.py - SQLite内存数据库业务流程测试
-        
+
         Args:
             module_name: 模块名称
             models: 模型信息字典
-            
+
         Returns:
             Dict[str, str]: 三个测试脚本的文件路径到内容映射
         """
         files = {}
-        
+
         # 1. 生成Mock模型测试 (test_models目录)
         model_tests = self._generate_model_tests(module_name, models)
-        files[f'test_models/test_{module_name}_models'] = model_tests
-        
+        files[f"test_models/test_{module_name}_models"] = model_tests
+
         # 2. 生成服务测试 (test_services目录)
         service_tests = self._generate_service_tests(module_name, models)
-        files[f'test_services/test_{module_name}_services'] = service_tests
-        
+        files[f"test_services/test_{module_name}_services"] = service_tests
+
         # 3. 生成业务流程测试 (standalone文件)
         workflow_tests = self._generate_workflow_tests(module_name, models)
-        files[f'{module_name}_standalone'] = workflow_tests
-        
+        files[f"{module_name}_standalone"] = workflow_tests
+
         print(f"✅ 生成三个独立单元测试脚本:")
         print(f"   📋 Mock模型测试: test_models/test_{module_name}_models.py")
-        print(f"   🔧 服务测试: test_services/test_{module_name}_services.py") 
+        print(f"   🔧 服务测试: test_services/test_{module_name}_services.py")
         print(f"   🔄 业务流程测试: {module_name}_standalone.py")
-        
+
         return files
-        
-    def _generate_model_tests(self, module_name: str, models: Dict[str, ModelInfo]) -> str:
+
+    def _generate_model_tests(
+        self, module_name: str, models: Dict[str, ModelInfo]
+    ) -> str:
         """生成模型测试代码"""
         test_classes = []
-        
+
         # 为每个模型生成测试类
         for model_name, model_info in models.items():
             test_class = self._generate_single_model_test(model_info)
             test_classes.append(test_class)
-            
+
         imports = f'''"""
 {module_name.title()} 模块数据模型测试
 
@@ -1220,27 +1299,27 @@ from tests.factories.data_factory import StandardTestDataFactory
 
 '''
 
-        return imports + '\n\n'.join(test_classes)
-        
+        return imports + "\n\n".join(test_classes)
+
     def _generate_single_model_test(self, model_info: ModelInfo) -> str:
         """为单个模型生成测试类"""
         model_name = model_info.name
-        
+
         test_methods = []
-        
+
         # 1. 字段验证测试
         field_tests = self._generate_field_tests(model_info)
         test_methods.extend(field_tests)
-        
+
         # 2. 约束验证测试
         constraint_tests = self._generate_constraint_tests(model_info)
         test_methods.extend(constraint_tests)
-        
+
         # 3. 关系验证测试
         if model_info.relationships:
             relationship_tests = self._generate_relationship_tests(model_info)
             test_methods.extend(relationship_tests)
-            
+
         class_code = f'''
 class Test{model_name}Model:
     """{model_name}模型测试类"""
@@ -1251,38 +1330,40 @@ class Test{model_name}Model:
         
 {chr(10).join(test_methods)}
 '''
-        
+
         return class_code
-        
+
     def _generate_field_tests(self, model_info: ModelInfo) -> List[str]:
         """生成增强的字段测试方法 [CHECK:TEST-002]"""
         tests = []
-        
+
         for field in model_info.fields:
             # 生成字段验证测试
             validation_test = self._generate_field_validation_test(field, model_info)
             tests.append(validation_test)
-            
+
             # 生成字段约束测试
             if field.unique:
                 unique_test = self._generate_unique_constraint_test(field, model_info)
                 tests.append(unique_test)
-                
+
             if not field.nullable:
                 required_test = self._generate_required_field_test(field, model_info)
                 tests.append(required_test)
-                
+
             # 生成外键测试
             if field.foreign_key:
                 fk_test = self._generate_foreign_key_test(field, model_info)
                 tests.append(fk_test)
-                
+
         return tests
-        
-    def _generate_field_validation_test(self, field: FieldInfo, model_info: ModelInfo) -> str:
+
+    def _generate_field_validation_test(
+        self, field: FieldInfo, model_info: ModelInfo
+    ) -> str:
         """生成单个字段验证测试"""
         test_values = self._get_test_values_for_field(field)
-        
+
         test_method = f'''    def test_{field.name}_field_validation(self):
         """测试{field.name}字段验证 - 类型: {field.python_type}"""
         # 使用智能工厂创建测试数据
@@ -1298,20 +1379,22 @@ class Test{model_name}Model:
         expected_types = ({self._get_python_type_tuple(field.python_type)})
         if field_value is not None:
             assert isinstance(field_value, expected_types), f"字段{field.name}类型验证失败"'''
-            
+
         # 添加无效值测试
-        if test_values['invalid']:
-            test_method += f'''
+        if test_values["invalid"]:
+            test_method += f"""
         
         # 测试无效值
         invalid_values = {test_values['invalid']}
         for invalid_value in invalid_values:
             with pytest.raises((ValueError, TypeError, ValidationError)) as exc_info:
-                factory(**{{'{field.name}': invalid_value}})'''
-                
+                factory(**{{'{field.name}': invalid_value}})"""
+
         return test_method
-        
-    def _generate_unique_constraint_test(self, field: FieldInfo, model_info: ModelInfo) -> str:
+
+    def _generate_unique_constraint_test(
+        self, field: FieldInfo, model_info: ModelInfo
+    ) -> str:
         """生成唯一约束测试"""
         return f'''    def test_{field.name}_unique_constraint(self):
         """测试{field.name}字段唯一约束"""
@@ -1329,8 +1412,10 @@ class Test{model_name}Model:
                 exc_info.session.commit()
                 
         assert "unique" in str(exc_info.value).lower() or "duplicate" in str(exc_info.value).lower()'''
-        
-    def _generate_required_field_test(self, field: FieldInfo, model_info: ModelInfo) -> str:
+
+    def _generate_required_field_test(
+        self, field: FieldInfo, model_info: ModelInfo
+    ) -> str:
         """生成必填字段测试"""
         return f'''    def test_{field.name}_required_field(self):
         """测试{field.name}字段必填约束"""
@@ -1342,11 +1427,13 @@ class Test{model_name}Model:
             
         # 测试空字符串（如果是字符串字段）
         {self._generate_empty_string_test(field)}'''
-        
-    def _generate_foreign_key_test(self, field: FieldInfo, model_info: ModelInfo) -> str:
+
+    def _generate_foreign_key_test(
+        self, field: FieldInfo, model_info: ModelInfo
+    ) -> str:
         """生成外键测试"""
         target_model = self._extract_fk_target_model(field.foreign_key)
-        
+
         return f'''    def test_{field.name}_foreign_key_constraint(self):
         """测试{field.name}外键约束 - 引用: {field.foreign_key}"""
         # 测试有效外键关系
@@ -1360,31 +1447,31 @@ class Test{model_name}Model:
         # 测试无效外键应该失败
         with pytest.raises((IntegrityError, ValueError, ValidationError)):
             invalid_instance = factory(**{{'{field.name}': 99999}})  # 不存在的ID'''
-        
+
     def _generate_constraint_tests(self, model_info: ModelInfo) -> List[str]:
         """生成增强的约束测试方法 [CHECK:TEST-002]"""
         tests = []
-        
+
         # 主键测试
         if model_info.primary_keys:
             pk_test = self._generate_primary_key_test(model_info)
             tests.append(pk_test)
-        
+
         # 唯一约束组合测试
         if model_info.unique_constraints:
             unique_test = self._generate_unique_constraints_test(model_info)
             tests.append(unique_test)
-            
+
         # 模型创建和保存测试
         creation_test = self._generate_model_creation_test(model_info)
         tests.append(creation_test)
-        
+
         # 模型字符串表示测试
         str_test = self._generate_model_str_test(model_info)
         tests.append(str_test)
-        
+
         return tests
-        
+
     def _generate_primary_key_test(self, model_info: ModelInfo) -> str:
         """生成主键约束测试"""
         return f'''    def test_primary_key_constraints(self):
@@ -1407,7 +1494,7 @@ class Test{model_name}Model:
             # 尝试创建相同主键的实例应该失败
             with pytest.raises((IntegrityError, ValidationError)):
                 instance2 = factory(**{{pk_field: pk_value}})'''
-                
+
     def _generate_unique_constraints_test(self, model_info: ModelInfo) -> str:
         """生成唯一约束组合测试"""
         constraints_str = str(model_info.unique_constraints)
@@ -1427,11 +1514,13 @@ class Test{model_name}Model:
                 # 尝试创建相同约束值的第二个实例应该失败
                 with pytest.raises((IntegrityError, ValidationError)):
                     instance2 = factory(**test_values)'''
-                    
+
     def _generate_model_creation_test(self, model_info: ModelInfo) -> str:
         """生成模型创建测试"""
-        required_fields = [f for f in model_info.fields if not f.nullable and f.name != 'id']
-        
+        required_fields = [
+            f for f in model_info.fields if not f.nullable and f.name != "id"
+        ]
+
         return f'''    def test_model_creation_with_required_fields(self):
         """测试模型创建 - 必填字段验证"""
         factory = {model_info.name}Factory
@@ -1453,23 +1542,25 @@ class Test{model_name}Model:
         if minimal_data:
             minimal_instance = factory(**minimal_data)
             assert minimal_instance is not None'''
-            
+
     def _generate_minimal_data_setup(self, required_fields: list) -> str:
         """生成最小化数据设置代码"""
         if not required_fields:
             return "        # 没有必填字段，使用默认工厂"
-            
+
         lines = []
         for field in required_fields[:3]:  # 限制最多3个字段避免过度复杂
-            if field.python_type == 'str':
-                lines.append(f"        minimal_data['{field.name}'] = 'test_{field.name}'")
-            elif field.python_type == 'int':
+            if field.python_type == "str":
+                lines.append(
+                    f"        minimal_data['{field.name}'] = 'test_{field.name}'"
+                )
+            elif field.python_type == "int":
                 lines.append(f"        minimal_data['{field.name}'] = 123")
-            elif field.python_type == 'bool':
+            elif field.python_type == "bool":
                 lines.append(f"        minimal_data['{field.name}'] = True")
-        
-        return '\n'.join(lines) if lines else "        # 使用工厂默认值"
-        
+
+        return "\n".join(lines) if lines else "        # 使用工厂默认值"
+
     def _generate_model_str_test(self, model_info: ModelInfo) -> str:
         """生成模型字符串表示测试"""
         return f'''    def test_model_string_representation(self):
@@ -1487,18 +1578,20 @@ class Test{model_name}Model:
         repr_str = repr(instance)
         assert repr_str is not None
         assert '{model_info.name}' in repr_str or str(instance.id) in repr_str'''
-            
+
     def _generate_relationship_tests(self, model_info: ModelInfo) -> List[str]:
         """生成增强的关系测试方法 [CHECK:TEST-002]"""
         tests = []
-        
+
         for rel in model_info.relationships:
             rel_test = self._generate_single_relationship_test(rel, model_info)
             tests.append(rel_test)
-            
+
         return tests
-        
-    def _generate_single_relationship_test(self, rel: RelationshipInfo, model_info: ModelInfo) -> str:
+
+    def _generate_single_relationship_test(
+        self, rel: RelationshipInfo, model_info: ModelInfo
+    ) -> str:
         """生成单个关系测试"""
         return f'''    def test_{rel.name}_relationship(self):
         """测试{rel.name}关系 - {rel.relationship_type}到{rel.related_model}"""
@@ -1516,43 +1609,47 @@ class Test{model_name}Model:
         
         # 测试关系数据访问
         {self._generate_relationship_access_test(rel, model_info)}'''
-        
+
     def _generate_relationship_type_test(self, rel: RelationshipInfo) -> str:
         """生成关系类型测试代码"""
-        if rel.relationship_type == 'many-to-many':
-            return '''# many-to-many关系应该是列表或集合
-        assert hasattr(relationship_value, '__iter__') or relationship_value is None'''
-        elif rel.relationship_type == 'one-to-many':
-            return '''# one-to-many关系应该是列表或集合  
-        assert hasattr(relationship_value, '__iter__') or relationship_value is None'''
+        if rel.relationship_type == "many-to-many":
+            return """# many-to-many关系应该是列表或集合
+        assert hasattr(relationship_value, '__iter__') or relationship_value is None"""
+        elif rel.relationship_type == "one-to-many":
+            return """# one-to-many关系应该是列表或集合  
+        assert hasattr(relationship_value, '__iter__') or relationship_value is None"""
         else:  # many-to-one, one-to-one
-            return '''# many-to-one或one-to-one关系应该是单个对象或None
-        assert relationship_value is None or hasattr(relationship_value, 'id')'''
-        
-    def _generate_relationship_access_test(self, rel: RelationshipInfo, model_info: ModelInfo) -> str:
+            return """# many-to-one或one-to-one关系应该是单个对象或None
+        assert relationship_value is None or hasattr(relationship_value, 'id')"""
+
+    def _generate_relationship_access_test(
+        self, rel: RelationshipInfo, model_info: ModelInfo
+    ) -> str:
         """生成关系访问测试代码"""
-        if rel.relationship_type in ['many-to-many', 'one-to-many']:
-            return f'''# 测试集合关系的访问
+        if rel.relationship_type in ["many-to-many", "one-to-many"]:
+            return f"""# 测试集合关系的访问
         if relationship_value is not None:
             # 验证可以迭代
             try:
                 list(relationship_value)
             except Exception as e:
-                pytest.fail(f"关系{rel.name}迭代失败: {{e}}")'''
+                pytest.fail(f"关系{rel.name}迭代失败: {{e}}")"""
         else:
-            return f'''# 测试单对象关系的访问
+            return f"""# 测试单对象关系的访问
         if relationship_value is not None:
             # 验证关系对象有基本属性
-            assert hasattr(relationship_value, 'id') or hasattr(relationship_value, '__dict__')'''
-        
-    def _generate_service_method_tests(self, module_name: str, models: Dict[str, ModelInfo], service_class_name: str) -> str:
+            assert hasattr(relationship_value, 'id') or hasattr(relationship_value, '__dict__')"""
+
+    def _generate_service_method_tests(
+        self, module_name: str, models: Dict[str, ModelInfo], service_class_name: str
+    ) -> str:
         """生成服务方法测试代码
-        
+
         Args:
             module_name: 模块名称
             models: 模型信息字典
             service_class_name: 服务类名称
-            
+
         Returns:
             str: 服务方法测试代码
         """
@@ -1563,10 +1660,10 @@ class Test{model_name}Model:
         service = {service_class_name}(unit_test_db)
         # 添加具体的服务方法测试
         assert True  # 占位符'''
-        
+
         # 为每个模型生成CRUD测试
         test_methods = []
-        
+
         for model_name, model_info in models.items():
             model_tests = f'''    def test_{model_name.lower()}_crud_operations(self, unit_test_db: Session):
         """测试{model_name}的CRUD操作"""
@@ -1609,26 +1706,30 @@ class Test{model_name}Model:
         # 测试业务规则验证
         # 这里需要根据具体的业务逻辑实现
         assert service is not None'''
-            
-            test_methods.append(model_tests)
-            
-        return '\n\n'.join(test_methods)
 
-    def _generate_service_tests(self, module_name: str, models: Dict[str, ModelInfo]) -> str:
+            test_methods.append(model_tests)
+
+        return "\n\n".join(test_methods)
+
+    def _generate_service_tests(
+        self, module_name: str, models: Dict[str, ModelInfo]
+    ) -> str:
         """生成服务层测试 - SQLite内存数据库 [CHECK:TEST-001]
-        
+
         Args:
             module_name: 模块名称
             models: 模型信息字典
-            
+
         Returns:
             str: 服务层测试代码
         """
         service_class_name = f"{module_name.title().replace('_', '')}Service"
         test_class_name = f"Test{module_name.title().replace('_', '')}Service"
-        
+
         # 生成服务方法测试
-        service_methods = self._generate_service_method_tests(module_name, models, service_class_name)
+        service_methods = self._generate_service_method_tests(
+            module_name, models, service_class_name
+        )
         return f'''"""
 {module_name.title()} 服务层测试
 
@@ -1758,15 +1859,17 @@ class {test_class_name}:
         """测试清理"""
         pass
 '''
-        
-    def _generate_workflow_scenarios(self, module_name: str, models: Dict[str, ModelInfo], service_class_name: str) -> str:
+
+    def _generate_workflow_scenarios(
+        self, module_name: str, models: Dict[str, ModelInfo], service_class_name: str
+    ) -> str:
         """生成工作流场景测试
-        
+
         Args:
             module_name: 模块名称
             models: 模型信息字典
             service_class_name: 服务类名称
-            
+
         Returns:
             str: 工作流场景测试代码
         """
@@ -1777,12 +1880,13 @@ class {test_class_name}:
         service = {service_class_name}(unit_test_db)
         # 添加具体的工作流测试
         assert service is not None'''
-        
+
         # 生成多个业务场景测试
         scenarios = []
-        
+
         # 场景1: 正常业务流程
-        scenarios.append(f'''    def test_normal_business_scenario(self, unit_test_db: Session):
+        scenarios.append(
+            f'''    def test_normal_business_scenario(self, unit_test_db: Session):
         """测试正常业务场景"""
         print(f"{NEWLINE}✅ 执行正常业务场景...")
         
@@ -1794,10 +1898,12 @@ class {test_class_name}:
         
         # 执行正常业务流程
         result = self._execute_normal_business_flow(service, normal_data, unit_test_db)
-        assert result['success'] is True''')
+        assert result['success'] is True'''
+        )
 
-        # 场景2: 边界条件测试  
-        scenarios.append(f'''    def test_edge_case_scenarios(self, unit_test_db: Session):
+        # 场景2: 边界条件测试
+        scenarios.append(
+            f'''    def test_edge_case_scenarios(self, unit_test_db: Session):
         """测试边界条件场景"""
         print(f"{NEWLINE}⚠️ 执行边界条件测试...")
         
@@ -1817,10 +1923,12 @@ class {test_class_name}:
         
         # 验证边界处理
         boundary_result = self._handle_boundary_conditions(service, edge_case_data)
-        assert boundary_result is not None''')
+        assert boundary_result is not None'''
+        )
 
         # 场景3: 异常处理测试
-        scenarios.append(f'''    def test_exception_handling_scenarios(self, unit_test_db: Session):
+        scenarios.append(
+            f'''    def test_exception_handling_scenarios(self, unit_test_db: Session):
         """测试异常处理场景"""
         print(f"{NEWLINE}🚫 执行异常处理测试...")
         
@@ -1837,10 +1945,12 @@ class {test_class_name}:
             
         # 验证系统状态恢复正常
         health_check = service.check_system_health()
-        assert health_check is True''')
+        assert health_check is True'''
+        )
 
         # 场景4: 性能关键路径测试
-        scenarios.append(f'''    def test_performance_critical_paths(self, unit_test_db: Session):
+        scenarios.append(
+            f'''    def test_performance_critical_paths(self, unit_test_db: Session):
         """测试性能关键路径"""
         print(f"{NEWLINE}⚡ 执行性能关键路径测试...")
         
@@ -1865,23 +1975,28 @@ class {test_class_name}:
         assert batch_result['processed_count'] == batch_size
         assert processing_time < 5.0  # 5秒内完成
         
-        print(f"📊 批量处理完成: {{batch_size}}条记录, 用时{{processing_time:.2f}}秒")''')
+        print(f"📊 批量处理完成: {{batch_size}}条记录, 用时{{processing_time:.2f}}秒")'''
+        )
 
-        return '\n\n'.join(scenarios)
+        return "\n\n".join(scenarios)
 
-    def _generate_workflow_tests(self, module_name: str, models: Dict[str, ModelInfo]) -> str:
+    def _generate_workflow_tests(
+        self, module_name: str, models: Dict[str, ModelInfo]
+    ) -> str:
         """生成业务流程测试 - SQLite内存数据库 [CHECK:TEST-001]
-        
+
         Args:
-            module_name: 模块名称  
+            module_name: 模块名称
             models: 模型信息字典
-            
+
         Returns:
             str: 业务流程测试代码
         """
         service_class_name = f"{module_name.title().replace('_', '')}Service"
-        workflow_tests = self._generate_workflow_scenarios(module_name, models, service_class_name)
-        
+        workflow_tests = self._generate_workflow_scenarios(
+            module_name, models, service_class_name
+        )
+
         return f'''"""
 {module_name.title()} 业务流程测试 (Standalone)
 
@@ -2033,26 +2148,30 @@ class Test{module_name.title().replace('_', '')}Workflow:
         pass
 '''
 
-    def _generate_integration_tests(self, module_name: str, models: Dict[str, ModelInfo]) -> Dict[str, str]:
+    def _generate_integration_tests(
+        self, module_name: str, models: Dict[str, ModelInfo]
+    ) -> Dict[str, str]:
         """生成集成测试 (20%)"""
         files = {}
-        
+
         # 生成集成测试文件
         integration_tests = self._generate_integration_test_content(module_name, models)
-        files[f'{module_name}_integration'] = integration_tests
-        
+        files[f"{module_name}_integration"] = integration_tests
+
         return files
-    
-    def _generate_integration_test_content(self, module_name: str, models: Dict[str, ModelInfo]) -> str:
+
+    def _generate_integration_test_content(
+        self, module_name: str, models: Dict[str, ModelInfo]
+    ) -> str:
         """生成完整的集成测试内容 - 遵循[CHECK:DEV-005]业务逻辑实现验证"""
-        
+
         # 基于module_name生成特定的测试内容
         if module_name == "user_auth":
             return self._generate_user_auth_integration_tests()
         else:
             # 通用模块集成测试模板
             return self._generate_generic_integration_tests(module_name, models)
-    
+
     def _generate_user_auth_integration_tests(self) -> str:
         """生成用户认证模块的完整集成测试 - 基于test_auth_integration.py最佳实践"""
         return f'''"""
@@ -2332,7 +2451,9 @@ class TestUserAuthIntegration:
             print(f"ℹ️ 权限系统测试注意: {e}")
 '''
 
-    def _generate_generic_integration_tests(self, module_name: str, models: Dict[str, ModelInfo]) -> str:
+    def _generate_generic_integration_tests(
+        self, module_name: str, models: Dict[str, ModelInfo]
+    ) -> str:
         """生成通用模块的集成测试模板"""
         return f'''"""
 {module_name.title().replace('_', '')} 集成测试套件
@@ -2382,17 +2503,19 @@ class Test{module_name.title().replace('_', '')}Integration:
         # TODO: 添加具体的服务方法测试
         pass
 '''
-        
-    def _generate_unit_test_content(self, module_name: str, models: Dict[str, ModelInfo]) -> str:
+
+    def _generate_unit_test_content(
+        self, module_name: str, models: Dict[str, ModelInfo]
+    ) -> str:
         """生成完整的单元测试内容 - 遵循[CHECK:DEV-007]代码质量验证"""
-        
+
         # 基于module_name生成特定的测试内容
         if module_name == "user_auth":
             return self._generate_user_auth_unit_tests()
         else:
             # 通用模块单元测试模板
             return self._generate_generic_unit_tests(module_name, models)
-    
+
     def _generate_user_auth_unit_tests(self) -> str:
         """生成用户认证模块的完整单元测试"""
         return f'''"""
@@ -2675,8 +2798,10 @@ class TestValidationLogic:
             
         print("✅ 邮箱验证逻辑验证通过")
 '''
-    
-    def _generate_generic_unit_tests(self, module_name: str, models: Dict[str, ModelInfo]) -> str:
+
+    def _generate_generic_unit_tests(
+        self, module_name: str, models: Dict[str, ModelInfo]
+    ) -> str:
         """生成通用模块的单元测试模板"""
         return f'''"""
 {module_name.title().replace('_', '')} 单元测试套件
@@ -2725,89 +2850,114 @@ class Test{module_name.title().replace('_', '')}Service:
         pass
 '''
 
-    def _generate_e2e_tests(self, module_name: str, models: Dict[str, ModelInfo]) -> Dict[str, str]:
+    def _generate_e2e_tests(
+        self, module_name: str, models: Dict[str, ModelInfo]
+    ) -> Dict[str, str]:
         """生成E2E测试 (6%)"""
         return {}  # 占位符，需要实现
-        
-    def _generate_smoke_tests(self, module_name: str, models: Dict[str, ModelInfo]) -> Dict[str, str]:
+
+    def _generate_smoke_tests(
+        self, module_name: str, models: Dict[str, ModelInfo]
+    ) -> Dict[str, str]:
         """烟雾测试使用通用脚本，不需要为每个模块单独生成
-        
+
         现有的 tools/smoke_test.ps1 和 tests/smoke/ 目录已经提供了：
         - 通用API连通性测试
         - 系统健康检查
         - 基础功能验证
         - 自动服务器管理
-        
+
         因此，不生成模块特定的烟雾测试文件。
         """
-        print(f"ℹ️  烟雾测试使用通用脚本 tools/smoke_test.ps1，跳过 {module_name} 模块特定生成")
+        print(
+            f"ℹ️  烟雾测试使用通用脚本 tools/smoke_test.ps1，跳过 {module_name} 模块特定生成"
+        )
         return {}  # 返回空字典，不生成任何文件
-        
-    def _generate_specialized_tests(self, module_name: str, models: Dict[str, ModelInfo]) -> Dict[str, str]:
+
+    def _generate_specialized_tests(
+        self, module_name: str, models: Dict[str, ModelInfo]
+    ) -> Dict[str, str]:
         """生成专项测试 (2%)"""
         return {}  # 占位符，需要实现
-        
+
     def _write_test_files(self, files: Dict[str, str]):
         """写入测试文件到磁盘 - 遵循generated目录规范"""
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
         for file_key, content in files.items():
             # 特殊处理：如果是工厂文件的完整路径格式
-            if file_key.startswith('tests/factories/') and file_key.endswith('_factories.py'):
+            if file_key.startswith("tests/factories/") and file_key.endswith(
+                "_factories.py"
+            ):
                 # 提取模块名：tests/factories/user_auth_factories.py -> user_auth
-                factory_filename = file_key.split('/')[-1]  # user_auth_factories.py
-                module_name = factory_filename.replace('_factories.py', '')  # user_auth
+                factory_filename = file_key.split("/")[-1]  # user_auth_factories.py
+                module_name = factory_filename.replace("_factories.py", "")  # user_auth
                 generated_filename = f"{module_name}_factories.py"
                 test_type = "factories"
                 test_category = None
             else:
-                # 解析文件键格式: 
+                # 解析文件键格式:
                 # 格式1: {module}_{test_type} (如: user_auth_integration)
                 # 格式2: {module}_{category}_{test_type} (如: user_auth_models_unit)
-                parts = file_key.split('_')
-                
+                parts = file_key.split("_")
+
                 # 检查是否是直接的 module_testtype 格式
-                test_types = ['unit', 'integration', 'e2e', 'smoke', 'specialized']
+                test_types = ["unit", "integration", "e2e", "smoke", "specialized"]
                 if len(parts) >= 2 and parts[-1] in test_types:
                     test_type = parts[-1]
                     # 检查是否有中间的分类
-                    if len(parts) >= 3 and parts[-2] in ['models', 'service', 'workflow', 'api']:
+                    if len(parts) >= 3 and parts[-2] in [
+                        "models",
+                        "service",
+                        "workflow",
+                        "api",
+                    ]:
                         test_category = parts[-2]
-                        module_name = '_'.join(parts[:-2])
+                        module_name = "_".join(parts[:-2])
                     else:
                         test_category = None  # 无具体分类
-                        module_name = '_'.join(parts[:-1])
+                        module_name = "_".join(parts[:-1])
                 else:
                     module_name = file_key
                     test_type = "unknown"
                     test_category = None
-                
+
                 # 构造生成文件名 - 在暂存目录中使用简洁名称
                 if test_category:
-                    generated_filename = f"test_{module_name}_{test_category}_{test_type}.py"
+                    generated_filename = (
+                        f"test_{module_name}_{test_category}_{test_type}.py"
+                    )
                 else:
                     generated_filename = f"test_{module_name}_{test_type}.py"
-            
+
             # 构造generated目录路径
             generated_path = f"tests/generated/{generated_filename}"
             full_path = self.project_root / generated_path
             full_path.parent.mkdir(parents=True, exist_ok=True)
-            
+
             # 构造原始目标路径（用于文档）
-            original_path = self._construct_target_path(module_name, test_category or "", test_type)
-            
+            original_path = self._construct_target_path(
+                module_name, test_category or "", test_type
+            )
+
             # 添加生成信息到文件头部
-            enhanced_content = self._add_generation_header(content, original_path, timestamp)
-            
-            with open(full_path, 'w', encoding='utf-8') as f:
+            enhanced_content = self._add_generation_header(
+                content, original_path, timestamp
+            )
+
+            with open(full_path, "w", encoding="utf-8") as f:
                 f.write(enhanced_content)
-                
+
             print(f"📝 生成文件: {generated_path}")
-            
+
         print(f"⚠️  请注意: 文件已生成到tests/generated/目录")
-        print(f"📋 下一步: 请按照docs/development/generated-tests-management.md流程进行审查")
-    
-    def _construct_target_path(self, module_name: str, test_category: str, test_type: str) -> str:
+        print(
+            f"📋 下一步: 请按照docs/development/generated-tests-management.md流程进行审查"
+        )
+
+    def _construct_target_path(
+        self, module_name: str, test_category: str, test_type: str
+    ) -> str:
         """构造目标路径用于文档说明"""
         if test_type == "factories":
             return f"tests/factories/{module_name}_factories.py"
@@ -2830,8 +2980,10 @@ class Test{module_name.title().replace('_', '')}Service:
             return f"tests/performance/test_{module_name}_performance.py"
         else:
             return f"tests/{test_type}/test_{module_name}_{test_category}.py"
-    
-    def _add_generation_header(self, content: str, original_path: str, timestamp: str) -> str:
+
+    def _add_generation_header(
+        self, content: str, original_path: str, timestamp: str
+    ) -> str:
         """为生成的文件添加标准头部信息"""
         header = f'''"""
 Auto Generated Test - 需要人工审查
@@ -2850,7 +3002,7 @@ Auto Generated Test - 需要人工审查
 
 '''
         # 移除原始文档字符串，添加新的头部
-        lines = content.split('\n')
+        lines = content.split("\n")
         if lines[0].startswith('"""') or lines[0].startswith("'''"):
             # 找到文档字符串结束位置
             end_quote = lines[0][:3]
@@ -2860,202 +3012,208 @@ Auto Generated Test - 需要人工审查
                     end_line = i
                     break
             # 移除原始文档字符串
-            content = '\n'.join(lines[end_line+1:])
-        
+            content = "\n".join(lines[end_line + 1 :])
+
         return header + content
-            
+
     def _validate_generated_tests(self, files: Dict[str, str]) -> Dict[str, Any]:
         """实现自动化测试质量验证机制 [CHECK:TEST-008] [CHECK:DEV-009]
-        
+
         验证内容:
         1. 语法检查 - Python语法正确性
         2. pytest收集检查 - 测试发现和收集
         3. 导入验证 - 所有依赖可正确导入
         4. 依赖完整性检查 - 工厂类和测试数据依赖
         5. 执行成功率测试 - 基础测试方法执行验证
-        
+
         Args:
             files: 生成的文件字典 {路径: 内容}
-            
+
         Returns:
             Dict[str, Any]: 验证结果报告
         """
         print("🔍 开始测试文件自动验证机制...")
-        
+
         validation_results = {
-            'syntax_check': {},
-            'pytest_collection': {},
-            'import_validation': {},
-            'dependency_check': {},
-            'execution_test': {},
-            'overall_success': True,
-            'summary': {
-                'total_files': len(files),
-                'passed': 0,
-                'failed': 0,
-                'errors': []
-            }
+            "syntax_check": {},
+            "pytest_collection": {},
+            "import_validation": {},
+            "dependency_check": {},
+            "execution_test": {},
+            "overall_success": True,
+            "summary": {
+                "total_files": len(files),
+                "passed": 0,
+                "failed": 0,
+                "errors": [],
+            },
         }
-        
+
         # 1. 语法检查 [CHECK:TEST-008]
         print("\n🔍 步骤1: Python语法检查")
-        validation_results['syntax_check'] = self._check_syntax(files)
-        
+        validation_results["syntax_check"] = self._check_syntax(files)
+
         # 2. pytest收集检查 [CHECK:TEST-008]
         print("\n🔍 步骤2: pytest测试收集检查")
-        validation_results['pytest_collection'] = self._check_pytest_collection(files)
-        
+        validation_results["pytest_collection"] = self._check_pytest_collection(files)
+
         # 3. 导入验证 [CHECK:TEST-008]
         print("\n🔍 步骤3: 导入依赖验证")
-        validation_results['import_validation'] = self._validate_imports(files)
-        
+        validation_results["import_validation"] = self._validate_imports(files)
+
         # 4. 依赖完整性检查 [CHECK:TEST-008]
         print("\n🔍 步骤4: 依赖完整性检查")
-        validation_results['dependency_check'] = self._check_dependencies(files)
-        
+        validation_results["dependency_check"] = self._check_dependencies(files)
+
         # 5. 执行成功率测试 [CHECK:TEST-008]
         print("\n🔍 步骤5: 基础执行成功率测试")
-        validation_results['execution_test'] = self._test_basic_execution(files)
-        
+        validation_results["execution_test"] = self._test_basic_execution(files)
+
         # 汇总验证结果
         self._summarize_validation_results(validation_results)
-        
+
         return validation_results
-        
+
     def _check_syntax(self, files: Dict[str, str]) -> Dict[str, Any]:
         """Python语法检查"""
-        syntax_results = {
-            'passed': [],
-            'failed': [],
-            'details': {}
-        }
-        
+        syntax_results = {"passed": [], "failed": [], "details": {}}
+
         for file_path, content in files.items():
             try:
                 # 编译检查语法
-                compile(content, file_path, 'exec')
-                syntax_results['passed'].append(file_path)
-                syntax_results['details'][file_path] = {'status': 'pass', 'message': '语法检查通过'}
+                compile(content, file_path, "exec")
+                syntax_results["passed"].append(file_path)
+                syntax_results["details"][file_path] = {
+                    "status": "pass",
+                    "message": "语法检查通过",
+                }
                 print(f"  ✅ 语法检查通过: {file_path}")
-                
+
             except SyntaxError as e:
-                syntax_results['failed'].append(file_path)
+                syntax_results["failed"].append(file_path)
                 error_msg = f"第{e.lineno}行: {e.msg}"
-                syntax_results['details'][file_path] = {
-                    'status': 'fail', 
-                    'error': str(e),
-                    'line': e.lineno,
-                    'message': error_msg
+                syntax_results["details"][file_path] = {
+                    "status": "fail",
+                    "error": str(e),
+                    "line": e.lineno,
+                    "message": error_msg,
                 }
                 print(f"  ❌ 语法错误 {file_path}: {error_msg}")
-                
+
             except Exception as e:
-                syntax_results['failed'].append(file_path)
-                syntax_results['details'][file_path] = {
-                    'status': 'error',
-                    'error': str(e),
-                    'message': f"编译异常: {e}"
+                syntax_results["failed"].append(file_path)
+                syntax_results["details"][file_path] = {
+                    "status": "error",
+                    "error": str(e),
+                    "message": f"编译异常: {e}",
                 }
                 print(f"  ⚠️ 编译异常 {file_path}: {e}")
-                
+
         return syntax_results
-        
+
     def _check_pytest_collection(self, files: Dict[str, str]) -> Dict[str, Any]:
         """pytest测试收集检查"""
         collection_results = {
-            'collected_tests': 0,
-            'collection_errors': [],
-            'test_files': [],
-            'details': {}
+            "collected_tests": 0,
+            "collection_errors": [],
+            "test_files": [],
+            "details": {},
         }
-        
+
         # 先写入临时文件进行pytest收集测试
         temp_files = []
         try:
             for file_path, content in files.items():
-                if 'test_' in file_path and file_path.endswith('.py'):
+                if "test_" in file_path and file_path.endswith(".py"):
                     full_path = self.project_root / file_path
                     full_path.parent.mkdir(parents=True, exist_ok=True)
-                    
+
                     # 创建临时文件
-                    temp_path = full_path.with_suffix('.tmp.py')
-                    with open(temp_path, 'w', encoding='utf-8') as f:
+                    temp_path = full_path.with_suffix(".tmp.py")
+                    with open(temp_path, "w", encoding="utf-8") as f:
                         f.write(content)
                     temp_files.append(temp_path)
-                    
+
                     # 尝试pytest收集
                     try:
                         import subprocess
-                        result = subprocess.run([
-                            'python', '-m', 'pytest', 
-                            str(temp_path), 
-                            '--collect-only', 
-                            '--quiet'
-                        ], 
-                        capture_output=True, 
-                        text=True, 
-                        cwd=str(self.project_root),
-                        timeout=30
+
+                        result = subprocess.run(
+                            [
+                                "python",
+                                "-m",
+                                "pytest",
+                                str(temp_path),
+                                "--collect-only",
+                                "--quiet",
+                            ],
+                            capture_output=True,
+                            text=True,
+                            cwd=str(self.project_root),
+                            timeout=30,
                         )
-                        
+
                         if result.returncode == 0:
                             # 解析收集到的测试数量
-                            output_lines = result.stdout.split('\n')
+                            output_lines = result.stdout.split("\n")
                             test_count = 0
                             for line in output_lines:
-                                if 'test session starts' in line:
+                                if "test session starts" in line:
                                     continue
-                                elif '<Module' in line or '<Function' in line or '<Class' in line:
+                                elif (
+                                    "<Module" in line
+                                    or "<Function" in line
+                                    or "<Class" in line
+                                ):
                                     test_count += 1
-                                    
-                            collection_results['collected_tests'] += test_count
-                            collection_results['test_files'].append(file_path)
-                            collection_results['details'][file_path] = {
-                                'status': 'success',
-                                'test_count': test_count,
-                                'message': f'收集到{test_count}个测试'
+
+                            collection_results["collected_tests"] += test_count
+                            collection_results["test_files"].append(file_path)
+                            collection_results["details"][file_path] = {
+                                "status": "success",
+                                "test_count": test_count,
+                                "message": f"收集到{test_count}个测试",
                             }
-                            print(f"  ✅ pytest收集成功: {file_path} ({test_count}个测试)")
-                            
+                            print(
+                                f"  ✅ pytest收集成功: {file_path} ({test_count}个测试)"
+                            )
+
                         else:
                             error_msg = result.stderr or result.stdout or "收集失败"
-                            collection_results['collection_errors'].append({
-                                'file': file_path,
-                                'error': error_msg
-                            })
-                            collection_results['details'][file_path] = {
-                                'status': 'fail',
-                                'error': error_msg,
-                                'message': '测试收集失败'
+                            collection_results["collection_errors"].append(
+                                {"file": file_path, "error": error_msg}
+                            )
+                            collection_results["details"][file_path] = {
+                                "status": "fail",
+                                "error": error_msg,
+                                "message": "测试收集失败",
                             }
                             print(f"  ❌ pytest收集失败: {file_path}")
                             print(f"     错误: {error_msg[:200]}...")
-                            
+
                     except subprocess.TimeoutExpired:
                         error_msg = "pytest收集超时"
-                        collection_results['collection_errors'].append({
-                            'file': file_path, 
-                            'error': error_msg
-                        })
-                        collection_results['details'][file_path] = {
-                            'status': 'timeout',
-                            'message': error_msg
+                        collection_results["collection_errors"].append(
+                            {"file": file_path, "error": error_msg}
+                        )
+                        collection_results["details"][file_path] = {
+                            "status": "timeout",
+                            "message": error_msg,
                         }
                         print(f"  ⚠️ pytest收集超时: {file_path}")
-                        
+
                     except Exception as e:
                         error_msg = f"pytest收集异常: {e}"
-                        collection_results['collection_errors'].append({
-                            'file': file_path,
-                            'error': str(e)
-                        })
-                        collection_results['details'][file_path] = {
-                            'status': 'error',
-                            'error': str(e),
-                            'message': error_msg
+                        collection_results["collection_errors"].append(
+                            {"file": file_path, "error": str(e)}
+                        )
+                        collection_results["details"][file_path] = {
+                            "status": "error",
+                            "error": str(e),
+                            "message": error_msg,
                         }
                         print(f"  ⚠️ pytest收集异常: {file_path} - {e}")
-                        
+
         finally:
             # 清理临时文件
             for temp_file in temp_files:
@@ -3064,314 +3222,359 @@ Auto Generated Test - 需要人工审查
                         temp_file.unlink()
                 except Exception as e:
                     print(f"  ⚠️ 清理临时文件失败: {temp_file} - {e}")
-                    
+
         return collection_results
-        
+
     def _validate_imports(self, files: Dict[str, str]) -> Dict[str, Any]:
         """导入依赖验证"""
         import_results = {
-            'passed': [],
-            'failed': [],
-            'missing_dependencies': [],
-            'details': {}
+            "passed": [],
+            "failed": [],
+            "missing_dependencies": [],
+            "details": {},
         }
-        
+
         for file_path, content in files.items():
             try:
                 # 解析文件中的导入语句
                 tree = ast.parse(content)
                 imports = []
-                
+
                 for node in ast.walk(tree):
                     if isinstance(node, ast.Import):
                         for alias in node.names:
                             imports.append(alias.name)
                     elif isinstance(node, ast.ImportFrom):
-                        module = node.module or ''
+                        module = node.module or ""
                         for alias in node.names:
-                            full_import = f"{module}.{alias.name}" if module else alias.name
+                            full_import = (
+                                f"{module}.{alias.name}" if module else alias.name
+                            )
                             imports.append(full_import)
-                            
+
                 # 验证每个导入
                 failed_imports = []
                 for import_name in imports:
                     if not self._can_import(import_name):
                         failed_imports.append(import_name)
-                        
+
                 if failed_imports:
-                    import_results['failed'].append(file_path)
-                    import_results['missing_dependencies'].extend(failed_imports)
-                    import_results['details'][file_path] = {
-                        'status': 'fail',
-                        'failed_imports': failed_imports,
-                        'total_imports': len(imports),
-                        'message': f'导入失败: {", ".join(failed_imports[:3])}'
+                    import_results["failed"].append(file_path)
+                    import_results["missing_dependencies"].extend(failed_imports)
+                    import_results["details"][file_path] = {
+                        "status": "fail",
+                        "failed_imports": failed_imports,
+                        "total_imports": len(imports),
+                        "message": f'导入失败: {", ".join(failed_imports[:3])}',
                     }
                     print(f"  ❌ 导入验证失败: {file_path}")
                     print(f"     失败导入: {', '.join(failed_imports[:5])}")
                 else:
-                    import_results['passed'].append(file_path)
-                    import_results['details'][file_path] = {
-                        'status': 'pass',
-                        'total_imports': len(imports),
-                        'message': f'所有{len(imports)}个导入验证通过'
+                    import_results["passed"].append(file_path)
+                    import_results["details"][file_path] = {
+                        "status": "pass",
+                        "total_imports": len(imports),
+                        "message": f"所有{len(imports)}个导入验证通过",
                     }
                     print(f"  ✅ 导入验证通过: {file_path} ({len(imports)}个导入)")
-                    
+
             except Exception as e:
-                import_results['failed'].append(file_path)
-                import_results['details'][file_path] = {
-                    'status': 'error',
-                    'error': str(e),
-                    'message': f'导入验证异常: {e}'
+                import_results["failed"].append(file_path)
+                import_results["details"][file_path] = {
+                    "status": "error",
+                    "error": str(e),
+                    "message": f"导入验证异常: {e}",
                 }
                 print(f"  ⚠️ 导入验证异常: {file_path} - {e}")
-                
+
         return import_results
-        
+
     def _can_import(self, import_name: str) -> bool:
         """检查是否可以导入指定模块"""
         try:
             # 处理相对导入
-            if import_name.startswith('.'):
+            if import_name.startswith("."):
                 return True  # 跳过相对导入检查
-                
+
             # 处理特殊模块
-            if import_name in ['pytest', 'factory', 'unittest.mock', 'sqlalchemy']:
+            if import_name in ["pytest", "factory", "unittest.mock", "sqlalchemy"]:
                 return True  # 假设这些常用测试模块已安装
-                
+
             # 处理项目内部模块
-            if import_name.startswith('app.') or import_name.startswith('tests.'):
+            if import_name.startswith("app.") or import_name.startswith("tests."):
                 return True  # 假设项目内部模块存在
-                
+
             # 尝试实际导入
-            __import__(import_name.split('.')[0])
+            __import__(import_name.split(".")[0])
             return True
-            
+
         except ImportError:
             return False
         except Exception:
             return True  # 其他异常认为可以导入
-            
+
     def _check_dependencies(self, files: Dict[str, str]) -> Dict[str, Any]:
         """依赖完整性检查"""
         dependency_results = {
-            'factory_dependencies': {},
-            'model_dependencies': {},
-            'circular_dependencies': [],
-            'missing_factories': [],
-            'details': {}
+            "factory_dependencies": {},
+            "model_dependencies": {},
+            "circular_dependencies": [],
+            "missing_factories": [],
+            "details": {},
         }
-        
+
         # 分析工厂文件和测试文件的依赖关系
-        factory_files = {path: content for path, content in files.items() if 'factories' in path}
-        test_files = {path: content for path, content in files.items() if 'test_' in path}
-        
+        factory_files = {
+            path: content for path, content in files.items() if "factories" in path
+        }
+        test_files = {
+            path: content for path, content in files.items() if "test_" in path
+        }
+
         # 检查工厂依赖
         for factory_path, factory_content in factory_files.items():
             try:
                 # 解析工厂文件中定义的工厂类
                 tree = ast.parse(factory_content)
                 factory_classes = []
-                
+
                 for node in ast.walk(tree):
-                    if isinstance(node, ast.ClassDef) and node.name.endswith('Factory'):
+                    if isinstance(node, ast.ClassDef) and node.name.endswith("Factory"):
                         factory_classes.append(node.name)
-                        
-                dependency_results['factory_dependencies'][factory_path] = factory_classes
-                print(f"  📋 工厂文件: {factory_path} - 定义{len(factory_classes)}个工厂类")
-                
+
+                dependency_results["factory_dependencies"][
+                    factory_path
+                ] = factory_classes
+                print(
+                    f"  📋 工厂文件: {factory_path} - 定义{len(factory_classes)}个工厂类"
+                )
+
             except Exception as e:
                 print(f"  ⚠️ 工厂依赖分析失败: {factory_path} - {e}")
-                
+
         # 检查测试文件对工厂的依赖
         for test_path, test_content in test_files.items():
             try:
                 # 解析测试文件中使用的工厂类
                 used_factories = []
-                for line in test_content.split('\n'):
-                    if 'Factory(' in line or 'Factory.' in line:
+                for line in test_content.split("\n"):
+                    if "Factory(" in line or "Factory." in line:
                         # 简单的工厂使用检测
                         import re
-                        factory_matches = re.findall(r'(\w+Factory)', line)
+
+                        factory_matches = re.findall(r"(\w+Factory)", line)
                         used_factories.extend(factory_matches)
-                        
-                dependency_results['model_dependencies'][test_path] = used_factories
-                
+
+                dependency_results["model_dependencies"][test_path] = used_factories
+
                 if used_factories:
-                    print(f"  🔗 测试文件: {test_path} - 使用{len(set(used_factories))}个工厂类")
-                    
+                    print(
+                        f"  🔗 测试文件: {test_path} - 使用{len(set(used_factories))}个工厂类"
+                    )
+
             except Exception as e:
                 print(f"  ⚠️ 测试依赖分析失败: {test_path} - {e}")
-                
+
         # 检查是否有缺失的工厂依赖
         all_defined_factories = set()
-        for factories in dependency_results['factory_dependencies'].values():
+        for factories in dependency_results["factory_dependencies"].values():
             all_defined_factories.update(factories)
-            
+
         all_used_factories = set()
-        for factories in dependency_results['model_dependencies'].values():
+        for factories in dependency_results["model_dependencies"].values():
             all_used_factories.update(factories)
-            
+
         missing = all_used_factories - all_defined_factories
-        dependency_results['missing_factories'] = list(missing)
-        
+        dependency_results["missing_factories"] = list(missing)
+
         if missing:
             print(f"  ❌ 发现缺失工厂: {', '.join(missing)}")
         else:
             print(f"  ✅ 工厂依赖完整性检查通过")
-            
+
         return dependency_results
-        
+
     def _test_basic_execution(self, files: Dict[str, str]) -> Dict[str, Any]:
         """基础执行成功率测试"""
         execution_results = {
-            'executed_files': 0,
-            'successful_executions': 0,
-            'failed_executions': 0,
-            'execution_details': {},
-            'success_rate': 0.0
+            "executed_files": 0,
+            "successful_executions": 0,
+            "failed_executions": 0,
+            "execution_details": {},
+            "success_rate": 0.0,
         }
-        
+
         # 只对工厂文件进行基础执行测试
-        factory_files = {path: content for path, content in files.items() if 'factories' in path}
-        
+        factory_files = {
+            path: content for path, content in files.items() if "factories" in path
+        }
+
         for file_path, content in factory_files.items():
-            execution_results['executed_files'] += 1
-            
+            execution_results["executed_files"] += 1
+
             try:
                 # 创建一个安全的执行环境
                 safe_globals = {
-                    '__builtins__': __builtins__,
-                    'datetime': datetime,
-                    'Decimal': Decimal,
-                    'factory': Mock(),  # 使用Mock代替真实的factory
-                    'Mock': Mock,
+                    "__builtins__": __builtins__,
+                    "datetime": datetime,
+                    "Decimal": Decimal,
+                    "factory": Mock(),  # 使用Mock代替真实的factory
+                    "Mock": Mock,
                 }
-                
+
                 # 尝试执行工厂代码（仅语法和基本结构检查）
-                exec(compile(content, file_path, 'exec'), safe_globals)
-                
-                execution_results['successful_executions'] += 1
-                execution_results['execution_details'][file_path] = {
-                    'status': 'success',
-                    'message': '基础执行成功'
+                exec(compile(content, file_path, "exec"), safe_globals)
+
+                execution_results["successful_executions"] += 1
+                execution_results["execution_details"][file_path] = {
+                    "status": "success",
+                    "message": "基础执行成功",
                 }
                 print(f"  ✅ 基础执行测试通过: {file_path}")
-                
+
             except Exception as e:
-                execution_results['failed_executions'] += 1
-                execution_results['execution_details'][file_path] = {
-                    'status': 'fail',
-                    'error': str(e),
-                    'message': f'执行失败: {e}'
+                execution_results["failed_executions"] += 1
+                execution_results["execution_details"][file_path] = {
+                    "status": "fail",
+                    "error": str(e),
+                    "message": f"执行失败: {e}",
                 }
                 print(f"  ❌ 基础执行测试失败: {file_path} - {e}")
-                
+
         # 计算成功率
-        if execution_results['executed_files'] > 0:
-            execution_results['success_rate'] = (
-                execution_results['successful_executions'] / execution_results['executed_files'] * 100
+        if execution_results["executed_files"] > 0:
+            execution_results["success_rate"] = (
+                execution_results["successful_executions"]
+                / execution_results["executed_files"]
+                * 100
             )
-            
+
         return execution_results
-        
+
     def _summarize_validation_results(self, validation_results: Dict[str, Any]):
         """汇总验证结果"""
         print("\n📊 测试质量验证报告 [CHECK:TEST-008]")
         print("=" * 50)
-        
-        summary = validation_results['summary']
-        
+
+        summary = validation_results["summary"]
+
         # 语法检查总结
-        syntax = validation_results['syntax_check']
-        syntax_pass_rate = len(syntax['passed']) / len(syntax['passed'] + syntax['failed']) * 100 if (syntax['passed'] + syntax['failed']) else 100
-        print(f"🔍 语法检查: {len(syntax['passed'])}/{len(syntax['passed']) + len(syntax['failed'])} 通过 ({syntax_pass_rate:.1f}%)")
-        
+        syntax = validation_results["syntax_check"]
+        syntax_pass_rate = (
+            len(syntax["passed"]) / len(syntax["passed"] + syntax["failed"]) * 100
+            if (syntax["passed"] + syntax["failed"])
+            else 100
+        )
+        print(
+            f"🔍 语法检查: {len(syntax['passed'])}/{len(syntax['passed']) + len(syntax['failed'])} 通过 ({syntax_pass_rate:.1f}%)"
+        )
+
         # pytest收集总结
-        collection = validation_results['pytest_collection']
-        collection_files = len(collection['test_files'])
-        total_tests = collection['collected_tests']
+        collection = validation_results["pytest_collection"]
+        collection_files = len(collection["test_files"])
+        total_tests = collection["collected_tests"]
         print(f"🧪 pytest收集: {collection_files}个测试文件, {total_tests}个测试方法")
-        
+
         # 导入验证总结
-        imports = validation_results['import_validation']
-        import_pass_rate = len(imports['passed']) / len(imports['passed'] + imports['failed']) * 100 if (imports['passed'] + imports['failed']) else 100
-        print(f"📦 导入验证: {len(imports['passed'])}/{len(imports['passed']) + len(imports['failed'])} 通过 ({import_pass_rate:.1f}%)")
-        
+        imports = validation_results["import_validation"]
+        import_pass_rate = (
+            len(imports["passed"]) / len(imports["passed"] + imports["failed"]) * 100
+            if (imports["passed"] + imports["failed"])
+            else 100
+        )
+        print(
+            f"📦 导入验证: {len(imports['passed'])}/{len(imports['passed']) + len(imports['failed'])} 通过 ({import_pass_rate:.1f}%)"
+        )
+
         # 依赖完整性总结
-        deps = validation_results['dependency_check']
-        missing_count = len(deps['missing_factories'])
-        print(f"🔗 依赖检查: {len(deps['factory_dependencies'])}个工厂文件, {missing_count}个缺失依赖")
-        
+        deps = validation_results["dependency_check"]
+        missing_count = len(deps["missing_factories"])
+        print(
+            f"🔗 依赖检查: {len(deps['factory_dependencies'])}个工厂文件, {missing_count}个缺失依赖"
+        )
+
         # 执行成功率总结
-        execution = validation_results['execution_test']
-        exec_rate = execution['success_rate']
-        print(f"▶️ 执行测试: {execution['successful_executions']}/{execution['executed_files']} 通过 ({exec_rate:.1f}%)")
-        
+        execution = validation_results["execution_test"]
+        exec_rate = execution["success_rate"]
+        print(
+            f"▶️ 执行测试: {execution['successful_executions']}/{execution['executed_files']} 通过 ({exec_rate:.1f}%)"
+        )
+
         # 整体评估
         overall_score = (syntax_pass_rate + import_pass_rate + exec_rate) / 3
         if overall_score >= 90:
             status = "🎉 优秀"
-            validation_results['overall_success'] = True
+            validation_results["overall_success"] = True
         elif overall_score >= 75:
-            status = "✅ 良好"  
-            validation_results['overall_success'] = True
+            status = "✅ 良好"
+            validation_results["overall_success"] = True
         elif overall_score >= 60:
             status = "⚠️ 一般"
-            validation_results['overall_success'] = False
+            validation_results["overall_success"] = False
         else:
             status = "❌ 需要改进"
-            validation_results['overall_success'] = False
-            
+            validation_results["overall_success"] = False
+
         print(f"\n📈 整体质量评分: {overall_score:.1f}% - {status}")
-        
+
         # 更新汇总信息
-        summary['passed'] = len(syntax['passed'])
-        summary['failed'] = len(syntax['failed']) + len(imports['failed'])
-        summary['overall_score'] = overall_score
-        summary['status'] = status
-        
-        if not validation_results['overall_success']:
+        summary["passed"] = len(syntax["passed"])
+        summary["failed"] = len(syntax["failed"]) + len(imports["failed"])
+        summary["overall_score"] = overall_score
+        summary["status"] = status
+
+        if not validation_results["overall_success"]:
             print("\n⚠️ 建议检查和修复以上问题后重新验证")
         else:
             print("\n🎯 验证通过，生成的测试文件质量符合标准 [CHECK:TEST-008]")
-            
-    def _save_validation_report(self, module_name: str, validation_results: Dict[str, Any]):
+
+    def _save_validation_report(
+        self, module_name: str, validation_results: Dict[str, Any]
+    ):
         """保存验证报告到文档目录 [CHECK:DEV-009]"""
         try:
             # 创建报告目录
-            reports_dir = self.project_root / 'docs' / 'analysis'
+            reports_dir = self.project_root / "docs" / "analysis"
             reports_dir.mkdir(parents=True, exist_ok=True)
-            
+
             # 生成报告文件名
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            report_file = reports_dir / f'{module_name}_test_validation_report_{timestamp}.md'
-            
+            report_file = (
+                reports_dir / f"{module_name}_test_validation_report_{timestamp}.md"
+            )
+
             # 生成Markdown报告内容
-            report_content = self._generate_validation_markdown_report(module_name, validation_results)
-            
+            report_content = self._generate_validation_markdown_report(
+                module_name, validation_results
+            )
+
             # 写入报告文件
-            with open(report_file, 'w', encoding='utf-8') as f:
+            with open(report_file, "w", encoding="utf-8") as f:
                 f.write(report_content)
-                
+
             print(f"\n📋 验证报告已保存: {report_file}")
-            
+
             # 同时保存JSON格式的详细数据
-            json_report_file = reports_dir / f'{module_name}_test_validation_data_{timestamp}.json'
-            with open(json_report_file, 'w', encoding='utf-8') as f:
+            json_report_file = (
+                reports_dir / f"{module_name}_test_validation_data_{timestamp}.json"
+            )
+            with open(json_report_file, "w", encoding="utf-8") as f:
                 # 使用自定义JSON编码器处理复杂对象
-                json.dump(validation_results, f, indent=2, default=str, ensure_ascii=False)
-                
+                json.dump(
+                    validation_results, f, indent=2, default=str, ensure_ascii=False
+                )
+
             print(f"📊 验证数据已保存: {json_report_file}")
-            
+
         except Exception as e:
             print(f"⚠️ 保存验证报告失败: {e}")
-            
-    def _generate_validation_markdown_report(self, module_name: str, validation_results: Dict[str, Any]) -> str:
+
+    def _generate_validation_markdown_report(
+        self, module_name: str, validation_results: Dict[str, Any]
+    ) -> str:
         """生成Markdown格式的验证报告"""
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        
+
         report = f"""# {module_name.title()} 模块测试生成验证报告
 
 ## 基本信息
@@ -3389,19 +3592,23 @@ Auto Generated Test - 需要人工审查
 """
 
         # 添加各项验证结果
-        syntax = validation_results['syntax_check']
-        syntax_total = len(syntax['passed']) + len(syntax['failed'])
-        syntax_rate = len(syntax['passed']) / syntax_total * 100 if syntax_total > 0 else 100
-        
-        imports = validation_results['import_validation']  
-        import_total = len(imports['passed']) + len(imports['failed'])
-        import_rate = len(imports['passed']) / import_total * 100 if import_total > 0 else 100
-        
-        execution = validation_results['execution_test']
-        exec_rate = execution['success_rate']
-        
-        collection = validation_results['pytest_collection']
-        
+        syntax = validation_results["syntax_check"]
+        syntax_total = len(syntax["passed"]) + len(syntax["failed"])
+        syntax_rate = (
+            len(syntax["passed"]) / syntax_total * 100 if syntax_total > 0 else 100
+        )
+
+        imports = validation_results["import_validation"]
+        import_total = len(imports["passed"]) + len(imports["failed"])
+        import_rate = (
+            len(imports["passed"]) / import_total * 100 if import_total > 0 else 100
+        )
+
+        execution = validation_results["execution_test"]
+        exec_rate = execution["success_rate"]
+
+        collection = validation_results["pytest_collection"]
+
         report += f"""| 语法检查 | {len(syntax['passed'])} | {syntax_total} | {syntax_rate:.1f}% | {'✅' if syntax_rate >= 90 else '⚠️' if syntax_rate >= 70 else '❌'} |
 | 导入验证 | {len(imports['passed'])} | {import_total} | {import_rate:.1f}% | {'✅' if import_rate >= 90 else '⚠️' if import_rate >= 70 else '❌'} |
 | pytest收集 | {len(collection['test_files'])} | {len(collection['test_files']) + len(collection['collection_errors'])} | - | {'✅' if len(collection['collection_errors']) == 0 else '❌'} |
@@ -3412,16 +3619,16 @@ Auto Generated Test - 需要人工审查
 #### 1. Python语法检查
 """
 
-        if syntax['passed']:
+        if syntax["passed"]:
             report += "**通过的文件:**\n"
-            for file_path in syntax['passed']:
+            for file_path in syntax["passed"]:
                 report += f"- ✅ `{file_path}`\n"
-                
-        if syntax['failed']:
+
+        if syntax["failed"]:
             report += "\n**失败的文件:**\n"
-            for file_path in syntax['failed']:
-                details = syntax['details'].get(file_path, {})
-                error = details.get('message', '未知错误')
+            for file_path in syntax["failed"]:
+                details = syntax["details"].get(file_path, {})
+                error = details.get("message", "未知错误")
                 report += f"- ❌ `{file_path}`: {error}\n"
 
         report += f"""
@@ -3431,38 +3638,40 @@ Auto Generated Test - 需要人工审查
 - **收集的测试方法数**: {collection['collected_tests']}
 """
 
-        if collection['test_files']:
+        if collection["test_files"]:
             report += "\n**成功收集的测试文件:**\n"
-            for file_path in collection['test_files']:
-                details = collection['details'].get(file_path, {})
-                test_count = details.get('test_count', 0)
+            for file_path in collection["test_files"]:
+                details = collection["details"].get(file_path, {})
+                test_count = details.get("test_count", 0)
                 report += f"- ✅ `{file_path}` ({test_count}个测试)\n"
-                
-        if collection['collection_errors']:
+
+        if collection["collection_errors"]:
             report += "\n**收集失败的文件:**\n"
-            for error_info in collection['collection_errors']:
-                report += f"- ❌ `{error_info['file']}`: {error_info['error'][:100]}...\n"
+            for error_info in collection["collection_errors"]:
+                report += (
+                    f"- ❌ `{error_info['file']}`: {error_info['error'][:100]}...\n"
+                )
 
         report += f"""
 
 #### 3. 导入依赖验证
 """
 
-        if imports['passed']:
+        if imports["passed"]:
             report += "**验证通过的文件:**\n"
-            for file_path in imports['passed']:
-                details = imports['details'].get(file_path, {})
-                import_count = details.get('total_imports', 0)
+            for file_path in imports["passed"]:
+                details = imports["details"].get(file_path, {})
+                import_count = details.get("total_imports", 0)
                 report += f"- ✅ `{file_path}` ({import_count}个导入)\n"
-                
-        if imports['failed']:
+
+        if imports["failed"]:
             report += "\n**验证失败的文件:**\n"
-            for file_path in imports['failed']:
-                details = imports['details'].get(file_path, {})
-                failed_imports = details.get('failed_imports', [])
+            for file_path in imports["failed"]:
+                details = imports["details"].get(file_path, {})
+                failed_imports = details.get("failed_imports", [])
                 report += f"- ❌ `{file_path}`: 缺失 {', '.join(failed_imports[:3])}\n"
 
-        deps = validation_results['dependency_check']
+        deps = validation_results["dependency_check"]
         report += f"""
 
 #### 4. 依赖完整性检查
@@ -3470,9 +3679,9 @@ Auto Generated Test - 需要人工审查
 - **缺失的工厂依赖**: {len(deps['missing_factories'])}
 """
 
-        if deps['missing_factories']:
+        if deps["missing_factories"]:
             report += "\n**缺失的工厂类:**\n"
-            for factory in deps['missing_factories']:
+            for factory in deps["missing_factories"]:
                 report += f"- ❌ `{factory}`\n"
         else:
             report += "\n✅ 所有工厂依赖完整\n"
@@ -3499,16 +3708,16 @@ Auto Generated Test - 需要人工审查
             suggestions.append("- 修复语法错误，确保所有生成文件符合Python语法规范")
         if import_rate < 90:
             suggestions.append("- 检查并安装缺失的依赖包，确保所有导入可正确执行")
-        if len(collection['collection_errors']) > 0:
+        if len(collection["collection_errors"]) > 0:
             suggestions.append("- 修复pytest收集错误，确保测试可以被正确发现和执行")
         if exec_rate < 90:
             suggestions.append("- 修复基础执行错误，确保工厂类和测试代码可以正常加载")
-        if len(deps['missing_factories']) > 0:
+        if len(deps["missing_factories"]) > 0:
             suggestions.append("- 补充缺失的工厂类定义，确保测试数据依赖完整")
-            
+
         if not suggestions:
             suggestions.append("🎉 当前质量已达到优秀标准，无需特别改进")
-            
+
         for suggestion in suggestions:
             report += f"{suggestion}\n"
 
@@ -3530,22 +3739,30 @@ Auto Generated Test - 需要人工审查
 def main():
     """主程序入口 [CHECK:DEV-009]"""
     parser = argparse.ArgumentParser(
-        description='智能五层架构测试生成器 v2.0',
-        epilog='示例: python tools/generate_test_template.py user_auth --type all --validate'
+        description="智能五层架构测试生成器 v2.0",
+        epilog="示例: python tools/generate_test_template.py user_auth --type all --validate",
     )
-    
-    parser.add_argument('module_name', help='模块名称 (如: user_auth, shopping_cart)')
-    parser.add_argument('--type', choices=['all', 'unit', 'integration', 'e2e', 'smoke', 'specialized'], 
-                       default='all', help='生成的测试类型')
-    parser.add_argument('--dry-run', action='store_true', help='试运行模式（不写入文件）')
-    parser.add_argument('--validate', action='store_true', default=True, help='验证生成的代码')
-    parser.add_argument('--detailed', action='store_true', help='显示详细的分析信息')
-    
+
+    parser.add_argument("module_name", help="模块名称 (如: user_auth, shopping_cart)")
+    parser.add_argument(
+        "--type",
+        choices=["all", "unit", "integration", "e2e", "smoke", "specialized"],
+        default="all",
+        help="生成的测试类型",
+    )
+    parser.add_argument(
+        "--dry-run", action="store_true", help="试运行模式（不写入文件）"
+    )
+    parser.add_argument(
+        "--validate", action="store_true", default=True, help="验证生成的代码"
+    )
+    parser.add_argument("--detailed", action="store_true", help="显示详细的分析信息")
+
     args = parser.parse_args()
-    
+
     try:
         generator = IntelligentTestGenerator()
-        
+
         if args.detailed:
             # 显示详细分析信息
             models = generator.analyze_module_models(args.module_name)
@@ -3554,34 +3771,33 @@ def main():
                 print(f"   表名: {model_info.tablename}")
                 print(f"   字段: {len(model_info.fields)}个")
                 print(f"   关系: {len(model_info.relationships)}个")
-                print(f"   混入: {', '.join(model_info.mixins) if model_info.mixins else '无'}")
+                print(
+                    f"   混入: {', '.join(model_info.mixins) if model_info.mixins else '无'}"
+                )
         else:
             # 生成测试
             result = generator.generate_tests(
-                args.module_name, 
-                args.type, 
-                args.dry_run, 
-                args.validate
+                args.module_name, args.type, args.dry_run, args.validate
             )
-            
+
             # 处理返回值（兼容单返回值和双返回值）
             if isinstance(result, tuple):
                 generated_files, validation_report = result
             else:
                 generated_files = result
                 validation_report = None
-            
+
             if args.dry_run:
                 print("\n🔍 试运行结果:")
                 for file_path in generated_files.keys():
                     print(f"   将生成: {file_path}")
             else:
                 print(f"\n🎯 生成完成！共生成 {len(generated_files)} 个文件")
-                if validation_report and validation_report['overall_success']:
+                if validation_report and validation_report["overall_success"]:
                     print("✅ 所有验证检查通过，质量符合标准")
                 elif validation_report:
                     print("⚠️ 部分验证检查未通过，请查看验证报告")
-                    
+
     except Exception as e:
         print(f"❌ 执行失败: {e}")
         sys.exit(1)

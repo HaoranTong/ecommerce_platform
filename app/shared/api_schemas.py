@@ -1,15 +1,16 @@
-from pydantic import BaseModel, Field, field_validator, ConfigDict
-from typing import Optional, List, Dict, Any
 from datetime import datetime
 from decimal import Decimal
+from typing import Any, Dict, List, Optional
+
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 # 用户认证相关 Schema
 class UserRegister(BaseModel):
     username: str = Field(..., min_length=3, max_length=50)
-    email: str = Field(..., pattern=r'^[^\s@]+@[^\s@]+\.[^\s@]+$')
+    email: str = Field(..., pattern=r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
     password: str = Field(..., min_length=6, max_length=128)
-    phone: Optional[str] = Field(None, pattern=r'^1[3-9]\d{9}$')
+    phone: Optional[str] = Field(None, pattern=r"^1[3-9]\d{9}$")
     real_name: Optional[str] = Field(None, max_length=100)
 
 
@@ -19,8 +20,8 @@ class UserLogin(BaseModel):
 
 
 class UserUpdate(BaseModel):
-    email: Optional[str] = Field(None, pattern=r'^[^\s@]+@[^\s@]+\.[^\s@]+$')
-    phone: Optional[str] = Field(None, pattern=r'^1[3-9]\d{9}$')
+    email: Optional[str] = Field(None, pattern=r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
+    phone: Optional[str] = Field(None, pattern=r"^1[3-9]\d{9}$")
     real_name: Optional[str] = Field(None, max_length=100)
 
 
@@ -77,7 +78,7 @@ class CartSummary(BaseModel):
     total_items: int  # 商品种类数
     total_quantity: int  # 总数量
     total_amount: Decimal  # 总金额
-    
+
     model_config = ConfigDict(from_attributes=True)
 
 
@@ -125,7 +126,7 @@ class CategoryTreeRead(BaseModel):
     sort_order: int
     is_active: bool
     created_at: datetime
-    children: List['CategoryTreeRead'] = []
+    children: List["CategoryTreeRead"] = []
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -140,7 +141,7 @@ class ProductCreate(BaseModel):
     stock_quantity: int = Field(..., ge=0)
     status: str = Field(default="active", pattern="^(active|inactive|out_of_stock)$")
     attributes: Optional[str] = None  # JSON string
-    images: Optional[str] = None      # JSON string
+    images: Optional[str] = None  # JSON string
     image_url: Optional[str] = Field(None, max_length=500, description="主图URL")
 
 
@@ -204,11 +205,11 @@ class OrderCreate(BaseModel):
     shipping_address: Optional[str] = None  # JSON string
     remark: Optional[str] = None
 
-    @field_validator('items')
+    @field_validator("items")
     @classmethod
     def validate_items_not_empty(cls, v):
         if not v:
-            raise ValueError('订单必须包含至少一个商品')
+            raise ValueError("订单必须包含至少一个商品")
         return v
 
 
@@ -228,7 +229,7 @@ class OrderRead(BaseModel):
     paid_at: Optional[datetime] = None
     shipped_at: Optional[datetime] = None
     delivered_at: Optional[datetime] = None
-    
+
     # 包含订单项
     order_items: List[OrderItemRead] = []
 
@@ -260,26 +261,30 @@ class CertificateRead(BaseModel):
 # 支付相关 Schema - V1.0 Mini-MVP
 class PaymentCreate(BaseModel):
     order_id: int = Field(..., description="订单ID")
-    payment_method: str = Field(..., description="支付方式", pattern=r'^(wechat|alipay|unionpay|paypal|balance)$')
+    payment_method: str = Field(
+        ...,
+        description="支付方式",
+        pattern=r"^(wechat|alipay|unionpay|paypal|balance)$",
+    )
     amount: Optional[Decimal] = Field(None, description="支付金额，为空时使用订单金额")
     currency: str = Field("CNY", description="货币类型")
     return_url: Optional[str] = Field(None, description="前端回调URL")
     notify_url: Optional[str] = Field(None, description="后端通知URL")
     description: Optional[str] = Field(None, description="支付描述")
-    
-    @field_validator('payment_method')
+
+    @field_validator("payment_method")
     @classmethod
     def validate_payment_method(cls, v):
-        allowed_methods = ['wechat', 'alipay', 'unionpay', 'paypal', 'balance']
+        allowed_methods = ["wechat", "alipay", "unionpay", "paypal", "balance"]
         if v not in allowed_methods:
             raise ValueError(f'支付方式必须是: {", ".join(allowed_methods)}')
         return v
-    
-    @field_validator('amount')
+
+    @field_validator("amount")
     @classmethod
     def validate_amount(cls, v):
         if v is not None and v <= 0:
-            raise ValueError('支付金额必须大于0')
+            raise ValueError("支付金额必须大于0")
         return v
 
 
@@ -318,12 +323,12 @@ class RefundCreate(BaseModel):
     amount: Decimal = Field(..., description="退款金额")
     reason: str = Field(..., description="退款原因")
     operator_id: Optional[int] = Field(None, description="操作员ID")
-    
-    @field_validator('amount')
+
+    @field_validator("amount")
     @classmethod
     def validate_amount(cls, v):
         if v <= 0:
-            raise ValueError('退款金额必须大于0')
+            raise ValueError("退款金额必须大于0")
         return v
 
 
@@ -353,11 +358,11 @@ class PaymentStatusUpdate(BaseModel):
     external_payment_id: Optional[str] = Field(None, description="第三方支付ID")
     external_transaction_id: Optional[str] = Field(None, description="第三方交易ID")
     callback_data: Optional[str] = Field(None, description="回调数据")
-    
-    @field_validator('status')
+
+    @field_validator("status")
     @classmethod
     def validate_status(cls, v):
-        allowed_statuses = ['pending', 'paid', 'failed', 'refunded']
+        allowed_statuses = ["pending", "paid", "failed", "refunded"]
         if v not in allowed_statuses:
             raise ValueError(f'支付状态必须是: {", ".join(allowed_statuses)}')
         return v
@@ -365,6 +370,7 @@ class PaymentStatusUpdate(BaseModel):
 
 class WechatPaymentCallback(BaseModel):
     """微信支付回调数据模型"""
+
     out_trade_no: str = Field(..., description="商户订单号")
     transaction_id: str = Field(..., description="微信支付订单号")
     trade_state: str = Field(..., description="交易状态")

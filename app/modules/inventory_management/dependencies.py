@@ -24,20 +24,22 @@
 
 from fastapi import Depends
 from sqlalchemy.orm import Session
+
 from app.core.database import get_db
+
 from .service import InventoryService
 
 
 def get_inventory_service(db: Session = Depends(get_db)) -> InventoryService:
     """
     获取库存管理服务实例
-    
+
     Args:
         db (Session): 数据库会话实例
-        
+
     Returns:
         InventoryService: 库存管理服务实例
-        
+
     Note:
         此依赖会在每次API调用时创建新的服务实例
         服务实例会自动注入数据库会话

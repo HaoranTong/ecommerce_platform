@@ -7,31 +7,40 @@
 - 合规性检查接口
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
 from typing import List
 
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.orm import Session
+
 from app.core.database import get_db
+
 from .models import Certificate
-from .schemas import CertificateRead, CertificateCreate
+from .schemas import CertificateCreate, CertificateRead
 
 router = APIRouter()
 
 
 # ============ 证书管理接口 ============
 
-@router.post("/quality-control/certificates", response_model=CertificateRead, status_code=status.HTTP_201_CREATED)
+
+@router.post(
+    "/quality-control/certificates",
+    response_model=CertificateRead,
+    status_code=status.HTTP_201_CREATED,
+)
 def create_certificate(payload: CertificateCreate, db: Session = Depends(get_db)):
     """创建新证书"""
-    existing = db.query(Certificate).filter(Certificate.serial == payload.serial).first()
+    existing = (
+        db.query(Certificate).filter(Certificate.serial == payload.serial).first()
+    )
     if existing:
         raise HTTPException(status_code=400, detail="证书序列号已存在")
-    
+
     cert = Certificate(
-        name=payload.name, 
-        issuer=payload.issuer, 
-        serial=payload.serial, 
-        description=payload.description
+        name=payload.name,
+        issuer=payload.issuer,
+        serial=payload.serial,
+        description=payload.description,
     )
     db.add(cert)
     db.commit()
@@ -55,7 +64,9 @@ def get_certificate(cert_id: int, db: Session = Depends(get_db)):
     return cert
 
 
-@router.delete("/quality-control/certificates/{cert_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/quality-control/certificates/{cert_id}", status_code=status.HTTP_204_NO_CONTENT
+)
 def delete_certificate(cert_id: int, db: Session = Depends(get_db)):
     """删除证书"""
     cert = db.query(Certificate).get(cert_id)

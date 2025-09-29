@@ -26,6 +26,7 @@ param(
         "REQ-001", "REQ-002", "REQ-003",
         "ARCH-001", "ARCH-002", "ARCH-003", 
         "DEV-001", "DEV-002", "DEV-003", "DEV-004", "DEV-005", "DEV-006", "DEV-007", "DEV-008", "DEV-009",
+        "DEV-010", "DEV-011", "DEV-012", "DEV-013", "DEV-014",
         "TEST-001", "TEST-002", "TEST-003", "TEST-004", "TEST-005", "TEST-006",
         "DOC-001", "DOC-002", "DOC-003", "DOC-004", "DOC-005", "DOC-006"
     )]
@@ -64,7 +65,17 @@ function Invoke-CheckpointCard {
         "DEV-006" { Test-SecurityImplementation $ModuleName $FilePath }
         "DEV-007" { Test-ErrorHandlingImplementation $ModuleName $FilePath }
         "DEV-008" { Test-CodeQuality $ModuleName $FilePath }
-        "DEV-009" { Test-CodeStandards $ModuleName $FilePath }
+    "DEV-009" { Test-CodeStandards $ModuleName $FilePath }
+    # 代码审查验证
+    "DEV-010" { Write-Host "📋 代码审查验证 - $ModuleName" -ForegroundColor Yellow; & "tools/code_review_checklist.ps1" -Module $ModuleName }
+    # 数据迁移验证
+    "DEV-011" { Write-Host "📋 数据迁移验证 - $ModuleName" -ForegroundColor Yellow; & "tools/validate_migration.ps1" -Module $ModuleName }
+    # 配置管理验证
+    "DEV-012" { Write-Host "📋 配置管理验证 - $ModuleName" -ForegroundColor Yellow; & "tools/validate_config.ps1" -Environment $ModuleName }
+    # 依赖管理验证
+    "DEV-013" { Write-Host "📋 依赖管理验证 - $ModuleName" -ForegroundColor Yellow; & "tools/check_dependencies.ps1" -Module $ModuleName }
+    # 性能基准验证
+    "DEV-014" { Write-Host "📋 性能基准验证 - $ModuleName" -ForegroundColor Yellow; & "tools/performance_benchmark.ps1" -Module $ModuleName }
         
         # 测试验证类 (TEST)
         "TEST-001" { Test-TestEnvironment $ModuleName }

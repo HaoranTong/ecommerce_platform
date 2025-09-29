@@ -15,9 +15,9 @@
 
 架构说明：
 - 核心交易模块：user_auth, product_catalog, shopping_cart, order_management, payment_service
-- 农产品特色模块：batch_traceability, logistics_management  
+- 农产品特色模块：batch_traceability, logistics_management
 - 营销会员模块：member_system, distributor_management, marketing_campaigns, social_features
-- 基础服务模块：inventory_management, notification_service, supplier_management, 
+- 基础服务模块：inventory_management, notification_service, supplier_management,
   customer_service_system, risk_control_system, recommendation_system, data_analytics_platform
 
 创建时间：2025-09-17
@@ -30,30 +30,26 @@ __title__ = "Business Modules Package"
 AVAILABLE_MODULES = [
     # 核心交易模块 (P0 - 已完成)
     "user_auth",
-    "product_catalog", 
+    "product_catalog",
     "shopping_cart",
     "order_management",
     "payment_service",
-    
     # 基础服务模块 (P1-P2)
     "inventory_management",
     "notification_service",
     "supplier_management",
-    "customer_service_system", 
+    "customer_service_system",
     "risk_control_system",
     "recommendation_system",
     "data_analytics_platform",
-    
     # 农产品特色模块 (P1)
     "batch_traceability",
     "logistics_management",
-    
     # 营销会员模块 (P1-P2)
     "member_system",
-    "distributor_management", 
+    "distributor_management",
     "marketing_campaigns",
     "social_features",
-    
     # 质量控制模块 (P2)
     "quality_control",
 ]

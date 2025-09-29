@@ -4,13 +4,15 @@
 定义API请求和响应的数据结构
 """
 
-from pydantic import BaseModel, ConfigDict
 from datetime import datetime
 from typing import Optional
+
+from pydantic import BaseModel, ConfigDict
 
 
 class CertificateBase(BaseModel):
     """证书基础模式"""
+
     serial: str
     name: str
     issuer: str
@@ -22,11 +24,13 @@ class CertificateBase(BaseModel):
 
 class CertificateCreate(CertificateBase):
     """创建证书请求模式"""
+
     pass
 
 
 class CertificateRead(CertificateBase):
     """证书响应模式 - 使用int类型主键符合INTEGER标准"""
+
     id: int
     created_at: datetime
     updated_at: datetime

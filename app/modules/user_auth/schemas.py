@@ -15,49 +15,58 @@
 - pydantic: 数据验证和字段定义
 """
 
-from pydantic import BaseModel, Field, field_validator, ConfigDict
-from typing import Optional
 from datetime import datetime
+from typing import Optional
+
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
 
 # 模块内独立定义基础schemas，遵循模块化单体架构原则
 class BaseSchema(BaseModel):
     """用户认证模块基础模式类"""
-    model_config = ConfigDict(
-        from_attributes=True,
-        arbitrary_types_allowed=True
-    )
+
+    model_config = ConfigDict(from_attributes=True, arbitrary_types_allowed=True)
+
 
 class TimestampSchema(BaseSchema):
     """包含时间戳的基础模式"""
+
     created_at: datetime
     updated_at: datetime
 
 
 class UserRegister(BaseSchema):
     """用户注册模式"""
+
     username: str = Field(..., min_length=3, max_length=50, description="用户名")
-    email: str = Field(..., pattern=r'^[^\s@]+@[^\s@]+\.[^\s@]+$', description="邮箱地址")
+    email: str = Field(
+        ..., pattern=r"^[^\s@]+@[^\s@]+\.[^\s@]+$", description="邮箱地址"
+    )
     password: str = Field(..., min_length=6, max_length=128, description="密码")
-    phone: Optional[str] = Field(None, pattern=r'^1[3-9]\d{9}$', description="手机号")
-    verification_code: str = Field(..., min_length=6, max_length=6, description="验证码")
+    phone: Optional[str] = Field(None, pattern=r"^1[3-9]\d{9}$", description="手机号")
+    verification_code: str = Field(
+        ..., min_length=6, max_length=6, description="验证码"
+    )
     real_name: Optional[str] = Field(None, max_length=100, description="真实姓名")
-    
-    @field_validator('username')
+
+    @field_validator("username")
     @classmethod
     def validate_username(cls, v):
-        if not v.replace('_', '').replace('-', '').isalnum():
-            raise ValueError('用户名只能包含字母、数字、下划线和横线')
+        if not v.replace("_", "").replace("-", "").isalnum():
+            raise ValueError("用户名只能包含字母、数字、下划线和横线")
         return v
 
 
 class UserLogin(BaseSchema):
     """用户登录模式"""
+
     username: str = Field(..., description="用户名或邮箱")
     password: str = Field(..., description="密码")
 
 
 class UserCreate(BaseSchema):
     """用户创建模式（管理员用）"""
+
     username: str = Field(..., max_length=50, description="用户名")
     email: str = Field(..., description="邮箱地址")
     password: Optional[str] = Field(None, min_length=6, description="密码")
@@ -69,26 +78,31 @@ class UserCreate(BaseSchema):
 
 class UserUpdate(BaseSchema):
     """用户信息更新模式"""
-    email: Optional[str] = Field(None, pattern=r'^[^\s@]+@[^\s@]+\.[^\s@]+$', description="邮箱地址")
-    phone: Optional[str] = Field(None, pattern=r'^1[3-9]\d{9}$', description="手机号")
+
+    email: Optional[str] = Field(
+        None, pattern=r"^[^\s@]+@[^\s@]+\.[^\s@]+$", description="邮箱地址"
+    )
+    phone: Optional[str] = Field(None, pattern=r"^1[3-9]\d{9}$", description="手机号")
     real_name: Optional[str] = Field(None, max_length=100, description="真实姓名")
 
 
 class UserChangePassword(BaseSchema):
     """用户修改密码模式"""
+
     old_password: str = Field(..., description="原密码")
     new_password: str = Field(..., min_length=6, max_length=128, description="新密码")
-    
-    @field_validator('new_password')
+
+    @field_validator("new_password")
     @classmethod
     def validate_new_password(cls, v, info):
-        if 'old_password' in info.data and v == info.data['old_password']:
-            raise ValueError('新密码不能与原密码相同')
+        if "old_password" in info.data and v == info.data["old_password"]:
+            raise ValueError("新密码不能与原密码相同")
         return v
 
 
 class UserRead(TimestampSchema):
     """用户信息展示模式"""
+
     id: int
     username: str
     email: str
@@ -107,11 +121,13 @@ class UserRead(TimestampSchema):
 
 class UserProfile(UserRead):
     """用户个人资料模式（包含敏感信息）"""
+
     pass  # 继承UserRead，可根据需要添加额外字段
 
 
 class UserPublic(BaseSchema):
     """用户公开信息模式（不包含敏感信息）"""
+
     id: int
     username: str
     real_name: Optional[str] = None
@@ -121,6 +137,7 @@ class UserPublic(BaseSchema):
 
 class Token(BaseSchema):
     """认证令牌模式"""
+
     access_token: str
     refresh_token: Optional[str] = None
     token_type: str = "bearer"
@@ -129,11 +146,13 @@ class Token(BaseSchema):
 
 class TokenRefresh(BaseSchema):
     """令牌刷新模式"""
+
     refresh_token: str
 
 
 class TokenData(BaseSchema):
     """令牌数据模式（用于JWT解析）"""
+
     user_id: Optional[int] = None
     username: Optional[str] = None
     role: Optional[str] = None
@@ -142,6 +161,7 @@ class TokenData(BaseSchema):
 
 class UserStats(BaseSchema):
     """用户统计信息模式"""
+
     total_users: int
     active_users: int
     new_users_today: int

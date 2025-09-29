@@ -4,12 +4,8 @@
 提供统一的支付服务集成接口，支持多种支付方式
 """
 
-from .wechat_adapter import WechatPayAdapter
 from .alipay_adapter import AlipayAdapter
 from .config import PaymentConfig
+from .wechat_adapter import WechatPayAdapter
 
-__all__ = [
-    "WechatPayAdapter",
-    "AlipayAdapter", 
-    "PaymentConfig"
-]
+__all__ = ["WechatPayAdapter", "AlipayAdapter", "PaymentConfig"]
