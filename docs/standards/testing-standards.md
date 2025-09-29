@@ -1030,6 +1030,366 @@ python scripts/validate_test_config.py
 - ❌ 混用不同测试类型的数据库配置
 - ❌ 手动管理Docker容器而非使用标准工具
 
+---
+
+## 📋 标准测试执行流程 [CHECK:TEST-009]
+
+### 阶段1: 环境准备 [CHECK:TEST-001]
+
+#### 1.1 虚拟环境激活验证
+```powershell
+# 激活项目虚拟环境
+.\.venv\Scripts\Activate.ps1
+
+# 验证Python路径
+python -c "import sys; print('Python环境:', sys.executable)"
+# 期望输出: E:\ecommerce_platform\.venv\Scripts\python.exe
+```
+
+#### 1.2 依赖包环境检查
+```powershell
+# 验证核心测试依赖
+pip list | findstr -i "pytest pytest-mock pytest-asyncio pytest-cov"
+# 必须显示: pytest>=7.0.0, pytest-mock>=3.10.0, pytest-asyncio>=0.21.0, pytest-cov>=4.0.0
+
+# 验证数据库依赖
+pip list | findstr -i "sqlalchemy pymysql factory-boy faker"
+# 必须显示: SQLAlchemy>=2.0.0, pymysql>=1.0.0, factory-boy>=3.2.0, Faker>=18.0.0
+```
+
+#### 1.3 测试工具可用性验证
+```powershell
+# 检查测试生成工具
+python scripts\generate_test_template.py --version
+# 期望输出: Test Template Generator v2.1.0
+
+# 检查测试环境验证工具
+.\scripts\check_test_env.ps1
+# 期望输出: ✅ 所有环境检查通过
+```
+
+### 阶段2: 测试类型选择与环境配置 [CHECK:TEST-002]
+
+#### 2.1 单元测试模式 (推荐日常开发)
+**适用场景**: 日常开发、代码提交前验证
+**执行时间**: <3分钟
+**数据库要求**: SQLite内存数据库 (无外部依赖)
+
+```powershell
+# 标准单元测试流程
+.\scripts\setup_test_env.ps1 -TestType unit
+
+# 或者手动执行步骤
+.\scripts\check_test_env.ps1                    # 环境验证
+pytest tests/unit/test_models/ -v               # Mock测试
+pytest tests/unit/test_services/ -v             # SQLite内存测试
+pytest tests/unit/*_standalone.py -v            # 业务流程测试
+```
+
+**预期结果**:
+- ✅ 所有单元测试通过 (100%)
+- ✅ 测试覆盖率 ≥90%
+- ✅ 执行时间 <3分钟
+
+#### 2.2 烟雾测试模式 (部署验证)
+**适用场景**: 部署后快速验证、基础功能检查
+**执行时间**: <30秒
+**数据库要求**: SQLite文件数据库
+
+```powershell
+# 烟雾测试流程
+.\scripts\smoke_test.ps1
+
+# 或者手动执行
+pytest tests/smoke/ -v --tb=short
+```
+
+**预期结果**:
+- ✅ 应用健康检查通过
+- ✅ 数据库连接正常
+- ✅ 基础API响应正常
+
+#### 2.3 集成测试模式 (提交前验证)
+**适用场景**: 提交到主分支前、模块集成验证
+**执行时间**: <5分钟
+**数据库要求**: MySQL Docker容器
+
+```powershell
+# 集成测试流程 (自动管理Docker)
+.\scripts\setup_test_env.ps1 -TestType integration
+
+# 或者手动管理
+docker-compose up -d mysql_test                 # 启动MySQL Docker
+pytest tests/integration/ -v --tb=short         # 执行集成测试
+docker-compose down mysql_test                  # 清理Docker容器
+```
+
+**预期结果**:
+- ✅ MySQL Docker容器健康运行
+- ✅ 所有集成测试通过
+- ✅ 跨模块API调用正常
+- ✅ 数据库事务完整性验证通过
+
+#### 2.4 完整测试模式 (发布前验证)
+**适用场景**: 发布前完整验证、重要功能回归测试
+**执行时间**: <10分钟
+**数据库要求**: 完整数据库环境 + Docker服务
+
+```powershell
+# 完整测试流程
+.\scripts\setup_test_env.ps1 -TestType all
+
+# 相当于顺序执行:
+# 1. .\scripts\setup_test_env.ps1 -TestType unit
+# 2. .\scripts\setup_test_env.ps1 -TestType integration  
+# 3. pytest tests/e2e/ -v
+# 4. pytest tests/performance/ -v (如果存在)
+```
+
+**预期结果**:
+- ✅ 单元测试覆盖率 ≥90%
+- ✅ 集成测试全部通过
+- ✅ E2E用户流程验证通过
+- ✅ 性能基准测试达标
+
+### 阶段3: 测试工具使用标准 [CHECK:TEST-010]
+
+#### 3.1 智能测试生成工具使用
+```powershell
+# 为新功能生成测试模板
+python scripts\generate_test_template.py --module user_auth --feature password_reset
+
+# 生成的测试文件位置
+# tests/generated/test_user_auth_password_reset.py
+```
+
+**生成内容包含**:
+- ✅ 标准测试类结构
+- ✅ 必要的fixture配置
+- ✅ 成功和失败场景模板
+- ✅ Mock配置示例
+- ✅ 断言检查模板
+
+#### 3.2 测试模板定制和迁移
+```powershell
+# 1. 检查生成的测试模板
+code tests\generated\test_user_auth_password_reset.py
+
+# 2. 根据具体业务逻辑定制测试
+# - 修改测试数据
+# - 添加边界条件测试
+# - 完善异常场景测试
+
+# 3. 迁移到正式测试目录
+Move-Item tests\generated\test_user_auth_password_reset.py tests\unit\test_services\test_user_auth_password_reset.py
+```
+
+#### 3.3 测试数据工厂使用指南 [CHECK:TEST-011]
+
+**Factory Boy工厂 (单元测试专用)**:
+```python
+# tests/unit/test_user_service.py
+from tests.factories.user_auth_factories import UserFactory, RoleFactory
+
+def test_user_permission_check(mocker):
+    """使用Factory Boy快速生成Mock测试数据"""
+    # 内存创建，无数据库IO
+    user = UserFactory(is_active=True)
+    role = RoleFactory(name='admin')
+    
+    # Mock外部服务
+    mock_auth = mocker.patch('app.services.AuthService')
+    mock_auth.get_user_roles.return_value = [role]
+    
+    # 测试业务逻辑
+    assert user.has_admin_privileges() is True
+```
+
+**统一工厂 (集成测试专用)**:
+```python
+# tests/integration/test_order_flow.py
+from tests.factories.data_factory import StandardTestDataFactory
+
+def test_complete_order_workflow(integration_test_db):
+    """使用统一工厂创建完整业务数据链"""
+    # 真实数据库操作，创建关联数据
+    user, category, brand, product, sku = StandardTestDataFactory.create_complete_chain(
+        integration_test_db
+    )
+    
+    # 测试跨模块集成
+    order_service = OrderService(integration_test_db)
+    result = order_service.create_order(user.id, sku.id, quantity=2)
+    
+    assert result.success is True
+    assert result.order.user_id == user.id
+```
+
+### 阶段4: Generated目录管理 [CHECK:TEST-012]
+
+#### 4.1 Generated目录的作用和规范
+- **用途**: 存储自动生成的测试文件，等待人工审核和定制
+- **性质**: 临时存储区域，不应直接执行或提交到版本控制
+- **清理**: 定期清理已迁移的测试文件
+
+#### 4.2 Generated目录文件处理流程
+```powershell
+# 1. 检查Generated目录状态
+Get-ChildItem tests\generated\*.py | Format-Table Name, LastWriteTime
+
+# 2. 审核生成的测试文件
+foreach ($file in Get-ChildItem tests\generated\*.py) {
+    Write-Host "审核文件: $($file.Name)" -ForegroundColor Yellow
+    code $file.FullName
+    Read-Host "审核完成后按Enter继续"
+}
+
+# 3. 迁移审核通过的测试文件
+# 3.1 迁移到对应的测试目录
+Move-Item tests\generated\test_*.py tests\unit\test_services\
+Move-Item tests\generated\test_*_integration.py tests\integration\
+
+# 3.2 删除临时文件或草稿文件
+Remove-Item tests\generated\draft_*.py
+```
+
+#### 4.3 Generated目录监控和维护
+```powershell
+# 定期清理规则 (添加到定期维护脚本中)
+# 超过7天未处理的文件发出警告
+Get-ChildItem tests\generated\*.py | Where-Object {$_.LastWriteTime -lt (Get-Date).AddDays(-7)} | 
+    ForEach-Object { Write-Warning "文件 $($_.Name) 已超过7天未处理，请及时审核迁移" }
+
+# 超过30天自动清理
+Get-ChildItem tests\generated\*.py | Where-Object {$_.LastWriteTime -lt (Get-Date).AddDays(-30)} | 
+    Remove-Item -WhatIf  # 先预览，确认后移除-WhatIf
+```
+
+### 阶段5: 测试质量验证 [CHECK:TEST-005]
+
+#### 5.1 覆盖率验证
+```powershell
+# 单元测试覆盖率
+pytest tests/unit/ --cov=app --cov-report=term --cov-report=html --cov-fail-under=90
+
+# 集成测试覆盖率  
+pytest tests/integration/ --cov=app --cov-report=term --cov-append --cov-fail-under=80
+
+# 总体覆盖率
+pytest tests/ --cov=app --cov-report=html:htmlcov --cov-fail-under=85
+```
+
+#### 5.2 测试性能验证
+```powershell
+# 测试执行时间监控
+pytest tests/unit/ --durations=10           # 显示最慢的10个测试
+pytest tests/integration/ --durations=0     # 显示所有测试执行时间
+```
+
+#### 5.3 测试质量报告生成
+```powershell
+# 生成综合测试报告
+pytest tests/ --html=reports/test_report.html --self-contained-html
+pytest tests/ --junitxml=reports/junit.xml
+
+# 报告文件位置
+# - HTML报告: reports/test_report.html
+# - JUnit XML: reports/junit.xml  
+# - 覆盖率报告: htmlcov/index.html
+```
+
+### 阶段6: 问题诊断和故障排除 [CHECK:TEST-003]
+
+#### 6.1 标准问题诊断流程
+```powershell
+# 1. 环境诊断 (60秒详细检查)
+python scripts\validate_test_config.py
+
+# 2. 特定测试失败诊断
+pytest tests/path/to/failed_test.py -vv -s --tb=long
+
+# 3. 数据库连接问题诊断
+python -c "
+from app.core.database import get_db_engine
+engine = get_db_engine()
+print('数据库连接测试:', engine.execute('SELECT 1').fetchone())
+"
+
+# 4. Docker服务问题诊断
+docker ps -a | findstr mysql
+docker logs mysql_test_container
+```
+
+#### 6.2 常见问题快速修复
+```powershell
+# 问题1: 虚拟环境未激活
+if (-not $env:VIRTUAL_ENV) {
+    Write-Error "虚拟环境未激活，执行: .\.venv\Scripts\Activate.ps1"
+    exit 1
+}
+
+# 问题2: Docker容器状态异常
+docker stop mysql_integration_test; docker rm mysql_integration_test
+docker-compose up -d mysql_test
+
+# 问题3: 测试数据残留
+pytest tests/ --db-reset  # 如果支持
+# 或手动清理数据库
+```
+
+### 阶段7: 测试结果验证与报告 [CHECK:TEST-006]
+
+#### 7.1 测试通过标准
+- **单元测试**: 100%通过率，覆盖率≥90%
+- **集成测试**: 100%通过率，覆盖率≥80%
+- **端到端测试**: 100%通过率，关键用户流程全覆盖
+- **性能测试**: 响应时间符合基准要求
+
+#### 7.2 测试失败处理
+```powershell
+# 测试失败时的标准处理流程
+
+# 1. 收集失败信息
+pytest tests/ --tb=short | Tee-Object -FilePath "test_failure_$(Get-Date -Format 'yyyyMMdd_HHmmss').log"
+
+# 2. 按优先级分类失败
+# P0: 阻塞性失败 (环境、配置)
+# P1: 功能性失败 (业务逻辑)  
+# P2: 性能失败 (超时、性能不达标)
+
+# 3. 立即修复P0问题
+if ($LASTEXITCODE -ne 0) {
+    Write-Error "发现阻塞性测试失败，必须立即修复后才能继续"
+    exit 1
+}
+```
+
+#### 7.3 测试报告存档
+```powershell
+# 创建测试报告存档
+$reportDate = Get-Date -Format "yyyyMMdd_HHmmss"
+$reportDir = "reports\archive\test_$reportDate"
+New-Item -ItemType Directory -Path $reportDir -Force
+
+# 归档报告文件
+Copy-Item reports\test_report.html $reportDir\
+Copy-Item reports\junit.xml $reportDir\
+Copy-Item htmlcov\* $reportDir\coverage\ -Recurse
+```
+
+### 工作流程检查点总结
+
+| 检查点 | 验证内容 | 通过条件 | 失败处理 |
+|-------|----------|---------|----------|
+| **TEST-001** | 环境准备 | 虚拟环境激活，依赖完整 | 修复环境后重试 |
+| **TEST-002** | 测试类型选择 | 选择合适的测试模式 | 重新评估测试需求 |
+| **TEST-003** | 问题诊断 | 快速定位问题根因 | 使用诊断工具深入分析 |
+| **TEST-005** | 质量验证 | 覆盖率和通过率达标 | 补充测试或修复失败 |
+| **TEST-006** | 结果验证 | 所有测试通过 | 按优先级修复失败项 |
+| **TEST-010** | 测试工具使用 | 工具正常工作 | 检查工具配置和依赖 |
+| **TEST-011** | 数据工厂使用 | 数据创建正确 | 检查工厂配置和数据库 |
+| **TEST-012** | Generated目录管理 | 文件及时处理 | 清理过期文件，迁移有效文件 |
+
 ## 单元测试标准执行步骤
 
 ### 环境准备要求

@@ -140,8 +140,10 @@
 
 ### 🔧 开发规范文档  
 - **docs/standards/README.md** - 开发标准导航 ⭐
+- **docs/standards/software-development-lifecycle-standards.md** - 软件开发生命周期标准
+- **docs/standards/requirements-standards.md** - 需求管理标准
+- **docs/standards/architecture-standards.md** - 架构设计标准
 - **docs/standards/naming-conventions-standards.md** - 命名规范
-- **docs/standards/workflow-standards.md** - 工作流程规范
 - **docs/standards/api-standards.md** - API设计规范
 - **docs/standards/database-standards.md** - 数据库设计规范
 - **docs/standards/code-standards.md** - 代码组织规范

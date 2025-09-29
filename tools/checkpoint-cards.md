@@ -480,6 +480,74 @@
 3. `tools/update_module_status.ps1 -Module {module}`
 4. `tools/pre_commit_check.ps1`
 
+### TEST-009: 测试执行工作流程验证
+**触发条件**: 开始测试前、测试流程规划
+**检查重点**: 测试工作流程理解、标准步骤执行、检查点确认
+**精准导航**:
+1. **标准测试执行流程** → `docs/standards/testing-standards.md` 第90-250行 (📋 标准测试执行流程章节)
+2. **测试类型选择指南** → `docs/standards/testing-standards.md` 第95-140行 (阶段2: 测试类型选择)
+3. **环境准备要求** → `docs/standards/testing-standards.md` 第90-115行 (阶段1: 环境准备)
+4. **检查点总结表** → `docs/standards/testing-standards.md` 第240-250行 (工作流程检查点总结)
+
+**阅读确认**:
+问题1: 标准测试执行流程包含几个阶段？每个阶段的核心目标是什么？
+问题2: 单元测试模式和集成测试模式的主要区别是什么？
+
+**执行脚本**:
+1. `scripts/check_test_env.ps1` - 环境验证
+2. `scripts/setup_test_env.ps1 -TestType <unit|integration|all>` - 标准测试执行
+
+### TEST-010: 测试工具使用验证
+**触发条件**: 使用测试生成工具、数据工厂前
+**检查重点**: 测试工具正确使用、生成的测试质量、工具配置验证
+**精准导航**:
+1. **测试工具使用标准** → `docs/standards/testing-standards.md` 第150-185行 (阶段3: 测试工具使用标准)
+2. **智能测试生成工具** → `docs/standards/testing-standards.md` 第155-170行 (智能测试生成工具使用)
+3. **测试模板定制指南** → `docs/standards/testing-standards.md` 第170-185行 (测试模板定制和迁移)
+4. **工具配置和故障排除** → `docs/development/testing-setup.md` 第50-100行
+
+**阅读确认**:
+问题1: generate_test_template.py工具生成的测试文件包含哪些标准内容？
+问题2: 测试模板从Generated目录迁移到正式测试目录的标准步骤是什么？
+
+**执行脚本**:
+1. `python scripts/generate_test_template.py --module <module> --feature <feature>` - 生成测试模板
+2. `python scripts/validate_test_config.py` - 验证测试工具配置
+
+### TEST-011: 测试数据工厂使用验证
+**触发条件**: 编写测试需要创建测试数据时
+**检查重点**: 工厂类型选择、数据创建正确性、数据库配置匹配
+**精准导航**:
+1. **双工厂架构指南** → `docs/standards/testing-standards.md` 第500-600行 (双工厂架构测试数据策略)
+2. **Factory Boy工厂使用** → `docs/standards/testing-standards.md` 第520-550行 (Factory Boy工厂标准)
+3. **统一工厂使用** → `docs/standards/testing-standards.md` 第550-580行 (统一工厂标准)
+4. **数据工厂选择指南** → `docs/standards/testing-standards.md` 第580-600行 (工厂选择指南表格)
+
+**阅读确认**:
+问题1: Factory Boy工厂和统一工厂的适用场景分别是什么？
+问题2: 单元测试和集成测试应该分别使用哪种数据工厂？
+
+**执行脚本**:
+1. `pytest tests/unit/ -v` - 验证Factory Boy工厂使用
+2. `pytest tests/integration/ -v` - 验证统一工厂使用
+
+### TEST-012: Generated目录管理验证
+**触发条件**: 使用测试生成工具后、定期维护时
+**检查重点**: Generated目录文件状态、文件迁移处理、目录清理维护
+**精准导航**:
+1. **Generated目录管理** → `docs/standards/testing-standards.md` 第185-220行 (阶段4: Generated目录管理)
+2. **文件处理流程** → `docs/standards/testing-standards.md` 第195-210行 (Generated目录文件处理流程)
+3. **目录监控维护** → `docs/standards/testing-standards.md` 第210-220行 (Generated目录监控和维护)
+4. **文件清理规则** → `docs/standards/file-management-standards.md` 第30-50行
+
+**阅读确认**:
+问题1: Generated目录的作用是什么？哪些文件应该保留，哪些应该清理？
+问题2: 超过多少天未处理的Generated文件会发出警告？超过多少天会自动清理？
+
+**执行脚本**:
+1. `Get-ChildItem tests\generated\*.py | Format-Table Name, LastWriteTime` - 检查Generated目录状态
+2. PowerShell脚本监控和清理 (参考testing-standards.md中的维护脚本)
+
 ---
 
 ## � 文档同步类 (DOC)
@@ -600,9 +668,9 @@
 | 需求分析类 | REQ-001 ~ REQ-003 | 3个 |
 | 架构设计类 | ARCH-001 ~ ARCH-004 | 4个 |
 | 开发实施类 | DEV-001 ~ DEV-014 | 14个 |
-| 测试验证类 | TEST-001 ~ TEST-008 | 8个 |
+| 测试验证类 | TEST-001 ~ TEST-012 | 12个 |
 | 状态管理类 | STATUS-001 ~ STATUS-004 | 4个 |
 | 文档同步类 | DOC-001 ~ DOC-007 | 7个 |
 | 应急处理类 | EMERGENCY-001 | 1个 |
 
-**总计**: 42个检查点卡片
+**总计**: 46个检查点卡片
