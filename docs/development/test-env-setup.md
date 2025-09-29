@@ -22,59 +22,11 @@
 
 **测试执行标准流程**：详见 [测试标准文档](../standards/testing-standards.md)
 
-**脚本使用步骤**：详见 [脚本使用手册](scripts-usage-manual.md)
+**脚本使用步骤**：详见 [工具脚本使用指南](../tools/README.md)
 
 ## 🛠️ 测试工具使用指南
 
-### 🤖 Generated目录管理策略
-
-**目录用途**: `tests/generated/` 用于存放自动生成的测试模板文件，具有临时性质。
-
-#### 文件生命周期管理
-```mermaid
-graph LR
-A[脚本生成] --> B[自动验证]
-B --> C[人工审查]
-C --> D{质量评估}
-D -->|通过| E[移动到正式目录]
-D -->|需要修改| F[修改优化]
-D -->|不合格| G[标记删除]
-F --> C
-E --> H[提交版本控制]
-G --> I[自动清理]
-```
-
-#### 管理规则
-- **版本控制**: generated目录内容不提交到Git（已配置.gitignore）
-- **自动清理**: 超过7天的未处理文件自动清理
-- **质量控制**: 生成的文件必须经过验证和审查
-- **迁移流程**: 审查通过后迁移到正式测试目录
-
-#### 使用工作流
-```powershell
-# 1. 生成测试模板
-python scripts/generate_test_template.py shopping_cart --type all
-
-# 2. 验证生成质量  
-python scripts/validate_generated_tests.py
-
-# 3. 人工审查和优化
-# (编辑tests/generated/中的文件)
-
-# 4. 迁移到正式目录
-python scripts/migrate_generated_test.py tests/generated/test_cart_complete.py unit
-
-# 5. 清理和维护
-.\scripts\manage_generated_tests.ps1 -Action clean -Days 7
-```
-
-#### 相关文档
-- **详细管理策略**: `docs/development/generated-tests-management.md`
-- **生成工具使用**: `docs/development/scripts-usage-manual.md`
-
----
-
-### `check_test_env.ps1` - 智能测试环境检查工具
+### 🤖 `check_test_env.ps1` - 智能测试环境检查工具
 
 **功能描述**: 电商平台专用的智能化测试环境验证工具，支持分层检查和模式分离。
 
@@ -87,11 +39,11 @@ python scripts/migrate_generated_test.py tests/generated/test_cart_complete.py u
 #### 使用方法
 ```powershell
 # 轻量模式检查（默认）- 适用于单元测试
-.\scripts\check_test_env.ps1
-.\scripts\check_test_env.ps1 -TestMode lite
+.\tools\check_test_env.ps1
+.\tools\check_test_env.ps1 -TestMode lite
 
 # 完整模式检查 - 适用于集成测试  
-.\scripts\check_test_env.ps1 -TestMode full
+.\tools\check_test_env.ps1 -TestMode full
 ```
 
 #### 检查流程

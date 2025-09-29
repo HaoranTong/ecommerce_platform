@@ -100,6 +100,167 @@ pip install package-name
 **问题**: black和isort格式化结果不一致
 **解决方案**:
 ```powershell
+# 1. 配置.pre-commit-config.yaml统一格式化
+repos:
+  - repo: https://github.com/psf/black
+    rev: 23.11.0
+    hooks:
+      - id: black
+  - repo: https://github.com/pycqa/isort
+    rev: 5.12.0
+    hooks:
+      - id: isort
+        args: ["--profile", "black"]
+
+# 2. 手动执行格式化
+black . --check
+isort . --profile black --check-only
+```
+
+### Git提交问题
+**问题**: pre-commit钩子失败导致无法提交
+**解决方案**:
+```powershell
+# 1. 跳过pre-commit检查（临时）
+git commit -m "message" --no-verify
+
+# 2. 修复格式问题后重新提交
+pre-commit run --all-files
+git add .
+git commit -m "fix: 修复代码格式问题"
+```
+
+## 🚀 性能优化问题
+
+### 测试执行缓慢
+**问题**: 测试执行时间过长
+**解决方案**:
+```powershell
+# 1. 并行执行测试
+pytest -n auto  # 使用pytest-xdist插件
+
+# 2. 只运行指定模块测试
+pytest tests/unit/user_auth/ -v
+
+# 3. 使用标记运行快速测试
+pytest -m "not slow" -v
+```
+
+### 数据库测试性能
+**问题**: 数据库测试创建数据慢
+**解决方案**:
+```python
+# 使用事务回滚而非删除数据
+@pytest.fixture
+def db_transaction():
+    with Session() as session:
+        trans = session.begin()
+        try:
+            yield session
+        finally:
+            trans.rollback()
+
+# 使用内存数据库进行单元测试
+DATABASE_URL = "sqlite:///:memory:"
+```
+
+## 🔧 IDE配置问题
+
+### VS Code Python解释器问题
+**问题**: VS Code无法识别虚拟环境中的包
+**解决方案**:
+```powershell
+# 1. 手动选择Python解释器
+# Ctrl+Shift+P -> Python: Select Interpreter
+# 选择 .\.venv\Scripts\python.exe
+
+# 2. 重新加载窗口
+# Ctrl+Shift+P -> Developer: Reload Window
+```
+
+### 调试配置问题
+**问题**: 断点不生效或调试器无法启动
+**解决方案**:
+```json
+// .vscode/launch.json 调试配置
+{
+  "name": "Debug FastAPI",
+  "type": "python",
+  "request": "launch",
+  "program": "${workspaceFolder}/.venv/Scripts/uvicorn.exe",
+  "args": [
+    "app.main:app",
+    "--reload",
+    "--host", "127.0.0.1",
+    "--port", "8000"
+  ],
+  "envFile": "${workspaceFolder}/.env",
+  "console": "integratedTerminal",
+  "justMyCode": false,
+  "stopOnEntry": false
+}
+```
+
+## 📊 测试数据问题
+
+### Factory Boy数据生成问题
+**问题**: 工厂生成的数据不符合预期
+**解决方案**:
+```python
+# 检查工厂定义中的Faker提供商
+class UserFactory(factory.Factory):
+    class Meta:
+        model = User
+    
+    username = factory.Sequence(lambda n: f"user_{n}")
+    email = factory.Faker('email')
+    # 确保使用正确的Faker提供商
+    phone = factory.Faker('phone_number', locale='zh_CN')
+```
+
+### 测试数据清理问题
+**问题**: 测试后数据残留影响其他测试
+**解决方案**:
+```python
+# 使用pytest fixtures确保数据清理
+@pytest.fixture(autouse=True)
+def clean_database():
+    yield
+    # 测试后清理
+    db.session.rollback()
+    db.session.close()
+```
+
+## 🌐 网络相关问题
+
+### API测试超时
+**问题**: HTTP请求测试经常超时
+**解决方案**:
+```python
+# 设置适当的超时和重试
+import httpx
+
+async def test_api_endpoint():
+    timeout = httpx.Timeout(10.0, connect=5.0)
+    async with httpx.AsyncClient(timeout=timeout) as client:
+        response = await client.get("http://localhost:8000/api/test")
+        assert response.status_code == 200
+```
+
+### Redis连接问题
+**问题**: 测试时Redis连接不稳定
+**解决方案**:
+```python
+# 使用FakeRedis进行单元测试
+import fakeredis
+import pytest
+
+@pytest.fixture
+def redis_client():
+    return fakeredis.FakeRedis()
+```
+**解决方案**:
+```powershell
 # 按照标准顺序执行格式化
 isort .
 black .

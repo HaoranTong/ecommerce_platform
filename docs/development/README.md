@@ -57,25 +57,7 @@
 - 测试规范化 → `test-factory-guide.md` + `test-dir-management.md`
 - 问题知识库 → `dev-troubleshooting.md`
 
-## 🔗 相关资源
-
-### 工具脚本
-- **工具集导航**: `../tools/README.md`
-- **环境管理**: `../tools/setup_test_env.ps1`, `../tools/check_test_env.ps1`
-- **测试执行**: `../tools/run_module_tests.ps1`, `../tools/smoke_test.ps1`
-- **工具故障排查**: `../tools/troubleshooting.md`
-
-### 标准规范
-- **开发规范**: `../standards/code-standards.md`
-- **测试规范**: `../standards/testing-standards.md`
-- **工具规范**: `../standards/scripts-standards.md`
-
-### 架构设计
-- **技术架构**: `../architecture/overview.md`
-- **模块架构**: `../architecture/module-architecture.md`
-- **数据架构**: `../architecture/data-models.md`
-
-## 📊 文档职责边界
+##  文档职责边界
 
 ### ✅ development目录职责
 - **开发环境配置**: 本地开发环境的设置和管理
@@ -92,8 +74,6 @@
 
 ---
 
-> 💡 **提示**: 本目录专注于开发实施阶段的实用指导和问题解决，与生产运维(operations)、架构设计(architecture)、详细设计(design)、工具故障排查(tools)形成清晰的职责边界
-
 ## 🔗 相关资源
 
 ### 工具脚本
@@ -111,20 +91,6 @@
 - **模块架构**: `../architecture/module-architecture.md`
 - **数据架构**: `../architecture/data-models.md`
 
-## 📊 文档职责边界
-
-### ✅ development目录职责
-- **开发环境配置**: 本地开发环境的设置和管理
-- **开发工具使用**: IDE、调试工具、分析工具的配置和使用
-- **测试环境管理**: 开发阶段的测试环境配置和使用
-- **开发过程故障排查**: 编码、调试、测试过程中的问题解决
-
-### ❌ 不包含的职责
-- **生产运维配置**: 属于 `../operations/` 目录职责
-- **架构设计决策**: 属于 `../architecture/` 目录职责
-- **详细设计文档**: 属于 `../design/` 目录职责
-- **开发规范标准**: 属于 `../standards/` 目录职责
-
 ---
 
-> 💡 **提示**: 本目录专注于开发实施阶段的实用指导，与生产运维(operations)、架构设计(architecture)、详细设计(design)形成清晰的职责边界
+> 💡 **提示**: 本目录专注于开发实施阶段的实用指导和问题解决，与生产运维(operations)、架构设计(architecture)、详细设计(design)、工具故障排查(tools)形成清晰的职责边界
