@@ -13,6 +13,10 @@
 3. **商业模式设计** → `docs/requirements/business.md` 第140-180行
 4. **成功指标定义** → `docs/requirements/business.md` 第200-230行
 
+**阅读确认**:
+问题1: 根据业务背景标准，用户价值定义的三个核心要素是什么？
+问题2: 商业模式设计中的收入模型验证标准包含哪些具体指标？
+
 **执行脚本**: `tools/validate_business_requirements.ps1`
 
 ### REQ-002: 功能需求分析验证
@@ -90,9 +94,13 @@
 **检查重点**: 确保完整的模块文档存在且符合标准
 **精准导航**:
 1. **文档结构标准** → `docs/templates/module-template.md` 第1-100行
-2. **需求文档模板** → `docs/design/modules/{module}/requirements.md`
+2. **需求文档模块** → `docs/design/modules/{module}/requirements.md`
 3. **设计文档模板** → `docs/design/modules/{module}/design.md` 第35-150行
 4. **API规范模板** → `docs/design/modules/{module}/api-spec.md` 第1-80行
+
+**阅读确认**:
+问题1: 根据模块模板标准，每个模块文档必须包含哪些固定的章节结构？
+问题2: API规范模板中的错误处理部分需要定义哪些必需的响应格式？
 
 **执行脚本**: `tools/validate_module_documentation.ps1`
 
@@ -118,6 +126,10 @@
 3. **数据架构标准** → `docs/architecture/data-architecture.md` 第25-50行
 4. **索引优化标准** → `docs/standards/database-standards.md` 第80-95行
 5. **命名规范标准** → `docs/standards/database-standards.md` 第200-250行
+
+**阅读确认**:
+问题1: 根据数据库设计标准，主键字段的命名规范和数据类型要求是什么？
+问题2: 索引优化标准中，复合索引的字段顺序规则和性能优化原则是什么？
 
 **执行脚本**: `tools/validate_data_model.ps1 -Module {module}`
 
@@ -407,6 +419,10 @@
 3. **文件管理标准** → `docs/standards/workflow-standards.md` 第100-130行
 4. **状态文档模板** → `docs/status/module-status.md`
 
+**阅读确认**:
+问题1: 根据测试标准，单元测试覆盖率的最低要求是多少？
+问题2: 代码质量检查中，函数复杂度不能超过多少？
+
 **执行脚本**:
 1. `tools/clean_temp_files.ps1`
 2. `tools/check_file_locations.ps1`
@@ -415,7 +431,117 @@
 
 ---
 
-## 📋 检查点索引
+## � 文档同步类 (DOC)
+
+### DOC-001: 代码文档同步验证
+**触发条件**: 代码变更后、模块完成前
+**检查重点**: 代码注释、README更新、API文档同步
+**精准导航**:
+1. **代码文档标准** → `docs/standards/code-standards.md` 第120-160行
+2. **README维护标准** → `docs/standards/document-management-standards.md` 第45-80行
+3. **API文档标准** → `docs/standards/api-standards.md` 第200-250行
+4. **模块文档模板** → `docs/templates/module-template.md`
+
+**阅读确认**:
+问题1: 根据代码标准，每个公共函数必须包含哪些类型的注释？
+问题2: README文档的维护触发条件是什么？
+
+**执行脚本**: `tools/sync_code_docs.ps1`
+
+### DOC-002: API文档同步验证
+**触发条件**: API接口变更、路由添加/修改
+**检查重点**: OpenAPI规范、接口文档准确性、示例更新
+**精准导航**:
+1. **API文档标准** → `docs/standards/api-standards.md` 第1-50行
+2. **OpenAPI规范** → `docs/standards/api-standards.md` 第80-130行
+3. **接口示例标准** → `docs/standards/api-standards.md` 第160-200行
+4. **API测试规范** → `docs/standards/testing-standards.md` 第200-240行
+
+**阅读确认**:
+问题1: API文档中每个端点必须包含哪些必需的字段描述？
+问题2: 接口示例的错误响应状态码标准是什么？
+
+**执行脚本**: `tools/sync_api_docs.ps1`
+
+### DOC-003: 架构文档同步验证
+**触发条件**: 架构调整、系统设计变更
+**检查重点**: 架构图更新、设计文档一致性、依赖关系描述
+**精准导航**:
+1. **架构文档标准** → `docs/standards/document-management-standards.md` 第200-250行
+2. **系统架构模板** → `docs/architecture/overview.md` 第1-50行
+3. **模块架构模板** → `docs/architecture/module-architecture.md` 第30-80行
+4. **依赖管理标准** → `docs/architecture/dependencies.md`
+
+**阅读确认**:
+问题1: 架构图更新的触发条件和必要性判断标准是什么？
+问题2: 模块间依赖关系描述必须包含哪些关键信息？
+
+**执行脚本**: `tools/sync_arch_docs.ps1`
+
+### DOC-004: 部署文档同步验证
+**触发条件**: 部署配置变更、环境需求调整
+**检查重点**: 部署指南准确性、环境配置文档、运维手册更新
+**精准导航**:
+1. **部署文档标准** → `docs/standards/ops-standards.md` 第50-100行
+2. **环境配置模板** → `docs/deployment/environment-setup.md`
+3. **运维手册标准** → `docs/operations/deployment-guide.md` 第1-40行
+4. **监控配置文档** → `docs/operations/monitoring-setup.md`
+
+**阅读确认**:
+问题1: 部署文档必须包含哪些环境变量的说明？
+问题2: 运维手册中的应急处理流程标准格式是什么？
+
+**执行脚本**: `tools/sync_deployment_docs.ps1`
+
+### DOC-005: 目录同步验证
+**触发条件**: 目录结构变更、文件重组
+**检查重点**: README索引更新、目录导航准确性、链接有效性
+**精准导航**:
+1. **目录管理标准** → `docs/standards/document-management-standards.md` 第300-350行
+2. **README索引模板** → `docs/README.md` 第1-30行
+3. **导航链接标准** → `docs/standards/workflow-standards.md` 第200-230行
+4. **文件组织规范** → `docs/standards/naming-conventions-standards.md` 第150-180行
+
+**阅读确认**:
+问题1: 目录README文件必须包含哪些固定的结构化元素？
+问题2: 链接有效性检查的自动化工具和手动验证要求是什么？
+
+**执行脚本**: `tools/sync_readme.ps1`
+
+### DOC-006: 工具文档同步验证
+**触发条件**: 工具脚本变更、新工具添加
+**检查重点**: 工具使用说明、脚本参数文档、示例更新
+**精准导航**:
+1. **工具文档标准** → `docs/standards/document-management-standards.md` 第600-650行
+2. **脚本文档模板** → `docs/tools/script-template.md`
+3. **工具索引标准** → `tools/README.md` 第10-50行
+4. **使用示例规范** → `docs/standards/code-standards.md` 第200-230行
+
+**阅读确认**:
+问题1: 工具脚本文档必须包含哪些参数说明格式？
+问题2: 使用示例的验证和测试要求是什么？
+
+**执行脚本**: `tools/sync_tool_docs.ps1`
+
+### DOC-007: 强制文档阅读验证
+**触发条件**: 任何检查点执行前的文档阅读环节
+**检查重点**: 确保AI实际阅读相关文档内容而非推测回答
+**精准导航**:
+1. **阅读确认标准** → `docs/standards/document-management-standards.md` 第577-600行
+2. **检查点卡片标准** → `docs/standards/document-management-standards.md` 第577-620行
+3. **文档导航规范** → `MASTER.md` 第130-176行
+4. **阅读验证机制** → `tools/checkpoint-cards.md` 第1-10行
+
+**阅读确认**:
+问题1: 阅读确认字段在检查点卡片中的具体位置是什么？
+问题2: 阅读确认问题设计的核心原则是什么，如何确保无法推测回答？
+
+**执行脚本**: `tools/enforce_doc_reading.ps1`
+**辅助脚本**: `tools/ai_checkpoint.ps1 -CardType DOC-007`
+
+---
+
+## �📋 检查点索引
 
 | 类别 | 编号范围 | 检查点数量 |
 |------|----------|------------|
@@ -423,5 +549,6 @@
 | 架构设计类 | ARCH-001 ~ ARCH-004 | 4个 |
 | 开发实施类 | DEV-001 ~ DEV-014 | 14个 |
 | 测试验证类 | TEST-001 ~ TEST-008 | 8个 |
+| 文档同步类 | DOC-001 ~ DOC-007 | 7个 |
 
-**总计**: 29个检查点卡片
+**总计**: 36个检查点卡片

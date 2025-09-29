@@ -3,7 +3,7 @@
 ## 🔐 用户指令格式
 
 ### 标准任务启动格式：
-> **"按MASTER文档执行：[具体任务]"**
+> **"按MASTER文档执行，完成AI工作流程规定的所有步骤：[具体任务]"**
 
 ## 🚀 AI工作流程
 
@@ -118,6 +118,7 @@
 - **部署文档** → [CHECK:DOC-004] ⚠️ [必读卡片](tools/checkpoint-cards.md#doc-004)
 - **目录同步** → [CHECK:DOC-005] ⚠️ [必读卡片](tools/checkpoint-cards.md#doc-005)
 - **工具文档** → [CHECK:DOC-006] ⚠️ [必读卡片](tools/checkpoint-cards.md#doc-006)
+- **强制文档阅读** → [CHECK:DOC-007] ⚠️ [必读卡片](tools/checkpoint-cards.md#doc-007)
 
 ### 🚨 应急处理类
 - **文件重建** → [CHECK:EMERGENCY-001] ⚠️ [必读卡片](tools/checkpoint-cards.md#emergency-001)

@@ -28,7 +28,7 @@ param(
         "DEV-001", "DEV-002", "DEV-003", "DEV-004", "DEV-005", "DEV-006", "DEV-007", "DEV-008", "DEV-009",
         "DEV-010", "DEV-011", "DEV-012", "DEV-013", "DEV-014",
         "TEST-001", "TEST-002", "TEST-003", "TEST-004", "TEST-005", "TEST-006",
-        "DOC-001", "DOC-002", "DOC-003", "DOC-004", "DOC-005", "DOC-006"
+        "DOC-001", "DOC-002", "DOC-003", "DOC-004", "DOC-005", "DOC-006", "DOC-007"
     )]
     [string]$CardType,
     
@@ -92,6 +92,7 @@ function Invoke-CheckpointCard {
         "DOC-004" { Test-DeploymentDocumentation $ModuleName }
         "DOC-005" { Test-DocumentSync $DirectoryPath }
         "DOC-006" { Test-ToolDocumentation $FilePath }
+        "DOC-007" { Test-ForceDocumentReading $FilePath }
         
         default {
             Write-Host "⚠️  检查卡片 $CardType 尚未实现" -ForegroundColor Yellow
@@ -788,6 +789,37 @@ function Test-ToolDocumentation($FilePath) {
         }
     } else {
         Write-Host "❌ 工具文件不存在: $FilePath" -ForegroundColor Red
+    }
+}
+
+# DOC-007: 强制文档阅读验证
+function Test-ForceDocumentReading {
+    param($FilePath)
+    
+    Write-Host "📖 DOC-007: 强制文档阅读验证" -ForegroundColor Magenta
+    
+    if ([string]::IsNullOrWhiteSpace($FilePath)) {
+        Write-Host "⚠️  未指定文档路径，使用默认文档管理标准" -ForegroundColor Yellow
+        $FilePath = "docs/standards/document-management-standards.md"
+    }
+    
+    if (Test-Path $FilePath) {
+        Write-Host "✅ 调用强制文档阅读脚本" -ForegroundColor Green
+        Write-Host "📄 目标文档: $FilePath" -ForegroundColor Cyan
+        
+        # 调用专用的文档阅读脚本
+        & ".\tools\enforce_doc_reading.ps1" -DocumentPath $FilePath -StartLine 577 -EndLine 620 -Questions @(
+            "阅读确认字段在检查点卡片中的具体位置是什么？",
+            "阅读确认问题设计的核心原则是什么，如何确保无法推测回答？"
+        )
+        
+        if ($LASTEXITCODE -eq 0) {
+            Write-Host "✅ 文档阅读验证通过" -ForegroundColor Green
+        } else {
+            Write-Host "❌ 文档阅读验证失败" -ForegroundColor Red
+        }
+    } else {
+        Write-Host "❌ 指定文档不存在: $FilePath" -ForegroundColor Red
     }
 }
 
