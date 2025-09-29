@@ -1,3 +1,48 @@
+<#
+.SYNOPSIS
+功能分支完成脚本 - 自动化分支合并和清理
+
+.DESCRIPTION
+自动化处理功能分支开发完成后的标准操作：
+- 检查工作目录状态，自动提交未提交的变更
+- 将功能分支合并到主分支
+- 可选的远程推送操作
+- 分支清理和状态重置
+
+主要功能：
+- 自动检测当前分支或使用指定分支
+- 智能处理工作目录中的未提交变更
+- 安全的分支合并操作
+- 可选的远程仓库同步
+
+.PARAMETER FeatureBranch
+可选参数。指定要完成的功能分支名称
+如果不提供，将使用当前Git分支
+
+.PARAMETER NoPush
+可选开关。设置后将跳过远程推送操作
+适用于本地分支管理或网络受限环境
+
+.EXAMPLE
+.\tools\feature_finish.ps1
+完成当前分支的开发并推送到远程
+
+.EXAMPLE
+.\tools\feature_finish.ps1 -FeatureBranch "feature/user-auth" -NoPush
+完成指定分支但不推送到远程
+
+.EXAMPLE
+.\tools\feature_finish.ps1 -NoPush
+完成当前分支但仅限本地操作
+
+.NOTES
+Author: AI Development Team
+Created: 2025-09-30
+Version: 1.0
+Dependencies: Git, PowerShell 5.0+
+Safety: 自动备份和状态检查，支持回滚
+#>
+
 Param(
     [string]$FeatureBranch = '',
     [switch]$NoPush

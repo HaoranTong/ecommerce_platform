@@ -1,3 +1,49 @@
+<#
+.SYNOPSIS
+集成测试执行脚本 - 使用MySQL Docker容器进行完整集成测试
+
+.DESCRIPTION
+执行完整的集成测试流程，验证多模块协作和数据库集成：
+- 自动管理MySQL Docker容器生命周期
+- 激活项目虚拟环境
+- 配置集成测试环境变量
+- 执行pytest集成测试
+- 提供灵活的容器管理选项
+
+主要功能：
+- Docker容器自动启动和停止
+- MySQL数据库连接验证  
+- 集成测试环境配置
+- 测试结果记录和报告
+
+.PARAMETER SkipDocker
+跳过Docker容器管理，假设MySQL容器已经运行
+适用于在已有Docker环境中执行测试的场景
+
+.PARAMETER KeepContainer
+测试完成后保持Docker容器运行状态
+适用于需要检查测试后数据状态或调试的场景
+
+.EXAMPLE
+.\tools\integration_test.ps1
+执行完整集成测试，自动管理Docker容器
+
+.EXAMPLE
+.\tools\integration_test.ps1 -SkipDocker
+在现有Docker环境中执行集成测试
+
+.EXAMPLE  
+.\tools\integration_test.ps1 -KeepContainer
+执行集成测试并保持容器运行以便调试
+
+.NOTES
+Author: AI Development Team
+Created: 2025-09-30
+Version: 1.0
+Dependencies: Docker Desktop, Python 3.8+, pytest
+Environment: 需要Docker环境和MySQL容器
+#>
+
 # 集成测试脚本
 # 使用MySQL Docker容器进行完整的集成测试
 # 自动管理Docker容器生命周期

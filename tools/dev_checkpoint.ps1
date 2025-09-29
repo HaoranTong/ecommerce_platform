@@ -1,5 +1,50 @@
+<#
+.SYNOPSIS
+开发阶段强制检查点验证脚本
+
+.DESCRIPTION
+在开发流程的关键节点执行强制检查点验证，确保开发质量和流程合规：
+- 文档驱动开发原则检查
+- 代码质量和标准合规验证
+- 开发阶段依赖文档存在性检查
+- 检查点执行日志记录
+
+支持三个关键开发阶段：
+- PRE_DEV: 开发前准备检查
+- CODE_WRITE: 代码编写过程检查  
+- PRE_COMMIT: 提交前质量检查
+
+.PARAMETER Phase
+必需参数。开发阶段标识：
+- PRE_DEV: 开发前检查（需求文档、设计文档等）
+- CODE_WRITE: 编码阶段检查（代码规范、测试等）
+- PRE_COMMIT: 提交前检查（完整性、质量验证等）
+
+.PARAMETER Module
+可选参数。指定模块名称，用于模块特定的检查点验证
+
+.EXAMPLE
+.\tools\dev_checkpoint.ps1 -Phase PRE_DEV -Module user_auth
+执行user_auth模块的开发前检查
+
+.EXAMPLE
+.\tools\dev_checkpoint.ps1 -Phase CODE_WRITE
+执行代码编写阶段的通用检查
+
+.EXAMPLE
+.\tools\dev_checkpoint.ps1 -Phase PRE_COMMIT -Module product_catalog
+执行product_catalog模块的提交前检查
+
+.NOTES
+Author: AI Development Team
+Created: 2025-09-30
+Version: 1.0
+Dependencies: PowerShell 5.0+
+Log File: docs/status/checkpoint-log.md
+#>
+
 # 开发强制检查点脚本
-# 使用方法: .\scripts\dev_checkpoint.ps1 -Phase "开发阶段" -Module "模块名"
+# 使用方法: .\tools\dev_checkpoint.ps1 -Phase "开发阶段" -Module "模块名"
 
 param(
     [Parameter(Mandatory=$true)]

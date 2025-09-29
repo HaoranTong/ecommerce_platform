@@ -1,3 +1,39 @@
+<#
+.SYNOPSIS
+API烟雾测试脚本 - 快速验证核心API功能
+
+.DESCRIPTION
+执行轻量级的API烟雾测试，验证核心API端点的基本功能：
+- 自动激活项目虚拟环境
+- 检查API服务是否运行，如未运行则启动uvicorn服务器
+- 执行POST/GET测试验证用户相关API端点
+- 使用SQLite数据库，无需外部依赖
+- 自动清理：如果脚本启动了服务器，测试完成后会自动停止
+
+主要测试内容：
+- 用户注册API (POST /api/users)
+- 用户查询API (GET /api/users)
+- 基本的数据库连接和操作
+
+.PARAMETER None
+此脚本不接受参数，使用默认配置执行烟雾测试
+
+.EXAMPLE
+.\tools\smoke_test.ps1
+执行完整的API烟雾测试
+
+.EXAMPLE
+cd tools && .\smoke_test.ps1
+从tools目录执行烟雾测试
+
+.NOTES
+Author: AI Development Team
+Created: 2025-09-30
+Version: 1.0
+Dependencies: Python 3.8+, FastAPI, SQLite
+Environment: 使用SQLite数据库，无需Docker或MySQL
+#>
+
 Param()
 
 # One-shot smoke test for the API.

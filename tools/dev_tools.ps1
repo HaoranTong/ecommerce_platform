@@ -1,3 +1,53 @@
+<#
+.SYNOPSIS
+开发工具集合脚本 - 日常开发辅助命令集
+
+.DESCRIPTION
+提供常用的开发辅助命令，简化日常开发操作：
+- 数据库状态检查和管理
+- API服务启动和停止
+- 测试环境重置
+- 数据库迁移执行
+
+所有命令都使用统一的环境配置(dev_env.ps1)，确保环境一致性。
+
+支持的命令：
+- check-db: 检查数据库表结构和连接状态
+- migrate: 执行数据库迁移
+- test-cart: 测试购物车功能
+- start-api: 启动API服务器
+- stop-api: 停止API服务器  
+- reset-env: 重置开发环境
+
+.PARAMETER Command
+必需参数。要执行的开发命令，支持以下选项：
+- check-db: 检查数据库表结构
+- migrate: 执行数据库迁移
+- test-cart: 测试购物车功能
+- start-api: 启动API服务
+- stop-api: 停止API服务
+- reset-env: 重置开发环境
+
+.EXAMPLE
+.\tools\dev_tools.ps1 check-db
+检查数据库表结构和字段信息
+
+.EXAMPLE
+.\tools\dev_tools.ps1 migrate
+执行数据库迁移操作
+
+.EXAMPLE
+.\tools\dev_tools.ps1 start-api
+启动FastAPI开发服务器
+
+.NOTES
+Author: AI Development Team
+Created: 2025-09-30
+Version: 1.0
+Dependencies: dev_env.ps1, Python 3.8+, FastAPI
+Environment: 需要配置dev_env.ps1环境文件
+#>
+
 # 开发工具集合脚本
 param(
     [Parameter(Mandatory=$true)]
