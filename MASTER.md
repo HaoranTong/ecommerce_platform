@@ -66,7 +66,7 @@
 ## 📋 详细检查点列表 (按场景分类)
 
 ### 🚀 启动类
-- **接收任务时** → [CHECK:AI-START] 确认理解任务并制定计划
+- **接收任务时** → [CHECK:AI-START] ⚠️ [必读卡片](tools/checkpoint-cards.md#ai-start) 确认理解任务并制定计划
 
 ### 📋 需求分析类  
 - **项目启动** → [CHECK:REQ-001] ⚠️ [必读卡片](tools/checkpoint-cards.md#req-001)

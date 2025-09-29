@@ -2,7 +2,24 @@
 
 > **作用**：为AI工作流程提供精准导航和文档索引，确保按正确标准执行各类检查点。
 
-## 📋 需求分析类 (REQ)
+## � 启动类 (AI)
+
+### AI-START: 任务理解与计划制定验证
+**触发条件**: 接收到新的用户任务时
+**检查重点**: 准确理解任务需求、分析任务范围、制定合理的执行计划
+**精准导航**:
+1. **任务分析标准** → `MASTER.md` 第15-25行
+2. **检查点匹配规则** → `MASTER.md` 第26-35行
+3. **TODO清单格式** → `MASTER.md` 第36-45行
+4. **工作流程规范** → `docs/standards/workflow-standards.md` 第10-50行
+
+**阅读确认**:
+问题1: 任务分析的What/Why/Where/How四要素分别指什么？
+问题2: TODO清单中每个项目必须包含什么标记？
+
+**执行脚本**: `tools/ai_checkpoint.ps1 -CardType AI-START`
+
+## �📋 需求分析类 (REQ)
 
 ### REQ-001: 业务需求理解验证
 **触发条件**: 开始新功能开发、项目启动
@@ -18,8 +35,86 @@
 问题2: 商业模式设计中的收入模型验证标准包含哪些具体指标？
 
 **执行脚本**: `tools/validate_business_requirements.ps1`
+**辅助脚本**: `tools/ai_checkpoint.ps1 -CardType DOC-007`
 
-### REQ-002: 功能需求分析验证
+## 📊 状态管理类 (STATUS)
+
+### STATUS-001: 状态读取验证
+**触发条件**: AI任务开始时、恢复工作时
+**检查重点**: 准确理解当前工作状态、进度和上下文
+**精准导航**:
+1. **当前工作状态** → `docs/status/current-work-status.md` 第1-50行
+2. **模块状态跟踪** → `docs/status/module-status.md` 第1-100行
+3. **问题跟踪记录** → `docs/status/issues-tracking.md` 第1-50行
+
+**阅读确认**:
+问题1: 当前正在进行的主要工作任务是什么？
+问题2: 有哪些待解决的已知问题？
+
+**执行脚本**: `tools/check_work_status.ps1`
+
+### STATUS-002: 状态更新验证
+**触发条件**: 完成任务阶段、遇到重要问题、工作状态变化时
+**检查重点**: 及时更新工作状态、记录进度和问题
+**精准导航**:
+1. **状态更新格式** → `docs/status/current-work-status.md` 第10-30行
+2. **进度记录标准** → `docs/status/current-work-status.md` 第35-50行
+3. **问题记录格式** → `docs/status/issues-tracking.md` 第15-35行
+
+**阅读确认**:
+问题1: 状态更新的标准格式包含哪些必填字段？
+问题2: 问题记录需要包含哪些核心信息？
+
+**执行脚本**: `tools/update_work_status.ps1`
+
+### STATUS-003: 工作归档验证
+**触发条件**: 完成重要功能、模块开发完成、里程碑达成时
+**检查重点**: 完整归档工作成果、更新文档、清理临时文件
+**精准导航**:
+1. **归档标准格式** → `docs/status/README.md` 第20-40行
+2. **成果整理清单** → `docs/status/README.md` 第45-65行
+3. **文档更新要求** → `docs/status/README.md` 第70-90行
+
+**阅读确认**:
+问题1: 工作归档需要完成哪些标准步骤？
+问题2: 归档时需要更新哪些核心文档？
+
+**执行脚本**: `tools/archive_work.ps1`
+
+### STATUS-004: 状态恢复验证
+**触发条件**: 中断后恢复工作、切换任务后回归、系统重启后继续
+**检查重点**: 准确恢复工作上下文、识别中断点、确认环境状态
+**精准导航**:
+1. **恢复检查清单** → `docs/status/README.md` 第95-115行
+2. **环境验证标准** → `docs/status/README.md` 第120-140行
+3. **上下文重建步骤** → `docs/status/README.md` 第145-165行
+
+**阅读确认**:
+问题1: 状态恢复时需要验证哪些关键环境配置？
+问题2: 如何准确重建工作上下文？
+
+**执行脚本**: `tools/restore_work_context.ps1`
+
+## 🚨 应急处理类 (EMERGENCY)
+
+### EMERGENCY-001: 文件重建验证
+**触发条件**: 关键文件丢失、损坏或严重错误时
+**检查重点**: 快速诊断问题、选择重建策略、确保数据完整性
+**精准导航**:
+1. **文件重建策略** → `docs/operations/emergency-procedures.md` 第10-40行
+2. **备份恢复流程** → `docs/operations/emergency-procedures.md` 第45-75行
+3. **完整性验证标准** → `docs/operations/emergency-procedures.md` 第80-110行
+4. **应急脚本使用** → `scripts/README.md` 第30-60行
+
+**阅读确认**:
+问题1: 关键文件丢失时的标准处理流程是什么？
+问题2: 如何验证重建文件的完整性和正确性？
+
+**执行脚本**: `tools/emergency_rebuild.ps1`
+
+---
+
+## 📋 检查点索引REQ-002: 功能需求分析验证
 **触发条件**: 设计具体功能、模块规划
 **检查重点**: 功能完整性、需求优先级、验收标准
 **精准导航**:
@@ -264,51 +359,7 @@
 4. **性能测试要求** → `docs/standards/testing-standards.md` 第240-280行
 **执行脚本**: `tools/performance_benchmark.ps1 -Module {module}`
 
-### DEV-011: 数据迁移验证
-**触发条件**: 数据库结构变更、数据迁移脚本编写
-**检查重点**: 迁移脚本安全性、数据完整性、回滚方案
-**精准导航**:
-1. **迁移脚本标准** → `docs/standards/database-standards.md` 第300-350行
-2. **数据备份策略** → `docs/standards/database-standards.md` 第350-380行
-3. **回滚方案设计** → `docs/standards/database-standards.md` 第380-400行
-4. **迁移测试要求** → `docs/standards/testing-standards.md` 第200-230行
-
-**执行脚本**: `tools/validate_migration.ps1 -Module {module}`
-
-### DEV-012: 配置管理验证
-**触发条件**: 环境配置变更、配置文件修改
-**检查重点**: 配置安全性、环境一致性、版本管理
-**精准导航**:
-1. **配置管理标准** → `docs/standards/deployment-standards.md` 第50-80行
-2. **环境变量规范** → `docs/standards/deployment-standards.md` 第80-100行
-3. **密钥管理标准** → `docs/standards/security-architecture.md` 第200-230行
-4. **配置版本控制** → `docs/standards/workflow-standards.md` 第80-100行
-
-**执行脚本**: `tools/validate_config.ps1 -Environment {env}`
-
-### DEV-013: 依赖管理验证
-**触发条件**: 新增依赖、版本升级、依赖变更
-**检查重点**: 依赖安全性、版本兼容性、许可证合规
-**精准导航**:
-1. **依赖安全检查** → `docs/standards/security-architecture.md` 第230-260行
-2. **版本管理策略** → `docs/standards/workflow-standards.md` 第50-80行
-3. **许可证合规要求** → `docs/requirements/non-functional.md` 第250-280行
-4. **依赖文档标准** → `docs/standards/code-standards.md` 第150-180行
-
-**执行脚本**: `tools/check_dependencies.ps1 -Module {module}`
-
-### DEV-014: 性能基准验证
-**触发条件**: 性能关键代码开发、优化实施
-**检查重点**: 性能基准达标、资源使用合理、监控埋点
-**精准导航**:
-1. **性能基准定义** → `docs/standards/performance-standards.md` 第30-60行
-2. **监控埋点标准** → `docs/standards/performance-standards.md` 第90-120行
-3. **资源使用限制** → `docs/standards/performance-standards.md` 第120-150行
-4. **性能测试要求** → `docs/standards/testing-standards.md` 第240-280行
-
-**执行脚本**: `tools/performance_benchmark.ps1 -Module {module}`
-
-## 🧪 测试类 (TEST)
+## 🧪 测试验证类 (TEST)
 
 ### TEST-001: 测试环境配置
 **触发条件**: 开始测试会话、配置CI/CD
@@ -545,10 +596,13 @@
 
 | 类别 | 编号范围 | 检查点数量 |
 |------|----------|------------|
+| 启动类 | AI-START | 1个 |
 | 需求分析类 | REQ-001 ~ REQ-003 | 3个 |
 | 架构设计类 | ARCH-001 ~ ARCH-004 | 4个 |
 | 开发实施类 | DEV-001 ~ DEV-014 | 14个 |
 | 测试验证类 | TEST-001 ~ TEST-008 | 8个 |
+| 状态管理类 | STATUS-001 ~ STATUS-004 | 4个 |
 | 文档同步类 | DOC-001 ~ DOC-007 | 7个 |
+| 应急处理类 | EMERGENCY-001 | 1个 |
 
-**总计**: 36个检查点卡片
+**总计**: 42个检查点卡片
