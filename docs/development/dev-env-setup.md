@@ -783,4 +783,4 @@ docker exec redis redis-cli --latency -h localhost -p 6379
 - [测试环境配置](../../tests/README.md) - 测试环境搭建和配置
 - [生产环境配置](../operations/production-env-setup.md) - 生产环境部署配置  
 - [环境变量管理](environment-variables.md) - 环境变量详细管理
-- [工具使用手册](../tools/scripts-usage-manual.md) - 开发脚本详细说明
+- [工具使用手册](../tools/README.md) - 开发脚本详细说明

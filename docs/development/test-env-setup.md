@@ -4,12 +4,12 @@
 - **内容**：详细的测试环境配置、工具使用、故障排除指南
 - **使用者**：开发人员、测试人员、AI助手
 - **更新频率**：测试工具或环境配置变更时更新
-- **关联文档**：[测试标准](../standards/testing-standards.md)、[工作流程](../standards/workflow.md)
+- **关联文档**：[测试标准](../standards/testing-standards.md)、[工作流程规范](../standards/workflow-standards.md)
 
 ## 🎯 快速测试执行
 
 > **测试类型和执行策略**: 详见 [测试标准文档](../standards/testing-standards.md)  
-> **测试执行命令**: 详见 [脚本使用手册](scripts-usage-manual.md)
+> **测试执行命令**: 详见 [工具脚本使用指南](../tools/README.md)
 
 ## 测试环境配置
 
@@ -943,5 +943,5 @@ python scripts/validate_test_structure.py
 ## 相关文档
 
 - **主文档**: [测试标准文档](../standards/testing-standards.md) - 测试规范和标准流程
-- [工作流程文档](../standards/workflow.md) - 开发流程中的测试环节
+- [工作流程规范](../standards/workflow-standards.md) - 开发流程中的测试环节
 - [MASTER文档](../../MASTER.md) - 强制检查点
