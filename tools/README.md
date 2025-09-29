@@ -36,6 +36,7 @@ Get-Help .\tools\<script_name>.ps1 -Full
 | 工具 | 功能描述 | 使用场景 | 快速命令 |
 |------|----------|----------|----------|
 | `ai_checkpoint.ps1` | AI检查点验证 | AI开发任务完成验证 | `.\tools\ai_checkpoint.ps1 -CardType DEV-001` |
+| `enforce_doc_reading.ps1` | 强制文档阅读验证 | 确保AI实际阅读文档内容 | `.\tools\enforce_doc_reading.ps1 -DocumentPath "docs\standards\api-standards.md"` |
 | `dev_checkpoint.ps1` | 开发质量检查 | 代码提交前质量验证 | `.\tools\dev_checkpoint.ps1` |
 | `validate_standards.ps1` | 标准文档验证 | 文档修改后合规检查 | `.\tools\validate_standards.ps1` |
 | `check_code_standards.ps1` | 代码规范检查 | 代码质量持续检查 | `.\tools\check_code_standards.ps1` |
