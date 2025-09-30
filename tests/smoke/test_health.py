@@ -13,8 +13,8 @@ from sqlalchemy import text
 def test_application_health():
     """验证应用基本健康状态"""
     health_endpoints = [
-        "http://localhost:8000/health",
-        "http://127.0.0.1:8000/health",
+        "http://localhost:8000/api/health",
+        "http://127.0.0.1:8000/api/health",
         "http://localhost:8000/",  # 根路径
         "http://127.0.0.1:8000/"
     ]
