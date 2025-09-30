@@ -36,7 +36,7 @@ from tests.factories.data_factory import (StandardTestDataFactory,
 
 # 测试数据库配置 - 符合testing-standards.md标准和脚本配置
 UNIT_TEST_DATABASE_URL = "sqlite:///:memory:"  # 单元测试：内存数据库
-SMOKE_TEST_DATABASE_URL = "sqlite:///./tests/smoke_test.db"  # 烟雾测试：文件数据库
+SMOKE_TEST_DATABASE_URL = "sqlite:///./tests/smoke_test_pytest.db"  # 烟雾测试pytest：独立文件数据库
 # Integration Test Database Configuration (MySQL Docker) - 与setup_test_env.ps1一致
 INTEGRATION_TEST_DATABASE_URL = (
     "mysql+pymysql://root:test_password@localhost:3308/ecommerce_platform_test"
