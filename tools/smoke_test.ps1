@@ -93,33 +93,103 @@ try {
     $baseUrl = 'http://127.0.0.1:8000'
 
     function Test-Server {
+        param(
+            [int]$TimeoutSec = 3
+        )
         try {
-            Invoke-RestMethod -Method Get -Uri "$baseUrl/" -TimeoutSec 2 -ErrorAction Stop | Out-Null
+            Invoke-RestMethod -Method Get -Uri "$baseUrl/health" -TimeoutSec $TimeoutSec -ErrorAction Stop | Out-Null
             return $true
         }
         catch {
-            return $false
+            # 如果/health不存在，尝试根路径
+            try {
+                Invoke-RestMethod -Method Get -Uri "$baseUrl/" -TimeoutSec $TimeoutSec -ErrorAction Stop | Out-Null
+                return $true
+            }
+            catch {
+                return $false
+            }
         }
     }
 
-    $startedByScript = $false
-    if (-not (Test-Server)) {
-        Write-Output "Server not responding; starting uvicorn..."
-        $startedByScript = $true
-        # 烟雾测试使用AUTO_CREATE_TABLES模式，跳过Alembic迁移
-        Write-Output "烟雾测试模式：跳过Alembic迁移，使用AUTO_CREATE_TABLES自动创建表"
+    function Wait-ForServerStartup {
+        param(
+            [int]$MaxWaitSeconds = 30,
+            [int]$CheckIntervalSeconds = 1
+        )
         
+        Write-Output "⏳ 等待服务器启动，最大等待时间: ${MaxWaitSeconds}秒..."
+        $elapsedSeconds = 0
+        
+        do {
+            if (Test-Server) {
+                Write-Output "✅ 服务器已启动并响应 (耗时: ${elapsedSeconds}秒)"
+                return $true
+            }
+            
+            Start-Sleep -Seconds $CheckIntervalSeconds
+            $elapsedSeconds += $CheckIntervalSeconds
+            
+            if ($elapsedSeconds % 5 -eq 0) {
+                Write-Output "⏳ 继续等待服务器启动... (已等待: ${elapsedSeconds}/${MaxWaitSeconds}秒)"
+            }
+            
+        } while ($elapsedSeconds -lt $MaxWaitSeconds)
+        
+        Write-Output "❌ 服务器启动超时 (等待了${MaxWaitSeconds}秒)"
+        return $false
+    }
+
+    # ========== 服务状态检查和自动启动 ==========
+    Write-Output ""
+    Write-Output "🔍 检查服务器状态..."
+
+    $startedByScript = $false
+    $uvProc = $null
+    
+    if (-not (Test-Server)) {
+        Write-Output "📡 服务器未运行，正在启动uvicorn服务器..."
+        $startedByScript = $true
+        
+        # 烟雾测试使用AUTO_CREATE_TABLES模式，跳过Alembic迁移
+        Write-Output "🔧 烟雾测试模式：跳过Alembic迁移，使用AUTO_CREATE_TABLES自动创建表"
+        
+        # 设置Python路径
         $env:PYTHONPATH = (Resolve-Path $repo).Path
-        $uvProc = Start-Process -FilePath python -ArgumentList '-m', 'uvicorn', 'app.main:app', '--host', '127.0.0.1', '--port', '8000' -NoNewWindow -PassThru
-        Start-Sleep -Seconds 2
-        if (-not (Test-Server)) {
-            Write-Error "Failed to start server"
-            if ($startedByScript -and $uvProc) { $uvProc | Stop-Process -Force }
+        
+        # 启动uvicorn服务器
+        try {
+            $uvProc = Start-Process -FilePath python -ArgumentList '-m', 'uvicorn', 'app.main:app', '--host', '127.0.0.1', '--port', '8000', '--log-level', 'info' -NoNewWindow -PassThru
+            Write-Output "🚀 Uvicorn进程已启动 (PID: $($uvProc.Id))"
+            
+            # 等待服务器启动
+            if (-not (Wait-ForServerStartup -MaxWaitSeconds 30)) {
+                Write-Error "❌ 服务器启动失败或超时"
+                if ($uvProc -and -not $uvProc.HasExited) { 
+                    Write-Output "🛑 停止uvicorn进程 (PID: $($uvProc.Id))"
+                    $uvProc | Stop-Process -Force 
+                }
+                $script:TestSuccess = $false
+                exit 2
+            }
+        }
+        catch {
+            Write-Error "❌ 启动uvicorn失败: $($_.Exception.Message)"
+            $script:TestSuccess = $false
             exit 2
         }
     }
     else {
-        Write-Output "Server already running."
+        Write-Output "✅ 服务器已在运行"
+        # 再次验证服务器响应
+        if (Test-Server) {
+            Write-Output "✅ 服务器响应正常"
+        }
+        else {
+            Write-Error "❌ 服务器虽在运行但无法正常响应"
+            $script:TestSuccess = $false
+            exit 2
+        }
     }
 
     # ========== 执行pytest烟雾测试 (新标准) ==========
@@ -188,14 +258,49 @@ try {
 
 }
 finally {
+    # ========== 清理服务器进程 ==========
     if ($startedByScript -and $uvProc) {
-        Write-Output "Stopping uvicorn (pid=$($uvProc.Id))"
-        $uvProc | Stop-Process -Force
+        Write-Output ""
+        Write-Output "🧹 清理：停止烟雾测试启动的uvicorn服务器..."
+        
+        try {
+            if (-not $uvProc.HasExited) {
+                Write-Output "🛑 停止uvicorn进程 (PID: $($uvProc.Id))"
+                $uvProc | Stop-Process -Force
+                
+                # 等待进程结束
+                $waitTime = 0
+                while (-not $uvProc.HasExited -and $waitTime -lt 5) {
+                    Start-Sleep -Seconds 1
+                    $waitTime++
+                }
+                
+                if ($uvProc.HasExited) {
+                    Write-Output "✅ Uvicorn进程已成功停止"
+                }
+                else {
+                    Write-Output "⚠️  Uvicorn进程可能仍在运行"
+                }
+            }
+            else {
+                Write-Output "ℹ️  Uvicorn进程已自行退出"
+            }
+        }
+        catch {
+            Write-Output "⚠️  停止uvicorn进程时出现异常: $($_.Exception.Message)"
+        }
     }
+    
     Pop-Location
     
-    # 确保正确的退出代码
-    if ($script:TestSuccess -eq $false) {
+    # ========== 输出最终结果 ==========
+    Write-Output ""
+    if ($script:TestSuccess -ne $false) {
+        Write-Output "🎉 烟雾测试完成：所有测试通过"
+        exit 0
+    }
+    else {
+        Write-Output "❌ 烟雾测试完成：部分测试失败"
         exit 1
     }
 }
