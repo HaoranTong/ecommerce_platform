@@ -13,7 +13,7 @@ from sqlalchemy import text
 def test_api_health_check():
     """测试API健康检查端点"""
     try:
-        response = requests.get('http://127.0.0.1:8000/health', timeout=5)
+        response = requests.get('http://127.0.0.1:8000/api/health', timeout=5)
         assert response.status_code == 200, f"Health check failed: {response.status_code}"
         print(f"✅ Health check passed: {response.status_code}")
     except requests.exceptions.ConnectionError:
@@ -35,7 +35,7 @@ def test_users_endpoint_basic():
     try:
         # 1. 测试用户注册
         register_response = requests.post(
-            f'{base_url}/api/v1/users/register', 
+            f'{base_url}/api/v1/user-auth/register', 
             json=test_user, 
             timeout=5
         )
@@ -49,7 +49,7 @@ def test_users_endpoint_basic():
             print(f"⚠️  User registration returned: {register_response.status_code}")
         
         # 2. 测试获取用户列表
-        users_response = requests.get(f'{base_url}/api/v1/users', timeout=5)
+        users_response = requests.get(f'{base_url}/api/v1/user-auth/users', timeout=5)
         print(f"GET users response: {users_response.status_code}")
         
         if users_response.status_code == 200:
