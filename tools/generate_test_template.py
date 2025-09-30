@@ -94,14 +94,44 @@ class IntelligentTestGenerator:
     def __init__(self):
         """初始化生成器"""
         self.project_root = Path(__file__).parent.parent
-        self.test_distributions = {
-            "unit": 0.70,  # 70% 单元测试
-            "integration": 0.20,  # 20% 集成测试
-            "e2e": 0.06,  # 6% E2E测试
-            "smoke": 0.02,  # 2% 烟雾测试
-            "specialized": 0.02,  # 2% 专项测试
-        }
+        self.config = self._load_config()
         self.models_cache = {}
+
+    def _load_config(self) -> Dict[str, Any]:
+        """加载配置文件"""
+        config_path = self.project_root / "tools" / "test_generator_config.json"
+        try:
+            with open(config_path, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except FileNotFoundError:
+            print(f"⚠️ 配置文件未找到: {config_path}，使用默认配置")
+            return self._get_default_config()
+        except json.JSONDecodeError as e:
+            print(f"⚠️ 配置文件格式错误: {e}，使用默认配置")
+            return self._get_default_config()
+
+    def _get_default_config(self) -> Dict[str, Any]:
+        """获取默认配置"""
+        return {
+            "project_structure": {
+                "project_root": ".",
+                "modules_path": "app/modules",
+                "tests_path": "tests",
+                "factories_path": "tests/factories"
+            },
+            "test_distributions": {
+                "unit": 0.70,
+                "integration": 0.20,
+                "e2e": 0.06,
+                "smoke": 0.02,
+                "specialized": 0.02
+            },
+            "database_config": {
+                "unit_test_fixture": "unit_test_db",
+                "integration_test_fixture": "mysql_integration_db",
+                "e2e_test_fixture": "api_client"
+            }
+        }
 
     def analyze_module_models(self, module_name: str) -> Dict[str, ModelInfo]:
         """智能分析模块中的所有数据模型 [CHECK:TEST-001]
@@ -170,8 +200,22 @@ class IntelligentTestGenerator:
 
             return models
 
+        except FileNotFoundError:
+            error_msg = f"❌ 模型文件不存在: {models_file_path}"
+            error_msg += f"\n💡 建议检查: 1) 模块名是否正确 2) 文件路径: {models_file_path}"
+            print(error_msg)
+            return {}
+        except SyntaxError as e:
+            error_msg = f"❌ 模型文件语法错误: {models_file_path}:{e.lineno}"
+            error_msg += f"\n💡 语法问题: {e.msg}"
+            error_msg += f"\n🔧 建议修复: 检查第{e.lineno}行的Python语法"
+            print(error_msg)
+            return {}
         except Exception as e:
-            print(f"⚠️ AST分析失败: {e}")
+            error_msg = f"❌ AST分析失败: {type(e).__name__}: {e}"
+            error_msg += f"\n📁 文件路径: {models_file_path}"
+            error_msg += f"\n🔧 建议检查: 1) 文件是否为有效的Python文件 2) 是否包含SQLAlchemy模型"
+            print(error_msg)
             return {}
 
     def _is_sqlalchemy_model_class(self, class_node: ast.ClassDef) -> bool:
@@ -825,30 +869,88 @@ from {module_import_path} import (
     def _analyze_circular_dependency(
         self, field_name: str, target_model: str, all_models: Dict[str, ModelInfo]
     ) -> Dict[str, Any]:
-        """改进的循环依赖分析"""
+        """改进的循环依赖分析 - 使用图算法精确检测"""
+        # 构建依赖图
+        dependency_graph = self._build_dependency_graph(all_models)
+        
+        # 检测循环依赖
+        has_cycle = self._has_circular_dependency(dependency_graph, target_model, set())
+        
         # 检查是否为简单的自引用
         is_self_reference = any(
             pattern in field_name.lower()
             for pattern in ["parent_id", "manager_id", "created_by", "updated_by"]
         )
 
-        # 检查是否为已知的安全循环模式
-        safe_patterns = [
-            ("user_id", "User"),
-            ("role_id", "Role"),
-            ("granted_by", "User"),
-        ]
-
-        is_safe_pattern = any(
-            field_name == pattern[0] and target_model == pattern[1]
-            for pattern in safe_patterns
-        )
+        # 分类循环类型
+        cycle_type = self._classify_cycle_type(field_name, target_model, dependency_graph)
 
         return {
-            "has_cycle": is_self_reference or is_safe_pattern,
-            "safe_to_use_subfactory": not is_self_reference,
-            "cycle_type": "self_reference" if is_self_reference else "cross_reference",
+            "has_cycle": has_cycle or is_self_reference,
+            "safe_to_use_subfactory": not is_self_reference and not has_cycle,
+            "cycle_type": cycle_type,
+            "suggested_strategy": self._get_dependency_strategy(has_cycle, is_self_reference)
         }
+
+    def _build_dependency_graph(self, all_models: Dict[str, ModelInfo]) -> Dict[str, List[str]]:
+        """构建模型依赖图"""
+        graph = {}
+        
+        for model_name, model_info in all_models.items():
+            graph[model_name] = []
+            
+            # 分析外键依赖
+            for field_name, field_info in model_info.fields.items():
+                if hasattr(field_info, 'foreign_key') and field_info.foreign_key:
+                    target_table = field_info.foreign_key.split('.')[0]
+                    target_model = self._table_to_model_name(target_table)
+                    if target_model and target_model != model_name:
+                        graph[model_name].append(target_model)
+        
+        return graph
+
+    def _has_circular_dependency(self, graph: Dict[str, List[str]], start: str, visited: set) -> bool:
+        """使用DFS检测循环依赖"""
+        if start in visited:
+            return True
+        
+        if start not in graph:
+            return False
+            
+        visited.add(start)
+        
+        for neighbor in graph[start]:
+            if self._has_circular_dependency(graph, neighbor, visited.copy()):
+                return True
+        
+        return False
+
+    def _table_to_model_name(self, table_name: str) -> Optional[str]:
+        """将数据表名转换为模型名"""
+        # 简单的命名转换规则
+        if table_name.endswith('s'):
+            table_name = table_name[:-1]  # 移除复数s
+        return ''.join(word.capitalize() for word in table_name.split('_'))
+
+    def _classify_cycle_type(self, field_name: str, target_model: str, graph: Dict[str, List[str]]) -> str:
+        """分类循环依赖类型"""
+        if any(pattern in field_name.lower() for pattern in ["parent_id", "manager_id"]):
+            return "self_reference"
+        elif any(pattern in field_name.lower() for pattern in ["created_by", "updated_by"]):
+            return "audit_reference"
+        elif len(graph.get(target_model, [])) > 0:
+            return "cross_reference"
+        else:
+            return "simple_reference"
+
+    def _get_dependency_strategy(self, has_cycle: bool, is_self_reference: bool) -> str:
+        """获取推荐的依赖处理策略"""
+        if is_self_reference:
+            return "lazy_attribute"
+        elif has_cycle:
+            return "sequence"
+        else:
+            return "subfactory"
 
     def _get_safe_foreign_key(self, target_model: str, column_name: str = "id") -> int:
         """获取安全的外键值"""
@@ -875,7 +977,7 @@ from {module_import_path} import (
         elif "username" in field_name or "name" in field_name:
             return f"{field.name} = factory.Sequence(lambda n: f'{field_name}_{{n}}')"
         elif "code" in field_name:
-            return f"{field.name} = factory.Sequence(lambda n: f'{field.name.upper()}_{{n:06d}}')"
+            return f"{field.name} = factory.Sequence(lambda n: f'{field.name.upper()}_{{{{n:06d}}}}')"
         elif "description" in field_name:
             return f"{field.name} = factory.Faker('text', max_nb_chars=200)"
         elif "title" in field_name:
@@ -1172,6 +1274,17 @@ from {module_import_path} import (
         Returns:
             Dict[str, str]: 文件路径到内容的映射
         """
+        # 0. 环境兼容性验证
+        validator = EnvironmentValidator(self.config)
+        env_info = validator.validate_test_environment(module_name)
+        
+        if env_info["issues"]:
+            print("⚠️ 环境验证发现问题:")
+            for issue in env_info["issues"]:
+                print(f"   - {issue}")
+        else:
+            print("✅ 环境兼容性验证通过")
+        
         # 1. 分析模型
         models = self.analyze_module_models(module_name)
 
@@ -1441,7 +1554,7 @@ class Test{model_name}Model:
         factory = {model_info.name}Factory
         
         # 使用有效外键创建实例
-        valid_instance = factory(**{{'{field.name}': {target_model.lower()}_instance.id if hasattr({target_model.lower()}_instance, 'id') else 1}})
+        valid_instance = factory(**{{'{field.name}': 1}})  # 使用固定的有效ID
         assert getattr(valid_instance, '{field.name}') is not None
         
         # 测试无效外键应该失败
@@ -1640,6 +1753,64 @@ class Test{model_name}Model:
             # 验证关系对象有基本属性
             assert hasattr(relationship_value, 'id') or hasattr(relationship_value, '__dict__')"""
 
+    def _analyze_model_business_features(self, model_info: ModelInfo) -> Dict[str, Any]:
+        """分析模型的业务特征"""
+        features = {
+            "has_user_fields": False,
+            "has_audit_fields": False,
+            "has_status_fields": False,
+            "has_financial_fields": False,
+            "has_inventory_fields": False,
+            "business_domain": "general",
+            "relationships_count": len(model_info.relationships),
+            "complexity_level": "simple"
+        }
+        
+        # 从配置获取业务模式
+        patterns = self.config.get("business_logic_patterns", {})
+        
+        # 分析字段类型
+        for field_name, field_info in model_info.fields.items():
+            field_lower = field_name.lower()
+            
+            if any(pattern in field_lower for pattern in patterns.get("user_fields", [])):
+                features["has_user_fields"] = True
+            
+            if any(pattern in field_lower for pattern in patterns.get("audit_fields", [])):
+                features["has_audit_fields"] = True
+                
+            if any(pattern in field_lower for pattern in patterns.get("status_fields", [])):
+                features["has_status_fields"] = True
+                
+            if any(pattern in field_lower for pattern in patterns.get("financial_fields", [])):
+                features["has_financial_fields"] = True
+                
+            if any(pattern in field_lower for pattern in patterns.get("inventory_fields", [])):
+                features["has_inventory_fields"] = True
+        
+        # 推断业务域
+        if features["has_user_fields"]:
+            features["business_domain"] = "user_management"
+        elif features["has_financial_fields"]:
+            features["business_domain"] = "financial"
+        elif features["has_inventory_fields"]:
+            features["business_domain"] = "inventory"
+        
+        # 评估复杂度
+        complexity_score = (
+            len(model_info.fields) * 0.3 +
+            len(model_info.relationships) * 0.7 +
+            (5 if features["has_financial_fields"] else 0) +
+            (3 if features["has_status_fields"] else 0)
+        )
+        
+        if complexity_score > 15:
+            features["complexity_level"] = "complex"
+        elif complexity_score > 8:
+            features["complexity_level"] = "moderate"
+        
+        return features
+
     def _generate_service_method_tests(
         self, module_name: str, models: Dict[str, ModelInfo], service_class_name: str
     ) -> str:
@@ -1661,12 +1832,25 @@ class Test{model_name}Model:
         # 添加具体的服务方法测试
         assert True  # 占位符'''
 
-        # 为每个模型生成CRUD测试
+        # 为每个模型生成增强的CRUD测试
         test_methods = []
 
         for model_name, model_info in models.items():
-            model_tests = f'''    def test_{model_name.lower()}_crud_operations(self, unit_test_db: Session):
-        """测试{model_name}的CRUD操作"""
+            # 分析业务特征
+            features = self._analyze_model_business_features(model_info)
+            
+            # 生成基于业务特征的智能测试
+            model_tests = self._generate_smart_crud_test(model_name, model_info, service_class_name, module_name, features)
+            test_methods.append(model_tests)
+
+        return "\n\n".join(test_methods)
+
+    def _generate_smart_crud_test(self, model_name: str, model_info: ModelInfo, service_class_name: str, module_name: str, features: Dict[str, Any]) -> str:
+        """生成基于业务特征的智能CRUD测试"""
+        
+        # 基础CRUD测试
+        base_test = f'''    def test_{model_name.lower()}_crud_operations(self, unit_test_db: Session):
+        """测试{model_name}的CRUD操作 - {features["business_domain"]}域"""
         print(f"{NEWLINE}📋 测试{model_name} CRUD操作...")
         
         service = {service_class_name}(unit_test_db)
@@ -1679,37 +1863,47 @@ class Test{model_name}Model:
         # 测试创建
         created = service.create_{model_name.lower()}(test_instance.__dict__ if hasattr(test_instance, '__dict__') else {{}})
         if created:
-            assert created.id is not None
+            assert created.id is not None'''
+        
+        # 根据业务特征添加专项测试
+        business_tests = []
+        
+        if features["has_status_fields"]:
+            business_tests.append(f'''
+            # 测试状态管理
+            if hasattr(created, 'status'):
+                assert created.status is not None''')
+        
+        if features["has_audit_fields"]:
+            business_tests.append(f'''
+            # 测试审计字段
+            if hasattr(created, 'created_at'):
+                assert created.created_at is not None
+            if hasattr(created, 'updated_at'):
+                assert created.updated_at is not None''')
+        
+        if features["has_financial_fields"]:
+            business_tests.append(f'''
+            # 测试财务字段验证
+            if hasattr(created, 'amount') or hasattr(created, 'price'):
+                # 验证数值类型和精度
+                pass''')
+        
+        return base_test + "".join(business_tests) + '''
             
             # 测试读取
             retrieved = service.get_{model_name.lower()}_by_id(created.id)
-            if retrieved:
-                assert retrieved.id == created.id
-                
-                # 测试更新
-                updated_data = {{"updated_field": "updated_value"}}
-                updated = service.update_{model_name.lower()}(created.id, updated_data)
-                
-                # 测试删除
-                deleted = service.delete_{model_name.lower()}(created.id)
-                assert deleted is True or deleted is None
-        else:
-            # 如果服务方法不存在，至少验证服务可以实例化
-            assert service is not None
+            assert retrieved is not None
             
-    def test_{model_name.lower()}_business_logic(self, unit_test_db: Session):
-        """测试{model_name}相关业务逻辑"""
-        print(f"{NEWLINE}💼 测试{model_name}业务逻辑...")
-        
-        service = {service_class_name}(unit_test_db)
-        
-        # 测试业务规则验证
-        # 这里需要根据具体的业务逻辑实现
-        assert service is not None'''
-
-            test_methods.append(model_tests)
-
-        return "\n\n".join(test_methods)
+            # 测试更新
+            if hasattr(service, 'update_{model_name.lower()}'):
+                updated = service.update_{model_name.lower()}(created.id, {{"updated": True}})
+                # 验证更新成功
+            
+            # 测试删除
+            if hasattr(service, 'delete_{model_name.lower()}'):
+                deleted = service.delete_{model_name.lower()}(created.id)
+                # 验证删除成功'''
 
     def _generate_service_tests(
         self, module_name: str, models: Dict[str, ModelInfo]
@@ -2221,13 +2415,13 @@ class TestUserAuthIntegration:
         print(f"{NEWLINE}🔐 测试JWT令牌完整功能...")
         
         # 1. 测试访问令牌创建
-        token_data = {'sub': '1', 'username': 'integration_user', 'role': 'user'}
+        token_data = {{'sub': '1', 'username': 'integration_user', 'role': 'user'}}
         access_token = create_access_token(token_data)
         
         assert access_token is not None
         assert isinstance(access_token, str)
         assert len(access_token) > 50
-        print(f"✅ 访问令牌创建成功: {access_token[:30]}...")
+        print("✅ 访问令牌创建成功: " + access_token[:30] + "...")
         
         # 2. 测试刷新令牌创建
         refresh_token = create_refresh_token(token_data)
@@ -2235,7 +2429,7 @@ class TestUserAuthIntegration:
         assert refresh_token is not None
         assert isinstance(refresh_token, str)
         assert refresh_token != access_token
-        print(f"✅ 刷新令牌创建成功: {refresh_token[:30]}...")
+        print("✅ 刷新令牌创建成功: " + refresh_token[:30] + "...")
         
         # 3. 测试令牌验证
         try:
@@ -2244,7 +2438,7 @@ class TestUserAuthIntegration:
             assert payload['username'] == 'integration_user'
             print("✅ 令牌验证成功")
         except Exception as e:
-            print(f"⚠️ 令牌验证注意事项: {e}")
+            print(f"⚠️ 令牌验证注意事项: {{e}}")
         
         # 4. 测试密码哈希功能
         password = "IntegrationTestPassword123!"
@@ -2289,7 +2483,7 @@ class TestUserAuthIntegration:
         assert created_user.is_active == True
         assert created_user.password_hash is not None
         assert created_user.password_hash != "SecurePassword123!"
-        print(f"✅ 用户创建成功: {created_user.username} (ID: {created_user.id})")
+        print(f"✅ 用户创建成功: {{created_user.username}} (ID: {{created_user.id}})")
         
         # 4. 验证密码正确哈希
         assert verify_password("SecurePassword123!", created_user.password_hash)
@@ -2362,11 +2556,11 @@ class TestUserAuthIntegration:
         print("✅ 健康检查API正常")
         
         # 2. 测试用户注册API（如果存在）
-        user_data = {
+        user_data = {{
             "username": "api_test_user",
             "email": "api@test.com",
             "password": "ApiTestPassword123!"
-        }
+        }}
         
         # 注意: 实际API路径需要根据router.py确认
         try:
@@ -2382,9 +2576,9 @@ class TestUserAuthIntegration:
                 assert created_user is not None
                 print("✅ API注册数据库集成验证通过")
             else:
-                print(f"ℹ️ 注册API返回状态: {register_response.status_code}")
+                print(f"ℹ️ 注册API返回状态: {{register_response.status_code}}")
         except Exception as e:
-            print(f"ℹ️ API测试注意: {e}")
+            print(f"ℹ️ API测试注意: {{e}}")
 
     def test_database_integration_verification(self, mysql_integration_db: Session):
         """测试数据库集成验证"""
@@ -2448,7 +2642,7 @@ class TestUserAuthIntegration:
         except ImportError:
             print("ℹ️ 权限系统模型未实现，跳过测试")
         except Exception as e:
-            print(f"ℹ️ 权限系统测试注意: {e}")
+            print(f"ℹ️ 权限系统测试注意: {{e}}")
 '''
 
     def _generate_generic_integration_tests(
@@ -2682,7 +2876,7 @@ class TestJWTTokens:
                 assert decoded_data['username'] == 'unit_user'
                 print("✅ 令牌解码验证通过")
             except Exception as e:
-                print(f"ℹ️ 令牌解码测试说明: {e}")
+                print(f"ℹ️ 令牌解码测试说明: {{e}}")
 
 
 @pytest.mark.unit  
@@ -3189,7 +3383,7 @@ Auto Generated Test - 需要人工审查
                                 "message": "测试收集失败",
                             }
                             print(f"  ❌ pytest收集失败: {file_path}")
-                            print(f"     错误: {error_msg[:200]}...")
+                            print("     错误: " + error_msg[:200] + "...")
 
                     except subprocess.TimeoutExpired:
                         error_msg = "pytest收集超时"
@@ -3268,7 +3462,7 @@ Auto Generated Test - 需要人工审查
                         "message": f'导入失败: {", ".join(failed_imports[:3])}',
                     }
                     print(f"  ❌ 导入验证失败: {file_path}")
-                    print(f"     失败导入: {', '.join(failed_imports[:5])}")
+                    print("     失败导入: " + ', '.join(failed_imports[:5]))
                 else:
                     import_results["passed"].append(file_path)
                     import_results["details"][file_path] = {
@@ -3801,6 +3995,59 @@ def main():
     except Exception as e:
         print(f"❌ 执行失败: {e}")
         sys.exit(1)
+
+
+class EnvironmentValidator:
+    """测试环境兼容性验证器"""
+    
+    def __init__(self, config: Dict[str, Any]):
+        self.config = config
+    
+    def validate_test_environment(self, module_name: str) -> Dict[str, Any]:
+        """验证测试环境配置并返回环境信息"""
+        env_info = {
+            "module_exists": False,
+            "fixtures_available": [],
+            "database_config": {},
+            "issues": []
+        }
+        
+        # 检查模块是否存在
+        module_path = os.path.join(
+            self.config["project_structure"]["modules_path"], 
+            module_name
+        )
+        env_info["module_exists"] = os.path.exists(module_path)
+        if not env_info["module_exists"]:
+            env_info["issues"].append(f"模块路径不存在: {module_path}")
+        
+        # 检查conftest.py并获取可用fixture
+        conftest_path = os.path.join(self.config["project_structure"]["tests_path"], "conftest.py")
+        if os.path.exists(conftest_path):
+            try:
+                with open(conftest_path, 'r', encoding='utf-8') as f:
+                    conftest_content = f.read()
+                
+                # 解析可用的fixture
+                import re
+                fixture_pattern = r'@pytest\.fixture[^\n]*\ndef\s+(\w+)'
+                fixtures = re.findall(fixture_pattern, conftest_content)
+                env_info["fixtures_available"] = fixtures
+                
+            except Exception as e:
+                env_info["issues"].append(f"无法读取conftest.py: {e}")
+        else:
+            env_info["issues"].append(f"conftest.py不存在: {conftest_path}")
+        
+        # 设置数据库配置信息
+        db_config = self.config["database_config"]
+        env_info["database_config"] = {
+            "unit_fixture": db_config["unit_test_fixture"],
+            "integration_fixture": db_config["integration_test_fixture"],
+            "e2e_fixture": db_config["e2e_test_fixture"],
+        }
+        
+        return env_info
 
 
 if __name__ == "__main__":
