@@ -361,110 +361,204 @@
 
 ## 🧪 测试验证类 (TEST)
 
-### TEST-001: 测试环境配置
-**触发条件**: 开始测试会话、配置CI/CD
-**检查重点**: 环境隔离、数据库配置、依赖管理
+### TEST-001: 测试工作流程说明
+**触发条件**: ⚠️【关键】任何测试任务开始前必须阅读，了解测试标准和自动生成工具使用方法
+**检查重点**: 测试工作流程理解、自动生成工具使用、测试策略和覆盖率标准确认
+**精准导航**:
+1. **标准测试执行流程** → `docs/standards/testing-standards.md` 第90-250行 ⭐
+2. **智能测试生成工具** → `docs/standards/testing-standards.md` 第155-170行 
+3. **测试覆盖率标准** → `docs/standards/testing-standards.md` 第15-40行
+4. **5层测试架构** → `docs/standards/testing-standards.md` 第40-90行
+
+**阅读确认**:
+问题1: 根据测试工作流程说明，使用自动生成工具的命令是什么？
+问题2: 单元测试覆盖率的最低标准是多少？
+
+**执行脚本**: `tools/ai_checkpoint.ps1 -CardType TEST-001`
+
+### TEST-002: 测试环境配置
+**触发条件**: 初次配置测试环境时（一次性设置）
+**检查重点**: 环境隔离、数据库配置、依赖管理、初始化配置
 **精准导航**:
 1. **测试环境配置指南** → `docs/development/test-env-setup.md` 第1-100行 ⭐
 2. **环境分离标准** → `docs/standards/testing-standards.md` 第40-60行
 3. **数据库配置指南** → `docs/standards/database-standards.md` 第25-45行
 4. **依赖注入配置** → `tests/conftest.py` 第15-35行
-5. **环境变量管理** → `docs/standards/testing-standards.md` 第70-85行
 
-**执行脚本**:
-1. `tools/check_test_env.ps1` - 快速环境检查
-2. `tools/setup_test_env.ps1 -TestMode lite -CheckOnly` - 环境检查
-3. `python tools/validate_test_config.py` - 深度诊断
+**阅读确认**:
+问题1: 单元测试覆盖率标准是多少？
+问题2: 测试环境的数据库配置与开发环境的主要区别是什么？
 
-**辅助脚本**: `tools/check_test_env.ps1 -TestMode lite`
+**执行脚本**: `tools/setup_test_env.ps1 -TestMode lite`
 
-### TEST-002: 测试数据一致性
-**触发条件**: 编写单元测试、使用模型数据
-**检查重点**: 数据类型匹配、关联关系正确
+### TEST-003: 测试环境检查
+**触发条件**: 每次测试执行前验证环境可用性
+**检查重点**: 环境状态验证、工具可用性检查、配置完整性验证
 **精准导航**:
-1. **数据类型标准** → `docs/standards/testing-standards.md` 第95-115行
-2. **测试模式参考** → `tests/unit/test_models/test_user_models.py` 第25-60行
+1. **环境检查标准** → `docs/standards/testing-standards.md` 第70-85行
+2. **环境验证脚本** → `tools/check_test_env.ps1` 使用说明
+3. **故障排除指南** → `docs/development/test-env-setup.md` 第80-100行
+4. **常见问题解决** → `docs/status/issues-tracking.md` ISS-024
+
+**阅读确认**:
+问题1: 测试环境检查包含哪些核心验证项？
+问题2: 如果环境检查失败，应该执行什么脚本进行修复？
+
+**执行脚本**: `tools/check_test_env.ps1 -TestMode lite`
+
+### TEST-004: 测试工具配置
+**触发条件**: 需要配置pytest、coverage等测试工具时
+**检查重点**: pytest配置、coverage设置、测试发现配置、报告生成配置
+**精准导航**:
+1. **pytest配置标准** → `docs/standards/testing-standards.md` 第60-80行
+2. **coverage配置指南** → `docs/standards/testing-standards.md` 第30-40行
+3. **测试工具使用标准** → `docs/standards/testing-standards.md` 第150-185行
+4. **工具配置验证** → `tools/validate_test_config.py` 使用说明
+
+**阅读确认**:
+问题1: pytest的测试发现模式配置的关键参数是什么？
+问题2: coverage报告的输出格式标准是什么？
+
+**执行脚本**: `python tools/validate_test_config.py`
+
+### TEST-005: Mock数据统一
+**触发条件**: 单元测试需要模拟外部依赖时
+**检查重点**: Mock策略选择、数据一致性、依赖隔离、测试数据标准化
+**精准导航**:
+1. **Mock策略标准** → `docs/standards/testing-standards.md` 第200-220行
+2. **双工厂架构指南** → `docs/standards/testing-standards.md` 第500-600行
+3. **Factory Boy工厂使用** → `docs/standards/testing-standards.md` 第520-550行
+4. **数据类型标准** → `docs/standards/testing-standards.md` 第95-115行
+
+**阅读确认**:
+问题1: Factory Boy工厂和统一工厂的适用场景分别是什么？
+问题2: 单元测试中Mock外部API的标准做法是什么？
+
+**执行脚本**: `tools/ai_checkpoint.ps1 -CardType TEST-005`
+
+### TEST-006: 数据工厂准备
+**触发条件**: 测试需要生成或管理测试数据时
+**检查重点**: 工厂类型选择、数据创建正确性、数据库配置匹配
+**精准导航**:
+1. **数据工厂选择指南** → `docs/standards/testing-standards.md` 第580-600行
+2. **统一工厂使用** → `docs/standards/testing-standards.md` 第550-580行
 3. **关联创建规范** → `docs/standards/testing-standards.md` 第130-145行
 4. **断言验证标准** → `docs/standards/testing-standards.md` 第160-180行
 
-**执行脚本**: 
-1. `tools/check_test_env.ps1` - 环境验证
-2. `python tools/validate_test_config.py` - 配置诊断
+**阅读确认**:
+问题1: 单元测试和集成测试应该分别使用哪种数据工厂？
+问题2: 数据工厂创建关联对象的标准流程是什么？
 
-**常见问题排查**:
-- 如果单元测试连接MySQL → `docs/status/issues-tracking.md` ISS-024
-- 如果fixture配置错误 → `tests/conftest.py` 第15-35行对比
+**执行脚本**: `pytest tests/unit/ -v`
 
-**辅助脚本**: `tools/ai_checkpoint.ps1 -CardType TEST-002`
-
-### TEST-003: 集成测试设计
-**触发条件**: API测试、跨模块测试
-**检查重点**: 接口契约、数据流验证、边界场景
+### TEST-007: 单元测试执行
+**触发条件**: 当任务涉及模块功能验证或代码质量检查时
+**检查重点**: 模块功能验证、代码逻辑正确性、边界条件测试
 **精准导航**:
-1. **API契约标准** → `docs/design/modules/{module}/api-spec.md` 第20-50行
-2. **数据流设计** → `docs/design/modules/{module}/design.md` 第120-150行
-3. **集成测试标准** → `docs/standards/testing-standards.md` 第160-185行
-4. **Mock策略标准** → `docs/standards/testing-standards.md` 第200-220行
+1. **单元测试标准** → `docs/standards/testing-standards.md` 第95-140行
+2. **测试模式参考** → `tests/unit/test_models/test_user_models.py` 第25-60行
+3. **测试覆盖率标准** → `docs/standards/testing-standards.md` 第15-40行
+4. **代码质量标准** → `docs/standards/code-standards.md` 第15-35行
 
-**执行脚本**: 
-1. `tools/setup_test_env.ps1 -TestMode full`
-2. `tools/run_module_tests.ps1 -Module {module} -TestMode full`
+**阅读确认**:
+问题1: 单元测试的覆盖率最低要求是多少？
+问题2: 单元测试中函数复杂度不能超过多少？
 
-### TEST-004: 性能与安全测试
-**触发条件**: 压力测试、安全验证
-**检查重点**: 性能指标、安全漏洞、压力边界
+**执行脚本**: `tools/run_module_tests.ps1 -Module {module} -TestMode unit`
+
+### TEST-008: 集成测试执行
+**触发条件**: 涉及多模块交互功能验证时
+**检查重点**: 接口契约、数据流验证、跨模块交互、边界场景
 **精准导航**:
-1. **性能指标标准** → `docs/requirements/non-functional.md` 第30-50行
-2. **安全实现验证** → `docs/design/system/security-design.md` 第60-120行
-3. **性能测试标准** → `docs/standards/testing-standards.md` 第240-260行
-4. **监控标准** → `docs/operations/monitoring.md` 第40-65行
+1. **集成测试标准** → `docs/standards/testing-standards.md` 第160-185行
+2. **API契约标准** → `docs/design/modules/{module}/api-spec.md` 第20-50行
+3. **数据流设计** → `docs/design/modules/{module}/design.md` 第120-150行
+4. **跨模块测试指南** → `docs/standards/testing-standards.md` 第140-160行
 
-**执行脚本**:
-1. `tools/performance_test.ps1` - 性能测试
-2. `tools/security_scan.ps1` - 安全扫描
+**阅读确认**:
+问题1: 集成测试的主要验证点是什么？
+问题2: 跨模块交互测试的数据隔离策略是什么？
 
-### TEST-005: API测试验证
-**触发条件**: API接口测试、端到端验证
-**检查重点**: 接口功能、响应格式、错误处理
+**执行脚本**: `tools/run_module_tests.ps1 -Module {module} -TestMode integration`
+
+### TEST-009: 接口测试执行
+**触发条件**: 涉及API接口开发或修改时
+**检查重点**: 接口功能、响应格式、错误处理、端到端验证
 **精准导航**:
 1. **API测试标准** → `docs/standards/testing-standards.md` 第200-240行
 2. **响应格式标准** → `docs/standards/api-standards.md` 第160-200行
 3. **状态码标准** → `docs/standards/api-standards.md` 第130-170行
 4. **错误处理标准** → `docs/standards/api-standards.md` 第200-240行
 
-**执行脚本**:
-1. `tools/setup_test_env.ps1 -TestMode full`  # E2E测试建议使用full模式
-2. `pytest tests/e2e/ -v`
+**阅读确认**:
+问题1: API接口测试的标准验证项包含哪些？
+问题2: 错误响应的标准格式是什么？
 
-### TEST-006: 性能测试验证
-**触发条件**: 性能压力测试、负载验证
-**检查重点**: 响应时间、并发能力、资源使用
+**执行脚本**: `tools/setup_test_env.ps1 -TestMode full && pytest tests/e2e/ -v`
+
+### TEST-010: 性能测试执行
+**触发条件**: 涉及性能敏感功能或大数据处理时
+**检查重点**: 响应时间、并发能力、资源使用、性能指标
 **精准导航**:
-1. **性能标准** → `docs/standards/performance-standards.md` 第30-60行
-2. **性能架构** → `docs/architecture/performance-architecture.md` 第80-120行
-3. **监控指标** → `docs/architecture/performance-architecture.md` 第140-180行
-4. **性能测试标准** → `docs/standards/testing-standards.md` 第240-280行
+1. **性能测试标准** → `docs/standards/testing-standards.md` 第240-280行
+2. **性能指标标准** → `docs/requirements/non-functional.md` 第30-50行
+3. **性能架构** → `docs/architecture/performance-architecture.md` 第80-120行
+4. **监控指标** → `docs/architecture/performance-architecture.md` 第140-180行
 
-**执行脚本**:
-1. `tools/ai_checkpoint.ps1 -CardType TEST-005 -ModuleName {module}`
-2. `tools/generate_test_template.py --test-type performance --module {module}`
+**阅读确认**:
+问题1: 性能测试的核心指标有哪些？
+问题2: 性能测试的通过标准是什么？
 
-### TEST-007: 安全测试验证
-**触发条件**: 安全功能测试、漏洞扫描
-**检查重点**: 认证授权、数据保护、攻击防护
+**执行脚本**: `tools/performance_test.ps1 -Module {module}`
+
+### TEST-011: 安全测试执行
+**触发条件**: 涉及认证、授权或敏感数据处理时
+**检查重点**: 认证授权、数据保护、攻击防护、安全漏洞扫描
 **精准导航**:
-1. **安全架构标准** → `docs/architecture/security-architecture.md` 第60-120行
-2. **安全测试标准** → `docs/standards/testing-standards.md` 第280-320行
+1. **安全测试标准** → `docs/standards/testing-standards.md` 第280-320行
+2. **安全架构标准** → `docs/architecture/security-architecture.md` 第60-120行
 3. **权限控制标准** → `docs/architecture/security-architecture.md` 第120-160行
 4. **数据保护标准** → `docs/architecture/security-architecture.md` 第160-200行
 
-**执行脚本**:
-1. `tools/ai_checkpoint.ps1 -CardType TEST-006 -ModuleName {module}`
-2. `tools/generate_test_template.py --test-type security --module {module}`
+**阅读确认**:
+问题1: 安全测试的主要验证项是什么？
+问题2: 敏感数据处理的安全标准是什么？
 
-### TEST-008: 测试阶段完成验证
-**触发条件**: 模块测试完成、代码提交前
-**检查重点**: 测试覆盖率、代码质量、文件清理、提交准备
+**执行脚本**: `tools/security_scan.ps1 -Module {module}`
+
+### TEST-012: 测试失败处理
+**触发条件**: 执行任何测试类型时都必须了解失败处理流程
+**检查重点**: 失败分析、问题定位、修复策略、重新验证流程
+**精准导航**:
+1. **测试失败处理流程** → `docs/standards/testing-standards.md` 第320-360行
+2. **问题诊断指南** → `docs/development/debugging-guide.md` 第20-50行
+3. **常见问题解决** → `docs/status/issues-tracking.md` 相关问题
+4. **测试重试策略** → `docs/standards/testing-standards.md` 第340-360行
+
+**阅读确认**:
+问题1: 测试失败时的标准处理流程是什么？
+问题2: 什么情况下需要重新生成测试数据？
+
+**执行脚本**: `tools/ai_checkpoint.ps1 -CardType TEST-012`
+
+### TEST-013: Generated代码管理
+**触发条件**: 涉及自动生成的测试代码管理时
+**检查重点**: Generated目录文件状态、文件迁移处理、代码质量验证
+**精准导航**:
+1. **Generated目录管理** → `docs/standards/testing-standards.md` 第185-220行
+2. **文件处理流程** → `docs/standards/testing-standards.md` 第195-210行
+3. **测试模板定制指南** → `docs/standards/testing-standards.md` 第170-185行
+4. **文件清理规则** → `docs/standards/file-management-standards.md` 第30-50行
+
+**阅读确认**:
+问题1: Generated目录的作用是什么？哪些文件应该保留？
+问题2: 测试模板从Generated目录迁移的标准步骤是什么？
+
+**执行脚本**: `Get-ChildItem tests\generated\*.py | Format-Table Name, LastWriteTime`
+
+### TEST-014: 测试完成验证
+**触发条件**: 所有测试执行完成，需要验证测试结果和覆盖率时
+**检查重点**: 测试覆盖率验证、代码质量检查、文件清理、提交准备
 **精准导航**:
 1. **测试覆盖率标准** → `docs/standards/testing-standards.md` 第15-40行
 2. **代码质量标准** → `docs/standards/code-standards.md` 第15-35行
@@ -472,82 +566,13 @@
 4. **状态文档模板** → `docs/status/module-status.md`
 
 **阅读确认**:
-问题1: 根据测试标准，单元测试覆盖率的最低要求是多少？
-问题2: 代码质量检查中，函数复杂度不能超过多少？
+问题1: 测试完成的验收标准是什么？
+问题2: 提交前需要清理哪些临时文件？
 
-**执行脚本**:
+**执行脚本**: 
 1. `tools/clean_temp_files.ps1`
-2. `tools/check_file_locations.ps1`
-3. `tools/update_module_status.ps1 -Module {module}`
-4. `tools/pre_commit_check.ps1`
-
-### TEST-009: 测试执行工作流程验证
-**触发条件**: 开始测试前、测试流程规划
-**检查重点**: 测试工作流程理解、标准步骤执行、检查点确认
-**精准导航**:
-1. **标准测试执行流程** → `docs/standards/testing-standards.md` 第90-250行 (📋 标准测试执行流程章节)
-2. **测试类型选择指南** → `docs/standards/testing-standards.md` 第95-140行 (阶段2: 测试类型选择)
-3. **环境准备要求** → `docs/standards/testing-standards.md` 第90-115行 (阶段1: 环境准备)
-4. **检查点总结表** → `docs/standards/testing-standards.md` 第240-250行 (工作流程检查点总结)
-
-**阅读确认**:
-问题1: 标准测试执行流程包含几个阶段？每个阶段的核心目标是什么？
-问题2: 单元测试模式和集成测试模式的主要区别是什么？
-
-**执行脚本**:
-1. `scripts/check_test_env.ps1` - 环境验证
-2. `scripts/setup_test_env.ps1 -TestType <unit|integration|all>` - 标准测试执行
-
-### TEST-010: 测试工具使用验证
-**触发条件**: 使用测试生成工具、数据工厂前
-**检查重点**: 测试工具正确使用、生成的测试质量、工具配置验证
-**精准导航**:
-1. **测试工具使用标准** → `docs/standards/testing-standards.md` 第150-185行 (阶段3: 测试工具使用标准)
-2. **智能测试生成工具** → `docs/standards/testing-standards.md` 第155-170行 (智能测试生成工具使用)
-3. **测试模板定制指南** → `docs/standards/testing-standards.md` 第170-185行 (测试模板定制和迁移)
-4. **工具配置和故障排除** → `docs/development/testing-setup.md` 第50-100行
-
-**阅读确认**:
-问题1: generate_test_template.py工具生成的测试文件包含哪些标准内容？
-问题2: 测试模板从Generated目录迁移到正式测试目录的标准步骤是什么？
-
-**执行脚本**:
-1. `python scripts/generate_test_template.py --module <module> --feature <feature>` - 生成测试模板
-2. `python scripts/validate_test_config.py` - 验证测试工具配置
-
-### TEST-011: 测试数据工厂使用验证
-**触发条件**: 编写测试需要创建测试数据时
-**检查重点**: 工厂类型选择、数据创建正确性、数据库配置匹配
-**精准导航**:
-1. **双工厂架构指南** → `docs/standards/testing-standards.md` 第500-600行 (双工厂架构测试数据策略)
-2. **Factory Boy工厂使用** → `docs/standards/testing-standards.md` 第520-550行 (Factory Boy工厂标准)
-3. **统一工厂使用** → `docs/standards/testing-standards.md` 第550-580行 (统一工厂标准)
-4. **数据工厂选择指南** → `docs/standards/testing-standards.md` 第580-600行 (工厂选择指南表格)
-
-**阅读确认**:
-问题1: Factory Boy工厂和统一工厂的适用场景分别是什么？
-问题2: 单元测试和集成测试应该分别使用哪种数据工厂？
-
-**执行脚本**:
-1. `pytest tests/unit/ -v` - 验证Factory Boy工厂使用
-2. `pytest tests/integration/ -v` - 验证统一工厂使用
-
-### TEST-012: Generated目录管理验证
-**触发条件**: 使用测试生成工具后、定期维护时
-**检查重点**: Generated目录文件状态、文件迁移处理、目录清理维护
-**精准导航**:
-1. **Generated目录管理** → `docs/standards/testing-standards.md` 第185-220行 (阶段4: Generated目录管理)
-2. **文件处理流程** → `docs/standards/testing-standards.md` 第195-210行 (Generated目录文件处理流程)
-3. **目录监控维护** → `docs/standards/testing-standards.md` 第210-220行 (Generated目录监控和维护)
-4. **文件清理规则** → `docs/standards/file-management-standards.md` 第30-50行
-
-**阅读确认**:
-问题1: Generated目录的作用是什么？哪些文件应该保留，哪些应该清理？
-问题2: 超过多少天未处理的Generated文件会发出警告？超过多少天会自动清理？
-
-**执行脚本**:
-1. `Get-ChildItem tests\generated\*.py | Format-Table Name, LastWriteTime` - 检查Generated目录状态
-2. PowerShell脚本监控和清理 (参考testing-standards.md中的维护脚本)
+2. `tools/update_module_status.ps1 -Module {module}`
+3. `tools/pre_commit_check.ps1`
 
 ---
 
@@ -669,9 +694,9 @@
 | 需求分析类 | REQ-001 ~ REQ-003 | 3个 |
 | 架构设计类 | ARCH-001 ~ ARCH-004 | 4个 |
 | 开发实施类 | DEV-001 ~ DEV-014 | 14个 |
-| 测试验证类 | TEST-001 ~ TEST-012 | 12个 |
+| 测试验证类 | TEST-001 ~ TEST-014 | 14个 |
 | 状态管理类 | STATUS-001 ~ STATUS-004 | 4个 |
 | 文档同步类 | DOC-001 ~ DOC-007 | 7个 |
 | 应急处理类 | EMERGENCY-001 | 1个 |
 
-**总计**: 46个检查点卡片
+**总计**: 48个检查点卡片
