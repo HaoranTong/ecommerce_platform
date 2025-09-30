@@ -67,8 +67,9 @@ function Test-ScriptCompliance {
     Write-TestLog "🔍 步骤1: 检查测试脚本合规性..." "INFO"
     
     $TestPaths = @(
-        "tests/unit/test_${Module}*.py",
-        "tests/integration/test_${Module}*.py",
+        "tests/unit/test_models/test_${Module}*.py",
+        "tests/unit/test_services/test_${Module}*.py", 
+        "tests/unit/test_${Module}_standalone.py",
         "tests/integration/test_api/test_${Module}*.py"
     )
     
@@ -148,8 +149,20 @@ function Invoke-UnitTests {
     
     Write-TestLog "🧪 步骤3: 执行单元测试..." "INFO"
     
-    $UnitTestPath = "tests/unit/test_${Module}*.py"
-    $UnitFiles = Get-ChildItem $UnitTestPath -ErrorAction SilentlyContinue
+    # 按照testing-standards.md分层测试策略
+    $UnitTestPaths = @(
+        "tests/unit/test_models/test_${Module}*.py",      # 组件单元测试
+        "tests/unit/test_services/test_${Module}*.py",    # 服务集成测试  
+        "tests/unit/test_${Module}_standalone.py"         # 业务流程测试
+    )
+    
+    $UnitFiles = @()
+    foreach ($Path in $UnitTestPaths) {
+        $Files = Get-ChildItem $Path -ErrorAction SilentlyContinue
+        if ($Files) {
+            $UnitFiles += $Files
+        }
+    }
     
     if (-not $UnitFiles) {
         Write-TestLog "⚠️  未找到单元测试文件: $UnitTestPath" "WARN"
@@ -199,32 +212,13 @@ function Invoke-ApiTests {
     }
 }
 
-# 执行集成测试
+# 执行模块内集成测试 (已移除 - 使用integration_test.ps1进行跨模块集成测试)
 function Invoke-IntegrationTests {
     param([string]$Module)
     
-    Write-TestLog "🔗 步骤5: 执行集成测试..." "INFO"
-    
-    $IntegrationTestPath = "tests/integration/test_${Module}*.py"
-    $IntegrationFiles = Get-ChildItem $IntegrationTestPath -ErrorAction SilentlyContinue
-    
-    if (-not $IntegrationFiles) {
-        Write-TestLog "⚠️  未找到集成测试文件: $IntegrationTestPath" "WARN"
-        return $true
-    }
-    
-    Write-TestLog "🚀 运行集成测试: $($IntegrationFiles.Name -join ', ')" "INFO"
-    
-    $Result = & pytest $IntegrationFiles.FullName -v 2>&1
-    
-    if ($LASTEXITCODE -eq 0) {
-        Write-TestLog "✅ 集成测试通过" "SUCCESS"
-        return $true
-    } else {
-        Write-TestLog "❌ 集成测试失败" "ERROR"
-        Write-TestLog "输出: $Result" "ERROR"
-        return $false
-    }
+    Write-TestLog "ℹ️  跨模块集成测试请使用: .\tools\integration_test.ps1" "INFO"
+    Write-TestLog "ℹ️  模块内集成测试包含在单元测试的test_services/中" "INFO"
+    return $true
 }
 
 # 记录测试结果

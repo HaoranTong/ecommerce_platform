@@ -102,30 +102,25 @@ try {
             docker stop mysql_integration_test 2>$null
             docker rm mysql_integration_test 2>$null
 
-            # 启动新的测试容器
-            docker run -d --name mysql_integration_test `
-                -e MYSQL_ROOT_PASSWORD=test_root_pass `
-                -e MYSQL_DATABASE=test_ecommerce `
-                -e MYSQL_USER=test_user `
-                -e MYSQL_PASSWORD=test_pass `
-                -p 3307:3306 `
-                mysql:8.0
-
+            # 使用docker-compose标准测试环境，不创建独立容器
+            Write-Output "🔍 检查docker-compose测试环境..."
+            docker-compose up -d mysql-test redis 2>$null
+            
             if ($LASTEXITCODE -eq 0) {
-                Write-Output "✅ MySQL测试容器启动成功"
+                Write-Output "✅ docker-compose测试环境已启动"
                 $script:DockerStarted = $true
                 
                 # 等待数据库就绪
                 Write-Output "⏳ 等待数据库启动..."
-                Start-Sleep -Seconds 15
+                Start-Sleep -Seconds 10
                 
-                # 验证数据库连接
+                # 验证数据库连接(使用conftest.py标准配置)
                 $maxRetries = 30
                 $retryCount = 0
                 do {
                     try {
-                        docker exec mysql_integration_test mysql -utest_user -ptest_pass -e "SELECT 1;" test_ecommerce 2>$null | Out-Null
-                        if ($LASTEXITCODE -eq 0) {
+                        $result = python -c "import pymysql; conn = pymysql.connect(host='127.0.0.1', port=3308, user='root', password='test_password', database='ecommerce_platform_test'); conn.close(); print('OK')" 2>$null
+                        if ($result -eq 'OK') {
                             Write-Output "✅ 数据库连接验证成功"
                             break
                         }
@@ -144,7 +139,7 @@ try {
                 }
             }
             else {
-                Write-Output "❌ MySQL测试容器启动失败"
+                Write-Output "❌ docker-compose测试环境启动失败"
                 $script:TestSuccess = $false
                 return
             }
@@ -156,8 +151,8 @@ try {
         }
     }
 
-    # 设置集成测试环境变量
-    $env:DATABASE_URL = 'mysql+pymysql://test_user:test_pass@127.0.0.1:3307/test_ecommerce'
+    # 设置集成测试环境变量(使用conftest.py标准配置)
+    $env:DATABASE_URL = 'mysql+pymysql://root:test_password@localhost:3308/ecommerce_platform_test'
     $env:REDIS_URL = 'redis://127.0.0.1:6379/0'
     Write-Output "✅ 集成测试数据库: $env:DATABASE_URL"
 
@@ -217,16 +212,39 @@ try {
 
 }
 finally {
-    # 清理Docker容器
+    # 清理测试数据
     if ($script:DockerStarted -and -not $KeepContainer) {
-        Write-Output "🧹 清理测试容器..."
-        docker stop mysql_integration_test 2>$null
-        docker rm mysql_integration_test 2>$null
-        Write-Output "✅ 测试容器已清理"
+        Write-Output "🧹 清理测试数据..."
+        # 清理数据库中的测试数据，但保持容器运行
+        try {
+            $result = python -c "
+import pymysql
+try:
+    conn = pymysql.connect(host='127.0.0.1', port=3308, user='root', password='test_password', database='ecommerce_platform_test')
+    cursor = conn.cursor()
+    cursor.execute('SET FOREIGN_KEY_CHECKS = 0')
+    cursor.execute('SHOW TABLES')
+    tables = cursor.fetchall()
+    for table in tables:
+        cursor.execute(f'DROP TABLE IF EXISTS {table[0]}')
+    cursor.execute('SET FOREIGN_KEY_CHECKS = 1')
+    conn.commit()
+    conn.close()
+    print('OK')
+except Exception as e:
+    print(f'ERROR: {e}')
+" 2>$null
+            if ($result -eq 'OK') {
+                Write-Output "✅ 测试数据已清理"
+            }
+        }
+        catch {
+            Write-Output "⚠️  数据清理失败，手动清理: 重启docker-compose"
+        }
     }
     elseif ($script:DockerStarted -and $KeepContainer) {
-        Write-Output "🔒 保持测试容器运行（使用 -KeepContainer 参数）"
-        Write-Output "手动清理命令: docker stop mysql_integration_test && docker rm mysql_integration_test"
+        Write-Output "🔒 保持测试数据和容器运行（使用 -KeepContainer 参数）"
+        Write-Output "手动清理命令: docker-compose restart mysql-test"
     }
     
     Pop-Location

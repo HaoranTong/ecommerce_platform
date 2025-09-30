@@ -365,10 +365,11 @@
 **触发条件**: 开始测试会话、配置CI/CD
 **检查重点**: 环境隔离、数据库配置、依赖管理
 **精准导航**:
-1. **环境分离标准** → `docs/standards/testing-standards.md` 第40-60行
-2. **数据库配置指南** → `docs/standards/database-standards.md` 第25-45行
-3. **依赖注入配置** → `tests/conftest.py` 第15-35行
-4. **环境变量管理** → `docs/standards/testing-standards.md` 第70-85行
+1. **测试环境配置指南** → `docs/development/test-env-setup.md` 第1-100行 ⭐
+2. **环境分离标准** → `docs/standards/testing-standards.md` 第40-60行
+3. **数据库配置指南** → `docs/standards/database-standards.md` 第25-45行
+4. **依赖注入配置** → `tests/conftest.py` 第15-35行
+5. **环境变量管理** → `docs/standards/testing-standards.md` 第70-85行
 
 **执行脚本**:
 1. `tools/check_test_env.ps1` - 快速环境检查

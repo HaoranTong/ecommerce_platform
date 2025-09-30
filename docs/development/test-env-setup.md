@@ -11,10 +11,21 @@
 > **测试类型和执行策略**: 详见 [测试标准文档](../standards/testing-standards.md)  
 > **测试执行命令**: 详见 [工具脚本使用指南](../tools/README.md)
 
-## 测试环境配置
+## 🎯 测试环境配置说明
 
-> **测试架构、策略和标准**: 详见 [测试标准文档](../standards/testing-standards.md)  
-> **本文档职责**: 环境配置步骤、工具安装、故障排除
+> **权威参考**: 完整的测试架构、策略和标准定义详见 [测试标准文档](../standards/testing-standards.md)  
+> **本文档职责**: 基于标准规范的具体环境配置步骤、工具安装和故障排除
+
+### 📊 **环境配置模式对照**
+
+根据 [测试标准文档](../standards/testing-standards.md) 中定义的五层测试架构，本配置指南支持以下环境模式：
+
+| **配置模式** | **对应测试层级** | **数据库配置** | **使用场景** |
+|-------------|----------------|-------------|-------------|
+| **lite模式** | 单元测试层级 | SQLite内存/文件 | 日常开发测试 |
+| **full模式** | 集成测试层级 | MySQL Docker | 集成验证测试 |
+
+> � **重要**: 具体的测试分层定义、数据库策略和架构设计请参考 [测试标准文档](../standards/testing-standards.md) 第53-65行
 
 ## 📋 标准测试执行流程模板
 
@@ -376,125 +387,25 @@ docker restart ecommerce_platform-mysql-test
 .\scripts\setup_test_env.ps1 -TestMode lite
 ```
 
-## 🏭 双工厂架构使用指南
+## 🏭 测试数据工厂使用指南
 
-### 📋 工厂选择决策表
+> **权威参考**: 双工厂架构设计和使用标准详见 [测试标准文档](../standards/testing-standards.md) 双工厂架构章节  
+> **本文档职责**: 基于标准规范的工厂配置和使用步骤
 
-| 测试类型 | 推荐工厂 | 主要用途 | 示例场景 |
-|---------|---------|---------|---------|
-| **单元测试** | `user_auth_factories.py`<br/>(Factory Boy) | 纯逻辑测试<br/>Mock配合测试<br/>复杂关系测试 | 权限验证<br/>密码加密<br/>业务规则 |
-| **集成测试** | `data_factory.py`<br/>(统一工厂) | 跨模块测试<br/>数据库集成<br/>API接口测试 | 用户注册流程<br/>订单创建<br/>库存扣减 |
-| **E2E测试** | `data_factory.py`<br/>(统一工厂) | 完整业务流程<br/>真实数据链 | 完整购物流程<br/>支付流程 |
-| **烟雾测试** | `data_factory.py`<br/>(统一工厂) | 基础功能验证<br/>环境健康检查 | 系统启动<br/>基础API |
+### 📋 **工厂使用快速参考**
 
-### 🔧 Factory Boy工厂使用 (单元测试)
+根据 [测试标准文档](../standards/testing-standards.md) 中定义的双工厂架构：
 
-```python
-# tests/unit/user_auth/test_user_permissions.py
-from tests.factories.user_auth_factories import UserFactory, RoleFactory, PermissionFactory
-import pytest
-from unittest.mock import Mock
+| **测试场景** | **推荐工厂** | **配置说明** |
+|-------------|-------------|-------------|
+| **单元测试** | Factory Boy工厂 | 详见测试标准文档 Factory Boy章节 |
+| **集成测试** | 统一工厂 | 详见测试标准文档 统一工厂章节 |
 
-class TestUserPermissions:
-    
-    def test_user_has_admin_permission(self, mocker):
-        """测试用户权限检查逻辑"""
-        # Factory Boy + Mock的完美组合
-        user = UserFactory(is_active=True)
-        admin_role = RoleFactory(name='admin')
-        admin_permission = PermissionFactory(resource='user', action='manage')
-        
-        # Mock外部依赖
-        mock_auth_service = mocker.patch('app.services.AuthService')
-        mock_auth_service.get_user_permissions.return_value = [admin_permission]
-        
-        # 测试业务逻辑
-        result = user.has_permission('user.manage')
-        assert result is True
-        
-    def test_password_encryption(self):
-        """测试密码加密逻辑"""
-        user = UserFactory(password='plain_password')
-        # Factory Boy自动处理复杂的密码加密逻辑
-        assert user.password_hash != 'plain_password'
-        assert user.verify_password('plain_password')
-```
+### ⚠️ **环境配置要点**
 
-### 🌐 统一工厂使用 (集成测试)
-
-```python
-# tests/integration/test_order_workflow.py
-from tests.factories.data_factory import StandardTestDataFactory
-import pytest
-
-class TestOrderWorkflow:
-    
-    def test_complete_order_creation(self, integration_test_db):
-        """测试完整订单创建流程"""
-        # 创建完整业务数据链
-        user, category, brand, product, sku = StandardTestDataFactory.create_complete_chain(
-            integration_test_db
-        )
-        
-        # 测试真实的订单服务
-        order_service = OrderService(integration_test_db)
-        result = order_service.create_order(
-            user_id=user.id,
-            sku_id=sku.id,
-            quantity=2
-        )
-        
-        assert result.success is True
-        assert result.order.user_id == user.id
-        assert result.order.total_amount > 0
-        
-    def test_inventory_deduction(self, integration_test_db):
-        """测试库存扣减集成"""
-        user, _, _, _, sku = StandardTestDataFactory.create_complete_chain(
-            integration_test_db
-        )
-        
-        initial_stock = sku.current_stock
-        order_service = OrderService(integration_test_db)
-        
-        # 测试库存扣减
-        order_service.create_order(user.id, sku.id, quantity=1)
-        
-        # 验证库存变化
-        integration_test_db.refresh(sku)
-        assert sku.current_stock == initial_stock - 1
-```
-
-### ⚠️ 工厂使用注意事项
-
-#### ✅ **正确做法**
-- 单元测试使用Factory Boy工厂 + pytest-mock
-- 集成测试使用统一工厂 + 真实数据库
-- 根据测试类型选择合适的数据库fixture
-- 遵循测试架构的数据库策略
-
-#### ❌ **避免的错误**
-```python
-# 错误1: 在单元测试中使用统一工厂 (创建真实数据库记录)
-def test_user_logic():
-    user, _, _, _, _ = StandardTestDataFactory.create_complete_chain(db)  # ❌ 太重
-
-# 错误2: 在集成测试中过度使用Factory Boy (Mock不适用)
-def test_order_integration():
-    user = UserFactory()  # ❌ Mock数据不适用于真实数据库集成
-
-# 错误3: 混用不同工厂类型
-def test_mixed():
-    user = UserFactory()  # Factory Boy
-    order_data = StandardTestDataFactory.create_order_data(db, user.id)  # ❌ 不匹配
-```
-
-### 🎯 最佳实践建议
-
-1. **测试前先确定类型**: 单元测试 → Factory Boy，集成测试 → 统一工厂
-2. **保持一致性**: 一个测试文件内使用同一种工厂类型
-3. **利用工厂优势**: Factory Boy处理复杂关系，统一工厂保证数据完整性
-4. **合理使用Mock**: 单元测试中Mock外部依赖，集成测试中测试真实交互
+- **factory_boy包**: 通过 `pip install factory_boy` 安装
+- **使用示例**: 参考 [测试标准文档](../standards/testing-standards.md) 中的详细示例
+- **避免错误**: 详见测试标准文档中的禁止用法章节
 
 ## 📊 测试执行最佳实践
 
@@ -524,421 +435,24 @@ steps:
     run: .\scripts\setup_test_env.ps1 -TestMode full
 ```
 
-## 🧪 测试脚本编写强制标准
+## 📋 **测试代码生成工具**
 
-### 📋 测试脚本编写检查清单
+> **代码生成标准**: 测试脚本编写规范和命名标准详见 [测试标准文档](../standards/testing-standards.md) 测试文件组织章节  
+> **本文档职责**: 测试代码生成工具的配置和使用
 
-**每个测试文件必须包含的强制元素**：
+### 🛠️ **自动化测试生成**
 
-```python
-# ✅ 强制检查清单 - 每个测试文件必须具备
+使用项目提供的测试代码生成工具：
 
-# 1. 标准导入 (必须)
-import pytest
-from unittest.mock import Mock, patch
-import sqlalchemy
-from sqlalchemy.orm import Session
-
-# 2. 工厂导入 (数据测试必须) - 根据测试类型选择
-# 单元测试 - 使用专用Factory Boy工厂
-from tests.factories.user_auth_factories import UserFactory, RoleFactory
-# 集成测试 - 使用统一数据工厂
-from tests.factories.data_factory import StandardTestDataFactory
-
-# 3. 配置导入 (必须)
-from tests.conftest import test_db_session
-
-# 4. 被测模块导入 (必须)
-from app.modules.[模块名] import [被测类/函数]
-
-# 5. 测试类结构 (推荐)
-class Test[功能名]:
-    """
-    测试类必须包含：
-    - 类文档字符串说明测试范围
-    - 至少3个测试方法 (正常、异常、边界)
-    - setup/teardown方法(如需要)
-    """
-    
-    def setup_method(self):
-        """每个测试方法执行前的准备工作"""
-        pass
-    
-    def test_[功能]_success(self):
-        """正常场景测试 - 必须有"""
-        pass
-    
-    def test_[功能]_with_invalid_data(self):
-        """异常场景测试 - 必须有"""
-        pass
-    
-    def test_[功能]_edge_cases(self):
-        """边界条件测试 - 必须有"""
-        pass
-```
-
-### 🚨 强制执行标准
-
-**测试脚本命名规范** (违反将导致CI失败):
-```bash
-# ✅ 正确命名
-test_user_models.py          # 模型测试
-test_user_services.py        # 服务层测试  
-test_user_api.py            # API测试
-test_user_integration.py     # 集成测试
-
-# ❌ 错误命名 (CI会拒绝)
-user_test.py                # 错误：应以test_开头
-test_users.py              # 模糊：应具体到功能域
-tests.py                   # 错误：过于宽泛
-```
-
-**测试函数命名标准** (强制检查):
-```python
-# ✅ 标准格式
-def test_[功能]_[场景]_[预期结果]():
-    pass
-
-# ✅ 实际示例
-def test_create_user_with_valid_data_returns_user_object():
-    pass
-
-def test_create_user_with_duplicate_email_raises_validation_error():
-    pass
-
-def test_authenticate_user_with_wrong_password_returns_false():
-    pass
-
-# ❌ 禁止的命名 (CI会警告)
-def test_user():                    # 过于简单
-def test_something():              # 不明确
-def create_user_test():           # 格式错误
-```
-
-### 🔧 自动化验证机制
-
-**代码质量强制检查**：
-
-```python
-# 1. 测试覆盖率检查 (自动)
-# 每个模块必须 ≥ 80% 测试覆盖率
-# 关键业务逻辑必须 ≥ 95% 覆盖率
-
-# 2. Mock使用标准检查 (自动)
-# ✅ 强制使用 pytest-mock
-@pytest.fixture
-def mock_user_service(mocker):
-    return mocker.patch('app.services.UserService')
-
-# ❌ 禁止使用 unittest.mock 直接导入
-# from unittest.mock import Mock  # CI会报错
-
-# 3. 数据工厂标准检查 (自动)  
-# ✅ 必须使用双工厂架构模式
-def test_create_user_unit():  # 单元测试
-    user = UserFactory.create()  # 使用Factory Boy工厂
-    
-def test_order_workflow_integration():  # 集成测试  
-    user, category, brand, product, sku = StandardTestDataFactory.create_complete_chain(db)
-    
-# ❌ 禁止硬编码测试数据
-# user = User(name="test", email="test@example.com")  # CI会警告
-```
-
-**测试结构验证脚本**：
-
-创建 `scripts/validate_test_structure.py`:
-```python
-#!/usr/bin/env python3
-"""
-测试结构自动验证脚本
-运行: python scripts/validate_test_structure.py
-"""
-
-import os
-import ast
-import sys
-from pathlib import Path
-
-class TestStructureValidator:
-    def __init__(self):
-        self.errors = []
-        self.warnings = []
-    
-    def validate_file_naming(self, file_path):
-        """验证文件命名规范"""
-        filename = Path(file_path).name
-        if not filename.startswith('test_'):
-            self.errors.append(f"❌ {file_path}: 文件名必须以'test_'开头")
-        
-        if filename == 'test.py' or filename == 'tests.py':
-            self.errors.append(f"❌ {file_path}: 文件名过于宽泛")
-    
-    def validate_test_functions(self, file_path):
-        """验证测试函数命名和结构"""
-        with open(file_path, 'r', encoding='utf-8') as f:
-            try:
-                tree = ast.parse(f.read())
-            except SyntaxError as e:
-                self.errors.append(f"❌ {file_path}: 语法错误 {e}")
-                return
-        
-        for node in ast.walk(tree):
-            if isinstance(node, ast.FunctionDef):
-                if node.name.startswith('test_'):
-                    self._validate_test_function_name(node.name, file_path)
-    
-    def _validate_test_function_name(self, func_name, file_path):
-        """验证测试函数命名规范"""
-        parts = func_name.split('_')
-        if len(parts) < 3:  # test_功能_场景
-            self.warnings.append(
-                f"⚠️ {file_path}:{func_name} - 建议使用格式: test_功能_场景_预期结果"
-            )
-    
-    def validate_required_imports(self, file_path):
-        """验证必需的导入"""
-        required_imports = ['pytest']
-        
-        with open(file_path, 'r', encoding='utf-8') as f:
-            content = f.read()
-            
-        for required in required_imports:
-            if f"import {required}" not in content and f"from {required}" not in content:
-                self.errors.append(f"❌ {file_path}: 缺少必需导入 '{required}'")
-    
-    def run_validation(self, test_dir="tests/"):
-        """运行完整验证"""
-        print("🔍 开始验证测试结构...")
-        
-        for root, dirs, files in os.walk(test_dir):
-            for file in files:
-                if file.endswith('.py') and file.startswith('test_'):
-                    file_path = os.path.join(root, file)
-                    self.validate_file_naming(file_path)
-                    self.validate_test_functions(file_path)
-                    self.validate_required_imports(file_path)
-        
-        # 输出结果
-        if self.errors:
-            print(f"\n❌ 发现 {len(self.errors)} 个错误:")
-            for error in self.errors:
-                print(f"  {error}")
-        
-        if self.warnings:
-            print(f"\n⚠️ 发现 {len(self.warnings)} 个警告:")
-            for warning in self.warnings:
-                print(f"  {warning}")
-        
-        if not self.errors and not self.warnings:
-            print("✅ 所有测试文件结构验证通过!")
-        
-        return len(self.errors) == 0
-
-if __name__ == "__main__":
-    validator = TestStructureValidator()
-    success = validator.run_validation()
-    sys.exit(0 if success else 1)
-```
-
-### 🎯 测试脚本自动生成模板
-
-**使用脚本自动生成标准测试文件**：
-
-创建 `scripts/generate_test_template.py`:
-```python
-#!/usr/bin/env python3
-"""
-标准测试文件生成器
-使用: python scripts/generate_test_template.py module_name function_name
-示例: python scripts/generate_test_template.py user_auth authenticate_user
-"""
-
-import sys
-import os
-from pathlib import Path
-
-def generate_test_template(module_name, function_name):
-    """生成标准测试文件模板"""
-    
-    template = f'''import pytest
-from unittest.mock import Mock
-import sqlalchemy
-from sqlalchemy.orm import Session
-
-# 测试工厂导入 - 选择合适的工厂类型
-# 单元测试使用Factory Boy
-from tests.factories.user_auth_factories import UserFactory, RoleFactory
-# 集成测试使用统一工厂
-from tests.factories.data_factory import StandardTestDataFactory
-
-# 配置导入
-from tests.conftest import test_db_session
-
-# 被测模块导入
-from app.modules.{module_name} import {function_name}
-
-
-class Test{function_name.title().replace('_', '')}:
-    """
-    {function_name} 功能测试套件
-    
-    测试范围:
-    - 正常场景验证
-    - 异常情况处理  
-    - 边界条件测试
-    - 性能要求验证
-    """
-    
-    def setup_method(self):
-        """每个测试方法执行前的准备工作"""
-        # 使用工厂创建测试数据 (根据测试类型选择工厂)
-        self.test_data = UserFactory.build()  # Factory Boy (单元测试)
-        # 或者: 
-        # user, _, _, _, _ = StandardTestDataFactory.create_complete_chain(db)  # 统一工厂 (集成测试)
-    
-    def test_{function_name}_with_valid_data_returns_expected_result(self):
-        """
-        测试正常场景: 使用有效数据调用{function_name}
-        
-        预期结果: 返回正确的结果对象
-        """
-        # Arrange (准备)
-        expected_result = "expected_value"
-        
-        # Act (执行)
-        result = {function_name}(self.test_data)
-        
-        # Assert (验证)
-        assert result == expected_result
-        assert result is not None
-    
-    def test_{function_name}_with_invalid_data_raises_validation_error(self):
-        """
-        测试异常场景: 使用无效数据调用{function_name}
-        
-        预期结果: 抛出ValidationError异常
-        """
-        # Arrange
-        invalid_data = None
-        
-        # Act & Assert
-        with pytest.raises(ValueError) as exc_info:
-            {function_name}(invalid_data)
-        
-        assert "validation error" in str(exc_info.value).lower()
-    
-    def test_{function_name}_with_edge_cases_handles_correctly(self):
-        """
-        测试边界条件: 测试各种边界情况
-        
-        预期结果: 正确处理边界条件而不崩溃
-        """
-        # 测试空字符串
-        result_empty = {function_name}("")
-        assert result_empty is not None
-        
-        # 测试极大值
-        result_large = {function_name}("x" * 1000)
-        assert result_large is not None
-    
-    @pytest.mark.performance
-    def test_{function_name}_performance_within_limits(self):
-        """
-        测试性能要求: 确保函数执行时间在可接受范围内
-        
-        预期结果: 执行时间 < 100ms
-        """
-        import time
-        
-        start_time = time.time()
-        {function_name}(self.test_data)
-        execution_time = time.time() - start_time
-        
-        assert execution_time < 0.1  # 100ms限制
-
-
-@pytest.mark.integration
-class Test{function_name.title().replace('_', '')}Integration:
-    """
-    {function_name} 集成测试套件
-    
-    测试与外部系统的集成:
-    - 数据库交互
-    - 外部API调用
-    - 文件系统操作
-    """
-    
-    def test_{function_name}_database_integration(self, test_db_session):
-        """测试数据库集成"""
-        # 使用真实数据库会话进行测试
-        # 使用工厂创建测试用户 (Factory Boy方式，适用于单元测试)
-        user = UserFactory.create()
-        test_db_session.add(user)
-        test_db_session.commit()
-        
-        result = {function_name}(user.id)
-        assert result is not None
-'''
-    
-    # 确定输出路径
-    test_file_path = f"tests/test_{module_name}.py"
-    
-    # 检查文件是否已存在
-    if os.path.exists(test_file_path):
-        print(f"⚠️  文件 {test_file_path} 已存在")
-        response = input("是否覆盖? (y/N): ")
-        if response.lower() != 'y':
-            print("❌ 操作已取消")
-            return False
-    
-    # 创建目录(如果不存在)
-    os.makedirs(os.path.dirname(test_file_path), exist_ok=True)
-    
-    # 写入文件
-    with open(test_file_path, 'w', encoding='utf-8') as f:
-        f.write(template)
-    
-    print(f"✅ 成功生成测试文件: {test_file_path}")
-    print(f"📝 下一步: 根据实际需求修改测试用例")
-    
-    return True
-
-if __name__ == "__main__":
-    if len(sys.argv) != 3:
-        print("使用方法: python scripts/generate_test_template.py <module_name> <function_name>")
-        print("示例: python scripts/generate_test_template.py user_auth authenticate_user")
-        sys.exit(1)
-    
-    module_name = sys.argv[1]
-    function_name = sys.argv[2]
-    
-    generate_test_template(module_name, function_name)
-```
-
-### 💡 实施建议
-
-**集成到开发流程**:
-
-1. **IDE集成**: 在VS Code中配置快捷键生成测试模板
-2. **Git钩子**: 提交前自动运行验证脚本
-3. **CI/CD集成**: 构建管道中强制执行测试标准检查
-4. **代码审查**: 将测试标准作为PR检查项
-
-**使用工作流**:
 ```powershell
-# 1. 生成标准测试文件
-python scripts/generate_test_template.py user_service authenticate
+# 生成标准测试文件模板
+python scripts/generate_test_template.py module_name function_name
 
-# 2. 编写具体测试逻辑
-# (编辑生成的测试文件)
-
-# 3. 验证测试结构
+# 验证测试文件结构
 python scripts/validate_test_structure.py
-
-# 4. 运行测试验证
-.\scripts\setup_test_env.ps1 -TestMode lite
 ```
+
+> 💡 **重要**: 生成的测试代码遵循 [测试标准文档](../standards/testing-standards.md) 中定义的命名规范和结构标准
 
 ## 相关文档
 
