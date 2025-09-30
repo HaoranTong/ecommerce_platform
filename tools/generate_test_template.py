@@ -900,7 +900,7 @@ from {module_import_path} import (
             graph[model_name] = []
             
             # 分析外键依赖
-            for field_name, field_info in model_info.fields.items():
+            for field_info in model_info.fields:
                 if hasattr(field_info, 'foreign_key') and field_info.foreign_key:
                     target_table = field_info.foreign_key.split('.')[0]
                     target_model = self._table_to_model_name(target_table)
@@ -1770,8 +1770,8 @@ class Test{model_name}Model:
         patterns = self.config.get("business_logic_patterns", {})
         
         # 分析字段类型
-        for field_name, field_info in model_info.fields.items():
-            field_lower = field_name.lower()
+        for field_info in model_info.fields:
+            field_lower = field_info.name.lower()
             
             if any(pattern in field_lower for pattern in patterns.get("user_fields", [])):
                 features["has_user_fields"] = True
