@@ -50,16 +50,12 @@ tests/**/*.sqlite3
 **/test.db
 smoke_test.db
 
-# 自动生成的测试文件
-tests/generated/
-!tests/generated/README.md
-!tests/generated/.gitignore
-
 # 测试文件归档目录 - 临时备份和历史文件
 tests/_archive/
 
 # 临时测试文件
-tests/**/test_*_generated_*.py
+# 临时测试文件
+tests/**/test_*_temp_*.py
 tests/**/test_*_temp_*.py
 tests/**/test_*_draft_*.py
 

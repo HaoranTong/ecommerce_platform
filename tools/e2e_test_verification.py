@@ -125,7 +125,7 @@ class E2ETestVerification:
             success = result.returncode == 0
 
             # 检查生成的文件
-            generated_files = self._check_generated_files()
+            test_files = self._check_test_files()
 
             stage_result = {
                 "success": success,
@@ -134,13 +134,13 @@ class E2ETestVerification:
                     result.stdout[-1000:] if result.stdout else ""
                 ),  # 最后1000字符
                 "stderr": result.stderr[-500:] if result.stderr else "",  # 最后500字符
-                "generated_files": generated_files,
-                "file_count": len(generated_files),
+                "test_files": test_files,
+                "file_count": len(test_files),
             }
 
             if success:
-                print(f"  ✅ 测试生成成功，共生成 {len(generated_files)} 个文件")
-                for file_path in generated_files:
+                print(f"  ✅ 测试生成成功，共生成 {len(test_files)} 个文件")
+                for file_path in test_files:
                     print(f"    📄 {file_path}")
             else:
                 print(f"  ❌ 测试生成失败，返回码: {result.returncode}")
@@ -156,9 +156,9 @@ class E2ETestVerification:
             print(f"  ❌ 测试生成异常: {e}")
             return {"success": False, "error": str(e)}
 
-    def _check_generated_files(self) -> List[str]:
+    def _check_test_files(self) -> List[str]:
         """检查生成的测试文件"""
-        generated_files = []
+        test_files = []
 
         # 检查预期的生成文件
         expected_files = [
@@ -171,9 +171,9 @@ class E2ETestVerification:
         for file_path in expected_files:
             full_path = self.project_root / file_path
             if full_path.exists():
-                generated_files.append(file_path)
+                test_files.append(file_path)
 
-        return generated_files
+        return test_files
 
     def _stage2_quality_validation(self) -> Dict[str, Any]:
         """阶段2: 测试质量验证"""
@@ -330,7 +330,7 @@ def mock_factory():
         }
 
         # 获取生成的测试文件
-        test_files = self._check_generated_files()
+        test_files = self._check_test_files()
 
         for file_path in test_files:
             if not file_path.endswith(".py"):
@@ -484,8 +484,8 @@ def mock_factory():
             # 添加详细信息
             if stage_name == "generation" and "file_count" in stage_result:
                 report += f"  - 生成文件数量: {stage_result['file_count']}\n"
-                if "generated_files" in stage_result:
-                    for file_path in stage_result["generated_files"]:
+                if "test_files" in stage_result:
+                    for file_path in stage_result["test_files"]:
                         report += f"  - 📄 `{file_path}`\n"
 
             elif stage_name == "validation" and "quality_score" in stage_result:

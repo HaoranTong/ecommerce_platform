@@ -541,20 +541,20 @@
 
 **执行脚本**: `tools/ai_checkpoint.ps1 -CardType TEST-012`
 
-### TEST-013: Generated代码管理
-**触发条件**: 涉及自动生成的测试代码管理时
-**检查重点**: Generated目录文件状态、文件迁移处理、代码质量验证
+### TEST-013: 自动测试生成管理
+**触发条件**: 涉及自动生成测试代码时
+**检查重点**: 生成测试代码质量、直接生成到正式目录、验证流程
 **精准导航**:
-1. **Generated目录管理** → `docs/standards/testing-standards.md` 第185-220行
-2. **文件处理流程** → `docs/standards/testing-standards.md` 第195-210行
-3. **测试模板定制指南** → `docs/standards/testing-standards.md` 第170-185行
-4. **文件清理规则** → `docs/standards/file-management-standards.md` 第30-50行
+1. **自动生成策略** → `docs/standards/testing-standards.md` 第256-280行
+2. **测试代码验证** → `docs/standards/testing-standards.md` 第281-305行
+3. **质量监控流程** → `docs/standards/testing-standards.md` 第306-330行
+4. **工具使用指南** → `docs/development/scripts-usage-manual.md` 第150-200行
 
 **阅读确认**:
-问题1: Generated目录的作用是什么？哪些文件应该保留？
-问题2: 测试模板从Generated目录迁移的标准步骤是什么？
+问题1: 自动测试生成工具的存储策略是什么？
+问题2: 生成的测试代码如何验证和审查？
 
-**执行脚本**: `Get-ChildItem tests\generated\*.py | Format-Table Name, LastWriteTime`
+**执行脚本**: `python tools/generate_test_template.py user_auth --type all --validate`
 
 ### TEST-014: 测试完成验证
 **触发条件**: 所有测试执行完成，需要验证测试结果和覆盖率时

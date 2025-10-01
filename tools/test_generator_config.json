@@ -23,8 +23,7 @@
     "e2e": "tests/e2e",
     "smoke": "tests/smoke",
     "performance": "tests/performance",
-    "factories": "tests/factories",
-    "generated": "tests/generated"
+    "factories": "tests/factories"
   },
   "database_config": {
     "unit_test_fixture": "unit_test_db",
@@ -42,8 +41,8 @@
   },
   "code_generation": {
     "add_generation_headers": true,
-    "validate_generated_code": true,
-    "use_generated_directory": true,
+    "validate_test_code": true,
+    "direct_to_formal_dirs": true,
     "timeout_seconds": 300
   },
   "business_logic_patterns": {

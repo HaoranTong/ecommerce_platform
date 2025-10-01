@@ -218,7 +218,7 @@
   **触发条件**: 涉及认证、授权或敏感数据处理时
 - **测试失败处理** → [CHECK:TEST-012] ⚠️ [必读卡片](tools/checkpoint-cards.md#test-012)
   **触发条件**: 执行任何测试类型时都必须了解失败处理流程
-- **Generated代码管理** → [CHECK:TEST-013] ⚠️ [必读卡片](tools/checkpoint-cards.md#test-013)
+- **自动测试生成管理** → [CHECK:TEST-013] ⚠️ [必读卡片](tools/checkpoint-cards.md#test-013)
   **触发条件**: 涉及自动生成的测试代码管理时
 - **测试完成验证** → [CHECK:TEST-014] ⚠️ [必读卡片](tools/checkpoint-cards.md#test-014)
   **触发条件**: 所有测试执行完成，需要验证测试结果和覆盖率时

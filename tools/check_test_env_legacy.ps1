@@ -127,8 +127,8 @@ Write-Host "`n📁 第3步：目录结构验证" -ForegroundColor Yellow
 $requiredDirs = @(
     @{path="tests"; desc="测试根目录"},
     @{path="tests\unit"; desc="单元测试目录"},
-    @{path="tests\generated"; desc="生成测试目录"},
-    @{path="tests\factories"; desc="测试工厂目录"}
+    @{path="tests\factories"; desc="测试工厂目录"},
+    @{path="tests\_archive"; desc="测试存档目录"}
 )
 
 if ($TestMode -eq 'full') {

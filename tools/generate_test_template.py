@@ -3129,7 +3129,7 @@ class Test{module_name.title().replace('_', '')}Service:
         return {}  # 占位符，需要实现
 
     def _write_test_files(self, files: Dict[str, str]):
-        """写入测试文件到磁盘 - 遵循generated目录规范"""
+        """写入测试文件到磁盘 - 直接生成到正式目录"""
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
         for file_key, content in files.items():

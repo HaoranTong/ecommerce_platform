@@ -36,7 +36,7 @@ tests/
 ├── performance/                    # 性能测试目录 - 1%覆盖率
 ├── security/                       # 安全测试目录 - 1%覆盖率
 ├── factories/                      # 测试数据工厂目录
-└── generated/                      # 自动生成测试目录
+└── _archive/                       # 测试文件存档目录
 ```
 
 ## 🎯 测试架构说明
@@ -122,11 +122,13 @@ env:
 
 ### 辅助目录
 - **`factories/`** - 测试数据工厂：统一的测试数据生成和管理，支持用户、商品、库存、预占、事务等完整数据链
-- **`generated/`** - 自动生成测试：工具生成的测试模板和完整测试套件
+- **`factories/`** - 测试数据工厂：统一的测试数据生成和管理
+- **`_archive/`** - 存档目录：已废弃或历史测试文件的存放位置
 
 ## 📚 相关文档
 
 - **[测试标准文档](../docs/standards/testing-standards.md)** - 完整的测试架构规范和要求
 - **[测试环境配置](../docs/development/testing-environment.md)** - 测试环境搭建和配置
 - **[工具脚本导航](../tools/README.md)** - 测试相关脚本使用导航
-- **[Generated目录管理](../docs/development/test-management.md)** - 自动生成测试管理策略
+- **[测试脚本使用](../docs/development/scripts-usage-manual.md)** - 测试相关脚本的使用指南
+- **[测试环境配置](../docs/development/testing-setup.md)** - 测试环境的配置和管理

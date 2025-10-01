@@ -456,7 +456,7 @@ function Test-UnitTests($ModuleName, $FilePath) {
     Write-Host "📋 单元测试验证 - $ModuleName" -ForegroundColor Yellow
     
     # 排除归档目录，只在活跃测试目录中搜索
-    $TestPaths = @("tests/unit", "tests/generated")
+    $TestPaths = @("tests/unit", "tests/factories")
     $TestFiles = @()
     
     foreach ($TestPath in $TestPaths) {
@@ -498,7 +498,7 @@ function Test-APITests($ModuleName, $FilePath) {
     Write-Host "📋 API测试验证 - $ModuleName" -ForegroundColor Yellow
     
     # 排除归档目录，只在活跃测试目录中搜索API测试
-    $APITestPaths = @("tests/integration", "tests/e2e", "tests/generated")
+    $APITestPaths = @("tests/integration", "tests/e2e", "tests/smoke")
     $APITestFiles = @()
     
     foreach ($TestPath in $APITestPaths) {

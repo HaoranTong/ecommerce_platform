@@ -336,8 +336,6 @@ tests/
 │   ├── __init__.py               # 工厂包初始化 📄
 │   ├── data_factory.py           # 统一测试数据工厂 📄
 │   └── README.md                 # 数据工厂使用说明 📄
-├── generated/                     # 自动生成的测试文件 📁
-│   └── README.md                 # 生成文件管理说明 📄
 ├── _archive/                      # 测试文件存档目录 📁
 ├── conftest.py                    # 统一Fixture配置 📄
 ├── conftest_e2e.py               # E2E测试专用配置 📄
@@ -1186,7 +1184,7 @@ docker-compose down mysql_test                  # 清理Docker容器
 python tools\generate_test_template.py --module user_auth --feature password_reset
 
 # 生成的测试文件位置
-# tests/generated/test_user_auth_password_reset.py
+# tests/unit/test_services/test_user_auth_password_reset.py
 ```
 
 **生成内容包含**:
@@ -1199,15 +1197,15 @@ python tools\generate_test_template.py --module user_auth --feature password_res
 #### 3.2 测试模板定制和迁移
 ```powershell
 # 1. 检查生成的测试模板
-code tests\generated\test_user_auth_password_reset.py
+code tests\unit\test_services\test_user_auth_password_reset.py
 
 # 2. 根据具体业务逻辑定制测试
 # - 修改测试数据
 # - 添加边界条件测试
 # - 完善异常场景测试
 
-# 3. 迁移到正式测试目录
-Move-Item tests\generated\test_user_auth_password_reset.py tests\unit\test_services\test_user_auth_password_reset.py
+# 3. 运行测试验证
+pytest tests\unit\test_services\test_user_auth_password_reset.py -v
 ```
 
 #### 3.3 测试数据工厂使用指南 [CHECK:TEST-011]
@@ -1253,42 +1251,41 @@ def test_complete_order_workflow(integration_test_db):
 
 ### 阶段4: 测试工具配置 [CHECK:TEST-004]
 
-#### 4.1 Generated目录的作用和规范
-- **用途**: 存储自动生成的测试文件，等待人工审核和定制
-- **性质**: 临时存储区域，不应直接执行或提交到版本控制
-- **清理**: 定期清理已迁移的测试文件
+#### 4.1 自动测试生成策略
+- **生成策略**: 测试代码直接生成到正式目录（tests/unit/, tests/integration/等）
+- **文件管理**: 生成的测试文件立即可用，无需迁移步骤
+- **质量控制**: 通过工具内置验证确保生成代码质量
 
-#### 4.2 Generated目录文件处理流程
+#### 4.2 自动生成测试文件审查流程
 ```powershell
-# 1. 检查Generated目录状态
-Get-ChildItem tests\generated\*.py | Format-Table Name, LastWriteTime
+# 1. 使用自动生成工具直接生成到正式目录
+python tools/generate_test_template.py user_auth --type all --validate
 
-# 2. 审核生成的测试文件
-foreach ($file in Get-ChildItem tests\generated\*.py) {
-    Write-Host "审核文件: $($file.Name)" -ForegroundColor Yellow
-    code $file.FullName
-    Read-Host "审核完成后按Enter继续"
-}
+# 2. 审查生成的测试文件
+# 检查factories目录
+code tests/factories/user_auth_factories.py
 
-# 3. 迁移审核通过的测试文件
-# 3.1 迁移到对应的测试目录
-Move-Item tests\generated\test_*.py tests\unit\test_services\
-Move-Item tests\generated\test_*_integration.py tests\integration\
+# 检查单元测试
+code tests/unit/test_models/test_user_auth_models.py
+code tests/unit/test_services/test_user_auth_services.py
+code tests/unit/test_user_auth_standalone.py
 
-# 3.2 删除临时文件或草稿文件
-Remove-Item tests\generated\draft_*.py
+# 3. 运行测试验证
+pytest tests/unit/test_models/test_user_auth_models.py -v
+pytest tests/unit/test_services/test_user_auth_services.py -v
 ```
 
-#### 4.3 Generated目录监控和维护
+#### 4.3 自动生成测试质量监控
 ```powershell
-# 定期清理规则 (添加到定期维护脚本中)
-# 超过7天未处理的文件发出警告
-Get-ChildItem tests\generated\*.py | Where-Object {$_.LastWriteTime -lt (Get-Date).AddDays(-7)} | 
-    ForEach-Object { Write-Warning "文件 $($_.Name) 已超过7天未处理，请及时审核迁移" }
+# 验证生成测试的语法和导入
+python tools/generate_test_template.py user_auth --validate-only
 
-# 超过30天自动清理
-Get-ChildItem tests\generated\*.py | Where-Object {$_.LastWriteTime -lt (Get-Date).AddDays(-30)} | 
-    Remove-Item -WhatIf  # 先预览，确认后移除-WhatIf
+# 检查测试覆盖率
+pytest tests/unit/ --cov=app/modules/user_auth --cov-report=term
+
+# 代码质量检查
+flake8 tests/unit/test_models/test_user_auth_models.py
+black --check tests/unit/test_services/test_user_auth_services.py
 ```
 
 ### 阶段5: Mock数据统一 [CHECK:TEST-005]
@@ -1414,7 +1411,7 @@ Copy-Item htmlcov\* $reportDir\coverage\ -Recurse
 | **TEST-006** | 结果验证 | 所有测试通过 | 按优先级修复失败项 |
 | **TEST-010** | 测试工具使用 | 工具正常工作 | 检查工具配置和依赖 |
 | **TEST-011** | 数据工厂使用 | 数据创建正确 | 检查工厂配置和数据库 |
-| **TEST-012** | Generated目录管理 | 文件及时处理 | 清理过期文件，迁移有效文件 |
+| **TEST-012** | 自动测试生成管理 | 测试代码质量验证 | 语法检查、导入验证、功能测试 |
 
 ## 单元测试标准执行步骤
 
@@ -1527,8 +1524,8 @@ tests/
 │   ├── __init__.py               # 工厂包初始化
 │   ├── data_factory.py           # 统一测试数据工厂（已存在）
 │   └── README.md                 # 数据工厂使用说明
-└── generated/
-    └── README.md                 # 自动生成测试文件管理说明
+└── _archive/                      # 测试文件存档目录
+    └── README.md                 # 存档管理说明
 ```
 
 ### 单元测试示例
