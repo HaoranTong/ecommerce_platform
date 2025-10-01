@@ -715,6 +715,11 @@ from datetime import datetime, timedelta
 from decimal import Decimal
 from sqlalchemy.orm import Session
 
+# 处理表重定义警告的配置
+import warnings
+warnings.filterwarnings('ignore', message='.*declarative base.*')
+warnings.filterwarnings('ignore', message='.*Table.*already defined.*')
+
 from {module_import_path} import (
     {', '.join(models.keys())}
 )
@@ -722,8 +727,11 @@ from {module_import_path} import (
 
 '''
 
+        # 按依赖关系排序模型，确保被依赖的先生成
+        sorted_models = self._sort_models_by_dependencies(models)
+        
         # 为每个模型生成Factory类
-        for model_name, model_info in models.items():
+        for model_name, model_info in sorted_models:
             factory_class = self._generate_single_factory(
                 model_name, model_info, models
             )
@@ -735,6 +743,45 @@ from {module_import_path} import (
 
         print(f"✅ 工厂生成完成，共{len(models)}个Factory类")
         return factory_code
+
+    def _sort_models_by_dependencies(self, models: Dict[str, ModelInfo]) -> List[Tuple[str, ModelInfo]]:
+        """按依赖关系对模型排序，确保被依赖的模型先生成工厂类"""
+        # 构建依赖图
+        dependencies = {}
+        for model_name, model_info in models.items():
+            deps = []
+            for field in model_info.fields:
+                if field.foreign_key:
+                    # 提取外键目标模型
+                    target_model = self._extract_fk_target_model(field.foreign_key)
+                    if target_model in models:
+                        deps.append(target_model)
+            dependencies[model_name] = deps
+        
+        # 拓扑排序
+        result = []
+        visited = set()
+        visiting = set()
+        
+        def visit(model):
+            if model in visiting:
+                # 检测到循环依赖，跳过
+                return
+            if model in visited:
+                return
+            
+            visiting.add(model)
+            for dep in dependencies.get(model, []):
+                if dep in models:
+                    visit(dep)
+            visiting.remove(model)
+            visited.add(model)
+            result.append((model, models[model]))
+        
+        for model_name in models:
+            visit(model_name)
+        
+        return result
 
     def _generate_single_factory(
         self, model_name: str, model_info: ModelInfo, all_models: Dict[str, ModelInfo]
@@ -758,6 +805,7 @@ from {module_import_path} import (
     class Meta:
         model = {model_name}
         sqlalchemy_session_persistence = "commit"
+        sqlalchemy_get_or_create = ("name",) if hasattr({model_name}, "name") else None
 '''
 
         # 生成字段定义
@@ -861,6 +909,7 @@ from {module_import_path} import (
                         # 使用合理的默认外键值
                         return f"{field.name} = factory.LazyFunction(lambda: self._get_safe_foreign_key('{target_model}', '{column_name}'))"
                 else:
+                    # 使用正常的SubFactory引用，依赖生成顺序处理
                     return f"{field.name} = factory.SubFactory({target_model}Factory)"
 
         # 如果无法解析，生成一个序列外键
@@ -1252,8 +1301,13 @@ from {module_import_path} import (
         """从外键字符串提取目标模型名"""
         if "." in foreign_key:
             table_name = foreign_key.split(".")[0]
-            # 简单的表名到模型名转换
-            return table_name.title().replace("_", "")
+            # 表名到模型名的转换，处理复数形式
+            if table_name.endswith("s") and len(table_name) > 1:
+                # 移除复数形式的s，简单处理
+                model_name = table_name[:-1]
+            else:
+                model_name = table_name
+            return model_name.title().replace("_", "")
         return "UnknownModel"
 
     def generate_tests(
@@ -1889,7 +1943,7 @@ class Test{model_name}Model:
                 # 验证数值类型和精度
                 pass''')
         
-        return base_test + "".join(business_tests) + '''
+        return base_test + "".join(business_tests) + f'''
             
             # 测试读取
             retrieved = service.get_{model_name.lower()}_by_id(created.id)
@@ -1953,7 +2007,7 @@ from sqlalchemy.exc import IntegrityError
 
 # 测试基础设施
 from tests.conftest import unit_test_db
-from tests.factories.data_factory import StandardTestDataFactory
+from tests.factories import StandardTestDataFactory
 from tests.factories.{module_name}_factories import {module_name.title().replace('_', '')}FactoryManager
 
 # 被测服务和模型
@@ -1965,7 +2019,7 @@ except ImportError as e:
     print(f"⚠️ 导入警告: {{e}}")
     from unittest.mock import Mock
     {service_class_name} = Mock()
-    {f' = Mock(){NEWLINE}    '.join(models.keys())} = Mock()
+{chr(10).join([f"    {model} = Mock()" for model in models.keys()])}
 
 
 @pytest.mark.unit
@@ -2221,7 +2275,7 @@ from sqlalchemy.exc import IntegrityError
 
 # 测试基础设施
 from tests.conftest import unit_test_db
-from tests.factories.data_factory import StandardTestDataFactory
+from tests.factories import StandardTestDataFactory
 from tests.factories.{module_name}_factories import {module_name.title().replace('_', '')}FactoryManager
 
 # 被测模块组件
@@ -2233,7 +2287,7 @@ except ImportError as e:
     print(f"⚠️ 组件导入警告: {{e}}")
     from unittest.mock import Mock
     {service_class_name} = Mock()
-    {f' = Mock(){NEWLINE}    '.join(models.keys())} = Mock()
+{chr(10).join([f"    {model} = Mock()" for model in models.keys()])}
     COMPONENTS_AVAILABLE = False
 
 
@@ -3091,30 +3145,55 @@ class Test{module_name.title().replace('_', '')}Service:
                 test_category = None
             else:
                 # 解析文件键格式:
-                # 格式1: {module}_{test_type} (如: user_auth_integration)
-                # 格式2: {module}_{category}_{test_type} (如: user_auth_models_unit)
-                parts = file_key.split("_")
-
-                # 检查是否是直接的 module_testtype 格式
-                test_types = ["unit", "integration", "e2e", "smoke", "specialized"]
-                if len(parts) >= 2 and parts[-1] in test_types:
-                    test_type = parts[-1]
-                    # 检查是否有中间的分类
-                    if len(parts) >= 3 and parts[-2] in [
-                        "models",
-                        "service",
-                        "workflow",
-                        "api",
-                    ]:
-                        test_category = parts[-2]
-                        module_name = "_".join(parts[:-2])
+                # 格式1: test_models/test_{module}_models
+                # 格式2: test_services/test_{module}_services  
+                # 格式3: {module}_standalone
+                
+                if file_key.startswith("test_models/"):
+                    test_type = "unit"
+                    test_category = "models"
+                    # 从 test_models/test_user_auth_models 提取 user_auth
+                    filename = file_key.split("/")[-1]  # test_user_auth_models
+                    if filename.startswith("test_") and filename.endswith("_models"):
+                        module_name = filename[5:-7]  # 移除 test_ 和 _models
                     else:
-                        test_category = None  # 无具体分类
-                        module_name = "_".join(parts[:-1])
+                        module_name = "unknown"
+                elif file_key.startswith("test_services/"):
+                    test_type = "unit"
+                    test_category = "services"
+                    # 从 test_services/test_user_auth_services 提取 user_auth
+                    filename = file_key.split("/")[-1]  # test_user_auth_services
+                    if filename.startswith("test_") and filename.endswith("_services"):
+                        module_name = filename[5:-9]  # 移除 test_ 和 _services
+                    else:
+                        module_name = "unknown"
+                elif file_key.endswith("_standalone"):
+                    test_type = "unit"
+                    test_category = "standalone"
+                    # 从 user_auth_standalone 提取 user_auth
+                    module_name = file_key[:-11]  # 移除 _standalone
                 else:
-                    module_name = file_key
-                    test_type = "unknown"
-                    test_category = None
+                    # 原有的解析逻辑作为后备
+                    parts = file_key.split("_")
+                    test_types = ["unit", "integration", "e2e", "smoke", "specialized"]
+                    if len(parts) >= 2 and parts[-1] in test_types:
+                        test_type = parts[-1]
+                        # 检查是否有中间的分类
+                        if len(parts) >= 3 and parts[-2] in [
+                            "models",
+                            "service",
+                            "workflow",
+                            "api",
+                        ]:
+                            test_category = parts[-2]
+                            module_name = "_".join(parts[:-2])
+                        else:
+                            test_category = None  # 无具体分类
+                            module_name = "_".join(parts[:-1])
+                    else:
+                        module_name = file_key
+                        test_type = "unknown"
+                        test_category = None
 
                 # 构造生成文件名 - 在暂存目录中使用简洁名称
                 if test_category:
@@ -3124,29 +3203,26 @@ class Test{module_name.title().replace('_', '')}Service:
                 else:
                     generated_filename = f"test_{module_name}_{test_type}.py"
 
-            # 构造generated目录路径
-            generated_path = f"tests/generated/{generated_filename}"
-            full_path = self.project_root / generated_path
-            full_path.parent.mkdir(parents=True, exist_ok=True)
-
-            # 构造原始目标路径（用于文档）
-            original_path = self._construct_target_path(
+            # 直接构造正式目录路径
+            target_path = self._construct_target_path(
                 module_name, test_category or "", test_type
             )
+            full_path = self.project_root / target_path
+            full_path.parent.mkdir(parents=True, exist_ok=True)
 
             # 添加生成信息到文件头部
             enhanced_content = self._add_generation_header(
-                content, original_path, timestamp
+                content, target_path, timestamp
             )
 
             with open(full_path, "w", encoding="utf-8") as f:
                 f.write(enhanced_content)
 
-            print(f"📝 生成文件: {generated_path}")
+            print(f"📝 生成文件: {target_path}")
 
-        print(f"⚠️  请注意: 文件已生成到tests/generated/目录")
+        print(f"✅ 文件已生成到正式目录")
         print(
-            f"📋 下一步: 请按照docs/development/generated-tests-management.md流程进行审查"
+            f"📋 下一步: 在正式目录中完成代码审查，审查通过后即可执行测试"
         )
 
     def _construct_target_path(
@@ -3158,8 +3234,8 @@ class Test{module_name.title().replace('_', '')}Service:
         elif test_type == "unit":
             if test_category == "models":
                 return f"tests/unit/test_models/test_{module_name}_models.py"
-            elif test_category == "service":
-                return f"tests/unit/test_services/test_{module_name}_service.py"
+            elif test_category == "services":
+                return f"tests/unit/test_services/test_{module_name}_services.py"
             elif test_category and test_category.strip():
                 return f"tests/unit/test_{module_name}_{test_category}.py"
             else:
@@ -3172,6 +3248,16 @@ class Test{module_name.title().replace('_', '')}Service:
             return f"tests/smoke/test_{module_name}_smoke.py"
         elif test_type == "specialized":
             return f"tests/performance/test_{module_name}_performance.py"
+        elif test_type == "unknown":
+            # 对于unknown类型，根据test_category判断
+            if "models" in test_category:
+                return f"tests/unit/test_models/test_{module_name}_models.py"
+            elif "services" in test_category:
+                return f"tests/unit/test_services/test_{module_name}_services.py"
+            elif "standalone" in test_category or test_category == "":
+                return f"tests/unit/test_{module_name}_standalone.py"
+            else:
+                return f"tests/unit/test_{module_name}_{test_category}.py"
         else:
             return f"tests/{test_type}/test_{module_name}_{test_category}.py"
 
@@ -3180,18 +3266,17 @@ class Test{module_name.title().replace('_', '')}Service:
     ) -> str:
         """为生成的文件添加标准头部信息"""
         header = f'''"""
-Auto Generated Test - 需要人工审查
+Auto Generated Test - 已生成到正式目录
 
-原始目标路径: {original_path}
+文件路径: {original_path}
 生成时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
 生成工具: tools/generate_test_template.py v2.0
-状态: GENERATED - 需要经过审查、验证和优化后方可移动到正式目录
+状态: GENERATED - 需要经过代码审查和测试验证
 
-警告: 此文件为自动生成，请勿直接使用于生产测试。
-     需要经过代码审查、测试验证和质量优化后方可使用。
+说明: 此文件已生成到正式目录，请进行代码审查和测试验证。
+     审查通过后即可直接用于项目测试。
      
-流程: tests/generated/ -> 审查 -> 优化 -> 移动到正式目录 -> 版本控制
-参考: docs/development/generated-tests-management.md
+流程: 生成 -> 审查 -> 验证 -> 提交版本控制
 """
 
 '''
@@ -3521,6 +3606,13 @@ Auto Generated Test - 需要人工审查
         factory_files = {
             path: content for path, content in files.items() if "factories" in path
         }
+        
+        # 添加基础工厂文件检查
+        base_factory_path = "tests/factories/__init__.py"
+        if os.path.exists(self.project_root / base_factory_path):
+            with open(self.project_root / base_factory_path, 'r', encoding='utf-8') as f:
+                factory_files[base_factory_path] = f.read()
+        
         test_files = {
             path: content for path, content in files.items() if "test_" in path
         }
@@ -3533,8 +3625,16 @@ Auto Generated Test - 需要人工审查
                 factory_classes = []
 
                 for node in ast.walk(tree):
-                    if isinstance(node, ast.ClassDef) and node.name.endswith("Factory"):
-                        factory_classes.append(node.name)
+                    if isinstance(node, ast.ClassDef):
+                        # 检测Factory类和FactoryManager类
+                        if node.name.endswith("Factory") or node.name.endswith("FactoryManager"):
+                            factory_classes.append(node.name)
+                    # 检测from import语句（如__init__.py中的导入）
+                    elif isinstance(node, ast.ImportFrom):
+                        if node.names:
+                            for alias in node.names:
+                                if alias.name.endswith("Factory") or alias.name.endswith("FactoryManager"):
+                                    factory_classes.append(alias.name)
 
                 dependency_results["factory_dependencies"][
                     factory_path
@@ -3551,15 +3651,34 @@ Auto Generated Test - 需要人工审查
             try:
                 # 解析测试文件中使用的工厂类
                 used_factories = []
+                
+                # 使用AST解析import语句
+                try:
+                    tree = ast.parse(test_content)
+                    for node in ast.walk(tree):
+                        # 检测from import语句
+                        if isinstance(node, ast.ImportFrom):
+                            if node.module and ("factories" in node.module):
+                                for alias in node.names:
+                                    if alias.name.endswith("Factory") or alias.name.endswith("FactoryManager"):
+                                        used_factories.append(alias.name)
+                        # 检测直接import语句
+                        elif isinstance(node, ast.Import):
+                            for alias in node.names:
+                                if "Factory" in alias.name:
+                                    used_factories.append(alias.name.split(".")[-1])
+                except:
+                    # 如果AST解析失败，回退到正则表达式
+                    pass
+                
+                # 补充检测：在代码中使用的Factory
                 for line in test_content.split("\n"):
-                    if "Factory(" in line or "Factory." in line:
-                        # 简单的工厂使用检测
+                    if "Factory(" in line or "Factory." in line or "FactoryManager(" in line:
                         import re
-
-                        factory_matches = re.findall(r"(\w+Factory)", line)
+                        factory_matches = re.findall(r"(\w+Factory(?:Manager)?)", line)
                         used_factories.extend(factory_matches)
 
-                dependency_results["model_dependencies"][test_path] = used_factories
+                dependency_results["model_dependencies"][test_path] = list(set(used_factories))
 
                 if used_factories:
                     print(
