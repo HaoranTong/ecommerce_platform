@@ -417,6 +417,10 @@ markers = [
     "e2e: End-to-end tests - 6% coverage (complete user workflow testing)",
     "performance: Performance tests - 2% coverage (load and stress testing)",
     "security: Security tests (authentication, authorization, input validation)",
+    "services: Service layer tests (business logic and service integration)",
+    "workflow: Business workflow tests (complete business process testing)",
+    "standalone: Standalone module tests (independent module functionality)",
+    "critical: Critical path tests (core business logic validation)",
     "slow: Slow running tests (can be skipped for quick feedback)",
     "api: API endpoint tests (REST/GraphQL interface testing)",
     "database: Database dependent tests (require database connection)",
@@ -864,6 +868,19 @@ pytest tests/unit/*_standalone.py  # 业务流程测试
 pytest tests/smoke/                # 烟雾测试
 pytest tests/integration/          # 集成测试
 pytest tests/e2e/                  # E2E测试
+```
+
+### 使用标记选择测试
+```bash
+# 按标记运行测试
+pytest -m unit                     # 仅运行单元测试
+pytest -m smoke                    # 仅运行烟雾测试  
+pytest -m integration              # 仅运行集成测试
+pytest -m "unit and services"      # 仅运行服务层单元测试
+pytest -m "workflow or standalone" # 仅运行业务流程测试
+pytest -m critical                 # 仅运行关键路径测试
+pytest -m "not external"           # 排除外部依赖测试
+pytest -m "not slow"               # 排除慢速测试
 ```
 
 **3. 集成测试执行 (提交前验证)**：
