@@ -1360,6 +1360,10 @@ from {module_import_path} import (
         if test_type in ["all", "integration"]:
             integration_files = self._generate_integration_tests(module_name, models)
             generated_files.update(integration_files)
+            
+        if test_type in ["all", "api"]:
+            api_files = self._generate_api_tests(module_name, models)
+            generated_files.update(api_files)
 
         if test_type in ["all", "e2e"]:
             e2e_files = self._generate_e2e_tests(module_name, models)
@@ -3329,8 +3333,26 @@ class Test{module_name.title().replace('_', '')}Service:
     def _generate_e2e_tests(
         self, module_name: str, models: Dict[str, ModelInfo]
     ) -> Dict[str, str]:
-        """生成E2E测试 (6%)"""
-        return {}  # 占位符，需要实现
+        """生成E2E测试 (6%) - API测试和业务流程测试
+        
+        基于router.py分析生成：
+        1. API端点测试 - 测试所有REST API端点
+        2. 业务流程测试 - 测试完整的用户场景
+        3. 跨模块集成测试 - 测试模块间依赖
+        """
+        files = {}
+        
+        # 使用新的模块化E2E生成器（纯业务流程测试）
+        from tools.test_generators import E2ETestGenerator
+        
+        e2e_generator = E2ETestGenerator(self.project_root, self.config)
+        
+        # 生成E2E业务流程测试
+        e2e_tests = e2e_generator.generate_tests(module_name, models)
+        files.update(e2e_tests)
+        
+        print(f"✅ 生成E2E测试: 业务流程测试")
+        return files
 
     def _generate_smoke_tests(
         self, module_name: str, models: Dict[str, ModelInfo]
@@ -3353,8 +3375,30 @@ class Test{module_name.title().replace('_', '')}Service:
     def _generate_specialized_tests(
         self, module_name: str, models: Dict[str, ModelInfo]
     ) -> Dict[str, str]:
-        """生成专项测试 (2%)"""
-        return {}  # 占位符，需要实现
+        """生成专项测试 (2%) - 安全测试和性能测试
+        
+        基于OWASP Top 10和性能标准生成：
+        1. 安全测试 - 注入攻击、权限验证、数据保护测试
+        2. 性能测试 - 响应时间、并发测试、负载测试
+        """
+        files = {}
+        
+        # 使用新的模块化生成器
+        from tools.test_generators import SecurityTestGenerator, PerformanceTestGenerator
+        
+        security_generator = SecurityTestGenerator(self.project_root, self.config)
+        performance_generator = PerformanceTestGenerator(self.project_root, self.config)
+        
+        # 生成安全测试
+        security_tests = security_generator.generate_tests(module_name, models)
+        files.update(security_tests)
+        
+        # 生成性能测试
+        performance_tests = performance_generator.generate_tests(module_name, models)
+        files.update(performance_tests)
+        
+        print(f"✅ 生成专项测试: 安全测试 + 性能测试")
+        return files
 
     def _write_test_files(self, files: Dict[str, str]):
         """写入测试文件到磁盘 - 遵循generated目录规范"""
@@ -3371,6 +3415,16 @@ class Test{module_name.title().replace('_', '')}Service:
                 generated_filename = f"{module_name}_factories.py"
                 test_type = "factories"
                 test_category = None
+            elif file_key.startswith("tests/integration/test_api/") and file_key.endswith("_api.py"):
+                # 处理API测试文件：tests/integration/test_api/test_user_auth_api.py -> user_auth
+                api_filename = file_key.split("/")[-1]  # test_user_auth_api.py
+                if api_filename.startswith("test_") and api_filename.endswith("_api.py"):
+                    module_name = api_filename[5:-7]  # 移除 test_ 和 _api.py
+                else:
+                    module_name = "unknown"
+                test_type = "integration"
+                test_category = "api"
+                generated_filename = f"test_{module_name}_api.py"
             elif file_key.startswith("tests/integration/") and file_key.endswith("_integration.py"):
                 # 处理集成测试文件：tests/integration/test_user_auth_integration.py -> user_auth
                 integration_filename = file_key.split("/")[-1]  # test_user_auth_integration.py
@@ -3391,6 +3445,36 @@ class Test{module_name.title().replace('_', '')}Service:
                 test_type = "unit"
                 test_category = "standalone"
                 generated_filename = f"test_{module_name}_standalone.py"
+            elif file_key.startswith("tests/e2e/") and file_key.endswith("_workflows.py"):
+                # 处理E2E测试文件：tests/e2e/test_user_auth_workflows.py -> user_auth
+                e2e_filename = file_key.split("/")[-1]  # test_user_auth_workflows.py
+                if e2e_filename.startswith("test_") and e2e_filename.endswith("_workflows.py"):
+                    module_name = e2e_filename[5:-13]  # 移除 test_ 和 _workflows.py
+                else:
+                    module_name = "unknown"
+                test_type = "e2e"
+                test_category = None
+                generated_filename = f"test_{module_name}_workflows.py"
+            elif file_key.startswith("tests/security/") and file_key.endswith("_security.py"):
+                # 处理安全测试文件：tests/security/test_user_auth_security.py -> user_auth
+                security_filename = file_key.split("/")[-1]  # test_user_auth_security.py
+                if security_filename.startswith("test_") and security_filename.endswith("_security.py"):
+                    module_name = security_filename[5:-12]  # 移除 test_ 和 _security.py
+                else:
+                    module_name = "unknown"
+                test_type = "security"
+                test_category = None
+                generated_filename = f"test_{module_name}_security.py"
+            elif file_key.startswith("tests/performance/") and file_key.endswith("_performance.py"):
+                # 处理性能测试文件：tests/performance/test_user_auth_performance.py -> user_auth
+                performance_filename = file_key.split("/")[-1]  # test_user_auth_performance.py
+                if performance_filename.startswith("test_") and performance_filename.endswith("_performance.py"):
+                    module_name = performance_filename[5:-15]  # 移除 test_ 和 _performance.py
+                else:
+                    module_name = "unknown"
+                test_type = "performance"
+                test_category = None
+                generated_filename = f"test_{module_name}_performance.py"
             else:
                 # 解析文件键格式:
                 # 格式1: test_models/test_{module}_models
@@ -3451,10 +3535,15 @@ class Test{module_name.title().replace('_', '')}Service:
                 else:
                     generated_filename = f"test_{module_name}_{test_type}.py"
 
-            # 直接构造正式目录路径
-            target_path = self._construct_target_path(
-                module_name, test_category or "", test_type
-            )
+            # 检查是否已经是完整路径格式（以tests/开头）
+            if file_key.startswith("tests/"):
+                # 直接使用已经正确的路径
+                target_path = file_key
+            else:
+                # 直接构造正式目录路径（原有逻辑）
+                target_path = self._construct_target_path(
+                    module_name, test_category or "", test_type
+                )
             full_path = self.project_root / target_path
             full_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -3490,6 +3579,8 @@ class Test{module_name.title().replace('_', '')}Service:
                 return f"tests/unit/test_{module_name}.py"
         elif test_type == "integration":
             return f"tests/integration/test_{module_name}_integration.py"
+        elif test_type == "api":
+            return f"tests/integration/test_api/test_{module_name}_api.py"
         elif test_type == "e2e":
             return f"tests/e2e/test_{module_name}_e2e.py"
         elif test_type == "smoke":
@@ -4354,6 +4445,14 @@ except Exception as e:
         return report
 
 
+    def _generate_api_tests(self, module_name: str, models: Dict[str, ModelInfo]) -> Dict[str, str]:
+        """生成独立的API测试 - 调用模块化API测试生成器"""
+        from tools.test_generators import APITestGenerator
+        
+        api_generator = APITestGenerator(self.project_root, self.config)
+        return api_generator.generate_tests(module_name, models)
+
+
 def main():
     """主程序入口 [CHECK:DEV-009]"""
     parser = argparse.ArgumentParser(
@@ -4364,7 +4463,7 @@ def main():
     parser.add_argument("module_name", help="模块名称 (如: user_auth, shopping_cart)")
     parser.add_argument(
         "--type",
-        choices=["all", "unit", "integration", "e2e", "smoke", "specialized"],
+        choices=["all", "unit", "integration", "api", "e2e", "smoke", "specialized"],
         default="all",
         help="生成的测试类型",
     )
