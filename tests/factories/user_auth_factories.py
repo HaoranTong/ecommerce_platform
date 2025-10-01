@@ -2,7 +2,7 @@
 Auto Generated Test - 已生成到正式目录
 
 文件路径: tests/factories/user_auth_factories.py
-生成时间: 2025-10-01 15:46:10
+生成时间: 2025-10-01 16:43:18
 生成工具: tools/generate_test_template.py v2.0
 状态: GENERATED - 需要经过代码审查和测试验证
 
@@ -18,7 +18,7 @@ import factory.fuzzy
 import uuid
 from datetime import datetime, timedelta
 from decimal import Decimal
-from sqlalchemy.orm import Session as SQLAlchemySession
+from sqlalchemy.orm import Session
 
 # 处理表重定义警告的配置
 import warnings
@@ -35,7 +35,8 @@ class PermissionFactory(factory.alchemy.SQLAlchemyModelFactory):
     
     class Meta:
         model = Permission
-        # 按照testing-standards.md要求：单元测试使用build()，不设置session相关配置
+        sqlalchemy_session_persistence = "commit"
+        sqlalchemy_get_or_create = ("name",) if hasattr(Permission, "name") else None
 
     name = factory.Sequence(lambda n: f'name_{n}')
     resource = factory.Faker('text', max_nb_chars=100)
@@ -50,7 +51,8 @@ class RoleFactory(factory.alchemy.SQLAlchemyModelFactory):
     
     class Meta:
         model = Role
-        # 按照testing-standards.md要求：单元测试使用build()，不设置session相关配置
+        sqlalchemy_session_persistence = "commit"
+        sqlalchemy_get_or_create = ("name",) if hasattr(Role, "name") else None
 
     name = factory.Sequence(lambda n: f'name_{n}')
     description = factory.Faker('text', max_nb_chars=200)
@@ -64,7 +66,8 @@ class UserFactory(factory.alchemy.SQLAlchemyModelFactory):
     
     class Meta:
         model = User
-        # 按照testing-standards.md要求：单元测试使用build()，不设置session相关配置
+        sqlalchemy_session_persistence = "commit"
+        sqlalchemy_get_or_create = ("name",) if hasattr(User, "name") else None
 
     username = factory.Sequence(lambda n: f'username_{n}')
     email = factory.Sequence(lambda n: f'user{n}@example.com')
@@ -93,7 +96,8 @@ class RolePermissionFactory(factory.alchemy.SQLAlchemyModelFactory):
     
     class Meta:
         model = RolePermission
-        # 按照testing-standards.md要求：单元测试使用build()，不设置session相关配置
+        sqlalchemy_session_persistence = "commit"
+        sqlalchemy_get_or_create = ("name",) if hasattr(RolePermission, "name") else None
 
     role_id = factory.SubFactory(RoleFactory)
     permission_id = factory.SubFactory(PermissionFactory)
@@ -108,7 +112,8 @@ class SessionFactory(factory.alchemy.SQLAlchemyModelFactory):
     
     class Meta:
         model = Session
-        # 按照testing-standards.md要求：单元测试使用build()，不设置session相关配置
+        sqlalchemy_session_persistence = "commit"
+        sqlalchemy_get_or_create = ("name",) if hasattr(Session, "name") else None
 
     user_id = factory.SubFactory(UserFactory)
     token_hash = factory.Sequence(lambda n: f'token_hash_{n}')
@@ -126,7 +131,8 @@ class UserRoleFactory(factory.alchemy.SQLAlchemyModelFactory):
     
     class Meta:
         model = UserRole
-        # 按照testing-standards.md要求：单元测试使用build()，不设置session相关配置
+        sqlalchemy_session_persistence = "commit"
+        sqlalchemy_get_or_create = ("name",) if hasattr(UserRole, "name") else None
 
     user_id = factory.SubFactory(UserFactory)
     role_id = factory.SubFactory(RoleFactory)
@@ -143,7 +149,7 @@ class UserAuthFactoryManager:
     """
     
     @staticmethod
-    def setup_factories(session: SQLAlchemySession):
+    def setup_factories(session: Session):
         """设置所有工厂的数据库会话"""
         PermissionFactory._meta.sqlalchemy_session = session
         RoleFactory._meta.sqlalchemy_session = session
@@ -153,7 +159,7 @@ class UserAuthFactoryManager:
         UserRoleFactory._meta.sqlalchemy_session = session
 
     @staticmethod
-    def create_sample_data(session: SQLAlchemySession) -> dict:
+    def create_sample_data(session: Session) -> dict:
         """创建样本测试数据"""
         UserAuthFactoryManager.setup_factories(session)
         
@@ -169,7 +175,7 @@ class UserAuthFactoryManager:
         return data
         
     @staticmethod
-    def create_test_scenario(session: SQLAlchemySession, scenario: str = 'basic') -> dict:
+    def create_test_scenario(session: Session, scenario: str = 'basic') -> dict:
         """创建特定测试场景的数据"""
         # 可以根据具体业务需求扩展不同场景
         return UserAuthFactoryManager.create_sample_data(session)

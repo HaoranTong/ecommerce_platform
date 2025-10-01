@@ -2,7 +2,7 @@
 Auto Generated Test - 已生成到正式目录
 
 文件路径: tests/unit/test_services/test_user_auth_services.py
-生成时间: 2025-10-01 15:46:10
+生成时间: 2025-10-01 16:43:18
 生成工具: tools/generate_test_template.py v2.0
 状态: GENERATED - 需要经过代码审查和测试验证
 
@@ -26,13 +26,13 @@ from tests.factories.user_auth_factories import UserAuthFactoryManager
 
 # 被测服务和模型
 try:
-    from app.modules.user_auth.service import UserService
+    from app.modules.user_auth.service import UserAuthService
     from app.modules.user_auth.models import Permission, Role, RolePermission, Session, User, UserRole
 except ImportError as e:
     # 如果服务或模型不存在，创建Mock
     print(f"⚠️ 导入警告: {e}")
     from unittest.mock import Mock
-    UserService = Mock()
+    UserAuthService = Mock()
     Permission = Mock()
     Role = Mock()
     RolePermission = Mock()
@@ -43,7 +43,7 @@ except ImportError as e:
 
 @pytest.mark.unit
 @pytest.mark.services
-class TestUserService:
+class TestUserAuthService:
     """服务层测试类 - SQLite内存数据库验证"""
     
     def setup_method(self):
@@ -56,7 +56,7 @@ class TestUserService:
         print(f"\n🔧 测试服务初始化...")
         
         # 测试正常初始化
-        service = UserService(unit_test_db)
+        service = UserAuthService(unit_test_db)
         assert service is not None
         assert hasattr(service, 'db')
         
@@ -67,7 +67,7 @@ class TestUserService:
         """测试服务与Factory数据工厂的集成"""
         print(f"\n🏭 测试Factory集成...")
         
-        service = UserService(unit_test_db)
+        service = UserAuthService(unit_test_db)
         self.factory_manager.setup_factories(unit_test_db)
         
         # 创建测试数据
@@ -82,7 +82,7 @@ class TestUserService:
         """测试Permission的CRUD操作 - general域"""
         print(f"\n📋 测试Permission CRUD操作...")
         
-        service = UserService(unit_test_db)
+        service = UserAuthService(unit_test_db)
         self.factory_manager.setup_factories(unit_test_db)
         
         # 创建测试数据
@@ -117,7 +117,7 @@ class TestUserService:
         """测试Role的CRUD操作 - general域"""
         print(f"\n📋 测试Role CRUD操作...")
         
-        service = UserService(unit_test_db)
+        service = UserAuthService(unit_test_db)
         self.factory_manager.setup_factories(unit_test_db)
         
         # 创建测试数据
@@ -152,7 +152,7 @@ class TestUserService:
         """测试RolePermission的CRUD操作 - general域"""
         print(f"\n📋 测试RolePermission CRUD操作...")
         
-        service = UserService(unit_test_db)
+        service = UserAuthService(unit_test_db)
         self.factory_manager.setup_factories(unit_test_db)
         
         # 创建测试数据
@@ -187,7 +187,7 @@ class TestUserService:
         """测试Session的CRUD操作 - general域"""
         print(f"\n📋 测试Session CRUD操作...")
         
-        service = UserService(unit_test_db)
+        service = UserAuthService(unit_test_db)
         self.factory_manager.setup_factories(unit_test_db)
         
         # 创建测试数据
@@ -225,7 +225,7 @@ class TestUserService:
         """测试User的CRUD操作 - user_management域"""
         print(f"\n📋 测试User CRUD操作...")
         
-        service = UserService(unit_test_db)
+        service = UserAuthService(unit_test_db)
         self.factory_manager.setup_factories(unit_test_db)
         
         # 创建测试数据
@@ -263,7 +263,7 @@ class TestUserService:
         """测试UserRole的CRUD操作 - general域"""
         print(f"\n📋 测试UserRole CRUD操作...")
         
-        service = UserService(unit_test_db)
+        service = UserAuthService(unit_test_db)
         self.factory_manager.setup_factories(unit_test_db)
         
         # 创建测试数据
@@ -298,7 +298,7 @@ class TestUserService:
         """测试错误处理和数据验证"""
         print(f"\n⚠️ 测试错误处理...")
         
-        service = UserService(unit_test_db)
+        service = UserAuthService(unit_test_db)
         
         # 测试无效数据处理
         with pytest.raises((ValueError, TypeError, IntegrityError)) as exc_info:
@@ -317,7 +317,7 @@ class TestUserService:
         """测试事务处理和数据一致性"""
         print(f"\n💾 测试事务处理...")
         
-        service = UserService(unit_test_db)
+        service = UserAuthService(unit_test_db)
         
         # 测试事务回滚
         try:

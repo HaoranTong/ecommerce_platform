@@ -40,6 +40,9 @@ var/
 # Pytest
 .pytest_cache/
 
+# Test reports and analysis
+docs/analysis/
+
 # MySQL / DB
 *.sqlite3
 *.sqlite

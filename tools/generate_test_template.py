@@ -2404,7 +2404,7 @@ class Test{module_name.title().replace('_', '')}Workflow:
 
         # 生成集成测试文件
         integration_tests = self._generate_integration_test_content(module_name, models)
-        files[f"{module_name}_integration"] = integration_tests
+        files[f"tests/integration/test_{module_name}_integration.py"] = integration_tests
 
         return files
 
@@ -2512,11 +2512,8 @@ class TestUserAuthIntegration:
         """测试用户注册完整业务流程集成"""
         print(f"{NEWLINE}📝 测试用户注册完整流程...")
         
-        # 1. 初始化服务
-        user_service = UserService()
-        
-        # 2. 执行用户注册 - 使用实际UserService方法签名
-        created_user = user_service.create_user(
+        # 1. 执行用户注册 - 使用UserService静态方法
+        created_user = UserService.create_user(
             db=mysql_integration_db,
             username="integration_test_user",
             email="integration@test.com",
@@ -2557,10 +2554,8 @@ class TestUserAuthIntegration:
         """测试用户登录认证完整流程集成"""
         print(f"{NEWLINE}🔑 测试用户登录认证流程...")
         
-        user_service = UserService()
-        
-        # 1. 先创建测试用户
-        test_user = user_service.create_user(
+        # 1. 先创建测试用户 - 使用UserService静态方法
+        test_user = UserService.create_user(
             db=mysql_integration_db,
             username="login_integration_user",
             email="login@integration.test",
@@ -2569,7 +2564,7 @@ class TestUserAuthIntegration:
         )
         
         # 2. 测试正确登录认证
-        authenticated_user = user_service.authenticate_user(
+        authenticated_user = UserService.authenticate_user(
             db=mysql_integration_db,
             username="login_integration_user",
             password="LoginPassword123!"
@@ -2581,7 +2576,7 @@ class TestUserAuthIntegration:
         print("✅ 正确密码认证成功")
         
         # 3. 测试错误密码拒绝
-        failed_auth = user_service.authenticate_user(
+        failed_auth = UserService.authenticate_user(
             db=mysql_integration_db,
             username="login_integration_user",
             password="WrongPassword123!"
@@ -2591,7 +2586,7 @@ class TestUserAuthIntegration:
         print("✅ 错误密码正确拒绝")
         
         # 4. 测试不存在用户拒绝
-        nonexistent_auth = user_service.authenticate_user(
+        nonexistent_auth = UserService.authenticate_user(
             db=mysql_integration_db,
             username="nonexistent_user",
             password="AnyPassword123!"
@@ -2941,9 +2936,12 @@ class TestUserService:
         """测试服务初始化"""
         print(f"{NEWLINE}🔧 测试用户服务初始化...")
         
-        service = UserService()
+        service = UserService
         assert service is not None
-        print("✅ 用户服务初始化验证通过")
+        
+        # 测试静态方法存在
+        assert hasattr(service, 'create_user')
+        assert hasattr(service, 'authenticate_user')
     
     @patch('app.modules.user_auth.service.Session')
     def test_create_user_mock(self, mock_db):
@@ -2981,7 +2979,7 @@ class TestUserService:
         mock_db_session = MagicMock()
         mock_db.return_value = mock_db_session
         
-        service = UserService()
+        service = UserService
         
         # 验证认证方法存在
         assert hasattr(service, 'authenticate_user')
