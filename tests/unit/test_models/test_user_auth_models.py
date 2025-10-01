@@ -2,7 +2,7 @@
 Auto Generated Test - 已生成到正式目录
 
 文件路径: tests/unit/test_models/test_user_auth_models.py
-生成时间: 2025-10-01 21:12:04
+生成时间: 2025-10-01 21:23:14
 生成工具: tools/generate_test_template.py v2.0
 状态: GENERATED - 需要经过代码审查和测试验证
 
@@ -119,10 +119,10 @@ class TestPermissionModel:
         mock_permission = mocker.Mock(spec=Permission)
         
         # 设置字段值
-        mock_permission.created_at = datetime.now()
+        mock_permission.created_at = datetime(2025, 1, 1, 12, 0, 0)
         
         # 验证字段设置
-        assert mock_permission.created_at == datetime.now()
+        assert mock_permission.created_at == datetime(2025, 1, 1, 12, 0, 0)
         
         # 验证字段类型（如果值不为None）
         if mock_permission.created_at is not None:
@@ -134,10 +134,10 @@ class TestPermissionModel:
         mock_permission = mocker.Mock(spec=Permission)
         
         # 设置字段值
-        mock_permission.updated_at = datetime.now()
+        mock_permission.updated_at = datetime(2025, 1, 1, 12, 0, 0)
         
         # 验证字段设置
-        assert mock_permission.updated_at == datetime.now()
+        assert mock_permission.updated_at == datetime(2025, 1, 1, 12, 0, 0)
         
         # 验证字段类型（如果值不为None）
         if mock_permission.updated_at is not None:
@@ -246,10 +246,10 @@ class TestRoleModel:
         mock_role = mocker.Mock(spec=Role)
         
         # 设置字段值
-        mock_role.created_at = datetime.now()
+        mock_role.created_at = datetime(2025, 1, 1, 12, 0, 0)
         
         # 验证字段设置
-        assert mock_role.created_at == datetime.now()
+        assert mock_role.created_at == datetime(2025, 1, 1, 12, 0, 0)
         
         # 验证字段类型（如果值不为None）
         if mock_role.created_at is not None:
@@ -261,10 +261,10 @@ class TestRoleModel:
         mock_role = mocker.Mock(spec=Role)
         
         # 设置字段值
-        mock_role.updated_at = datetime.now()
+        mock_role.updated_at = datetime(2025, 1, 1, 12, 0, 0)
         
         # 验证字段设置
-        assert mock_role.updated_at == datetime.now()
+        assert mock_role.updated_at == datetime(2025, 1, 1, 12, 0, 0)
         
         # 验证字段类型（如果值不为None）
         if mock_role.updated_at is not None:
@@ -368,10 +368,10 @@ class TestRolePermissionModel:
         mock_rolepermission = mocker.Mock(spec=RolePermission)
         
         # 设置字段值
-        mock_rolepermission.granted_at = datetime.now()
+        mock_rolepermission.granted_at = datetime(2025, 1, 1, 12, 0, 0)
         
         # 验证字段设置
-        assert mock_rolepermission.granted_at == datetime.now()
+        assert mock_rolepermission.granted_at == datetime(2025, 1, 1, 12, 0, 0)
         
         # 验证字段类型（如果值不为None）
         if mock_rolepermission.granted_at is not None:
@@ -383,10 +383,10 @@ class TestRolePermissionModel:
         mock_rolepermission = mocker.Mock(spec=RolePermission)
         
         # 设置字段值
-        mock_rolepermission.created_at = datetime.now()
+        mock_rolepermission.created_at = datetime(2025, 1, 1, 12, 0, 0)
         
         # 验证字段设置
-        assert mock_rolepermission.created_at == datetime.now()
+        assert mock_rolepermission.created_at == datetime(2025, 1, 1, 12, 0, 0)
         
         # 验证字段类型（如果值不为None）
         if mock_rolepermission.created_at is not None:
@@ -398,10 +398,10 @@ class TestRolePermissionModel:
         mock_rolepermission = mocker.Mock(spec=RolePermission)
         
         # 设置字段值
-        mock_rolepermission.updated_at = datetime.now()
+        mock_rolepermission.updated_at = datetime(2025, 1, 1, 12, 0, 0)
         
         # 验证字段设置
-        assert mock_rolepermission.updated_at == datetime.now()
+        assert mock_rolepermission.updated_at == datetime(2025, 1, 1, 12, 0, 0)
         
         # 验证字段类型（如果值不为None）
         if mock_rolepermission.updated_at is not None:
@@ -515,10 +515,10 @@ class TestSessionModel:
         mock_session = mocker.Mock(spec=Session)
         
         # 设置字段值
-        mock_session.expires_at = datetime.now()
+        mock_session.expires_at = datetime(2025, 1, 1, 12, 0, 0)
         
         # 验证字段设置
-        assert mock_session.expires_at == datetime.now()
+        assert mock_session.expires_at == datetime(2025, 1, 1, 12, 0, 0)
         
         # 验证字段类型（如果值不为None）
         if mock_session.expires_at is not None:
@@ -530,10 +530,10 @@ class TestSessionModel:
         mock_session = mocker.Mock(spec=Session)
         
         # 设置字段值
-        mock_session.last_accessed_at = datetime.now()
+        mock_session.last_accessed_at = datetime(2025, 1, 1, 12, 0, 0)
         
         # 验证字段设置
-        assert mock_session.last_accessed_at == datetime.now()
+        assert mock_session.last_accessed_at == datetime(2025, 1, 1, 12, 0, 0)
         
         # 验证字段类型（如果值不为None）
         if mock_session.last_accessed_at is not None:
@@ -590,10 +590,10 @@ class TestSessionModel:
         mock_session = mocker.Mock(spec=Session)
         
         # 设置字段值
-        mock_session.created_at = datetime.now()
+        mock_session.created_at = datetime(2025, 1, 1, 12, 0, 0)
         
         # 验证字段设置
-        assert mock_session.created_at == datetime.now()
+        assert mock_session.created_at == datetime(2025, 1, 1, 12, 0, 0)
         
         # 验证字段类型（如果值不为None）
         if mock_session.created_at is not None:
@@ -605,10 +605,10 @@ class TestSessionModel:
         mock_session = mocker.Mock(spec=Session)
         
         # 设置字段值
-        mock_session.updated_at = datetime.now()
+        mock_session.updated_at = datetime(2025, 1, 1, 12, 0, 0)
         
         # 验证字段设置
-        assert mock_session.updated_at == datetime.now()
+        assert mock_session.updated_at == datetime(2025, 1, 1, 12, 0, 0)
         
         # 验证字段类型（如果值不为None）
         if mock_session.updated_at is not None:
@@ -834,10 +834,10 @@ class TestUserModel:
         mock_user = mocker.Mock(spec=User)
         
         # 设置字段值
-        mock_user.locked_until = datetime.now()
+        mock_user.locked_until = datetime(2025, 1, 1, 12, 0, 0)
         
         # 验证字段设置
-        assert mock_user.locked_until == datetime.now()
+        assert mock_user.locked_until == datetime(2025, 1, 1, 12, 0, 0)
         
         # 验证字段类型（如果值不为None）
         if mock_user.locked_until is not None:
@@ -849,10 +849,10 @@ class TestUserModel:
         mock_user = mocker.Mock(spec=User)
         
         # 设置字段值
-        mock_user.last_login_at = datetime.now()
+        mock_user.last_login_at = datetime(2025, 1, 1, 12, 0, 0)
         
         # 验证字段设置
-        assert mock_user.last_login_at == datetime.now()
+        assert mock_user.last_login_at == datetime(2025, 1, 1, 12, 0, 0)
         
         # 验证字段类型（如果值不为None）
         if mock_user.last_login_at is not None:
@@ -947,10 +947,10 @@ class TestUserModel:
         mock_user = mocker.Mock(spec=User)
         
         # 设置字段值
-        mock_user.created_at = datetime.now()
+        mock_user.created_at = datetime(2025, 1, 1, 12, 0, 0)
         
         # 验证字段设置
-        assert mock_user.created_at == datetime.now()
+        assert mock_user.created_at == datetime(2025, 1, 1, 12, 0, 0)
         
         # 验证字段类型（如果值不为None）
         if mock_user.created_at is not None:
@@ -962,10 +962,10 @@ class TestUserModel:
         mock_user = mocker.Mock(spec=User)
         
         # 设置字段值
-        mock_user.updated_at = datetime.now()
+        mock_user.updated_at = datetime(2025, 1, 1, 12, 0, 0)
         
         # 验证字段设置
-        assert mock_user.updated_at == datetime.now()
+        assert mock_user.updated_at == datetime(2025, 1, 1, 12, 0, 0)
         
         # 验证字段类型（如果值不为None）
         if mock_user.updated_at is not None:
@@ -992,10 +992,10 @@ class TestUserModel:
         mock_user = mocker.Mock(spec=User)
         
         # 设置字段值
-        mock_user.deleted_at = datetime.now()
+        mock_user.deleted_at = datetime(2025, 1, 1, 12, 0, 0)
         
         # 验证字段设置
-        assert mock_user.deleted_at == datetime.now()
+        assert mock_user.deleted_at == datetime(2025, 1, 1, 12, 0, 0)
         
         # 验证字段类型（如果值不为None）
         if mock_user.deleted_at is not None:
@@ -1099,10 +1099,10 @@ class TestUserRoleModel:
         mock_userrole = mocker.Mock(spec=UserRole)
         
         # 设置字段值
-        mock_userrole.assigned_at = datetime.now()
+        mock_userrole.assigned_at = datetime(2025, 1, 1, 12, 0, 0)
         
         # 验证字段设置
-        assert mock_userrole.assigned_at == datetime.now()
+        assert mock_userrole.assigned_at == datetime(2025, 1, 1, 12, 0, 0)
         
         # 验证字段类型（如果值不为None）
         if mock_userrole.assigned_at is not None:
@@ -1114,10 +1114,10 @@ class TestUserRoleModel:
         mock_userrole = mocker.Mock(spec=UserRole)
         
         # 设置字段值
-        mock_userrole.created_at = datetime.now()
+        mock_userrole.created_at = datetime(2025, 1, 1, 12, 0, 0)
         
         # 验证字段设置
-        assert mock_userrole.created_at == datetime.now()
+        assert mock_userrole.created_at == datetime(2025, 1, 1, 12, 0, 0)
         
         # 验证字段类型（如果值不为None）
         if mock_userrole.created_at is not None:
@@ -1129,10 +1129,10 @@ class TestUserRoleModel:
         mock_userrole = mocker.Mock(spec=UserRole)
         
         # 设置字段值
-        mock_userrole.updated_at = datetime.now()
+        mock_userrole.updated_at = datetime(2025, 1, 1, 12, 0, 0)
         
         # 验证字段设置
-        assert mock_userrole.updated_at == datetime.now()
+        assert mock_userrole.updated_at == datetime(2025, 1, 1, 12, 0, 0)
         
         # 验证字段类型（如果值不为None）
         if mock_userrole.updated_at is not None:

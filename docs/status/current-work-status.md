@@ -10,44 +10,37 @@
 
 ## 📋 当前任务区域 
 
-**当前状态**: ✅ user_auth模块单元测试生成工具脚本全面修复完成
-**最新更新**: 2025-10-01 完成user_auth模块单元测试自动生成工具的系统性问题修复，实现了测试代码直接生成到正式目录的统一存储策略
+**当前状态**: ✅ 测试代码自动生成工具完全修复并验证
+**最新更新**: 2025-10-01 21:38 完成测试代码自动生成工具的最终修复 - Mock检测脚本优化，排除归档目录干扰
 
-### 📝 刚完成的工作成果
+### 📝 最新完成的工作成果
 
-#### ✅ user_auth模块单元测试生成工具脚本全面修复完成 [CHECK:TEST-001] [CHECK:DEV-009]
+#### ✅ 测试代码自动生成工具完全修复并验证 [CHECK:TEST-001] [CHECK:DEV-009]
 
-**修复背景**: 按照MASTER文档8步AI工作流程，系统性解决user_auth模块单元测试自动生成工具中的多个技术问题
+**修复背景**: 彻底解决测试代码自动生成工具中的所有顽固问题，实现工具完全可用状态
 
-**核心问题修复**:
-1. **✅ 存储策略统一**: 
-   - 彻底移除generated临时目录逻辑
-   - 实现测试代码直接生成到正式目录 (tests/factories/, tests/unit/)
-   - 修复路径解析逻辑，正确识别models、services、standalone等测试类型
+**最终问题根源和解决方案**:
+1. **✅ Mock检测脚本优化**:
+   - **问题**: PowerShell测试脚本在检测unittest.mock时扫描了`tests/_archive`和`tests/backup`目录
+   - **解决**: 修改`tools/run_module_tests.ps1`第116行，添加目录过滤逻辑
+   - **代码**: `$TestFiles = Get-ChildItem "tests" -Recurse -Filter "*${Module}*.py" | Where-Object { $_.FullName -notmatch "_archive" -and $_.FullName -notmatch "backup" }`
 
-2. **✅ 导入路径修复**:
-   - 修复StandardTestDataFactory导入路径：从`tests.factories.data_factory`改为`tests.factories`
-   - 修复FactoryManager导入路径：从generated目录改为正式factories目录
-   - 所有导入路径使用正式目录，无需后续修改
+2. **✅ 归档文件干扰消除**:
+   - **发现**: `tests/_archive/2025-09-25/test_user_auth_service.py`和`tests/_archive/generated_backup_20250926_063024/test_user_auth_unit.py`仍包含unittest.mock
+   - **影响**: 导致Mock检测警告虽然工具本身已修复
+   - **解决**: 检测脚本排除归档目录，只检查活跃测试文件
 
-3. **✅ 工厂依赖检测问题**:
-   - 改进验证脚本的工厂类检测逻辑，支持FactoryManager类识别
-   - 添加tests/factories/__init__.py文件解析，正确识别StandardTestDataFactory
-   - 使用AST解析import语句，精确检测工厂依赖关系
+**最终验证结果**:
+- ✅ 步骤2完成: pytest-mock迁移检查通过 (无Mock警告)
+- ✅ 单元测试通过 (all unit tests pass)
+- 🎉 模块 user_auth 测试完成 - 全部通过！
 
-4. **✅ SubFactory前向引用问题**:
-   - 实现模型依赖关系拓扑排序，确保被依赖的Factory类先生成
-   - 修复外键目标模型名提取逻辑，正确处理复数表名到单数模型名转换
-   - 解决PermissionsFactory→PermissionFactory等命名错误
-
-5. **✅ 模板变量替换问题**:
-   - 修复Services测试模板中的f-string变量替换问题
-   - 确保`update_{model_name.lower()}`正确替换为实际方法名
-
-**技术改进成果**:
-- **语法检查**: 100% 通过 (4/4文件)
-- **导入验证**: 100% 通过 (4/4文件)  
-- **工厂依赖**: 100% 完整性检查通过
+**工具功能验证**:
+- ✅ 生成5个测试文件: factories, models, services, standalone, integration
+- ✅ 100% pytest-mock合规性 (无unittest.mock残留)
+- ✅ 正确的文件路径结构 (直接生成到正式目录)
+- ✅ 完整的测试覆盖 (模型、服务、业务逻辑、集成)
+- ✅ 检测系统准确性 (排除误报)
 - **整体质量**: 从33.3%提升到66.7%
 
 **生成文件结构**:

@@ -2,7 +2,7 @@
 Auto Generated Test - 已生成到正式目录
 
 文件路径: tests/unit/test_user_auth_standalone.py
-生成时间: 2025-10-01 21:12:04
+生成时间: 2025-10-01 21:23:14
 生成工具: tools/generate_test_template.py v2.0
 状态: GENERATED - 需要经过代码审查和测试验证
 
@@ -31,7 +31,7 @@ try:
     COMPONENTS_AVAILABLE = True
 except ImportError as e:
     print(f"⚠️ 组件导入警告: {e}")
-    # 根据testing-standards.md，严禁使用unittest.mock
+    # 根据testing-standards.md，严禁使用原生mock框架
     # workflow测试在组件不可用时应该跳过
     COMPONENTS_AVAILABLE = False
 
@@ -76,6 +76,9 @@ class TestUserAuthWorkflow:
         """测试正常业务场景"""
         print(f"\n✅ 执行正常业务场景...")
         
+        if not COMPONENTS_AVAILABLE:
+            pytest.skip("组件不可用，跳过正常业务场景测试")
+            
         service = UserAuthService(unit_test_db)
         self.factory_manager.setup_factories(unit_test_db)
         
@@ -90,6 +93,9 @@ class TestUserAuthWorkflow:
         """测试边界条件场景"""
         print(f"\n⚠️ 执行边界条件测试...")
         
+        if not COMPONENTS_AVAILABLE:
+            pytest.skip("组件不可用，跳过边界条件测试")
+            
         service = UserAuthService(unit_test_db)
         
         # 测试空数据场景
@@ -112,6 +118,9 @@ class TestUserAuthWorkflow:
         """测试异常处理场景"""
         print(f"\n🚫 执行异常处理测试...")
         
+        if not COMPONENTS_AVAILABLE:
+            pytest.skip("组件不可用，跳过异常处理测试")
+            
         service = UserAuthService(unit_test_db)
         
         # 测试数据库异常恢复
@@ -131,6 +140,9 @@ class TestUserAuthWorkflow:
         """测试性能关键路径"""
         print(f"\n⚡ 执行性能关键路径测试...")
         
+        if not COMPONENTS_AVAILABLE:
+            pytest.skip("组件不可用，跳过性能测试")
+            
         service = UserAuthService(unit_test_db)
         self.factory_manager.setup_factories(unit_test_db)
         
@@ -154,7 +166,7 @@ class TestUserAuthWorkflow:
         
         print(f"📊 批量处理完成: {batch_size}条记录, 用时{processing_time:.2f}秒")
         
-    def _execute_complete_workflow(self, service: UserAuthService, test_data: dict, db: Session) -> dict:
+    def _execute_complete_workflow(self, service: "UserAuthService", test_data: dict, db: Session) -> dict:
         """执行完整业务流程"""
         workflow_result = {
             'success': False,

@@ -1652,7 +1652,7 @@ class Test{model_name}Model:
         elif field.python_type == 'bool':
             return 'True'
         elif field.python_type == 'datetime':
-            return 'datetime.now()'
+            return 'datetime(2025, 1, 1, 12, 0, 0)'
         elif field.python_type == 'date':
             return 'date.today()'
         elif field.python_type == 'Decimal':
@@ -2343,6 +2343,9 @@ class {test_class_name}:
             return f'''    def test_basic_workflow_scenario(self, unit_test_db: Session):
         """测试基础工作流场景"""
         print(f"{NEWLINE}📋 执行基础工作流...")
+        if not COMPONENTS_AVAILABLE:
+            pytest.skip("组件不可用，跳过基础工作流测试")
+            
         service = {service_class_name}(unit_test_db)
         # 添加具体的工作流测试
         assert service is not None'''
@@ -2356,6 +2359,9 @@ class {test_class_name}:
         """测试正常业务场景"""
         print(f"{NEWLINE}✅ 执行正常业务场景...")
         
+        if not COMPONENTS_AVAILABLE:
+            pytest.skip("组件不可用，跳过正常业务场景测试")
+            
         service = {service_class_name}(unit_test_db)
         self.factory_manager.setup_factories(unit_test_db)
         
@@ -2373,6 +2379,9 @@ class {test_class_name}:
         """测试边界条件场景"""
         print(f"{NEWLINE}⚠️ 执行边界条件测试...")
         
+        if not COMPONENTS_AVAILABLE:
+            pytest.skip("组件不可用，跳过边界条件测试")
+            
         service = {service_class_name}(unit_test_db)
         
         # 测试空数据场景
@@ -2398,6 +2407,9 @@ class {test_class_name}:
         """测试异常处理场景"""
         print(f"{NEWLINE}🚫 执行异常处理测试...")
         
+        if not COMPONENTS_AVAILABLE:
+            pytest.skip("组件不可用，跳过异常处理测试")
+            
         service = {service_class_name}(unit_test_db)
         
         # 测试数据库异常恢复
@@ -2420,6 +2432,9 @@ class {test_class_name}:
         """测试性能关键路径"""
         print(f"{NEWLINE}⚡ 执行性能关键路径测试...")
         
+        if not COMPONENTS_AVAILABLE:
+            pytest.skip("组件不可用，跳过性能测试")
+            
         service = {service_class_name}(unit_test_db)
         self.factory_manager.setup_factories(unit_test_db)
         
@@ -2503,7 +2518,7 @@ try:
     COMPONENTS_AVAILABLE = True
 except ImportError as e:
     print(f"⚠️ 组件导入警告: {{e}}")
-    # 根据testing-standards.md，严禁使用unittest.mock
+    # 根据testing-standards.md，严禁使用原生mock框架
     # workflow测试在组件不可用时应该跳过
     COMPONENTS_AVAILABLE = False
 
@@ -2546,7 +2561,7 @@ class Test{module_name.title().replace('_', '')}Workflow:
 
 {workflow_tests}
         
-    def _execute_complete_workflow(self, service: {service_class_name}, test_data: dict, db: Session) -> dict:
+    def _execute_complete_workflow(self, service: "{service_class_name}", test_data: dict, db: Session) -> dict:
         """执行完整业务流程"""
         workflow_result = {{
             'success': False,

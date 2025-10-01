@@ -113,7 +113,10 @@ function Test-MockMigration {
     
     Write-TestLog "🔍 步骤2: 检查pytest-mock迁移状态..." "INFO"
     
-    $TestFiles = Get-ChildItem "tests" -Recurse -Filter "*${Module}*.py"
+    # 排除归档和备份目录，只检查活跃测试文件
+    $TestFiles = Get-ChildItem "tests" -Recurse -Filter "*${Module}*.py" | Where-Object { 
+        $_.FullName -notmatch "_archive" -and $_.FullName -notmatch "backup" 
+    }
     $LegacyMockFound = $false
     $ModernMockFound = $false
     
