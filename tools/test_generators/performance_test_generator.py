@@ -1,8 +1,36 @@
 """
 性能测试生成器
 
-基于性能标准生成性能测试代码
-遵循docs/standards/performance-standards.md和testing-standards.md规范
+功能: 生成API性能基准测试代码，验证系统响应时间和并发处理能力
+使用方法: 通过BaseTestGenerator继承，由主生成器调用generate_performance_tests方法
+使用场景: 电商平台性能瓶颈识别、容量规划、SLA验证
+
+生成的性能测试:
+1. 响应时间测试 - 单请求响应时间基准测试
+2. 并发负载测试 - 多用户并发访问性能测试
+3. 压力测试 - 系统极限负载下的稳定性测试
+4. 内存使用测试 - API调用内存消耗监控
+5. 数据库性能测试 - 数据库查询效率测试
+6. 缓存效果测试 - Redis缓存命中率和性能测试
+
+输出位置: tests/performance/test_{module}_performance.py
+测试框架: pytest + pytest-benchmark + locust
+
+性能指标:
+- 平均响应时间 < 100ms
+- 95%请求响应时间 < 200ms
+- 并发用户数支持 > 100
+- 错误率 < 0.1%
+
+技术特点:
+- 基于业务场景设计性能测试
+- 自动生成负载测试脚本
+- 支持性能基准比较
+- 集成性能监控报告
+
+版本: v1.0.0
+作者: AI Assistant
+创建时间: 2025-10-01
 """
 
 import asyncio

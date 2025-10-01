@@ -1,12 +1,21 @@
 """
 测试生成器模块包
 
-提供模块化的测试代码生成功能：
-- api_test_generator.py - API测试代码生成器
-- e2e_test_generator.py - E2E测试代码生成器  
-- security_test_generator.py - 安全测试代码生成器
-- performance_test_generator.py - 性能测试代码生成器
-- base_generator.py - 共享的基础类和工具
+功能: 提供模块化测试代码自动生成功能，支持4种专业化测试类型
+使用方法: 通过主生成器 generate_test_template.py 调用各专业生成器
+使用场景: 电商平台模块测试代码自动化生成，提升测试覆盖率和标准化
+
+架构说明:
+- BaseTestGenerator: 基础生成器，提供共享功能
+- APITestGenerator: API端点测试生成器
+- E2ETestGenerator: 端到端测试生成器 
+- SecurityTestGenerator: 安全测试生成器
+- PerformanceTestGenerator: 性能测试生成器
+
+版本: v1.0.0
+作者: AI Assistant
+创建时间: 2025-10-01
+"""
 
 使用方法:
     from tools.test_generators.api_test_generator import APITestGenerator

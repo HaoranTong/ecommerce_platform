@@ -1,8 +1,29 @@
 """
 API测试生成器
 
-基于router.py分析自动生成API端点测试代码
-遵循docs/standards/api-standards.md和testing-standards.md规范
+功能: 专门生成FastAPI端点的集成测试代码，覆盖HTTP接口测试
+使用方法: 通过BaseTestGenerator继承，由主生成器调用generate_api_tests方法
+使用场景: 电商平台模块API接口自动化测试代码生成
+
+生成的测试内容:
+1. HTTP端点测试 - GET/POST/PUT/DELETE请求测试
+2. 状态码验证 - 200/201/400/404/422等状态码检查
+3. 响应数据验证 - JSON响应结构和数据类型验证
+4. 认证测试 - JWT token认证和权限验证
+5. 错误处理测试 - 异常情况和错误响应测试
+
+输出位置: tests/integration/test_api/test_{module}_api.py
+测试框架: pytest + FastAPI TestClient
+
+技术特点:
+- 基于路由AST解析自动识别API端点
+- 自动生成测试数据和mock对象
+- 支持异步API接口测试
+- 遵循testing-standards.md测试标准
+
+版本: v1.0.0
+作者: AI Assistant
+创建时间: 2025-10-01
 """
 
 from typing import Dict, List

@@ -1,7 +1,11 @@
 # 开发工具集
 
 > 🎯 **一站### 🔧 环境管理工具
+| 工具 | 功能描述 ### 🧰 代码生成工具
 | 工具 | 功能描述 | 使用场景 | 快速命令 |
+|------|----------|----------|----------|
+| `generate_test_template.py` | 智能测试模板生成 | 模块测试代码自动生成 | `python .\tools\generate_test_template.py user_auth` |
+| `test_generators/` | 模块化测试生成器工具集 | 专业化测试代码生成(API/E2E/安全/性能) | 详见 `.\tools\test_generators\README.md` |场景 | 快速命令 |
 |------|----------|----------|----------|
 | `setup_test_env.ps1` | 测试环境配置和验证 | 项目初始化、环境变更后 | `.	ools\setup_test_env.ps1 -TestMode lite` |
 | `setup_dev_env.ps1` | 开发环境初始化配置 | 新环境搭建、依赖安装 | `.	ools\setup_dev_env.ps1` |

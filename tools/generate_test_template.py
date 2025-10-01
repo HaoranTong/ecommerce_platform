@@ -1,19 +1,32 @@
 #!/usr/bin/env python3
 """
-智能测试生成器 - 增强版
+智能测试生成器 - 模块化架构版
 
-集成智能模型分析功能，支持AST+运行时双重分析
-自动生成完整测试架构：72%单元、22%集成、6%E2E (烟雾测试使用通用tools/smoke_test.ps1)
+集成模块化测试生成器架构，支持AST+运行时双重分析
+自动生成完整测试架构：包含传统测试(5个)和专业化测试(4个)
 
 主要功能：
 1. 智能模型分析 - 自动解析SQLAlchemy模型结构
 2. 智能数据工厂生成 - 基于模型自动生成Factory Boy类
 3. 分层测试生成 - 单元+集成+E2E测试架构自动生成
-4. 质量自动验证 - 语法、导入、执行验证
+4. 模块化测试生成器架构 - API/E2E/安全/性能专业测试生成
+5. 质量自动验证 - 语法、导入、执行验证
+
+生成的测试文件(9个):
+- 传统测试: factories, unit/models, unit/services, unit/standalone, integration
+- 专业测试: API测试, E2E测试, 安全测试, 性能测试
+
+模块化架构:
+- BaseTestGenerator: 提供共享功能(路由分析、模型提取)
+- APITestGenerator: HTTP端点测试生成
+- E2ETestGenerator: 端到端业务流程测试生成
+- SecurityTestGenerator: OWASP安全测试生成
+- PerformanceTestGenerator: 性能基准测试生成
 
 使用方法:
-    python tools/generate_test_template.py user_auth --type all --validate
-    python tools/generate_test_template.py shopping_cart --type unit --dry-run
+    python tools/generate_test_template.py user_auth
+    python tools/generate_test_template.py shopping_cart --validate
+    python tools/generate_test_template.py product_catalog --dry-run
 
 符合标准:
 - MASTER.md强制检查点规范 [CHECK:DEV-009] [CHECK:TEST-001]
@@ -21,8 +34,9 @@
 - docs/standards/checkpoint-cards.md验证流程
 
 作者: AI Assistant (遵循MASTER文档规范)
-版本: 2.0 (智能分析增强版)
+版本: 3.0 (模块化架构版)
 创建时间: 2025-09-20
+更新时间: 2025-10-02
 """
 
 import argparse

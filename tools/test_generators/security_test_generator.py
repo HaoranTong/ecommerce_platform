@@ -1,8 +1,31 @@
 """
 安全测试生成器
 
-基于OWASP Top 10生成安全测试代码
-遵循docs/standards/testing-standards.md和security-architecture.md规范
+功能: 生成基于OWASP Top 10的安全测试代码，检测Web应用安全漏洞
+使用方法: 通过BaseTestGenerator继承，由主生成器调用generate_security_tests方法
+使用场景: 电商平台安全漏洞检测和防护能力验证
+
+生成的安全测试:
+1. SQL注入测试 - 检测数据库查询注入漏洞
+2. XSS攻击测试 - 检测跨站脚本攻击防护
+3. CSRF防护测试 - 验证跨站请求伪造防护机制
+4. 认证绕过测试 - 检测身份认证绕过漏洞
+5. 权限提升测试 - 验证访问控制和权限边界
+6. 敏感数据泄露测试 - 检测数据暴露风险
+7. 输入验证测试 - 验证输入数据安全过滤
+
+输出位置: tests/security/test_{module}_security.py
+测试框架: pytest + 安全测试工具集
+
+技术特点:
+- 基于OWASP Top 10安全标准
+- 自动生成恶意输入测试用例
+- 支持API安全扫描
+- 集成安全测试报告
+
+版本: v1.0.0
+作者: AI Assistant
+创建时间: 2025-10-01
 """
 
 from typing import Dict, List
