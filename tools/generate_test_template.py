@@ -4100,8 +4100,25 @@ def main():
 
             if args.dry_run:
                 print("\n🔍 试运行结果:")
-                for file_path in generated_files.keys():
-                    print(f"   将生成: {file_path}")
+                for file_key in generated_files.keys():
+                    # 转换文件键为目标路径显示
+                    if file_key.startswith("tests/factories/"):
+                        target_path = file_key  # 工厂文件已经是完整路径
+                    elif file_key.startswith("test_models/"):
+                        # test_models/test_user_auth_models -> tests/unit/test_models/test_user_auth_models.py
+                        module_name = file_key.split("/")[-1].replace("test_", "").replace("_models", "")
+                        target_path = f"tests/unit/test_models/test_{module_name}_models.py"
+                    elif file_key.startswith("test_services/"):
+                        # test_services/test_user_auth_services -> tests/unit/test_services/test_user_auth_services.py  
+                        module_name = file_key.split("/")[-1].replace("test_", "").replace("_services", "")
+                        target_path = f"tests/unit/test_services/test_{module_name}_services.py"
+                    elif file_key.endswith("_standalone"):
+                        # user_auth_standalone -> tests/unit/test_user_auth_standalone.py
+                        module_name = file_key.replace("_standalone", "")
+                        target_path = f"tests/unit/test_{module_name}_standalone.py"
+                    else:
+                        target_path = file_key
+                    print(f"   将生成: {target_path}")
             else:
                 print(f"\n🎯 生成完成！共生成 {len(generated_files)} 个文件")
                 if validation_report and validation_report["overall_success"]:
