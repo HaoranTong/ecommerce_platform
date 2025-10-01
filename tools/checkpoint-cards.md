@@ -365,9 +365,9 @@
 **触发条件**: ⚠️【关键】任何测试任务开始前必须阅读，了解测试标准和自动生成工具使用方法
 **检查重点**: 测试工作流程理解、自动生成工具使用、测试策略和覆盖率标准确认
 **精准导航**:
-1. **标准测试执行流程** → `docs/standards/testing-standards.md` 第90-250行 ⭐
-2. **智能测试生成工具** → `docs/standards/testing-standards.md` 第155-170行 
-3. **测试覆盖率标准** → `docs/standards/testing-standards.md` 第15-40行
+1. **标准测试执行流程** → `docs/standards/testing-standards.md` 第1035-1250行 ⭐
+2. **智能测试生成工具** → `docs/standards/testing-standards.md` 第1157-1180行 
+3. **测试覆盖率标准** → `docs/standards/testing-standards.md` 第1776-1780行
 4. **5层测试架构** → `docs/standards/testing-standards.md` 第40-90行
 
 **阅读确认**:
@@ -386,8 +386,8 @@
 4. **依赖注入配置** → `tests/conftest.py` 第15-35行
 
 **阅读确认**:
-问题1: 单元测试覆盖率标准是多少？
-问题2: 测试环境的数据库配置与开发环境的主要区别是什么？
+问题1: 测试环境的数据库配置与开发环境的主要区别是什么？
+问题2: 测试环境配置中，依赖注入配置的关键文件是什么？
 
 **执行脚本**: `tools/setup_test_env.ps1 -TestMode lite`
 
@@ -395,7 +395,7 @@
 **触发条件**: 每次测试执行前验证环境可用性
 **检查重点**: 环境状态验证、工具可用性检查、配置完整性验证
 **精准导航**:
-1. **环境检查标准** → `docs/standards/testing-standards.md` 第70-85行
+1. **环境检查标准** → `docs/standards/testing-standards.md` 第992-1030行
 2. **环境验证脚本** → `tools/check_test_env.ps1` 使用说明
 3. **故障排除指南** → `docs/development/test-env-setup.md` 第80-100行
 4. **常见问题解决** → `docs/status/issues-tracking.md` ISS-024
@@ -410,8 +410,8 @@
 **触发条件**: 需要配置pytest、coverage等测试工具时
 **检查重点**: pytest配置、coverage设置、测试发现配置、报告生成配置
 **精准导航**:
-1. **pytest配置标准** → `docs/standards/testing-standards.md` 第60-80行
-2. **coverage配置指南** → `docs/standards/testing-standards.md` 第30-40行
+1. **pytest配置标准** → `docs/standards/testing-standards.md` 第381-420行
+2. **coverage配置指南** → `docs/standards/testing-standards.md` 第411-430行
 3. **测试工具使用标准** → `docs/standards/testing-standards.md` 第150-185行
 4. **工具配置验证** → `tools/validate_test_config.py` 使用说明
 
@@ -562,7 +562,7 @@
 **精准导航**:
 1. **测试覆盖率标准** → `docs/standards/testing-standards.md` 第15-40行
 2. **代码质量标准** → `docs/standards/code-standards.md` 第15-35行
-3. **文件管理标准** → `docs/standards/workflow-standards.md` 第100-130行
+3. **文件管理标准** → `docs/standards/document-management-standards.md` 第770-780行
 4. **状态文档模板** → `docs/status/module-status.md`
 
 **阅读确认**:
