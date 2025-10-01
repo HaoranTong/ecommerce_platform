@@ -17,3 +17,12 @@ Last updated: 2025-09-25 23:32:32
 
 ---
 
+
+## 2025-10-02 07:11:29 - dev
+**Action:** 完成tools/test_generators目录文档完善任务  
+**Branch:** dev  
+**Commit:** 14a57c0291707a7c8fde41310193647fe25f6583  
+**Author:** Assistant  
+
+---
+
