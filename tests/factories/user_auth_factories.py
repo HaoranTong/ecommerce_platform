@@ -2,7 +2,7 @@
 Auto Generated Test - 已生成到正式目录
 
 文件路径: tests/factories/user_auth_factories.py
-生成时间: 2025-10-01 19:44:40
+生成时间: 2025-10-01 21:12:04
 生成工具: tools/generate_test_template.py v2.0
 状态: GENERATED - 需要经过代码审查和测试验证
 
@@ -99,9 +99,9 @@ class RolePermissionFactory(factory.alchemy.SQLAlchemyModelFactory):
         sqlalchemy_session_persistence = "commit"
         sqlalchemy_get_or_create = ("name",) if hasattr(RolePermission, "name") else None
 
-    role_id = factory.SubFactory(RoleFactory)
-    permission_id = factory.SubFactory(PermissionFactory)
-    granted_by = factory.SubFactory(UserFactory)
+    role_id = factory.Sequence(lambda n: n + 1)
+    permission_id = factory.Sequence(lambda n: n + 1)
+    granted_by = factory.Sequence(lambda n: n + 1)
     granted_at = factory.Faker('date_time_this_year')
     created_at = factory.LazyFunction(datetime.now)
     updated_at = factory.LazyFunction(datetime.now)
@@ -115,7 +115,7 @@ class SessionFactory(factory.alchemy.SQLAlchemyModelFactory):
         sqlalchemy_session_persistence = "commit"
         sqlalchemy_get_or_create = ("name",) if hasattr(Session, "name") else None
 
-    user_id = factory.SubFactory(UserFactory)
+    user_id = factory.Sequence(lambda n: n + 1)
     token_hash = factory.Sequence(lambda n: f'token_hash_{n}')
     expires_at = factory.LazyFunction(lambda: datetime.now() + timedelta(days=30))
     last_accessed_at = factory.Faker('date_time_this_year')
@@ -134,9 +134,9 @@ class UserRoleFactory(factory.alchemy.SQLAlchemyModelFactory):
         sqlalchemy_session_persistence = "commit"
         sqlalchemy_get_or_create = ("name",) if hasattr(UserRole, "name") else None
 
-    user_id = factory.SubFactory(UserFactory)
-    role_id = factory.SubFactory(RoleFactory)
-    assigned_by = factory.SubFactory(UserFactory)
+    user_id = factory.Sequence(lambda n: n + 1)
+    role_id = factory.Sequence(lambda n: n + 1)
+    assigned_by = factory.Sequence(lambda n: n + 1)
     assigned_at = factory.Faker('date_time_this_year')
     created_at = factory.LazyFunction(datetime.now)
     updated_at = factory.LazyFunction(datetime.now)

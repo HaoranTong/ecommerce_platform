@@ -240,7 +240,7 @@ function Save-TestResults {
     
     # 更新模块状态
     Write-TestLog "📊 更新模块状态统计..." "INFO"
-    & .\scripts\update_module_status.ps1
+    & .\tools\update_module_status.ps1
 }
 
 # 主执行流程
