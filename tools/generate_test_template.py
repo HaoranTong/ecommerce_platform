@@ -31,7 +31,9 @@ import importlib.util
 import inspect
 import json
 import os
+import subprocess
 import sys
+import tempfile
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
@@ -3724,24 +3726,71 @@ Auto Generated Test - 已生成到正式目录
             execution_results["executed_files"] += 1
 
             try:
-                # 创建一个安全的执行环境
-                safe_globals = {
-                    "__builtins__": __builtins__,
-                    "datetime": datetime,
-                    "Decimal": Decimal,
-                    "factory": Mock(),  # 使用Mock代替真实的factory
-                    "Mock": Mock,
-                }
+                # 对于工厂文件，使用安全的导入测试而不是exec
+                if "user_auth_factories.py" in file_path:
+                    # 特殊处理：通过独立进程测试工厂文件，避免MetaData冲突
+                    import subprocess
+                    import tempfile
+                    import os
+                    
+                    # 创建临时测试脚本
+                    test_script = f'''
+import sys
+sys.path.insert(0, "{self.project_root}")
 
-                # 尝试执行工厂代码（仅语法和基本结构检查）
-                exec(compile(content, file_path, "exec"), safe_globals)
-
-                execution_results["successful_executions"] += 1
-                execution_results["execution_details"][file_path] = {
-                    "status": "success",
-                    "message": "基础执行成功",
-                }
-                print(f"  ✅ 基础执行测试通过: {file_path}")
+try:
+    from tests.factories.user_auth_factories import UserFactory, RoleFactory
+    print("SUCCESS: Factory import successful")
+    
+    # 测试基础创建功能
+    user = UserFactory.build()
+    role = RoleFactory.build()
+    print(f"SUCCESS: Factory creation test passed")
+    
+except Exception as e:
+    print(f"ERROR: {{e}}")
+    sys.exit(1)
+'''
+                    
+                    with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as tmp:
+                        tmp.write(test_script)
+                        tmp_path = tmp.name
+                    
+                    try:
+                        result = subprocess.run([
+                            sys.executable, tmp_path
+                        ], capture_output=True, text=True, timeout=30)
+                        
+                        if result.returncode == 0 and "SUCCESS" in result.stdout:
+                            execution_results["successful_executions"] += 1
+                            execution_results["execution_details"][file_path] = {
+                                "status": "success",
+                                "message": "工厂文件导入和创建测试成功",
+                            }
+                            print(f"  ✅ 基础执行测试通过: {file_path}")
+                        else:
+                            raise Exception(f"Factory test failed: {result.stderr}")
+                            
+                    finally:
+                        os.unlink(tmp_path)
+                        
+                else:
+                    # 对于其他文件，使用原有的exec方法
+                    safe_globals = {
+                        "__builtins__": __builtins__,
+                        "datetime": datetime,
+                        "Decimal": Decimal,
+                        "factory": Mock(),  # 使用Mock代替真实的factory
+                        "Mock": Mock,
+                    }
+                    exec(compile(content, file_path, "exec"), safe_globals)
+                    
+                    execution_results["successful_executions"] += 1
+                    execution_results["execution_details"][file_path] = {
+                        "status": "success",
+                        "message": "基础执行成功",
+                    }
+                    print(f"  ✅ 基础执行测试通过: {file_path}")
 
             except Exception as e:
                 execution_results["failed_executions"] += 1
