@@ -306,26 +306,44 @@ def test_mysql_json_field_operations(mysql_integration_db):
 
 ## 测试文件组织标准
 
+### 当前目录状态说明
+> **重要提示**: 项目目前处于初期阶段，许多测试目录已创建但测试文件尚未完善。以下标记说明各目录的当前状态：
+> - ✅ **已存在**: 目录和文件已创建且功能完整
+> - 📁 **目录已创建**: 目录已创建但测试文件为空，待开发
+> - 📄 **文件已存在**: 具体的测试文件已创建
+
 ### 统一目录结构
 ```text
 tests/
-├── unit/                           # 单元测试 (70%)
-│   ├── test_models/               # Mock测试 - 纯业务逻辑
-│   ├── test_services/             # SQLite内存 - 数据交互
-│   ├── test_utils/                # Mock测试 - 工具函数
-│   └── *_standalone.py            # SQLite内存 - 业务流程
-├── smoke/                         # 烟雾测试 (2%)
-│   ├── test_health.py             # 健康检查
-│   └── test_basic_api.py          # 基本API验证
-├── integration/                   # 集成测试 (20%) 
-│   ├── test_api/                  # HTTP API集成测试
-│   └── test_database/             # 跨模块数据库测试
-├── e2e/                          # 端到端测试 (6%)
-│   ├── test_user_journey.py       # 用户完整流程
-│   └── test_order_journey.py      # 订单完整流程
-├── performance/                   # 性能测试 (1%)
-├── security/                      # 安全测试 (1%)
-└── conftest.py                    # 统一Fixture配置
+├── unit/                           # 单元测试 (70%) 📁
+│   ├── README.md                  # 单元测试说明文档 📄
+│   ├── test_models/               # Mock测试 - 纯业务逻辑 📁
+│   └── test_services/             # SQLite内存 - 数据交互 📁
+├── smoke/                         # 烟雾测试 (2%) ✅
+│   ├── README.md                  # 烟雾测试说明文档 📄
+│   ├── test_health.py             # 健康检查 📄
+│   └── test_basic_api.py          # 基本API验证 📄
+├── integration/                   # 集成测试 (20%) 📁
+│   ├── README.md                  # 集成测试说明文档 📄
+│   └── test_api/                  # HTTP API集成测试 📁
+├── e2e/                          # 端到端测试 (6%) 📁
+│   └── README.md                  # E2E测试说明文档 📄
+├── performance/                   # 性能测试 (1%) 📁
+│   └── README.md                  # 性能测试说明文档 📄
+├── security/                      # 安全测试 (1%) 📁
+│   └── README.md                  # 安全测试说明文档 📄
+├── factories/                     # 测试数据工厂 ✅
+│   ├── __init__.py               # 工厂包初始化 📄
+│   ├── data_factory.py           # 统一测试数据工厂 📄
+│   └── README.md                 # 数据工厂使用说明 📄
+├── generated/                     # 自动生成的测试文件 📁
+│   └── README.md                 # 生成文件管理说明 📄
+├── _archive/                      # 测试文件存档目录 📁
+├── conftest.py                    # 统一Fixture配置 📄
+├── conftest_e2e.py               # E2E测试专用配置 📄
+├── README.md                      # 测试目录总体说明 📄
+├── smoke_test.db                  # 烟雾测试数据库文件 📄
+└── smoke_test_pytest.db          # pytest烟雾测试数据库 📄
 ```
 
 ### 测试文件分类执行规范
@@ -357,7 +375,7 @@ my_test.py                   # 个人化命名
 **清理规则**：
 - **开发完成**：移至对应的tests子目录
 - **功能废弃**：直接删除
-- **需要保留**：移至scripts/目录并规范化
+- **需要保留**：移至tools/目录并规范化
 - **提交前**：必须在README.md中说明临时脚本的用途
 
 ### 测试文件命名规范
@@ -381,34 +399,46 @@ def test_add_to_cart_out_of_stock()     # 添加无库存商品到购物车
 ## pytest.ini 标准配置
 
 ```ini
-# pytest.ini - 项目根目录
-[tool:pytest]
-testpaths = tests
-python_files = test_*.py *_test.py
-python_classes = Test*
-python_functions = test_*
-addopts = 
-    --strict-markers
-    --strict-config
-    --verbose
-    --tb=short
-    --cov=app
-    --cov-report=html:htmlcov
-    --cov-report=term-missing
-    --cov-fail-under=85
-    --cov-config=.coveragerc
-markers =
-    unit: 单元测试标记
-    smoke: 烟雾测试标记  
-    integration: 集成测试标记
-    e2e: 端到端测试标记
-    slow: 慢速测试标记
-filterwarnings =
-    ignore::DeprecationWarning
-    ignore::PendingDeprecationWarning
+# pyproject.toml - [tool.pytest.ini_options] 节
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    "--strict-markers",
+    "--tb=short", 
+    "--disable-warnings",
+    "--timeout=300",  # 全局测试超时5分钟
+    "--timeout-method=thread"
+]
+markers = [
+    "unit: Unit tests - 70% coverage target (fast, isolated, no external dependencies)",
+    "smoke: Smoke tests - 2% coverage (basic functionality verification)",
+    "integration: Integration tests - 20% coverage (module interaction testing)", 
+    "e2e: End-to-end tests - 6% coverage (complete user workflow testing)",
+    "performance: Performance tests - 2% coverage (load and stress testing)",
+    "security: Security tests (authentication, authorization, input validation)",
+    "slow: Slow running tests (can be skipped for quick feedback)",
+    "api: API endpoint tests (REST/GraphQL interface testing)",
+    "database: Database dependent tests (require database connection)",
+    "external: External service dependent tests (require network/third-party services)"
+]
 ```
 
-## .coveragerc 覆盖率配置
+## 覆盖率配置
+
+由于项目使用 pyproject.toml 配置，覆盖率配置通过 pytest 命令行选项控制：
+
+```bash
+# 运行测试并生成覆盖率报告
+pytest --cov=app --cov-report=html:htmlcov --cov-report=term-missing --cov-fail-under=85
+
+# 排除目录配置（通过命令行选项）
+pytest --cov=app --cov-report=html --cov-omit="*/tests/*,*/venv/*,*/__pycache__/*,*/migrations/*,*/conftest.py,app/main.py"
+```
+
+如需创建 .coveragerc 文件，推荐配置：
 
 ```ini
 # .coveragerc - 覆盖率配置
@@ -659,7 +689,7 @@ docker stop mysql_integration_test && docker rm mysql_integration_test
 | **Mock测试** | 无数据库 | N/A | 不适用 | 极快 (<1ms) | 纯逻辑验证 |
 | **SQLite内存** | `:memory:` | `sqlite:///:memory:` | 进程内隔离 | 很快 (<10ms) | 数据交互测试 |
 | **SQLite文件** | 临时文件 | `sqlite:///temp.db` | 会话内持久 | 快 (<50ms) | 部署验证 |
-| **MySQL Docker** | 容器数据库 | `mysql://test_user:test_pass@localhost:3308/test_db` | 测试间清理 | 中等 (<200ms) | 集成测试 |
+| **MySQL Docker** | 容器数据库 | `mysql://root:test_password@localhost:3308/ecommerce_platform_test` | 测试间清理 | 中等 (<200ms) | 集成测试 |
 
 ## conftest.py 配置
 
@@ -756,7 +786,7 @@ def mysql_integration_db():
     
     # 创建数据库连接
     engine = create_engine(
-        "mysql+pymysql://test_user:test_pass@localhost:3308/ecommerce_platform_test",
+        "mysql+pymysql://root:test_password@localhost:3308/ecommerce_platform_test",
         pool_pre_ping=True,  # 连接前检查有效性
         pool_recycle=300     # 5分钟回收连接
     )
@@ -847,26 +877,22 @@ docker-compose up -d mysql_test
 pytest tests/integration/test_api/ -v --tb=short
 # 预期时间: <3分钟
 
-# 数据库集成测试  
-pytest tests/integration/test_database/ -v --tb=short
-# 预期时间: <2分钟
-
 # 所有集成测试
 pytest tests/integration/ -v
 # 预期时间: <5分钟, 必须100%通过
 ```
 
 pytest tests/ --cov=app                # 全部测试
-.\scripts\integration_test.ps1       # 使用脚本
+.\tools\integration_test.ps1       # 使用脚本
 `$language
 
 ## 测试工具
 
 ### 环境检查
 ```bash
-.\scripts\check_test_env.ps1         # 测试前检查
-.\scripts\setup_test_env.ps1         # 环境设置  
-python scripts/validate_test_config.py  # 配置验证
+.\tools\check_test_env.ps1         # 测试前检查
+.\tools\setup_test_env.ps1         # 环境设置  
+python tools/validate_test_config.py  # 配置验证
 ```
 
 **输出标准**：
@@ -886,13 +912,13 @@ python scripts/validate_test_config.py  # 配置验证
 **标准执行流程**：
 ```powershell
 # 单元测试 (推荐方式)
-.\scripts\setup_test_env.ps1 -TestType unit
+.\tools\setup_test_env.ps1 -TestType unit
 
 # 集成测试 (自动管理Docker)
-.\scripts\setup_test_env.ps1 -TestType integration
+.\tools\setup_test_env.ps1 -TestType integration
 
 # 完整测试套件
-.\scripts\setup_test_env.ps1 -TestType all
+.\tools\setup_test_env.ps1 -TestType all
 ```
 
 ### 🔍 validate_test_config.py (详细诊断工具)
@@ -908,7 +934,7 @@ python scripts/validate_test_config.py  # 配置验证
 
 ```powershell
 # 详细配置验证 (问题排查时使用)
-python scripts/validate_test_config.py
+python tools/validate_test_config.py
 ```
 
 ## � 测试工作流程总纲
@@ -992,7 +1018,7 @@ graph TD
 ### 环境验证 (强制) [CHECK:TEST-001]
 ```powershell
 # 必须通过的环境检查
-.\scripts\check_test_env.ps1
+.\tools\check_test_env.ps1
 ```
 
 ### 选择测试类型并执行 [CHECK:TEST-002]
@@ -1000,25 +1026,25 @@ graph TD
 ### 单元测试流程 (推荐)
 ```powershell
 # 标准单元测试 - 使用SQLite内存数据库
-.\scripts\setup_test_env.ps1 -TestType unit
+.\tools\setup_test_env.ps1 -TestType unit
 ```
 
 ### 集成测试流程
 ```powershell
 # 自动设置MySQL Docker环境并执行测试
-.\scripts\setup_test_env.ps1 -TestType integration
+.\tools\setup_test_env.ps1 -TestType integration
 ```
 
 ### 完整测试流程
 ```powershell
 # 执行所有类型测试
-.\scripts\setup_test_env.ps1 -TestType all
+.\tools\setup_test_env.ps1 -TestType all
 ```
 
 ### 问题排查 (如需要) [CHECK:TEST-003]
 ```powershell
 # 如果遇到环境问题，执行详细诊断
-python scripts/validate_test_config.py
+python tools/validate_test_config.py
 ```
 
 ## 🚫 禁止的测试方式
@@ -1032,9 +1058,9 @@ python scripts/validate_test_config.py
 
 ---
 
-## 📋 标准测试执行流程 [CHECK:TEST-009]
+## 📋 标准测试执行流程 [CHECK:TEST-001]
 
-### 阶段1: 环境准备 [CHECK:TEST-001]
+### 阶段1: 测试工作流程说明 [CHECK:TEST-001]
 
 #### 1.1 虚拟环境激活验证
 ```powershell
@@ -1060,15 +1086,15 @@ pip list | findstr -i "sqlalchemy pymysql factory-boy faker"
 #### 1.3 测试工具可用性验证
 ```powershell
 # 检查测试生成工具
-python scripts\generate_test_template.py --version
+python tools\generate_test_template.py --version
 # 期望输出: Test Template Generator v2.1.0
 
 # 检查测试环境验证工具
-.\scripts\check_test_env.ps1
+.\tools\check_test_env.ps1
 # 期望输出: ✅ 所有环境检查通过
 ```
 
-### 阶段2: 测试类型选择与环境配置 [CHECK:TEST-002]
+### 阶段2: 测试环境配置 [CHECK:TEST-002]
 
 #### 2.1 单元测试模式 (推荐日常开发)
 **适用场景**: 日常开发、代码提交前验证
@@ -1077,10 +1103,10 @@ python scripts\generate_test_template.py --version
 
 ```powershell
 # 标准单元测试流程
-.\scripts\setup_test_env.ps1 -TestType unit
+.\tools\setup_test_env.ps1 -TestType unit
 
 # 或者手动执行步骤
-.\scripts\check_test_env.ps1                    # 环境验证
+.\tools\check_test_env.ps1                    # 环境验证
 pytest tests/unit/test_models/ -v               # Mock测试
 pytest tests/unit/test_services/ -v             # SQLite内存测试
 pytest tests/unit/*_standalone.py -v            # 业务流程测试
@@ -1098,7 +1124,7 @@ pytest tests/unit/*_standalone.py -v            # 业务流程测试
 
 ```powershell
 # 烟雾测试流程
-.\scripts\smoke_test.ps1
+.\tools\smoke_test.ps1
 
 # 或者手动执行
 pytest tests/smoke/ -v --tb=short
@@ -1116,7 +1142,7 @@ pytest tests/smoke/ -v --tb=short
 
 ```powershell
 # 集成测试流程 (自动管理Docker)
-.\scripts\setup_test_env.ps1 -TestType integration
+.\tools\setup_test_env.ps1 -TestType integration
 
 # 或者手动管理
 docker-compose up -d mysql_test                 # 启动MySQL Docker
@@ -1137,11 +1163,11 @@ docker-compose down mysql_test                  # 清理Docker容器
 
 ```powershell
 # 完整测试流程
-.\scripts\setup_test_env.ps1 -TestType all
+.\tools\setup_test_env.ps1 -TestType all
 
 # 相当于顺序执行:
-# 1. .\scripts\setup_test_env.ps1 -TestType unit
-# 2. .\scripts\setup_test_env.ps1 -TestType integration  
+# 1. .\tools\setup_test_env.ps1 -TestType unit
+# 2. .\tools\setup_test_env.ps1 -TestType integration  
 # 3. pytest tests/e2e/ -v
 # 4. pytest tests/performance/ -v (如果存在)
 ```
@@ -1152,12 +1178,12 @@ docker-compose down mysql_test                  # 清理Docker容器
 - ✅ E2E用户流程验证通过
 - ✅ 性能基准测试达标
 
-### 阶段3: 测试工具使用标准 [CHECK:TEST-010]
+### 阶段3: 测试环境检查 [CHECK:TEST-003]
 
 #### 3.1 智能测试生成工具使用
 ```powershell
 # 为新功能生成测试模板
-python scripts\generate_test_template.py --module user_auth --feature password_reset
+python tools\generate_test_template.py --module user_auth --feature password_reset
 
 # 生成的测试文件位置
 # tests/generated/test_user_auth_password_reset.py
@@ -1225,7 +1251,7 @@ def test_complete_order_workflow(integration_test_db):
     assert result.order.user_id == user.id
 ```
 
-### 阶段4: Generated目录管理 [CHECK:TEST-012]
+### 阶段4: 测试工具配置 [CHECK:TEST-004]
 
 #### 4.1 Generated目录的作用和规范
 - **用途**: 存储自动生成的测试文件，等待人工审核和定制
@@ -1265,7 +1291,7 @@ Get-ChildItem tests\generated\*.py | Where-Object {$_.LastWriteTime -lt (Get-Dat
     Remove-Item -WhatIf  # 先预览，确认后移除-WhatIf
 ```
 
-### 阶段5: 测试质量验证 [CHECK:TEST-005]
+### 阶段5: Mock数据统一 [CHECK:TEST-005]
 
 #### 5.1 覆盖率验证
 ```powershell
@@ -1298,12 +1324,12 @@ pytest tests/ --junitxml=reports/junit.xml
 # - 覆盖率报告: htmlcov/index.html
 ```
 
-### 阶段6: 问题诊断和故障排除 [CHECK:TEST-003]
+### 阶段6: 数据工厂准备 [CHECK:TEST-006]
 
 #### 6.1 标准问题诊断流程
 ```powershell
 # 1. 环境诊断 (60秒详细检查)
-python scripts\validate_test_config.py
+python tools\validate_test_config.py
 
 # 2. 特定测试失败诊断
 pytest tests/path/to/failed_test.py -vv -s --tb=long
@@ -1337,7 +1363,7 @@ pytest tests/ --db-reset  # 如果支持
 # 或手动清理数据库
 ```
 
-### 阶段7: 测试结果验证与报告 [CHECK:TEST-006]
+### 阶段7: 单元测试执行 [CHECK:TEST-007]
 
 #### 7.1 测试通过标准
 - **单元测试**: 100%通过率，覆盖率≥90%
@@ -1485,29 +1511,24 @@ pytest tests/integration/ -v
 ```text
 tests/
 ├── unit/
-│   ├── test_models/
-│   │   ├── test_user.py
-│   │   ├── test_product.py
-│   │   └── test_order.py
-│   ├── test_services/
-│   │   ├── test_auth_service.py
-│   │   ├── test_user_service.py
-│   │   └── test_order_service.py
-│   └── test_utils/
-│       ├── test_validators.py
-│       └── test_helpers.py
+│   ├── README.md                  # 单元测试说明
+│   ├── test_models/               # Mock测试目录（当前为空，待创建）
+│   └── test_services/             # SQLite内存测试目录（当前为空，待创建）
 ├── integration/
-│   ├── test_api/
-│   │   ├── test_auth_routes.py
-│   │   ├── test_user_routes.py
-│   │   └── test_order_routes.py
-│   └── test_database/
-│       ├── test_user_repository.py
-│       └── test_order_repository.py
-└── e2e/
-    ├── test_user_journey.py
-    ├── test_order_journey.py
-    └── test_admin_journey.py
+│   ├── README.md                  # 集成测试说明
+│   └── test_api/                  # API集成测试目录（当前为空，待创建）
+├── e2e/
+│   └── README.md                  # E2E测试说明（测试文件待创建）
+├── smoke/
+│   ├── README.md                  # 烟雾测试说明
+│   ├── test_health.py             # 健康检查测试（已存在）
+│   └── test_basic_api.py          # 基本API验证（已存在）
+├── factories/
+│   ├── __init__.py               # 工厂包初始化
+│   ├── data_factory.py           # 统一测试数据工厂（已存在）
+│   └── README.md                 # 数据工厂使用说明
+└── generated/
+    └── README.md                 # 自动生成测试文件管理说明
 ```
 
 ### 单元测试示例
@@ -1600,48 +1621,47 @@ class TestUserRoutes:
         assert data["email"] == user_data["email"]
 ```
 
-### 数据库集成测试
+### API集成测试示例
 ```python
-# tests/integration/test_database/test_user_repository.py
+# tests/integration/test_api/test_user_api.py (待创建)
 import pytest
-from app.repositories.user_repository import UserRepository
-from app.models.user import User
+from fastapi.testclient import TestClient
 
-class TestUserRepository:
+class TestUserApiIntegration:
     
-    @pytest.fixture
-    def user_repo(self, db):
-        return UserRepository(db)
-    
-    def test_create_and_get_user(self, user_repo, db):
+    def test_create_and_get_user_via_api(self, api_client, mysql_integration_db):
         # Arrange
         user_data = {
             "email": "test@example.com",
             "username": "testuser",
-            "hashed_password": "hashed_password"
+            "password": "testpass123"
         }
         
-        # Act
-        created_user = user_repo.create(user_data)
-        retrieved_user = user_repo.get_by_id(created_user.id)
+        # Act - 通过API创建用户
+        create_response = api_client.post("/api/v1/users/register", json=user_data)
+        user_id = create_response.json()["id"]
+        
+        # Get用户信息
+        get_response = api_client.get(f"/api/v1/users/{user_id}")
         
         # Assert
-        assert retrieved_user is not None
-        assert retrieved_user.email == user_data["email"]
-        assert retrieved_user.id == created_user.id
+        assert create_response.status_code == 201
+        assert get_response.status_code == 200
+        assert get_response.json()["email"] == user_data["email"]
+        assert get_response.json()["id"] == user_id
 ```
 
 ## 端到端测试指南
 
 ### E2E测试示例
 ```python
-# tests/e2e/test_user_journey.py
+# tests/e2e/test_user_journey.py (待创建)
 import pytest
 from fastapi.testclient import TestClient
 
 class TestUserJourney:
     
-    def test_complete_user_registration_and_login(self, client: TestClient):
+    def test_complete_user_registration_and_login(self, api_client):
         """测试跨模块用户注册和登录的完整端到端流程"""
         
         # 1. 用户注册
@@ -1651,7 +1671,7 @@ class TestUserJourney:
             "password": "password123"
         }
         
-        register_response = client.post("/api/v1/user-auth/register", json=registration_data)
+        register_response = api_client.post("/api/v1/user-auth/register", json=registration_data)
         assert register_response.status_code == 201
         
         # 2. 用户登录
