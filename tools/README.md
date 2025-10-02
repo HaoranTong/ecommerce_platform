@@ -1,6 +1,75 @@
 # 开发工具集
 
-> 🎯 **一站### 🔧 环境管理工具
+> 🎯 **一站式开发工具集合**: 提供从环境搭建到测试验证的完整工具支撑
+
+## 📁 目录结构
+
+### 🔧 环境管理工具
+| 工具 | 功能描述 | 使用场景 | 快速命令 |
+|------|----------|----------|----------|
+| `setup_test_env.ps1` | 测试环境配置和验证 | 项目初始化、环境变更后 | `.\tools\setup_test_env.ps1 -TestMode lite` |
+| `setup_dev_env.ps1` | 开发环境初始化配置 | 新环境搭建、依赖安装 | `.\tools\setup_dev_env.ps1` |
+| `check_test_env.ps1` | 环境状态快速检查 | 测试前环境确认 | `.\tools\check_test_env.ps1` |
+| `check_test_env_legacy.ps1` | 旧版环境检查（兼容性） | 特殊情况下的环境检查 | `.\tools\check_test_env_legacy.ps1` |
+| `dev_tools.ps1` | 开发环境工具集合 | 日常开发辅助操作 | `.\tools\dev_tools.ps1 check-db` |
+
+### 🧪 测试执行工具
+| 工具 | 功能描述 | 使用场景 | 快速命令 |
+|------|----------|----------|----------|
+| `run_module_tests.ps1` | 模块测试执行 | 单个模块完整测试 | `.\tools\run_module_tests.ps1 -ModuleName user_auth` |
+| `smoke_test.ps1` | API快速验证 | 功能开发后快速验证 | `.\tools\smoke_test.ps1` |
+| `integration_test.ps1` | 集成测试执行 | 多模块协作验证 | `.\tools\integration_test.ps1` |
+| `e2e_test_verification.py` | E2E测试验证 | 端到端测试流程验证 | `python .\tools\e2e_test_verification.py` |
+| `validate_test_config.py` | 测试配置验证 | 测试环境配置检查 | `python .\tools\validate_test_config.py` |
+| `validate_test_structure.py` | 测试结构验证 | 测试文件结构合规检查 | `python .\tools\validate_test_structure.py` |
+
+### ⚡ 质量保证工具
+| 工具 | 功能描述 | 使用场景 | 快速命令 |
+|------|----------|----------|----------|
+| `ai_checkpoint.ps1` | AI检查点验证 | AI开发任务完成验证 | `.\tools\ai_checkpoint.ps1 -CardType DEV-001` |
+| `enforce_doc_reading.ps1` | 强制文档阅读验证 | 确保AI实际阅读文档内容 | `.\tools\enforce_doc_reading.ps1 -DocumentPath "docs\standards\api-standards.md"` |
+| `dev_checkpoint.ps1` | 开发质量检查 | 代码提交前质量验证 | `.\tools\dev_checkpoint.ps1 -Phase PRE_COMMIT` |
+| `validate_standards.ps1` | 标准文档验证 | 文档修改后合规检查 | `.\tools\validate_standards.ps1` |
+| `check_code_standards.ps1` | 代码规范检查 | 代码质量持续检查 | `.\tools\check_code_standards.ps1` |
+| `maintain_standards.ps1` | 标准维护工具 | 标准文档维护和更新 | `.\tools\maintain_standards.ps1` |
+| `check_naming_compliance.ps1` | 命名规范检查 | 文件和代码命名合规验证 | `.\tools\check_naming_compliance.ps1` |
+| `validate_pydantic_v2.py` | Pydantic V2验证 | 数据模型验证合规检查 | `python .\tools\validate_pydantic_v2.py` |
+
+### 📁 项目管理工具
+| 工具 | 功能描述 | 使用场景 | 快速命令 |
+|------|----------|----------|----------|
+| `sync_readme.ps1` | 文档同步维护 | 文件结构变更后 | `.\tools\sync_readme.ps1 -Path docs/design` |
+| `sync_documentation.ps1` | AI文档同步检查 | AI工作流程文档一致性检查 | `.\tools\sync_documentation.ps1` |
+| `update_module_status.ps1` | 模块状态跟踪 | 开发进度管理 | `.\tools\update_module_status.ps1` |
+| `release_to_main.ps1` | 版本发布管理 | 功能完成后发布 | `.\tools\release_to_main.ps1` |
+| `feature_finish.ps1` | 功能分支完成 | 分支合并和清理 | `.\tools\feature_finish.ps1 -FeatureBranch feature-name` |
+| `log_status.ps1` | 状态日志记录 | 开发状态记录和跟踪 | `.\tools\log_status.ps1` |
+| `create_module_docs.ps1` | 模块文档生成 | 新模块文档创建 | `.\tools\create_module_docs.ps1 -ModuleName new_module` |
+
+### 🔍 分析调试工具
+| 工具 | 功能描述 | 使用场景 | 快速命令 |
+|------|----------|----------|----------|
+| `model_analyzer.py` | 数据模型分析 | 模型设计验证 | `python .\tools\model_analyzer.py` |
+| `api_service_mapping_analyzer.py` | API服务映射分析 | 接口关系梳理 | `python .\tools\api_service_mapping_analyzer.py` |
+| `verify_inventory_module.py` | 库存模块验证 | 库存管理模块完整性检查 | `python .\tools\verify_inventory_module.py` |
+
+### 🏗️ 构建部署工具
+| 工具 | 功能描述 | 使用场景 | 快速命令 |
+|------|----------|----------|----------|
+| `rebuild_database.ps1` | 数据库重建 | 数据库结构变更 | `.\tools\rebuild_database.ps1` |
+| `check_database_schema.ps1` | 数据库模式检查 | 数据库完整性验证 | `.\tools\check_database_schema.ps1` |
+
+### 🧰 代码生成工具
+| 工具 | 功能描述 | 使用场景 | 快速命令 |
+|------|----------|----------|----------|
+| `generate_test_template.py` | 智能测试模板生成 | 模块测试代码自动生成 | `python .\tools\generate_test_template.py user_auth --type all` |
+| `test_generators/` | 模块化测试生成器工具集 | 专业化测试代码生成(API/E2E/安全/性能) | 详见 `.\tools\test_generators\README.md` |
+
+### 🤖 AI工作流程工具
+| 工具 | 功能描述 | 使用场景 | 快速命令 |
+|------|----------|----------|----------|
+| `task_classification/` | AI任务分类配置和算法 | AI智能任务分类的配置参考 | 详见 `.\tools\task_classification\README.md` |
+| `checkpoint-cards.md` | AI检查点卡片系统 | AI工作流程的检查点定义 | AI执行时自动引用 |### 🔧 环境管理工具
 | 工具 | 功能描述 ### 🧰 代码生成工具
 | 工具 | 功能描述 | 使用场景 | 快速命令 |
 |------|----------|----------|----------|

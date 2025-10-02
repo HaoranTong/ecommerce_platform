@@ -1,0 +1,209 @@
+# 任务类型定义配置
+# 定义6大类任务的评分维度和权重
+
+DESIGN:  # 设计规划类
+  action_verbs:
+    weight: 40
+    keywords: 
+      - 设计
+      - 规划  
+      - 分析
+      - 定义
+      - 制定
+      - 构思
+      - 梳理
+      - 整理
+  tech_terms:
+    weight: 35
+    keywords:
+      - 架构
+      - 需求
+      - 方案  
+      - 设计
+      - 模型
+      - 流程
+      - 结构
+      - 框架
+      - 规范
+      - 标准
+  context_clues:
+    weight: 25
+    keywords:
+      - 新的
+      - 整体
+      - 系统
+      - 模块
+      - 全局
+      - 初始
+      - 从零开始
+      - 重新设计
+
+DEVELOP:  # 功能开发类  
+  action_verbs:
+    weight: 35
+    keywords:
+      - 实现
+      - 开发
+      - 编写
+      - 创建
+      - 添加
+      - 构建
+      - 生成
+      - 完成
+      - 补充
+  tech_terms:
+    weight: 40
+    keywords:
+      - API
+      - 接口  
+      - 服务
+      - 模型
+      - 组件
+      - 功能
+      - 方法
+      - 类
+      - 函数
+      - 端点
+      - 路由
+  tech_stack:
+    weight: 25
+    keywords:
+      - FastAPI
+      - SQLAlchemy
+      - Pydantic
+      - 数据库
+      - Redis
+      - 异步
+      - 依赖注入
+
+TEST:  # 测试验证类
+  action_verbs:
+    weight: 45
+    keywords:
+      - 测试
+      - 验证
+      - 检查
+      - 校验
+      - 确认
+      - 调试
+      - 排查
+      - 修复
+  tech_terms:
+    weight: 35
+    keywords:
+      - 单元测试
+      - 集成测试  
+      - API测试
+      - 覆盖率
+      - 质量
+      - 自动化
+      - 断言
+      - 模拟
+  tools:
+    weight: 20
+    keywords:
+      - pytest
+      - mock
+      - factory
+      - fixture
+      - 测试用例
+      - 测试数据
+
+INTEGRATE:  # 集成部署类
+  action_verbs:
+    weight: 40
+    keywords:
+      - 集成
+      - 部署
+      - 配置
+      - 连接
+      - 整合
+      - 合并
+      - 发布
+      - 上线
+  tech_terms:
+    weight: 35
+    keywords:
+      - 容器
+      - Docker
+      - 环境
+      - 配置
+      - 部署
+      - CI/CD
+      - 流水线
+      - 集成
+  context_clues:
+    weight: 25
+    keywords:
+      - 生产环境
+      - 测试环境
+      - 多模块
+      - 跨服务
+      - 端到端
+
+MAINTAIN:  # 维护优化类
+  action_verbs:
+    weight: 40
+    keywords:
+      - 优化
+      - 重构
+      - 修复
+      - 改进
+      - 维护
+      - 更新
+      - 升级
+      - 清理
+  tech_terms:
+    weight: 35
+    keywords:
+      - 性能
+      - 代码质量
+      - 重构
+      - 优化
+      - 缓存
+      - 监控
+      - 日志
+      - 异常处理
+  context_clues:
+    weight: 25
+    keywords:
+      - 现有的
+      - 已有的
+      - 当前的
+      - 改进
+      - 更好的
+      - 提升
+
+SECURE:  # 安全强化类
+  action_verbs:
+    weight: 45
+    keywords:
+      - 加密
+      - 验证
+      - 授权
+      - 保护
+      - 加固
+      - 防护
+      - 审计
+  tech_terms:
+    weight: 40
+    keywords:
+      - 认证
+      - 权限
+      - 安全
+      - 加密
+      - 令牌
+      - JWT
+      - OAuth
+      - 鉴权
+      - 访问控制
+      - 安全策略
+  context_clues:
+    weight: 15
+    keywords:
+      - 用户
+      - 登录
+      - 注册
+      - 会话
+      - 密码
+      - 敏感数据

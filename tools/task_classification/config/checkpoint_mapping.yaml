@@ -1,0 +1,226 @@
+# 检查点映射规则配置
+# 定义每种任务类型对应的检查点匹配规则
+
+DESIGN:  # 设计规划类
+  required_checkpoints:
+    - ARCH-001  # 架构设计验证
+    - ARCH-002  # 设计文档完整性  
+    - DOC-001   # 需求分析文档
+  
+  conditional_rules:
+    - condition: "模块 in keywords"
+      add_checkpoints: 
+        - ARCH-003
+        - DOC-004
+    - condition: "API in keywords"
+      add_checkpoints: 
+        - ARCH-004
+        - DOC-002
+    - condition: "数据库|模型 in keywords"
+      add_checkpoints: 
+        - ARCH-005
+        - DOC-005
+    - condition: "安全|权限 in keywords"
+      add_checkpoints: 
+        - ARCH-006
+  
+  high_relevance_checkpoints: 
+    - ARCH-001
+    - DOC-001
+
+DEVELOP:  # 功能开发类
+  required_checkpoints:
+    - DEV-001   # 编码准备检查
+    - DEV-008   # 代码质量检查
+    - DEV-009   # 强制代码规范检查
+  
+  conditional_rules:
+    - condition: "API|接口 in keywords"
+      add_checkpoints: 
+        - DEV-004
+        - DOC-002
+    - condition: "数据库|模型 in keywords"
+      add_checkpoints: 
+        - DEV-003
+        - DEV-011
+    - condition: "认证|权限|安全 in keywords"
+      add_checkpoints: 
+        - DEV-006
+    - condition: "业务逻辑|服务 in keywords"
+      add_checkpoints: 
+        - DEV-005
+        - DEV-007
+    - condition: "异步|并发 in keywords"
+      add_checkpoints: 
+        - DEV-010
+    - condition: "缓存|性能 in keywords"
+      add_checkpoints: 
+        - DEV-012
+  
+  high_relevance_checkpoints: 
+    - DEV-001
+    - DEV-008
+    - DEV-009
+
+TEST:  # 测试验证类
+  required_checkpoints:
+    - TEST-001  # 测试环境准备
+    - TEST-014  # 测试执行完整性检查
+  
+  conditional_rules:
+    - condition: "单元测试 in keywords"
+      add_checkpoints: 
+        - TEST-007
+        - TEST-005
+    - condition: "集成测试 in keywords"
+      add_checkpoints: 
+        - TEST-008
+        - TEST-003
+    - condition: "API测试 in keywords"
+      add_checkpoints: 
+        - TEST-009
+    - condition: "安全测试 in keywords"
+      add_checkpoints: 
+        - TEST-011
+    - condition: "性能测试 in keywords"
+      add_checkpoints: 
+        - TEST-012
+    - condition: "自动化 in keywords"
+      add_checkpoints: 
+        - TEST-013
+    - condition: "覆盖率 in keywords"
+      add_checkpoints: 
+        - TEST-006
+  
+  high_relevance_checkpoints: 
+    - TEST-001
+    - TEST-014
+
+INTEGRATE:  # 集成部署类
+  required_checkpoints:
+    - TEST-008  # 集成测试执行
+    - TEST-003  # 测试环境验证
+  
+  conditional_rules:
+    - condition: "Docker|容器 in keywords"
+      add_checkpoints: 
+        - DEV-012
+    - condition: "数据库 in keywords"
+      add_checkpoints: 
+        - DEV-003
+    - condition: "环境配置 in keywords"
+      add_checkpoints: 
+        - TEST-004
+    - condition: "多模块|跨服务 in keywords"
+      add_checkpoints: 
+        - TEST-008
+  
+  high_relevance_checkpoints: 
+    - TEST-008
+    - TEST-003
+
+MAINTAIN:  # 维护优化类
+  required_checkpoints:
+    - DEV-008  # 代码质量检查
+    - TEST-012  # 性能测试
+  
+  conditional_rules:
+    - condition: "性能|优化 in keywords"
+      add_checkpoints: 
+        - TEST-012
+        - DEV-010
+    - condition: "重构 in keywords"
+      add_checkpoints: 
+        - DEV-008
+    - condition: "监控|日志 in keywords"
+      add_checkpoints: 
+        - DEV-007
+    - condition: "异常处理|错误 in keywords"
+      add_checkpoints: 
+        - DEV-007
+    - condition: "升级|更新 in keywords"
+      add_checkpoints: 
+        - TEST-001
+  
+  high_relevance_checkpoints: 
+    - DEV-008
+    - TEST-012
+
+SECURE:  # 安全强化类
+  required_checkpoints:
+    - DEV-006   # 安全控制实现验证
+    - TEST-011  # 安全测试执行
+  
+  conditional_rules:
+    - condition: "认证|登录 in keywords"
+      add_checkpoints: 
+        - DEV-006
+        - TEST-011
+    - condition: "权限|授权 in keywords"
+      add_checkpoints: 
+        - DEV-006
+    - condition: "加密 in keywords"
+      add_checkpoints: 
+        - DEV-006
+    - condition: "JWT|令牌 in keywords"
+      add_checkpoints: 
+        - DEV-006
+    - condition: "审计|日志 in keywords"
+      add_checkpoints: 
+        - DEV-007
+    - condition: "数据保护 in keywords"
+      add_checkpoints: 
+        - DEV-006
+  
+  high_relevance_checkpoints: 
+    - DEV-006
+    - TEST-011
+
+# 检查点优先级配置
+checkpoint_priority:
+  # 高优先级检查点（必须执行）
+  high_priority:
+    - DEV-009   # 强制代码规范检查
+    - TEST-014  # 测试执行完整性检查
+    - SEC-001   # 安全需求分析
+    - DEPLOY-001 # 部署环境准备
+  
+  # 中等优先级检查点（建议执行）
+  medium_priority:
+    - DEV-001   # 编码准备检查
+    - DEV-008   # 代码质量检查
+    - TEST-001  # 测试环境准备
+    - ARCH-001  # 架构设计验证
+  
+  # 低优先级检查点（可选执行）
+  low_priority:
+    - DOC-003   # 文档更新检查
+    - MAINT-006 # 监控配置检查
+
+# 检查点排除规则
+exclusion_rules:
+  # 当检测到特定条件时，排除某些检查点
+  - condition: "快速|紧急|临时 in keywords"
+    exclude_checkpoints: 
+      - DOC-001
+      - DOC-002
+      - DOC-003
+      - DOC-004
+      - DOC-005
+    reason: "紧急任务跳过文档相关检查点"
+  
+  - condition: "修复|bug|错误 in keywords"
+    exclude_checkpoints: 
+      - ARCH-001
+      - ARCH-002
+      - ARCH-003
+    reason: "修复类任务跳过架构设计检查点"
+  
+  - condition: "测试 in keywords and 开发 not in keywords"
+    exclude_checkpoints: 
+      - DEV-003
+      - DEV-004
+      - DEV-005
+      - DEV-006
+      - DEV-007
+    reason: "纯测试任务跳过开发相关检查点"
