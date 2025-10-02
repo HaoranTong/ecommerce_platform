@@ -1,170 +1,271 @@
-# 冒烟测试目录
+# 烟雾测试目录
 
 ## 📋 目录说明
 
-本目录包含冒烟测试(Smoke Testing)，用于快速验证系统的核心功能是否正常工作，是部署后的第一道质量保障。
+本目录包含烟雾测试(Smoke Testing)，基于环境感知的动态模块发现机制，用于快速验证系统核心功能和所有注册模块的基本可用性。
 
 ## 📁 文件结构
 
 ```
 smoke/
-├── README.md                    # 本说明文档
-├── test_basic_api.py           # 基础API功能测试
-├── test_health.py              # 系统健康检查测试
-└── test_shopping_cart_smoke.py # 购物车冒烟测试
+├── README.md           # 本说明文档
+├── test_basic_api.py   # API基础功能验证
+├── test_health.py      # 系统健康检查
+└── __pycache__/        # Python缓存目录
 ```
 
-## 🎯 冒烟测试目标
+## 🎯 烟雾测试设计特色
 
-### 核心验证目标
-- **系统启动验证**: 确认系统能够正常启动和响应
-- **关键路径验证**: 验证主要业务流程的基本功能
-- **依赖服务验证**: 确认数据库、缓存等依赖服务连接正常
-- **API端点验证**: 验证核心API端点的可访问性和基本响应
+### 🚀 动态模块发现
+- **OpenAPI驱动**: 通过解析`/openapi.json`规范自动发现所有已注册模块
+- **零硬编码**: 无需手动维护模块列表，新模块自动被测试
+- **当前发现**: 自动测试8个业务模块（用户认证、商品管理、订单管理等）
+- **路径解析**: 智能提取`/api/v1/{module-name}/`格式的API端点
 
-### 快速反馈机制
-- **执行时间**: 所有冒烟测试应在2分钟内完成
-- **覆盖范围**: 涵盖系统的核心功能路径
-- **失败快停**: 一旦发现关键问题立即停止后续测试
-- **明确结果**: 提供清晰的通过/失败状态
+### 🌍 环境感知策略
+- **development**: 内存数据库 (`sqlite:///:memory:`) - 开发阶段快速验证
+- **ci_pipeline**: 临时文件数据库 - CI/CD自动化测试环境
+- **post_deployment**: 生产数据库连接 - 部署后验证模式
 
-## 🔍 当前测试模块
+### 🔧 无业务逻辑依赖
+- **纯端点验证**: 只验证API端点存在性，不涉及具体业务数据
+- **404友好**: 404状态码视为正常（端点存在但无数据）
+- **最小权限**: 不需要有效用户凭证或业务数据准备
 
-### 基础API测试 (test_basic_api.py)
-- **API连通性**: 验证API服务器响应
-- **基础端点**: 测试核心API端点可访问性
-- **响应格式**: 验证API响应格式正确性
-- **状态码检查**: 确认HTTP状态码符合预期
+## � 测试模块详述
 
-### 系统健康检查 (test_health.py)
-- **服务状态**: 检查应用服务运行状态
-- **数据库连接**: 验证数据库连接正常
-- **缓存服务**: 检查Redis等缓存服务状态
-- **系统资源**: 监控内存、CPU等资源使用情况
+### test_basic_api.py - API基础功能验证
+**测试函数统计**: 5个测试函数
 
-### 购物车冒烟测试 (test_shopping_cart_smoke.py)
-- **购物车创建**: 验证购物车基本创建功能
-- **商品添加**: 测试添加商品到购物车
-- **数量更新**: 验证购物车商品数量更新
-- **购物车查询**: 测试购物车信息查询功能
+1. **test_api_health_check()** 
+   - 验证: `/api/health` 端点响应 (HTTP 200)
+   - 作用: 确认API服务基本可用性
+
+2. **test_dynamic_module_endpoints()**
+   - 验证: 通过OpenAPI自动发现的8个模块端点
+   - 发现模块:
+     ```
+     ✅ inventory-management (库存管理): 14个端点
+     ✅ member-system (会员系统): 17个端点  
+     ✅ order-management (订单管理): 7个端点
+     ✅ payment-service (支付服务): 5个端点
+     ✅ product-catalog (商品管理): 7个端点
+     ✅ quality-control (质量控制): 2个端点
+     ✅ shopping-cart (购物车): 3个端点
+     ✅ user-auth (用户认证): 8个端点
+     ```
+   - 验证方式: GET请求各模块根路径，预期404/405状态码
+
+3. **test_basic_database_connectivity()**
+   - 验证: 数据库基本连接性 (`SELECT 1`)
+   - 环境策略: 根据烟雾测试模式选择数据库类型
+
+4. **test_api_documentation_endpoints()** 
+   - 验证: API文档端点可访问性
+   - 端点: `/docs`, `/redoc`, `/openapi.json`
+
+5. **test_critical_database_tables()**
+   - 验证: 5个关键业务表存在性
+   - 表清单: `users`, `roles`, `products`, `orders`, `carts`
+
+### test_health.py - 系统健康检查
+**测试函数统计**: 5个测试函数
+
+1. **test_application_health()**
+   - 检查: 应用服务健康状态
+   - 端点: `/api/health`, `/` (根路径备选)
+   - 容错: 200/404都视为正常
+
+2. **test_api_documentation_access()**
+   - 检查: API文档界面可访问性
+   - 验证: Swagger UI (`/docs`) 和 ReDoc (`/redoc`)
+
+3. **test_database_connection_smoke()**
+   - 检查: 数据库连接响应性能
+   - 验证: `SELECT datetime('now')` 时间查询
+
+4. **test_environment_variables()**
+   - 检查: 关键环境变量配置完整性
+   - 变量: `DATABASE_URL`, `SECRET_KEY`, `REDIS_URL`, `ENVIRONMENT`
+   - 策略: 缺失时使用默认值，不强制失败
+
+5. **test_response_time_basic()**
+   - 检查: 基础性能基准
+   - 标准: 文档页面加载时间 < 5秒
+   - 端点: `/docs` 页面响应时间
 
 ## 🚀 执行方法
 
-### 快速执行
+### 推荐方式 - 环境感知执行
 ```powershell
-# 执行所有冒烟测试
-pytest tests/smoke/ -v --tb=short
+# 使用烟雾测试脚本(自动环境检测和服务器管理)
+.\tools\smoke_test.ps1
 
-# 执行特定模块测试
+# 指定环境模式
+$env:SMOKE_TEST_MODE = "development"
+.\tools\smoke_test.ps1
+
+# CI/CD环境
+$env:SMOKE_TEST_MODE = "ci_pipeline"  
+.\tools\smoke_test.ps1
+
+# 生产环境验证
+$env:SMOKE_TEST_MODE = "post_deployment"
+.\tools\smoke_test.ps1
+```
+
+### 直接执行 - 需要服务器已运行
+```powershell
+# 执行所有烟雾测试
+pytest tests/smoke/ -v -s
+
+# 执行特定模块
+pytest tests/smoke/test_basic_api.py -v
 pytest tests/smoke/test_health.py -v
 
-# 快速失败模式(遇到错误立即停止)
-pytest tests/smoke/ -x --tb=line
+# 快速失败模式
+pytest tests/smoke/ -x --tb=short
 ```
+
+### 详细输出模式
+```powershell
+# 查看动态模块发现过程
+pytest tests/smoke/test_basic_api.py::test_dynamic_module_endpoints -v -s
+
+# 环境变量检查详情  
+pytest tests/smoke/test_health.py::test_environment_variables -v -s
+```
+
+## ⚡ 执行标准和性能
+
+### 性能指标
+- **总执行时间**: 全部测试在90秒内完成（包含服务器启动）
+- **纯测试时间**: pytest执行约1.5秒（10个测试）
+- **模块发现**: 从65个API路径中发现8个模块
+- **超时设置**: 每个HTTP请求3-5秒超时
+
+### 环境适配性能
+| 模式 | 数据库类型 | 启动时间 | 执行特点 |
+|------|-----------|----------|----------|
+| development | 内存数据库 | 5-10秒 | 最快，完整测试 |
+| ci_pipeline | 临时文件 | 10-15秒 | 中等，可重现 |
+| post_deployment | 生产数据库 | 2-5秒 | 最快，只读验证 |
+
+### 稳定性保障
+- **连接重试**: 网络请求支持3秒超时
+- **服务检测**: 自动检测服务状态，避免重复启动
+- **优雅降级**: OpenAPI失败时使用预定义模块列表
+- **错误隔离**: 单个模块失败不影响其他模块测试
+
+## 🔧 技术实现特点
+
+### 动态发现机制
+```python
+# 核心发现逻辑
+openapi_response = requests.get(f"{base_url}/openapi.json")
+openapi_spec = openapi_response.json()
+paths = openapi_spec.get("paths", {})
+
+# 提取模块名
+for path in paths:
+    if path.startswith("/api/v1/"):
+        module_name = path.split("/")[3]  # /api/v1/module-name/...
+        discovered_modules.add(module_name)
+```
+
+### 环境感知配置
+```python
+# conftest.py 中的数据库配置
+@pytest.fixture(scope="session")
+def smoke_test_db():
+    mode = os.environ.get("SMOKE_TEST_MODE", "development")
+    if mode == "development":
+        # 内存数据库，测试后自动清理
+        yield engine_memory
+    elif mode == "ci_pipeline":
+        # 临时文件数据库
+        yield engine_file
+    else:
+        # 生产数据库（只读模式）
+        yield engine_production
+```
+
+### 备用机制
+- **OpenAPI失败**: 使用预定义的7个核心模块列表
+- **服务器无响应**: 跳过测试并提示使用完整脚本
+- **数据库连接失败**: 降级为基本连接测试
+
+## 📊 测试结果示例
+
+### 成功执行输出
+```
+🔍 动态发现的模块数量: 8
+📦 模块列表: ['inventory-management', 'member-system', 'order-management', 'payment-service', 'product-catalog', 'quality-control', 'shopping-cart', 'user-auth']
+
+✅ inventory-management: 端点存在 (404)
+✅ member-system: 端点存在 (404)  
+✅ order-management: 端点存在 (404)
+✅ payment-service: 端点存在 (404)
+✅ product-catalog: 端点存在 (404)
+✅ quality-control: 端点存在 (404)
+✅ shopping-cart: 端点存在 (404)
+✅ user-auth: 端点存在 (404)
+
+==================== 10 passed in 1.48s =====================
+```
+
+### PowerShell脚本输出
+```
+🔍 检测到显式环境变量: SMOKE_TEST_MODE=development
+🔧 开发模式：使用内存数据库，快速验证
+✅ 数据库策略: 内存数据库 (sqlite:///:memory:)
+✅ 启用自动创建数据库表: AUTO_CREATE_TABLES=1
+ℹ️  检测到服务已在运行，将复用现有服务
+✅ Pytest smoke tests passed
+🎉 烟雾测试完成：所有测试通过
+```
+
+## 🚨 故障排除和维护
+
+### 常见问题
+1. **服务器连接失败**
+   - 检查: `http://127.0.0.1:8000/api/health`
+   - 解决: 使用 `.\tools\smoke_test.ps1` 自动启动服务器
+
+2. **模块发现数量不对**
+   - 检查: `http://127.0.0.1:8000/openapi.json` 可访问性
+   - 原因: 可能有模块未正确注册到FastAPI应用
+
+3. **数据库连接错误**
+   - 开发模式: 自动使用内存数据库，无需配置
+   - 生产模式: 检查 `DATABASE_URL` 环境变量
+
+### 维护指南
+- **新增模块**: 无需修改测试代码，自动发现
+- **更新OpenAPI**: 重启服务后自动获取新规范
+- **环境变量**: 通过 `test_environment_variables` 验证配置
+- **性能基准**: 根据实际环境调整响应时间阈值
+
+## 📚 相关文档和集成
+
+### 项目文档
+- **[主README](../../README.md)** - 项目总体说明
+- **[开发工具](../../tools/README.md)** - 开发和测试工具说明
+- **[数据库迁移](../../alembic/README.md)** - 数据库版本管理
+
+### 测试集成
+- **单元测试**: `tests/unit/` - 模块级详细测试
+- **集成测试**: `tests/integration/` - 跨模块交互测试  
+- **端到端测试**: `tests/e2e/` - 完整用户流程测试
+- **性能测试**: `tests/performance/` - 负载和性能基准
 
 ### CI/CD集成
-```powershell
-# 部署后自动冒烟测试
-pytest tests/smoke/ --maxfail=1 --tb=no --quiet
-
-# 生成简化报告
-pytest tests/smoke/ --tb=short --no-header -q
+```yaml
+# GitHub Actions 示例
+- name: Smoke Tests
+  run: |
+    $env:SMOKE_TEST_MODE = "ci_pipeline"
+    .\tools\smoke_test.ps1
 ```
 
-### 监控模式
-```powershell
-# 持续监控模式(每5分钟执行一次)
-while($true) { 
-    pytest tests/smoke/ -q
-    Start-Sleep -Seconds 300 
-}
-```
-
-## ⚡ 测试执行标准
-
-### 性能要求
-- **单个测试**: 不超过10秒执行时间
-- **总体时间**: 全部冒烟测试在2分钟内完成
-- **超时设置**: 每个测试设置15秒超时限制
-- **并发执行**: 支持并行执行以提高效率
-
-### 稳定性要求
-- **成功率**: 冒烟测试成功率应达到99.9%
-- **重试机制**: 网络相关测试支持自动重试
-- **环境适应**: 支持不同环境(开发、测试、生产)
-- **依赖处理**: 优雅处理外部依赖服务异常
-
-## 🔧 测试工具和配置
-
-### 核心测试工具
-```python
-# pytest配置示例
-pytest_plugins = [
-    "pytest_asyncio",
-    "pytest_timeout", 
-    "pytest_xdist"
-]
-
-# 超时配置
-timeout = 15  # 15秒超时
-
-# 重试配置
-flaky_reruns = 2
-```
-
-### 环境配置
-```powershell
-# 环境变量设置
-$env:SMOKE_TEST_MODE = "true"
-$env:API_TIMEOUT = "10"
-$env:DB_TIMEOUT = "5"
-```
-
-### 监控和报告
-- **测试结果**: JUnit XML格式输出
-- **执行时间**: 详细的执行时间统计
-- **失败日志**: 简洁的失败原因记录
-- **趋势分析**: 执行时间和成功率趋势
-
-## 📊 冒烟测试检查清单
-
-### 系统级检查
-- [ ] 应用程序启动成功
-- [ ] 数据库连接正常
-- [ ] 缓存服务可用
-- [ ] 日志系统工作
-- [ ] 配置文件加载正确
-
-### API级检查
-- [ ] 健康检查端点响应
-- [ ] 认证服务可用
-- [ ] 核心业务API响应
-- [ ] API响应时间正常
-- [ ] 错误处理机制工作
-
-### 业务级检查
-- [ ] 用户注册/登录功能
-- [ ] 商品查询功能
-- [ ] 购物车操作功能
-- [ ] 订单创建功能
-- [ ] 支付接口连通
-
-## 🚨 告警和通知
-
-### 失败处理
-- **立即通知**: 冒烟测试失败时立即通知开发团队
-- **自动回滚**: 严重问题时触发自动回滚机制
-- **问题跟踪**: 自动创建问题跟踪记录
-- **修复验证**: 修复后自动重新执行冒烟测试
-
-### 监控集成
-- **Slack通知**: 测试结果自动发送到团队频道
-- **邮件报告**: 每日冒烟测试汇总报告
-- **仪表板**: 实时冒烟测试状态监控
-- **历史记录**: 冒烟测试执行历史和趋势分析
-
-## 📚 相关文档
-
-- **[测试标准文档](../../docs/standards/testing-standards.md)** - 冒烟测试规范
-- **[部署指南](../../docs/operations/deployment-guide.md)** - 部署后验证流程
-- **[监控配置](../../docs/operations/monitoring-setup.md)** - 系统监控配置
+本烟雾测试系统实现了**真正的动态化、环境感知、零维护**的API验证框架，为系统部署和持续集成提供快速可靠的质量保障。

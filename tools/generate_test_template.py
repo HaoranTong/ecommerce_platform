@@ -1,6 +1,31 @@
 #!/usr/bin/env python3
 """
-智能测试生成器 - 模块化架构版
+智能五层架构测试生成器
+
+配置文件依赖:
+- 主配置文件: tools/test_generator_config.json
+- 配置内容: 项目结构、测试分布比例、数据库配置、业务逻辑模式等
+- 备用机制: 配置文件缺失时自动使用内置默认配置
+- 配置更新: 修改JSON文件即可自定义生成行为，无需重启
+
+功能特性:
+- 智能模型分析：基于AST和运行时双重分析
+- 五层测试架构：单元/集成/API/端到端/专项测试
+- 自适应生成：根据模型复杂度调整测试深度
+- 配置驱动：通过JSON配置文件控制所有生成行为
+
+使用方法:
+    python tools/generate_test_template.py user_auth
+    python tools/generate_test_template.py user_auth --type all
+    python tools/generate_test_template.py user_auth --dry-run
+
+配置文件结构:
+- project_structure: 项目路径配置
+- test_distributions: 各类测试比例分配  
+- test_paths: 测试文件输出路径
+- database_config: 数据库连接和清理配置
+- business_logic_patterns: 业务逻辑识别模式
+- error_handling: 错误处理和重试策略
 
 集成模块化测试生成器架构，支持AST+运行时双重分析
 自动生成完整测试架构：包含传统测试(5个)和专业化测试(4个)
@@ -23,18 +48,13 @@
 - SecurityTestGenerator: OWASP安全测试生成
 - PerformanceTestGenerator: 性能基准测试生成
 
-使用方法:
-    python tools/generate_test_template.py user_auth
-    python tools/generate_test_template.py shopping_cart --validate
-    python tools/generate_test_template.py product_catalog --dry-run
-
 符合标准:
 - MASTER.md强制检查点规范 [CHECK:DEV-009] [CHECK:TEST-001]
 - docs/standards/testing-standards.md五层测试架构
 - docs/standards/checkpoint-cards.md验证流程
 
 作者: AI Assistant (遵循MASTER文档规范)
-版本: 3.0 (模块化架构版)
+版本: 3.0 (模块化架构版 + 配置文件驱动)
 创建时间: 2025-09-20
 更新时间: 2025-10-02
 """

@@ -41,38 +41,15 @@ async def lifespan(app: FastAPI):
             print(f"🔍 Engine: {engine}")
             print(f"🔍 Base: {Base}")
             
-            # 导入所有模型以确保表定义被注册
-            print("📋 导入模型...")
-            # 用户认证模块所有模型
-            from app.modules.user_auth.models import (Permission, Role, RolePermission,
-                                                      Session, User, UserRole)
-            print("✅ 用户认证模型导入完成")
-            # 产品目录模块所有模型
-            from app.modules.product_catalog.models import (SKU, Brand, Category,
-                                                            Product,
-                                                            ProductAttribute,
-                                                            ProductImage,
-                                                            ProductTag,
-                                                            SKUAttribute)
-            print("✅ 产品目录模型导入完成")
-            # 购物车模块模型
-            from app.modules.shopping_cart.models import Cart, CartItem
-            print("✅ 购物车模型导入完成")
-            # 库存管理模块模型
-            from app.modules.inventory_management.models import (InventoryReservation,
-                                                                 InventoryStock,
-                                                                 InventoryTransaction)
-            print("✅ 库存管理模型导入完成")
-            # 订单管理模块模型
-            from app.modules.order_management.models import (Order, OrderItem,
-                                                             OrderStatusHistory)
-            print("✅ 订单管理模型导入完成")
-            # 支付服务模块模型
-            from app.modules.payment_service.models import Payment, Refund
-            print("✅ 支付服务模型导入完成")
-
-            print(f"🔍 注册的表数量: {len(Base.metadata.tables)}")
-            print(f"🔍 注册的表: {list(Base.metadata.tables.keys())}")
+            # 使用动态模型发现系统
+            from app.core.model_discovery import discover_and_register_models, validate_critical_models
+            
+            # 自动发现并导入所有模块的模型
+            table_count, imported_modules = discover_and_register_models()
+            
+            # 验证关键模型（烟雾测试需要）
+            if not validate_critical_models():
+                print("⚠️  关键模型验证失败，但继续创建表...")
             
             print("📋 执行create_all...")
             Base.metadata.create_all(bind=engine)

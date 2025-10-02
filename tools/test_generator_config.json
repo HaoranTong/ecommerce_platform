@@ -1,4 +1,18 @@
 {
+  "_description": "测试生成器配置文件 - 智能五层架构测试生成器核心配置",
+  "_usage": {
+    "primary_tool": "tools/generate_test_template.py",
+    "description": "为电商平台模块化架构提供智能测试代码生成配置",
+    "backup_strategy": "如果此文件不存在，生成器将使用内置默认配置",
+    "modification_guide": "修改此文件可以自定义测试生成行为、路径分布、数据库配置等"
+  },
+  "_referenced_by": [
+    "tools/generate_test_template.py (主要引用者)",
+    "docs/status/work-history-archive.md (文档记录)",
+    "docs/development/test_generator_optimization_report.md (优化报告)"
+  ],
+  "_version": "2.0",
+  "_last_updated": "2025-10-02",
   "project_structure": {
     "project_root": ".",
     "modules_path": "app/modules",

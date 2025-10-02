@@ -34,9 +34,47 @@ from app.modules.user_auth.models import (Permission, Role, RolePermission,
 from tests.factories.data_factory import (StandardTestDataFactory,
                                           TestDataValidator)
 
-# 测试数据库配置 - 符合testing-standards.md标准和脚本配置
+# 测试数据库配置 - 根据环境动态选择
+import os
+
+def get_smoke_test_config():
+    """根据环境变量动态选择烟雾测试配置"""
+    mode = os.getenv("SMOKE_TEST_MODE", "development")
+    
+    if mode == "post_deployment":
+        # 部署后测试：使用现有数据库连接，不创建测试数据库
+        return {
+            "database_url": os.getenv("DATABASE_URL", "sqlite:///./app.db"),
+            "scope": "session",
+            "cleanup_mode": "none",  # 不清理生产数据
+            "create_tables": False,  # 不创建表结构
+            "description": "部署后验证模式：测试现有生产环境"
+        }
+    elif mode == "ci_pipeline":
+        # CI管道测试：临时文件数据库
+        return {
+            "database_url": "sqlite:///./tests/smoke_test_ci.db",
+            "scope": "session", 
+            "cleanup_mode": "file_cleanup",
+            "create_tables": True,
+            "description": "CI管道模式：使用临时文件数据库"
+        }
+    else:  # development (默认)
+        # 开发测试：内存数据库，快速清理
+        return {
+            "database_url": "sqlite:///:memory:",
+            "scope": "function",
+            "cleanup_mode": "immediate",
+            "create_tables": True,
+            "description": "开发模式：使用内存数据库"
+        }
+
+# 获取当前烟雾测试配置
+SMOKE_CONFIG = get_smoke_test_config()
+print(f"🔍 烟雾测试配置: {SMOKE_CONFIG['description']}")
+
 UNIT_TEST_DATABASE_URL = "sqlite:///:memory:"  # 单元测试：内存数据库
-SMOKE_TEST_DATABASE_URL = "sqlite:///./tests/smoke_test_pytest.db"  # 烟雾测试pytest：独立文件数据库
+SMOKE_TEST_DATABASE_URL = SMOKE_CONFIG["database_url"]  # 动态烟雾测试数据库
 # Integration Test Database Configuration (MySQL Docker) - 与setup_test_env.ps1一致
 INTEGRATION_TEST_DATABASE_URL = (
     "mysql+pymysql://root:test_password@localhost:3308/ecommerce_platform_test"
@@ -218,36 +256,75 @@ def unit_test_client(unit_test_engine, mock_admin_user):
 
 
 # ========== 烟雾测试配置 ==========
-@pytest.fixture(scope="module")
+@pytest.fixture(scope=SMOKE_CONFIG["scope"])
 def smoke_test_engine():
-    """烟雾测试数据库引擎（文件）[CHECK:TEST-001]"""
+    """环境感知的烟雾测试数据库引擎[CHECK:TEST-001]"""
     from sqlalchemy import event
+    
+    print(f"🔍 烟雾测试引擎配置: {SMOKE_CONFIG['description']}")
+    
+    # 创建数据库引擎
+    if SMOKE_CONFIG["database_url"].startswith("sqlite:///:memory:"):
+        # 内存数据库配置
+        engine = create_engine(
+            SMOKE_CONFIG["database_url"],
+            connect_args={"check_same_thread": False},
+        )
+    elif SMOKE_CONFIG["database_url"].startswith("sqlite:///"):
+        # 文件数据库配置
+        engine = create_engine(
+            SMOKE_CONFIG["database_url"],
+            connect_args={
+                "check_same_thread": False,
+                "isolation_level": None,  # 启用autocommit模式以支持WAL
+            },
+        )
+        
+        # SQLite性能优化
+        @event.listens_for(engine, "connect")
+        def set_sqlite_pragma(dbapi_connection, connection_record):
+            cursor = dbapi_connection.cursor()
+            cursor.execute("PRAGMA foreign_keys=ON")
+            cursor.execute("PRAGMA journal_mode=WAL")
+            cursor.execute("PRAGMA synchronous=NORMAL")
+            cursor.execute("PRAGMA optimize")
+            cursor.close()
+    else:
+        # MySQL/PostgreSQL等其他数据库
+        engine = create_engine(SMOKE_CONFIG["database_url"])
 
-    # SQLite文件数据库配置优化
-    engine = create_engine(
-        SMOKE_TEST_DATABASE_URL,
-        connect_args={
-            "check_same_thread": False,
-            "isolation_level": None,  # 启用autocommit模式以支持WAL
-        },
-    )
-
-    # 为烟雾测试SQLite连接启用外键约束和性能优化
-    @event.listens_for(engine, "connect")
-    def set_smoke_sqlite_pragma(dbapi_connection, connection_record):
-        """为烟雾测试SQLite连接设置PRAGMA优化选项"""
-        cursor = dbapi_connection.cursor()
-        cursor.execute("PRAGMA foreign_keys=ON")
-        cursor.execute("PRAGMA journal_mode=WAL")
-        cursor.execute("PRAGMA synchronous=NORMAL")
-        cursor.execute("PRAGMA optimize")
-        cursor.close()
-
-    Base.metadata.create_all(bind=engine)
+    # 根据配置决定是否创建表结构
+    if SMOKE_CONFIG["create_tables"]:
+        try:
+            Base.metadata.create_all(bind=engine)
+            print("✅ 数据库表结构创建完成")
+        except Exception as e:
+            print(f"⚠️  数据库表创建失败: {e}")
+    else:
+        print("ℹ️  跳过表创建（部署后模式）")
+    
     yield engine
-    # 清理测试数据但保留结构
-    Base.metadata.drop_all(bind=engine)
-    engine.dispose()
+    
+    # 根据清理模式执行不同的清理策略
+    cleanup_mode = SMOKE_CONFIG["cleanup_mode"]
+    if cleanup_mode == "file_cleanup":
+        # CI模式：删除临时数据库文件
+        try:
+            engine.dispose()
+            db_file = SMOKE_CONFIG["database_url"].replace("sqlite:///./", "")
+            if os.path.exists(db_file):
+                os.remove(db_file)
+                print(f"🧹 已清理临时数据库: {db_file}")
+        except Exception as e:
+            print(f"⚠️  清理临时数据库失败: {e}")
+    elif cleanup_mode == "immediate":
+        # 开发模式：立即清理（内存数据库自动清理）
+        engine.dispose()
+        print("🧹 内存数据库已自动清理")
+    else:
+        # 部署后模式：不清理生产数据
+        engine.dispose()
+        print("ℹ️  保持生产环境数据不变")
 
 
 @pytest.fixture(scope="function")

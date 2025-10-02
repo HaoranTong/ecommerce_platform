@@ -1,6 +1,29 @@
 """
 烟雾测试 - 系统健康检查
-快速验证系统核心组件是否正常运行
+
+功能描述：
+- 验证应用服务健康状态和基本可用性
+- 检查API文档界面和规范访问性能
+- 监控数据库连接响应性和时间同步
+- 验证关键环境变量配置完整性
+- 测试基础响应时间性能基准
+
+检查项目：
+- 应用健康端点：/api/health, / (根路径备选)
+- API文档访问：/docs, /redoc 界面可用性
+- 数据库健康：连接性能和时间查询响应
+- 环境配置：DATABASE_URL, SECRET_KEY, REDIS_URL等
+- 性能基准：文档页面加载时间 < 5秒
+
+使用方法：
+- 推荐：tools/smoke_test.ps1 自动环境感知执行
+- 直接：pytest tests/smoke/test_health.py -v
+- 集成：作为基本检测的补充健康监控
+
+容错特性：
+- 404状态码视为正常（服务运行但端点不存在）
+- 环境变量缺失时使用默认值不强制失败
+- 部分检查失败不影响整体健康评估
 """
 import time
 from datetime import datetime
@@ -13,10 +36,8 @@ from sqlalchemy import text
 def test_application_health():
     """验证应用基本健康状态"""
     health_endpoints = [
-        "http://localhost:8000/api/health",
         "http://127.0.0.1:8000/api/health",
-        "http://localhost:8000/",  # 根路径
-        "http://127.0.0.1:8000/"
+        "http://127.0.0.1:8000/"  # 根路径作为备选
     ]
     
     success = False
@@ -35,13 +56,13 @@ def test_application_health():
             continue
     
     if not success:
-        pytest.skip("⚠️  No application endpoints are responding - API server may not be running")
+        pytest.skip("⚠️  No application endpoints responding - server not running. Use tools/smoke_test.ps1 for full testing.")
 
 def test_api_documentation_access():
     """验证API文档访问"""
     docs_endpoints = [
-        "http://localhost:8000/docs",
-        "http://localhost:8000/redoc"
+        "http://127.0.0.1:8000/docs",
+        "http://127.0.0.1:8000/redoc"
     ]
     
     for endpoint in docs_endpoints:
@@ -108,7 +129,7 @@ def test_response_time_basic():
     start_time = time.time()
     
     try:
-        response = requests.get("http://localhost:8000/docs", timeout=10)
+        response = requests.get("http://127.0.0.1:8000/docs", timeout=10)
         end_time = time.time()
         response_time = end_time - start_time
         
