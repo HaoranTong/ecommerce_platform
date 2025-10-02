@@ -26,10 +26,10 @@ user_auth/
 
 ## API端点
 
-- `POST /api/user-auth/register` - 用户注册
-- `POST /api/user-auth/login` - 用户登录
-- `POST /api/user-auth/refresh` - 刷新令牌
-- `GET /api/user-auth/me` - 获取当前用户信息
+- `POST /api/v1/user-auth/register` - 用户注册
+- `POST /api/v1/user-auth/login` - 用户登录
+- `POST /api/v1/user-auth/refresh` - 刷新令牌
+- `GET /api/v1/user-auth/me` - 获取当前用户信息
 
 ## 相关文档
 

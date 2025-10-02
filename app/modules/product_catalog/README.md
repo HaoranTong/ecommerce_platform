@@ -26,11 +26,11 @@ product_catalog/
 
 ## API端点
 
-- `GET /api/product-catalog/products` - 获取商品列表
-- `POST /api/product-catalog/products` - 创建商品
-- `GET /api/product-catalog/products/{id}` - 获取商品详情
-- `PUT /api/product-catalog/products/{id}` - 更新商品
-- `DELETE /api/product-catalog/products/{id}` - 删除商品
+- `GET /api/v1/product-catalog/products` - 获取商品列表
+- `POST /api/v1/product-catalog/products` - 创建商品
+- `GET /api/v1/product-catalog/products/{id}` - 获取商品详情
+- `PUT /api/v1/product-catalog/products/{id}` - 更新商品
+- `DELETE /api/v1/product-catalog/products/{id}` - 删除商品
 
 ## 开发状态
 
