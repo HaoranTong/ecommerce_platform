@@ -2850,7 +2850,7 @@ class TestUserAuthIntegration:
         print(f"{NEWLINE}🌐 测试用户认证API端点...")
         
         # 1. 测试健康检查API
-        health_response = api_client.get("/health")
+        health_response = api_client.get("/api/health")
         assert health_response.status_code == 200
         print("✅ 健康检查API正常")
         
@@ -2889,7 +2889,8 @@ class TestUserAuthIntegration:
         
         # 2. 测试基本查询操作
         from app.modules.user_auth.models import User
-        result = mysql_integration_db.execute("SELECT 1 as test").fetchone()
+        from sqlalchemy import text
+        result = mysql_integration_db.execute(text("SELECT 1 as test")).fetchone()
         assert result[0] == 1
         print("✅ 数据库查询功能正常")
         
@@ -2984,7 +2985,7 @@ class Test{module_name.title().replace('_', '')}Integration:
     def test_{module_name}_api_integration(self, api_client, mysql_integration_db: Session):
         """测试{module_name.replace('_', ' ')} API集成"""
         # API集成测试
-        response = api_client.get("/health")
+        response = api_client.get("/api/health")
         assert response.status_code == 200
         print("✅ API基础连接正常")
         

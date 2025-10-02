@@ -15,7 +15,6 @@
 版本: v1.0.0
 作者: AI Assistant
 创建时间: 2025-10-01
-"""
 
 使用方法:
     from tools.test_generators.api_test_generator import APITestGenerator

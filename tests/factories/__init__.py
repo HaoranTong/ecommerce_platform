@@ -8,6 +8,13 @@
 # 从data_factory导入通用工厂
 from .data_factory import StandardTestDataFactory
 
+# 从user_auth_factories导入特定工厂
+from .user_auth_factories import (
+    UserFactory, RoleFactory, PermissionFactory,
+    SessionFactory, UserRoleFactory, RolePermissionFactory,
+    UserAuthFactoryManager
+)
+
 # 为兼容性提供别名映射
 TestDataFactory = StandardTestDataFactory  # 别名映射
 
@@ -15,4 +22,11 @@ TestDataFactory = StandardTestDataFactory  # 别名映射
 __all__ = [
     "StandardTestDataFactory",
     "TestDataFactory",  # 别名
+    "UserFactory",
+    "RoleFactory", 
+    "PermissionFactory",
+    "SessionFactory",
+    "UserRoleFactory",
+    "RolePermissionFactory",
+    "UserAuthFactoryManager",
 ]

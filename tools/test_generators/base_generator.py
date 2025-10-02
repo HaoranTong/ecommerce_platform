@@ -274,3 +274,185 @@ class BaseTestGenerator(ABC):
 工具版本: 智能测试生成器 v2.0
 """
 '''
+    
+    def analyze_pydantic_schema(self, module_name: str, route: RouterInfo) -> Dict[str, Any]:
+        """分析路由的Pydantic Schema，生成正确的测试数据"""
+        try:
+            # 添加警告过滤器，避免SQLAlchemy表重定义警告
+            import warnings
+            warnings.filterwarnings('ignore', category=UserWarning, message='.*Table.*already defined.*')
+            warnings.filterwarnings('ignore', message='.*declarative base.*')
+            
+            # 直接导入schemas.py文件，避免通过__init__.py导入models
+            import importlib.util
+            import sys
+            from pathlib import Path
+            
+            schema_file_path = self.project_root / f"app/modules/{module_name}/schemas.py"
+            if not schema_file_path.exists():
+                print(f"⚠️ Schema文件不存在: {schema_file_path}")
+                return self._generate_fallback_data(route)
+            
+            # 使用spec加载，避免导入__init__.py
+            spec = importlib.util.spec_from_file_location(f"{module_name}_schemas", schema_file_path)
+            if spec is None or spec.loader is None:
+                print(f"⚠️ 无法创建Schema模块spec")
+                return self._generate_fallback_data(route)
+            
+            schema_module = importlib.util.module_from_spec(spec)
+            
+            # 临时添加到sys.modules，避免重复导入
+            temp_module_name = f"temp_{module_name}_schemas"
+            sys.modules[temp_module_name] = schema_module
+            
+            try:
+                spec.loader.exec_module(schema_module)
+                
+                # 根据路由功能推断Schema类名
+                schema_class_name = self._infer_schema_class(route)
+                if not schema_class_name:
+                    print(f"⚠️ 无法推断Schema类名，使用fallback数据")
+                    return self._generate_fallback_data(route)
+                
+                # 获取Schema类
+                schema_class = getattr(schema_module, schema_class_name, None)
+                if not schema_class:
+                    print(f"⚠️ Schema类 {schema_class_name} 不存在，使用fallback数据")
+                    return self._generate_fallback_data(route)
+                
+                # 分析Schema字段
+                schema_data = self._extract_schema_fields(schema_class)
+                print(f"✅ Schema分析成功: {schema_class_name} -> {len(schema_data)} 个字段")
+                return schema_data
+                
+            finally:
+                # 清理临时模块
+                if temp_module_name in sys.modules:
+                    del sys.modules[temp_module_name]
+            
+        except Exception as e:
+            print(f"⚠️ Schema分析失败: {e}, 使用fallback数据")
+            import traceback
+            print(f"📋 详细错误: {traceback.format_exc()}")
+            return self._generate_fallback_data(route)
+    
+    def _infer_schema_class(self, route: RouterInfo) -> Optional[str]:
+        """根据路由功能推断Schema类名"""
+        function_name = route.function_name.lower()
+        
+        if 'register' in function_name:
+            return 'UserRegister'
+        elif 'login' in function_name:
+            return 'UserLogin'
+        elif 'update' in function_name:
+            return 'UserUpdate'
+        elif 'create' in function_name:
+            # 根据模块推断创建Schema
+            return self._infer_create_schema(route)
+        
+        return None
+    
+    def _infer_create_schema(self, route: RouterInfo) -> str:
+        """推断创建操作的Schema名称"""
+        # 基于路径推断资源类型
+        path_parts = route.path.strip('/').split('/')
+        if len(path_parts) >= 2:
+            resource = path_parts[-1].rstrip('s')  # 去掉复数s
+            return f"{resource.title()}Create"
+        return "CreateSchema"
+    
+    def _extract_schema_fields(self, schema_class) -> Dict[str, Any]:
+        """提取Pydantic Schema的字段信息"""
+        try:
+            # 获取模型字段
+            model_fields = schema_class.model_fields if hasattr(schema_class, 'model_fields') else {}
+            
+            test_data = {}
+            for field_name, field_info in model_fields.items():
+                test_data[field_name] = self._generate_field_value(field_name, field_info)
+            
+            return test_data
+            
+        except Exception as e:
+            print(f"⚠️ 字段提取失败: {e}")
+            return {}
+    
+    def _generate_field_value(self, field_name: str, field_info) -> Any:
+        """根据字段信息生成测试值"""
+        # 根据字段名称生成合适的测试值
+        field_name_lower = field_name.lower()
+        
+        if 'email' in field_name_lower:
+            return "test@example.com"
+        elif 'username' in field_name_lower:
+            return "test_user"
+        elif 'password' in field_name_lower:
+            return "test_password123"
+        elif 'phone' in field_name_lower:
+            return "13800138000"
+        elif 'verification_code' in field_name_lower or 'code' in field_name_lower:
+            return "123456"
+        elif 'name' in field_name_lower:
+            return "测试用户"
+        elif field_name_lower in ['age', 'count', 'quantity']:
+            return 25
+        elif field_name_lower in ['price', 'amount']:
+            return 99.99
+        elif field_name_lower in ['is_active', 'enabled', 'status']:
+            return True
+        else:
+            # 根据字段类型推断
+            return self._generate_by_type(field_info)
+    
+    def _generate_by_type(self, field_info) -> Any:
+        """根据字段类型生成默认值"""
+        try:
+            # 尝试从field_info获取类型信息
+            if hasattr(field_info, 'annotation'):
+                field_type = field_info.annotation
+                
+                # 处理常见的类型
+                if field_type == str:
+                    return "test_string"
+                elif field_type == int:
+                    return 123
+                elif field_type == float:
+                    return 99.99
+                elif field_type == bool:
+                    return True
+                elif hasattr(field_type, '__name__'):
+                    # 处理其他类型
+                    type_name = field_type.__name__.lower()
+                    if 'datetime' in type_name:
+                        return "2024-01-01T00:00:00"
+                    elif 'date' in type_name:
+                        return "2024-01-01"
+                    elif 'uuid' in type_name:
+                        return "12345678-1234-1234-1234-123456789012"
+            
+            # 默认字符串值
+            return "test_value"
+            
+        except Exception:
+            return "test_value"
+    
+    def _generate_fallback_data(self, route: RouterInfo) -> Dict[str, Any]:
+        """生成fallback测试数据"""
+        function_name = route.function_name.lower()
+        
+        if 'register' in function_name:
+            return {
+                "username": "test_user",
+                "email": "test@example.com", 
+                "password": "test_password123",
+                "phone": "13800138000",
+                "verification_code": "123456",
+                "real_name": "测试用户"
+            }
+        elif 'login' in function_name:
+            return {
+                "username": "test_user",
+                "password": "test_password123"
+            }
+        else:
+            return {"data": "test_value"}
