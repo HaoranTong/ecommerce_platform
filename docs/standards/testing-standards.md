@@ -1492,7 +1492,7 @@ pytest tests/ --cov=app --cov-report=html --cov-report=term
 pytest tests/smoke/ -v
 
 # 或使用专用脚本
-.\scripts\smoke_test.ps1
+.\tools\smoke_test.ps1
 ```
 
 ### 集成测试（需要Docker）
@@ -1502,7 +1502,7 @@ docker-compose up -d mysql
 pytest tests/integration/ -v
 
 # 或使用专用脚本（自动管理Docker）
-.\scripts\integration_test.ps1
+.\tools\integration_test.ps1
 ```
 
 ### 🎯 测试策略决策树
@@ -2192,7 +2192,7 @@ jobs:
           pip install -r requirements-test.txt
       - name: Run tests
         run: |
-          python scripts/validate_test_config.py
+          python tools/validate_test_config.py
           pytest tests/unit/ --cov=app --cov-report=xml
           pytest tests/integration/ --cov=app --cov-append
       - name: Upload coverage
@@ -2213,7 +2213,7 @@ pytest tests/ --tb=line | grep FAILED
 # 2. 详细诊断  
 pytest tests/path/to/failed_test.py -vv
 # 3. 环境验证
-.\scripts\check_test_env.ps1
+.\tools\check_test_env.ps1
 # 4. 修复验证
 pytest tests/path/to/failed_test.py
 ```

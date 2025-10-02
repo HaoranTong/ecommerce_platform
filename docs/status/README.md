@@ -6,7 +6,7 @@
 
 ### 🤖 自动化文档 (禁止手工编辑)
 - **[模块开发状态](module-status.md)** - 自动统计的模块完成情况、API端点、代码行数
-  - 📊 **更新方式**: 执行 `scripts/update_module_status.ps1` 
+  - 📊 **更新方式**: 执行 `tools/update_module_status.ps1` 
   - ⚠️ **严禁手工编辑**，所有数据通过脚本自动生成
 
 ### 📝 人工维护文档
@@ -17,7 +17,7 @@
 ## 🎯 使用说明
 
 ### AI开发人员
-- **模块完成后** - 立即执行 `scripts/update_module_status.ps1` 更新状态
+- **模块完成后** - 立即执行 `tools/update_module_status.ps1` 更新状态
 - **工作开始前** - 查看 module-status.md 了解当前完成情况  
 - **遇到问题时** - 在 issues-tracking.md 中记录技术问题
 - **工作切换时** - 更新 current-work-status.md 说明当前重点
@@ -28,7 +28,7 @@
 ```
 模块编码完成 
     ↓
-执行 scripts/update_module_status.ps1
+执行 tools/update_module_status.ps1
     ↓
 自动更新 module-status.md (API数量、代码行数、完成率)
 ```

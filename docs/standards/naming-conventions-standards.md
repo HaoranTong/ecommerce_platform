@@ -248,16 +248,20 @@ async def create_product(
 ### 自动化检查工具
 ```powershell
 # 检查API端点命名规范
-.\scripts\check_api_naming.ps1
+# API命名规范检查
+.\tools\check_api_naming.ps1
 
 # 检查数据库字段命名规范  
-.\scripts\check_db_naming.ps1
+# 数据库命名规范检查
+.\tools\check_db_naming.ps1
 
 # 检查文档目录命名规范
-.\scripts\check_docs_naming.ps1
+# 文档命名规范检查
+.\tools\check_docs_naming.ps1
 
 # 全面命名规范检查
-.\scripts\check_naming_compliance.ps1
+# 统一命名规范检查
+.\tools\check_naming_compliance.ps1
 ```
 
 #### 强制检查点设置

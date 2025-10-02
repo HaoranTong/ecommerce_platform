@@ -25,11 +25,11 @@
     # 完整开发环境配置
 
 .EXAMPLE
-    .\scripts\setup_dev_env.ps1 -Action check
+    .\tools\setup_dev_env.ps1 -Action check
     # 检查环境状态
 
 .EXAMPLE
-    .\scripts\setup_dev_env.ps1 -Action create-env
+    .\tools\setup_dev_env.ps1 -Action create-env
     # 创建.env文件
 
 .NOTES

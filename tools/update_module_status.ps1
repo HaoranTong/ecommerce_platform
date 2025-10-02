@@ -19,9 +19,9 @@
 输出格式，支持markdown(默认)和json
 
 .EXAMPLE
-scripts\update_module_status.ps1
-scripts\update_module_status.ps1 -OutputPath "custom-status.md"
-scripts\update_module_status.ps1 -Format json
+tools\update_module_status.ps1
+tools\update_module_status.ps1 -OutputPath "custom-status.md"
+tools\update_module_status.ps1 -Format json
 
 .NOTES
 创建时间: 2025-09-19
@@ -150,7 +150,7 @@ try {
 # 模块开发状态 (实时更新)
 
 **最后更新**: $currentDate  
-**统计工具**: scripts\update_module_status.ps1
+**统计工具**: tools\update_module_status.ps1
 
 ## 📊 整体进度
 
@@ -235,7 +235,7 @@ try {
 
 ### 更新规则
 - **触发时机**: 每次模块代码提交后立即更新
-- **更新命令**: `.\scripts\update_module_status.ps1`
+- **更新命令**: `.\tools\update_module_status.ps1`
 - **责任人**: 模块开发者负责及时更新
 
 ---

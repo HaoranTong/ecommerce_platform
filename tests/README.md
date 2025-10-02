@@ -22,7 +22,8 @@
 ```
 tests/
 ├── README.md                       # 测试目录说明文档
-├── conftest.py                     # pytest全局配置
+├── conftest.py                     # pytest全局配置 (主配置)
+├── conftest_e2e.py                 # 简化测试配置 (应急备用)
 ├── smoke_test.db                   # 烟雾测试数据库文件
 ├── unit/                           # 单元测试目录 - 70%覆盖率
 │   ├── test_models/                # 模型单元测试
@@ -37,6 +38,66 @@ tests/
 ├── security/                       # 安全测试目录 - 1%覆盖率
 ├── factories/                      # 测试数据工厂目录
 └── _archive/                       # 测试文件存档目录
+```
+
+## 🔧 测试配置文件说明
+
+### conftest.py (主配置文件)
+- **功能**: 完整的五层测试架构支持 (710行)
+- **环境感知**: 支持3种模式 (development/ci_pipeline/post_deployment)
+- **数据库策略**: 5种数据库配置 (Mock/内存/文件/MySQL Docker)
+- **Mock框架**: 强制使用pytest-mock
+- **使用场景**: 正常开发和测试的主要配置
+
+### conftest_e2e.py (简化配置 - 应急备用)
+- **功能**: 最小化测试配置，应急隔离专用
+- **设计目的**: 当主配置出现复杂依赖问题时的备用方案
+- **使用场景**: 
+  - 应急情况：`cp tests/conftest_e2e.py tests/conftest.py`
+  - 快速验证：简化环境的开发调试
+  - 故障排除：复杂环境问题的问题定位
+- **注意**: 仅在应急或特殊情况使用，默认使用主配置
+
+## 📝 详细使用示例
+
+### 正常开发使用（推荐）
+```bash
+# 运行所有测试（默认使用主配置 conftest.py）
+pytest
+
+# 运行特定模块测试
+pytest tests/unit/test_user_auth.py -v
+pytest tests/integration/test_api.py -v
+pytest tests/e2e/test_workflow.py -v
+```
+
+### 应急情况使用
+```bash
+# 1. 备份主配置
+cp tests/conftest.py tests/conftest_backup.py
+
+# 2. 使用简化配置
+cp tests/conftest_e2e.py tests/conftest.py
+
+# 3. 运行基础测试
+pytest tests/factories/ -v
+pytest tests/unit/test_models.py -v
+
+# 4. 恢复主配置
+cp tests/conftest_backup.py tests/conftest.py
+```
+
+### 快速验证使用
+```bash
+# 方法1：临时指定配置文件
+pytest tests/unit/test_user_auth.py --confcutdir=tests -c tests/conftest_e2e.py -v
+
+# 方法2：单独目录测试
+cd tests
+python -m pytest --confcutdir=. -c conftest_e2e.py unit/ -v
+
+# 方法3：测试特定功能
+pytest tests/smoke/test_basic.py -v  # 使用简化环境
 ```
 
 ## 🎯 测试架构说明

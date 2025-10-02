@@ -31,12 +31,12 @@ pip list | findstr -i "requirements"
 ### 权限问题
 ```powershell
 # 检查脚本文件权限
-Get-Acl scripts\*.ps1
-icacls scripts\*.ps1
+Get-Acl tools\*.ps1
+icacls tools\*.ps1
 
 # 解决权限问题
-takeown /F scripts\*.ps1
-icacls scripts\*.ps1 /grant %username%:F
+takeown /F tools\*.ps1
+icacls tools\*.ps1 /grant %username%:F
 ```
 
 ---
@@ -107,7 +107,7 @@ Get-ChildItem app -Recurse -Filter "__init__.py"
 ```bash
 # 立即检查
 python --version  # 确保Python 3.8+
-python scripts/generate_test_template.py --help  # 检查工具可用性
+python tools/generate_test_template.py --help  # 检查工具可用性
 
 # 快速修复
 pip install -r requirements.txt  # 重装依赖
@@ -117,12 +117,20 @@ python -c "import sys; print(sys.path)"  # 检查路径
 #### ❌ 问题：生成的所有测试都失败
 ```bash
 # 紧急诊断
-python scripts/e2e_test_verification.py  # 端到端验证
+python tools/e2e_test_verification.py  # 端到端验证
 cat docs/analysis/*validation_report*.md | head -20  # 查看错误
 
-# 应急方案
-cp tests/conftest_e2e.py tests/conftest.py  # 使用简化conftest
-python -m pytest tests/factories/ -v  # 仅测试工厂类
+# 应急方案 - 测试配置问题隔离
+# 1. 使用简化配置隔离主配置问题
+cp tests/conftest_e2e.py tests/conftest.py  # 临时替换为简化配置
+python -m pytest tests/factories/ -v  # 测试基础功能
+
+# 2. 恢复主配置
+git checkout tests/conftest.py  # 恢复主配置文件
+
+# 3. 其他应急选项
+pytest tests/你的测试.py --confcutdir=tests/  # 使用默认配置
+pytest tests/ -o confcutdir=tests/conftest_e2e.py  # 指定使用简化配置
 ```
 
 ## 🔧 分类故障排查
@@ -159,7 +167,7 @@ find . -name "__pycache__" -type d -exec rm -rf {} +
 find . -name "*.pyc" -delete
 
 # 2. 重启Python进程
-python scripts/generate_test_template.py user_auth --type unit
+python tools/generate_test_template.py user_auth --type unit
 
 # 3. 如果持续出现，添加extend_existing=True
 # 在models.py中：
@@ -246,7 +254,7 @@ grep -r "SubFactory" tests/factories/
 user_id = factory.LazyFunction(lambda: 1)  # 而非 user=SubFactory(UserFactory)
 
 # 3. 重新生成工厂（工具已优化循环依赖检测）
-python scripts/generate_test_template.py user_auth --type unit
+python tools/generate_test_template.py user_auth --type unit
 ```
 
 ### 3. 执行阶段问题
@@ -313,7 +321,7 @@ df -h
 
 # 3. 使用临时目录
 export TMPDIR=/tmp
-python scripts/generate_test_template.py user_auth --type unit
+python tools/generate_test_template.py user_auth --type unit
 ```
 
 ## 📊 诊断工具和脚本
@@ -321,7 +329,7 @@ python scripts/generate_test_template.py user_auth --type unit
 ### 自动诊断脚本
 ```bash
 #!/bin/bash
-# 保存为 scripts/diagnose.sh
+# 保存为 tools/diagnose.sh
 
 echo "🔍 开始智能测试工具诊断..."
 
@@ -349,14 +357,14 @@ fi
 
 # 端到端快速验证
 echo "🚀 端到端快速验证:"
-timeout 30 python scripts/e2e_test_verification.py 2>&1 | head -10
+timeout 30 python tools/e2e_test_verification.py 2>&1 | head -10
 
 echo "📊 诊断完成"
 ```
 
 ### 问题分类自动识别
 ```python
-# 保存为 scripts/issue_classifier.py
+# 保存为 tools/issue_classifier.py
 import re
 import sys
 from pathlib import Path
@@ -439,7 +447,7 @@ if __name__ == "__main__":
 git checkout 上一个稳定版本
 
 # 2. 使用简化模式生成
-python scripts/generate_test_template.py user_auth --type unit --dry-run
+python tools/generate_test_template.py user_auth --type unit --dry-run
 
 # 3. 手动验证关键工厂类
 python -c "from tests.factories.user_auth_factories import UserFactory; print(UserFactory.build())"
@@ -455,7 +463,7 @@ rm -rf tests/factories/*_factories.py
 rm -rf tests/unit/test_models/
 
 # 3. 重新生成
-python scripts/generate_test_template.py user_auth --type unit
+python tools/generate_test_template.py user_auth --type unit
 ```
 
 ### 依赖冲突解决
@@ -468,7 +476,7 @@ source emergency_env/bin/activate
 pip install pytest==7.4.2 factory-boy==3.3.0 sqlalchemy==2.0.21
 
 # 3. 重新测试
-python scripts/generate_test_template.py user_auth --type unit
+python tools/generate_test_template.py user_auth --type unit
 ```
 
 ## 📞 获取帮助

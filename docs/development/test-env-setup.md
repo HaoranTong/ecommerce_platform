@@ -83,7 +83,7 @@
 #### 输出示例
 ```powershell
 # 基本使用
-.\scripts\check_test_env.ps1
+.\tools\check_test_env.ps1
 
 # 输出示例 (成功)
 🔍 快速测试环境检查
@@ -109,7 +109,7 @@
 📋 第1步：虚拟环境激活与验证
 ==================================================
 ✅ 虚拟环境激活
-   Python路径: E:\ecommerce_platform\.venv\Scripts\python.exe
+   Python路径: E:\ecommerce_platform\.venv\tools\python.exe
 ✅ Python版本
    Python 3.11.9
 
@@ -166,25 +166,25 @@
 **基础使用**
 ```powershell
 # 默认lite模式，进行环境设置
-.\scripts\setup_test_env.ps1
+.\tools\setup_test_env.ps1
 
 # 仅检查lite环境状态
-.\scripts\setup_test_env.ps1 -CheckOnly
+.\tools\setup_test_env.ps1 -CheckOnly
 
 # 仅检查full环境状态（包括Docker）
-.\scripts\setup_test_env.ps1 -TestMode full -CheckOnly
+.\tools\setup_test_env.ps1 -TestMode full -CheckOnly
 ```
 
 **高级使用**
 ```powershell
 # 设置完整测试环境
-.\scripts\setup_test_env.ps1 -TestMode full
+.\tools\setup_test_env.ps1 -TestMode full
 
 # 自动修复环境问题
-.\scripts\setup_test_env.ps1 -TestMode full -AutoFix
+.\tools\setup_test_env.ps1 -TestMode full -AutoFix
 
 # 详细模式显示更多信息
-.\scripts\setup_test_env.ps1 -TestMode full -Verbose
+.\tools\setup_test_env.ps1 -TestMode full -Verbose
 ```
 
 #### 工作流程
@@ -215,13 +215,13 @@
 
 **场景1：快速单元测试** 
 ```powershell
-.\scripts\setup_test_env.ps1 -TestMode lite
+.\tools\setup_test_env.ps1 -TestMode lite
 
 ```bash
-.\scripts\setup_test_env.ps1 -TestMode lite           # 轻量测试（单元测试）
-.\scripts\setup_test_env.ps1 -TestMode full          # 完整测试（集成测试）
-.\scripts\setup_test_env.ps1 -TestMode full           # 全部测试（推荐full模式）
-.\scripts\setup_test_env.ps1 -TestMode lite -CheckOnly      # 仅检查环境，不进行设置
+.\tools\setup_test_env.ps1 -TestMode lite           # 轻量测试（单元测试）
+.\tools\setup_test_env.ps1 -TestMode full          # 完整测试（集成测试）
+.\tools\setup_test_env.ps1 -TestMode full           # 全部测试（推荐full模式）
+.\tools\setup_test_env.ps1 -TestMode lite -CheckOnly      # 仅检查环境，不进行设置
 ```
 
 ### validate_test_config.py 诊断工具
@@ -230,7 +230,7 @@
 
 #### 详细验证内容
 ```powershell
-.\scripts\setup_test_env.ps1 -TestMode full
+.\tools\setup_test_env.ps1 -TestMode full
 
 # 执行流程：
 # 1-5. 同上环境准备
@@ -241,7 +241,7 @@
 
 **场景4：完整测试套件**
 ```powershell
-.\scripts\setup_test_env.ps1 -TestMode full
+.\tools\setup_test_env.ps1 -TestMode full
 
 # 执行流程：
 # 1. 准备所有测试环境
@@ -303,7 +303,7 @@ python scripts/validate_test_config.py
 **解决方案**：
 ```powershell
 # 激活虚拟环境
-.venv\Scripts\Activate.ps1
+.venv\tools\Activate.ps1
 
 # 验证激活
 python -c "import sys; print(sys.prefix)"
@@ -346,7 +346,7 @@ docker --version
 
 # 启动Docker Desktop
 # 然后重新运行测试
-.\scripts\setup_test_env.ps1 -TestMode full
+.\tools\setup_test_env.ps1 -TestMode full
 ```
 
 #### 问题5：SQLAlchemy模型关系错误
@@ -363,7 +363,7 @@ python -c "from app.modules.user_auth.models import User; print('OK')"
 
 # 重新生成数据库
 rm tests/smoke_test.db
-.\scripts\setup_test_env.ps1 -TestMode lite  # smoke测试建议使用轻量模式
+.\tools\setup_test_env.ps1 -TestMode lite  # smoke测试建议使用轻量模式
 ```
 
 ### 环境重置步骤
@@ -381,10 +381,10 @@ docker-compose up -d
 docker restart ecommerce_platform-mysql-test
 
 # 第三步：重新验证环境
-.\scripts\check_test_env.ps1
+.\tools\check_test_env.ps1
 
 # 第四步：重新运行测试
-.\scripts\setup_test_env.ps1 -TestMode lite
+.\tools\setup_test_env.ps1 -TestMode lite
 ```
 
 ## 🏭 测试数据工厂使用指南
@@ -412,13 +412,13 @@ docker restart ecommerce_platform-mysql-test
 ### 开发阶段测试策略
 ```powershell
 # 开发过程中：频繁运行单元测试
-.\scripts\setup_test_env.ps1 -TestMode lite
+.\tools\setup_test_env.ps1 -TestMode lite
 
 # 功能完成后：运行集成测试
-.\scripts\setup_test_env.ps1 -TestMode full
+.\tools\setup_test_env.ps1 -TestMode full
 
 # 提交前：运行完整测试套件
-.\scripts\setup_test_env.ps1 -TestMode full
+.\tools\setup_test_env.ps1 -TestMode full
 ```
 
 ### 持续集成环境配置
@@ -426,13 +426,13 @@ docker restart ecommerce_platform-mysql-test
 # CI/CD管道中的测试步骤
 steps:
   - name: Setup Test Environment
-    run: .\scripts\check_test_env.ps1
+    run: .\tools\check_test_env.ps1
     
   - name: Run Unit Tests
-    run: .\scripts\setup_test_env.ps1 -TestMode lite
+    run: .\tools\setup_test_env.ps1 -TestMode lite
     
   - name: Run Integration Tests
-    run: .\scripts\setup_test_env.ps1 -TestMode full
+    run: .\tools\setup_test_env.ps1 -TestMode full
 ```
 
 ## 📋 **测试代码生成工具**

@@ -189,7 +189,7 @@ function Test-EnvironmentConfiguration {
     Write-ColorMessage "=== 测试环境配置验证 ===" "Info"
     
     if (-not $SkipValidation) {
-        $validationScript = Join-Path $script:ProjectRoot "scripts\validate_test_config.py"
+        $validationScript = Join-Path $script:ProjectRoot "tools\validate_test_config.py"
         
         if (Test-Path $validationScript) {
             Write-ColorMessage "运行测试配置验证脚本..." "Info"

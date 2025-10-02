@@ -45,7 +45,7 @@
 **执行步骤**:
 ```powershell
 # Step 1: 修改前验证
-scripts/validate_standards.ps1 -Action full
+tools/validate_standards.ps1 -Action full
 
 # Step 2: 进行修改 (使用适当的工具/编辑器)
 
@@ -53,7 +53,7 @@ scripts/validate_standards.ps1 -Action full
 # <!--version info: v1.x.x, created: YYYY-MM-DD, level: Lx, dependencies: ...-->
 
 # Step 4: 修改后验证
-scripts/validate_standards.ps1 -Action full
+tools/validate_standards.ps1 -Action full
 
 # Step 5: 提交变更 (仅在验证通过后)
 git add docs/standards/
@@ -76,7 +76,7 @@ git commit -m "feat(standards): 更新XXX标准 - 原因说明"
 # 在standards-master-index.md中添加新文档链接
 
 # Step 4: 完整验证
-scripts/validate_standards.ps1 -Action full
+tools/validate_standards.ps1 -Action full
 
 # Step 5: 更新相关README文档
 # docs/README.md, 主README.md等
@@ -89,7 +89,7 @@ scripts/validate_standards.ps1 -Action full
 **执行步骤**:
 ```powershell
 # Step 1: 启动DEV-009协议
-scripts/ai_checkpoint.ps1 -CardType "DEV-009" -FilePath "文档路径"
+tools/ai_checkpoint.ps1 -CardType "DEV-009" -FilePath "文档路径"
 
 # Step 2: 按DEV-009卡片执行
 # 1) 备份现有文档
@@ -98,7 +98,7 @@ scripts/ai_checkpoint.ps1 -CardType "DEV-009" -FilePath "文档路径"
 # 4) 逐行重建 (禁止复制粘贴)
 
 # Step 3: 重建后验证
-scripts/validate_standards.ps1 -Action full
+tools/validate_standards.ps1 -Action full
 
 # Step 4: 记录修复过程
 # 在相关ADR或维护日志中记录
@@ -117,10 +117,10 @@ scripts/validate_standards.ps1 -Action full
 **维护命令**:
 ```powershell
 # 依赖关系专项检查
-scripts/validate_standards.ps1 -Action dependencies
+tools/validate_standards.ps1 -Action dependencies
 
 # 重复内容专项检查  
-scripts/validate_standards.ps1 -Action duplicate -Detailed
+tools/validate_standards.ps1 -Action duplicate -Detailed
 ```
 
 #### 2. 版本信息一致性维护
@@ -138,7 +138,7 @@ scripts/validate_standards.ps1 -Action duplicate -Detailed
 **维护命令**:
 ```powershell
 # 格式一致性专项检查
-scripts/validate_standards.ps1 -Action format
+tools/validate_standards.ps1 -Action format
 ```
 
 ### 🔄 CI/CD集成
@@ -169,7 +169,7 @@ jobs:
       
     - name: 完整标准验证
       run: |
-        pwsh scripts/validate_standards.ps1 -Action full
+        pwsh tools/validate_standards.ps1 -Action full
       
     - name: 验证失败时上传报告
       if: failure()
@@ -188,10 +188,10 @@ jobs:
 #!/usr/bin/env pwsh
 Write-Host "🔍 执行标准文档验证..." -ForegroundColor Yellow
 
-$validationResult = & "scripts/validate_standards.ps1" -Action full
+$validationResult = & "tools/validate_standards.ps1" -Action full
 if ($LASTEXITCODE -ne 0) {
     Write-Host "❌ 标准文档验证失败，提交被阻止" -ForegroundColor Red
-    Write-Host "请运行: scripts/validate_standards.ps1 -Action full" -ForegroundColor Yellow
+    Write-Host "请运行: tools/validate_standards.ps1 -Action full" -ForegroundColor Yellow
     exit 1
 }
 
@@ -212,7 +212,7 @@ exit 0
 **生成命令**:
 ```powershell
 # 生成质量报告
-scripts/generate_standards_report.ps1 -Period "monthly" -Output "docs/reports/"
+tools/generate_standards_report.ps1 -Period "monthly" -Output "docs/reports/"
 ```
 
 #### 2. 问题跟踪
@@ -270,55 +270,55 @@ scripts/generate_standards_report.ps1 -Period "monthly" -Output "docs/reports/"
 **a) validate_standards.ps1 - 核心验证工具**
 ```powershell
 # 完整验证
-scripts/validate_standards.ps1 -Action full
+tools/validate_standards.ps1 -Action full
 
 # 分项验证
-scripts/validate_standards.ps1 -Action format      # 格式验证
-scripts/validate_standards.ps1 -Action content    # 内容验证
-scripts/validate_standards.ps1 -Action dependencies # 依赖验证
-scripts/validate_standards.ps1 -Action duplicate    # 重复内容检查
+tools/validate_standards.ps1 -Action format      # 格式验证
+tools/validate_standards.ps1 -Action content    # 内容验证
+tools/validate_standards.ps1 -Action dependencies # 依赖验证
+tools/validate_standards.ps1 -Action duplicate    # 重复内容检查
 
 # 单文档验证
-scripts/validate_standards.ps1 -Action full -DocPath "docs/standards/naming-conventions-standards.md"
+tools/validate_standards.ps1 -Action full -DocPath "docs/standards/naming-conventions-standards.md"
 ```
 
 **b) maintain_standards.ps1 - 综合维护工具**
 ```powershell
 # 健康检查（推荐：每日使用）
-scripts/maintain_standards.ps1 -Action check
+tools/maintain_standards.ps1 -Action check
 
 # 版本管理
-scripts/maintain_standards.ps1 -Action update -Target version     # 批量更新版本头
-scripts/maintain_standards.ps1 -Action update -Target content    # 内容时效性检查
-scripts/maintain_standards.ps1 -Action update -Target all        # 全面更新
+tools/maintain_standards.ps1 -Action update -Target version     # 批量更新版本头
+tools/maintain_standards.ps1 -Action update -Target content    # 内容时效性检查
+tools/maintain_standards.ps1 -Action update -Target all        # 全面更新
 
 # 报告生成  
-scripts/maintain_standards.ps1 -Action report -Target summary    # 摘要报告
-scripts/maintain_standards.ps1 -Action report -Target detailed   # 详细报告
-scripts/maintain_standards.ps1 -Action report -Target metrics    # 质量指标报告
+tools/maintain_standards.ps1 -Action report -Target summary    # 摘要报告
+tools/maintain_standards.ps1 -Action report -Target detailed   # 详细报告
+tools/maintain_standards.ps1 -Action report -Target metrics    # 质量指标报告
 
 # 备份管理
-scripts/maintain_standards.ps1 -Action backup -Target "milestone-v1.0"  # 创建备份
-scripts/maintain_standards.ps1 -Action restore -Target "milestone-v1.0" # 恢复备份
-scripts/maintain_standards.ps1 -Action restore                          # 查看可用备份
+tools/maintain_standards.ps1 -Action backup -Target "milestone-v1.0"  # 创建备份
+tools/maintain_standards.ps1 -Action restore -Target "milestone-v1.0" # 恢复备份
+tools/maintain_standards.ps1 -Action restore                          # 查看可用备份
 ```
 
 **c) 维护脚本组合使用**
 ```powershell
 # 日常维护（每天）
-scripts/maintain_standards.ps1 -Action check
+tools/maintain_standards.ps1 -Action check
 
 # 周度维护（每周一）  
-scripts/maintain_standards.ps1 -Action report -Target summary
-scripts/maintain_standards.ps1 -Action update -Target version
+tools/maintain_standards.ps1 -Action report -Target summary
+tools/maintain_standards.ps1 -Action update -Target version
 
 # 季度维护（每季度）
-scripts/maintain_standards.ps1 -Action backup -Target "quarterly-$(Get-Date -Format 'yyyyQq')"
-scripts/maintain_standards.ps1 -Action report -Target detailed
+tools/maintain_standards.ps1 -Action backup -Target "quarterly-$(Get-Date -Format 'yyyyQq')"
+tools/maintain_standards.ps1 -Action report -Target detailed
 
 # 发版前维护
-scripts/validate_standards.ps1 -Action full
-scripts/maintain_standards.ps1 -Action backup -Target "release-v$(Get-Date -Format 'yyyyMMdd')"
+tools/validate_standards.ps1 -Action full
+tools/maintain_standards.ps1 -Action backup -Target "release-v$(Get-Date -Format 'yyyyMMdd')"
         # 扫描并更新所有过时的版本信息
     }
     "report" { 
@@ -428,4 +428,4 @@ scripts/maintain_standards.ps1 -Action backup -Target "release-v$(Get-Date -Form
 - [validate_standards.ps1使用手册](../tools/scripts-usage-manual.md#validate_standards.ps1---标准文档验证-)
 - [ADR-002架构重构决策](../architecture/ADR-002-standards-architecture-refactoring.md)
 - [标准文档导航总索引](standards-master-index.md)
-- [开发工具脚本总览](../../scripts/README.md)
+- [开发工具脚本总览](../../tools/README.md)

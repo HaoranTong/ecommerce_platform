@@ -580,15 +580,15 @@ jobs:
         
     - name: 验证脚本语法
       run: |
-        pwsh -Command "Get-ChildItem scripts/*.ps1 | ForEach-Object { Test-ScriptSyntax $_.FullName }"
+        pwsh -Command "Get-ChildItem tools/*.ps1 | ForEach-Object { Test-ScriptSyntax $_.FullName }"
         
     - name: 检查脚本文档
       run: |
-        python scripts/validation/validate_standards.py -Action format
+        python tools/validation/validate_standards.py -Action format
         
     - name: 环境配置验证
       run: |
-        python scripts/validation/validate_test_config.py
+        python tools/validation/validate_test_config.py
 ```
 
 ### 脚本依赖管理

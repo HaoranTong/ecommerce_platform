@@ -82,7 +82,7 @@
 
 5. **验证文档**
    ```powershell
-   scripts/validate_standards.ps1 -Action full
+   tools/validate_standards.ps1 -Action full
    ```
 
 ### 📏 L2标准文档编写原则
