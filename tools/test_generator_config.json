@@ -1,0 +1,91 @@
+{
+  "_description": "测试生成器配置文件 - 智能五层架构测试生成器核心配置",
+  "_usage": {
+    "primary_tool": "tools/generate_test_template.py",
+    "description": "为电商平台模块化架构提供智能测试代码生成配置",
+    "backup_strategy": "如果此文件不存在，生成器将使用内置默认配置",
+    "modification_guide": "修改此文件可以自定义测试生成行为、路径分布、数据库配置等"
+  },
+  "_referenced_by": [
+    "tools/generate_test_template.py (主要引用者)",
+    "docs/status/work-history-archive.md (文档记录)",
+    "docs/development/test_generator_optimization_report.md (优化报告)"
+  ],
+  "_version": "2.0",
+  "_last_updated": "2025-10-02",
+  "project_structure": {
+    "project_root": ".",
+    "modules_path": "app/modules",
+    "models_file": "models.py",
+    "service_file": "service.py",
+    "router_file": "router.py",
+    "tests_path": "tests",
+    "factories_path": "tests/factories"
+  },
+  "test_distributions": {
+    "unit": 0.70,
+    "integration": 0.20,
+    "e2e": 0.06,
+    "smoke": 0.02,
+    "specialized": 0.02
+  },
+  "test_paths": {
+    "unit_models": "tests/unit/test_models",
+    "unit_services": "tests/unit/test_services",
+    "unit_standalone": "tests/unit",
+    "integration": "tests/integration",
+    "e2e": "tests/e2e",
+    "smoke": "tests/smoke",
+    "performance": "tests/performance",
+    "factories": "tests/factories"
+  },
+  "database_config": {
+    "unit_test_fixture": "unit_test_db",
+    "integration_test_fixture": "mysql_integration_db",
+    "e2e_test_fixture": "api_client",
+    "test_database_url": "mysql+pymysql://root:test_password@localhost:3308/ecommerce_platform_test",
+    "unit_database_url": "sqlite:///",
+    "database_cleanup_order": [
+      "OrderItem", "OrderStatusHistory", "Refund", "Payment", "Order",
+      "RolePermission", "UserRole", "Session", "User", "Permission", "Role",
+      "InventoryTransaction", "InventoryReservation", "InventoryStock",
+      "SKUAttribute", "ProductAttribute", "ProductImage", "ProductTag",
+      "SKU", "Product", "Brand", "Category"
+    ]
+  },
+  "code_generation": {
+    "add_generation_headers": true,
+    "validate_test_code": true,
+    "direct_to_formal_dirs": true,
+    "timeout_seconds": 300
+  },
+  "business_logic_patterns": {
+    "user_fields": ["username", "email", "password", "phone", "real_name"],
+    "audit_fields": ["created_at", "updated_at", "created_by", "updated_by"],
+    "status_fields": ["status", "state", "is_active", "enabled", "deleted"],
+    "financial_fields": ["price", "cost", "amount", "balance", "total", "fee"],
+    "inventory_fields": ["stock", "quantity", "available", "reserved", "current_stock"],
+    "relationship_patterns": {
+      "one_to_many": ["items", "orders", "products", "children", "permissions"],
+      "many_to_one": ["user", "category", "parent", "owner", "brand"],
+      "many_to_many": ["tags", "permissions", "roles", "attributes"]
+    },
+    "common_models": {
+      "User": ["user_auth", "member_system"],
+      "Role": ["user_auth"],
+      "Permission": ["user_auth"],
+      "Product": ["product_catalog"],
+      "SKU": ["product_catalog"],
+      "Order": ["order_management"],
+      "Category": ["product_catalog"],
+      "Brand": ["product_catalog"]
+    }
+  },
+  "error_handling": {
+    "max_retries": 3,
+    "timeout_seconds": 30,
+    "detailed_errors": true,
+    "suggest_fixes": true,
+    "fail_fast": false
+  }
+}
