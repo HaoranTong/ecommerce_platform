@@ -42,6 +42,15 @@ app/modules/{模块名}/     # 业务模块 (垂直切片)
 └── dependencies.py     # 依赖注入
 ```
 
+### **核心开发工具**
+- **环境工具**: setup_test_env.ps1, check_test_env.ps1 (环境配置验证)
+- **测试工具**: run_module_tests.ps1, smoke_test.ps1 (测试执行)
+- **质量工具**: check_code_standards.ps1, validate_standards.ps1 (代码质量)
+- **生成工具**: generate_test_template.py (测试代码自动生成)
+- **文档工具**: sync_readme.ps1, create_module_docs.ps1 (文档管理)
+
+> 完整工具清单：[tools/README.md](tools/README.md)
+
 ## 🎯 项目简介
 
 **核心价值**: 模块化单体架构的农产品电商平台，专注溯源、质量认证和供应链管理，提供完整的JWT认证体系和高性能购物体验。
