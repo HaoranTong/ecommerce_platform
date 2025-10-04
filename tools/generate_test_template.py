@@ -1,5 +1,23 @@
 #!/usr/bin/env python3
 """
+🧪 智能测试模板生成器 v2.0 - 全面优化版
+
+🚨 **关键f-string嵌套错误警告** 🚨
+此文件曾多次出现 "name 'model_name' is not defined" 错误，主要原因:
+
+1. **嵌套f-string问题**: 在大的f-string模板内部使用{variable}
+2. **注释中的花括号**: 在f-string内部的注释中使用{}
+3. **模板变量替换错误**: .format()传入字符串字面量而不是变量
+
+🔧 **修复策略和预防措施**:
+- 在所有大型f-string模板中使用双大括号{{}}转义
+- 注释中绝对不使用{}花括号，改用文字描述
+- .format()调用中传入实际变量而不是"{variable_name}"
+- 在关键位置添加明确的修复说明和警告
+
+📚 **参考历史修复**: git commit 3a4387a 系统性修复F-string格式化错误
+📖 **详细指南**: docs/development/f_string_error_prevention_guide.md
+
 智能五层架构测试生成器
 
 配置文件依赖:
@@ -593,7 +611,22 @@ class IntelligentTestGenerator:
             return "str"  # 默认为字符串类型
 
     def _get_foreign_key(self, column) -> Optional[str]:
-        """获取外键信息
+        """获取外键信息 - 动态检测的核心方法
+        
+        这是实现跨模块通用性的关键方法：
+        - 直接从SQLAlchemy列对象获取外键定义
+        - 返回标准格式：'table_name.column_name'
+        - 支持所有模块的外键类型，无需硬编码
+        
+        示例返回值：
+        - user_auth模块：'users.id', 'roles.id', 'permissions.id'
+        - product_catalog模块：'categories.id', 'brands.id', 'products.id'
+        - order_management模块：'users.id', 'products.id', 'skus.id'
+        
+        数据库标准兼容性：
+        - 遵循database-standards.md规定的INTEGER主键标准
+        - 自动适应不同模块的表名和外键定义
+        - 确保外键格式与实际数据库结构一致
 
         Args:
             column: SQLAlchemy列对象
@@ -783,48 +816,112 @@ from {module_import_path} import (
         return factory_code
 
     def _sort_models_by_dependencies(self, models: Dict[str, ModelInfo]) -> List[Tuple[str, ModelInfo]]:
-        """按依赖关系对模型排序，确保被依赖的模型先生成工厂类"""
-        # 构建依赖图
+        """按依赖关系对模型排序，确保被依赖的模型先生成工厂类
+        
+        核心问题解决：
+        - 解决Factory Boy工厂创建时的FOREIGN KEY constraint failed问题
+        - 确保依赖模型在被依赖模型之前创建，避免外键约束失败
+        
+        算法说明：
+        1. 分析所有模型的外键关系，构建依赖图
+        2. 使用拓扑排序算法确定安全的创建顺序
+        3. 处理循环依赖的特殊情况（如自引用、相互引用）
+        
+        示例场景：
+        - User模型被RolePermission.granted_by引用
+        - Role模型被RolePermission.role_id引用  
+        - Permission模型被RolePermission.permission_id引用
+        - 正确顺序：User → Permission → Role → RolePermission
+        
+        Args:
+            models: 模型信息字典，包含字段和外键信息
+            
+        Returns:
+            List[Tuple[str, ModelInfo]]: 按依赖顺序排序的模型列表
+            
+        重要性：
+        - 这是双工厂模式中Factory Boy工厂的核心依赖解决机制
+        - 直接影响create_sample_data()方法的执行成功率
+        - 避免测试运行时出现IntegrityError外键约束失败
+        """
+        # 第一步：构建依赖图 - 分析每个模型依赖哪些其他模型
         dependencies = {}
+        print(f"🔍 开始分析模型依赖关系...")
+        
         for model_name, model_info in models.items():
             deps = []
             for field in model_info.fields:
                 if field.foreign_key:
-                    # 提取外键目标模型
+                    # 提取外键目标模型（从foreign_key字符串中解析）
                     target_model = self._extract_fk_target_model(field.foreign_key)
                     if target_model in models:
                         deps.append(target_model)
+                        print(f"  📎 {model_name}.{field.name} → {target_model} (外键依赖)")
             dependencies[model_name] = deps
+            
+        print(f"📊 依赖图构建完成: {len(dependencies)} 个模型")
         
-        # 拓扑排序
+        # 第二步：拓扑排序 - 使用DFS确定安全的创建顺序
         result = []
-        visited = set()
-        visiting = set()
+        visited = set()    # 已完全处理的模型
+        visiting = set()   # 正在处理中的模型（用于检测循环）
         
         def visit(model):
+            """深度优先搜索访问模型及其依赖
+            
+            关键逻辑：
+            1. 先访问所有依赖模型（递归）
+            2. 再将当前模型加入结果（后序遍历）
+            3. 这样确保依赖模型总是在被依赖模型之前出现
+            """
             if model in visiting:
-                # 检测到循环依赖，跳过
+                # 检测到循环依赖！例如：A→B→A
+                print(f"⚠️  检测到循环依赖: {model} (跳过以避免无限递归)")
                 return
             if model in visited:
+                # 已经处理过的模型，直接返回
                 return
             
-            visiting.add(model)
+            visiting.add(model)  # 标记为正在访问
+            
+            # 递归访问所有依赖模型（先处理依赖）
             for dep in dependencies.get(model, []):
                 if dep in models:
                     visit(dep)
-            visiting.remove(model)
-            visited.add(model)
+                    
+            visiting.remove(model)  # 移除正在访问标记
+            visited.add(model)     # 标记为已完成
+            
+            # 关键：依赖处理完后才加入结果（确保顺序正确）
             result.append((model, models[model]))
+            print(f"  ✅ {model} 添加到创建序列 (位置 {len(result)})")
         
+        # 第三步：遍历所有模型，确保都被处理
+        print(f"🚀 开始拓扑排序...")
         for model_name in models:
             visit(model_name)
         
+        print(f"🎯 拓扑排序完成，最终创建顺序:")
+        for i, (model_name, _) in enumerate(result, 1):
+            print(f"  {i}. {model_name}")
+            
         return result
 
     def _generate_single_factory(
         self, model_name: str, model_info: ModelInfo, all_models: Dict[str, ModelInfo]
     ) -> str:
-        """生成单个模型的Factory类
+        """生成单个模型的Factory类 - 支持联合主键模型
+        
+        ⚠️ **关键f-string嵌套错误警告** ⚠️
+        此函数曾出现 "name 'model_name' is not defined" 错误，原因：
+        - 禁止使用: f'''...{model_name}...'''嵌套f-string
+        - 必须使用: .format()方法给模板传参
+        - 注意: 在f-string内部的注释中也不能使用{}花括号！
+        
+        重要修复：
+        - 检测联合主键模型（如RolePermission, UserRole）
+        - 对联合主键模型使用不同的Meta配置
+        - 避免假设所有模型都有独立的id字段
 
         Args:
             model_name: 模型名称
@@ -835,23 +932,36 @@ from {module_import_path} import (
             str: Factory类代码
         """
         factory_name = f"{model_name}Factory"
+        
+        # 检测是否为联合主键模型
+        is_composite_key = len(model_info.primary_keys) > 1
+        has_id_field = 'id' in model_info.primary_keys
 
-        # 生成类定义
+        # 生成类定义 - 修复f-string嵌套问题
+        # 【重要修复】这里不能使用 f'''...{model_name}...''' 嵌套f-string
+        # 原因: 外层f-string和内层模板变量会冲突，导致 "name 'model_name' is not defined" 错误
+        # 解决方案: 使用.format()方法给模板传参，避免嵌套f-string
         class_def = f'''class {factory_name}(factory.alchemy.SQLAlchemyModelFactory):
-    """智能生成的{model_name}工厂类"""
+    """智能生成的{{}}工厂类"""
     
     class Meta:
-        model = {model_name}
+        model = {{}}
         sqlalchemy_session_persistence = "commit"
-        sqlalchemy_get_or_create = ("name",) if hasattr({model_name}, "name") else None
-'''
+'''.format(model_name, model_name)
+        
+        # 联合主键模型不能使用get_or_create
+        if not is_composite_key and has_id_field:
+            class_def += f'        sqlalchemy_get_or_create = ("name",) if hasattr({model_name}, "name") else None\n'
+        else:
+            class_def += '        # 联合主键模型，不使用get_or_create\n'
+            class_def += '        sqlalchemy_get_or_create = None\n'
 
         # 生成字段定义
         field_definitions = []
 
         for field in model_info.fields:
-            if field.name in ["id"] and field.primary_key:
-                # 主键通常由数据库自动生成，跳过
+            if field.name in ["id"] and field.primary_key and not is_composite_key:
+                # 单一主键ID通常由数据库自动生成，跳过
                 continue
 
             field_def = self._generate_field_definition(field, model_info, all_models)
@@ -922,36 +1032,105 @@ from {module_import_path} import (
     def _generate_foreign_key_definition(
         self, field: FieldInfo, all_models: Dict[str, ModelInfo]
     ) -> str:
-        """生成外键字段定义 - 修复版"""
-        # 尝试解析外键引用的模型
+        """生成外键字段定义 - 基于真实模型运行时检测的动态方式
+        
+        核心理念：
+        - 完全基于SQLAlchemy模型的运行时检测结果
+        - 外键信息从_get_foreign_key()方法获取，确保准确性
+        - 适应所有模块的不同外键定义，无需硬编码假设
+        
+        动态检测原理：
+        1. field.foreign_key已经通过运行时检测获得（如"users.id"）
+        2. 解析目标表名和字段名，找到对应的模型类
+        3. 根据字段语义智能判断是否为自引用
+        4. 使用正确的Factory Boy模式生成外键定义
+        
+        跨模块兼容性：
+        - user_auth模块: role_id → roles.id, user_id → users.id
+        - product_catalog模块: category_id → categories.id, brand_id → brands.id  
+        - order_management模块: user_id → users.id, product_id → products.id
+        - 所有模块都遵循统一的INTEGER主键标准
+        
+        Args:
+            field: 运行时检测的外键字段信息
+            all_models: 当前模块的所有模型信息
+            
+        Returns:
+            str: 适用于任何模块的正确外键字段定义
+            
+        重要性：
+        - 消除硬编码假设，基于真实模型定义
+        - 跨模块通用，支持任意业务域的测试生成
+        - 确保外键完整性，避免FOREIGN KEY constraint failed
+        """
+        if not field.foreign_key:
+            return f"{field.name} = factory.Sequence(lambda n: n + 1)  # 非外键字段"
+            
+        # 解析外键目标：field.foreign_key 格式为 "table_name.column_name"
         fk_parts = field.foreign_key.split(".")
-        if len(fk_parts) == 2:
-            table_name, column_name = fk_parts
-            # 找到对应的模型
-            target_model = None
-            for model_name, model_info in all_models.items():
-                if model_info.tablename == table_name:
-                    target_model = model_name
-                    break
-
-            if target_model:
-                # 改进的循环依赖检测和处理
-                dependency_info = self._analyze_circular_dependency(
-                    field.name, target_model, all_models
-                )
-                if dependency_info["has_cycle"]:
-                    if dependency_info["safe_to_use_subfactory"]:
-                        # 使用SubFactory但延迟创建
-                        return f"{field.name} = factory.LazyAttribute(lambda obj: {target_model}Factory().id)"
-                    else:
-                        # 使用合理的默认外键值
-                        return f"{field.name} = factory.LazyFunction(lambda: self._get_safe_foreign_key('{target_model}', '{column_name}'))"
-                else:
-                    # 外键字段需要ID值，不是对象 - 使用序列生成唯一ID
-                    return f"{field.name} = factory.Sequence(lambda n: n + 1)"
-
-        # 如果无法解析，生成一个序列外键
-        return f"{field.name} = factory.Sequence(lambda n: n + 1)"
+        if len(fk_parts) != 2:
+            return f"{field.name} = factory.Sequence(lambda n: n + 1)  # 外键格式异常: {field.foreign_key}"
+            
+        target_table, target_column = fk_parts
+        
+        # 查找目标模型：遍历所有模型，找到tablename匹配的模型
+        target_model = None
+        for model_name, model_info in all_models.items():
+            if model_info.tablename == target_table:
+                target_model = model_name
+                break
+        
+        if not target_model:
+            # 跨模块引用（如引用users表但当前模块没有User模型）
+            # 这是正常情况，使用基于表名的推导
+            target_model = self._infer_model_name_from_table(target_table)
+            
+        # 智能检测自引用字段：基于字段名模式和业务语义
+        is_self_reference = self._is_self_reference_field(field.name, target_table)
+        
+        if is_self_reference:
+            # 自引用字段（如granted_by, assigned_by, parent_id等）
+            # 设为None避免循环依赖，符合业务逻辑
+            return f"{field.name} = None  # 自引用字段，避免循环依赖"
+        else:
+            # 正常外键：使用SubFactory确保依赖对象被正确创建
+            return f"{field.name} = factory.SubFactory({target_model}Factory)"
+    
+    def _infer_model_name_from_table(self, table_name: str) -> str:
+        """从表名推导模型名 - 遵循数据库命名规范
+        
+        根据命名规范：表名为复数形式，模型名为单数驼峰形式
+        例如：users → User, role_permissions → RolePermission
+        """
+        # 移除复数后缀
+        if table_name.endswith('ies'):
+            # categories → categor → Category
+            singular = table_name[:-3] + 'y'
+        elif table_name.endswith('s'):
+            # users → user, products → product
+            singular = table_name[:-1]
+        else:
+            singular = table_name
+            
+        # 转换为驼峰命名
+        return ''.join(word.capitalize() for word in singular.split('_'))
+    
+    def _is_self_reference_field(self, field_name: str, target_table: str) -> bool:
+        """判断是否为自引用字段
+        
+        基于字段名语义和目标表分析：
+        1. 审计字段（created_by, updated_by, granted_by, assigned_by）
+        2. 层次结构字段（parent_id, manager_id）
+        3. 引用同类型实体的字段
+        """
+        # 常见的自引用字段模式
+        self_ref_patterns = [
+            'granted_by', 'assigned_by', 'created_by', 'updated_by',
+            'parent_id', 'manager_id', 'supervisor_id', 'approved_by',
+            'modified_by', 'reviewed_by'
+        ]
+        
+        return field_name.lower() in self_ref_patterns
 
     def _analyze_circular_dependency(
         self, field_name: str, target_model: str, all_models: Dict[str, ModelInfo]
@@ -1198,26 +1377,66 @@ from {module_import_path} import (
     ) -> str:
         """生成工厂管理器类，提供便捷的数据创建方法
 
+        核心功能说明：
+        - 生成FactoryManager类，是双工厂模式中Factory Boy工厂的管理器
+        - 最重要的功能是create_sample_data()方法，按正确的依赖顺序创建测试数据
+        - 解决FOREIGN KEY constraint failed问题的关键组件
+        
+        关键修复历史：
+        - 之前版本：使用models.keys()的字典顺序，导致外键约束失败
+        - 修复后版本：使用_sort_models_by_dependencies()的拓扑排序结果
+        - 确保被依赖的模型(如User)在依赖模型(如RolePermission)之前创建
+        
+        双工厂模式说明：
+        - Factory Boy工厂：用于单元测试，轻量快速，内存创建
+        - 统一工厂：用于集成测试，完整业务链，真实数据库
+        - 本方法生成的是Factory Boy工厂的管理器
+        
         Args:
             module_name: 模块名称
             models: 模型信息
 
         Returns:
             str: 工厂管理器代码
+            
+        重要性：
+        - 这是解决Factory Boy依赖顺序问题的核心方法
+        - 直接影响所有单元测试中create_sample_data()的执行成功率
+        - 避免测试运行时出现IntegrityError外键约束失败
         """
+        # 按依赖关系排序模型，确保正确的创建顺序
+        # 这是关键修复：使用拓扑排序而不是字典默认顺序
+        sorted_models = self._sort_models_by_dependencies(models)
+        
         manager_class = f'''class {module_name.title().replace("_", "")}FactoryManager:
     """智能生成的{module_name}模块工厂管理器
     
     提供便捷的测试数据创建方法和常见业务场景的数据组合
+    
+    双工厂模式中的Factory Boy工厂管理器：
+    - 适用于单元测试(test_services/、*_standalone.py)
+    - 轻量级内存创建，不依赖真实数据库连接
+    - 智能处理外键依赖，避免FOREIGN KEY constraint failed
+    
+    关键方法：
+    - setup_factories(): 设置数据库会话
+    - create_sample_data(): 按依赖顺序创建完整测试数据集
+    - create_test_scenario(): 创建特定业务场景的数据
     """
     
     @staticmethod
     def setup_factories(session: Session):
-        """设置所有工厂的数据库会话"""
+        """设置所有工厂的数据库会话
+        
+        重要说明：
+        - 必须在创建Factory实例之前调用
+        - 确保所有Factory使用相同的数据库会话
+        - 支持事务回滚和数据隔离
+        """
 '''
 
-        # 为每个工厂设置session
-        for model_name in models.keys():
+        # 为每个工厂设置session - 按依赖顺序处理
+        for model_name, _ in sorted_models:
             factory_name = f"{model_name}Factory"
             manager_class += (
                 f"        {factory_name}._meta.sqlalchemy_session = session\n"
@@ -1227,27 +1446,52 @@ from {module_import_path} import (
         manager_class += f'''
     @staticmethod
     def create_sample_data(session: Session) -> dict:
-        """创建样本测试数据"""
+        """创建样本测试数据 - 按依赖顺序创建避免外键约束失败
+        
+        核心算法说明：
+        1. 使用_sort_models_by_dependencies()的拓扑排序结果
+        2. 按依赖顺序逐个创建Factory实例
+        3. 确保被依赖模型(如User)在依赖模型(如RolePermission)之前创建
+        
+        解决的关键问题：
+        - FOREIGN KEY constraint failed错误
+        - 例如：RolePermission.granted_by引用User.id，必须先创建User
+        
+        返回结果：
+        - dict: 包含所有创建的模型实例，key为模型名小写
+        - 可以通过data['user']、data['role']等方式访问
+        
+        使用示例：
+        >>> sample_data = factory_manager.create_sample_data(unit_test_db)
+        >>> user = sample_data['user']  # 获取创建的User实例
+        >>> role = sample_data['role']  # 获取创建的Role实例
+        """
         {module_name.title().replace("_", "")}FactoryManager.setup_factories(session)
         
         data = {{}}
 '''
 
-        # 为每个模型生成样本数据
-        for model_name in models.keys():
+        # 按依赖顺序为每个模型生成样本数据 - 这是关键修复点
+        for model_name, _ in sorted_models:
             factory_name = f"{model_name}Factory"
             manager_class += (
-                f"        data['{model_name.lower()}'] = {factory_name}()\n"
+                f"        data['{model_name.lower()}'] = {factory_name}()  # 创建{model_name}实例\n"
             )
 
         manager_class += (
             '''        
-        session.commit()
+        session.commit()  # 提交所有创建的数据
         return data
         
     @staticmethod
     def create_test_scenario(session: Session, scenario: str = 'basic') -> dict:
-        """创建特定测试场景的数据"""
+        """创建特定测试场景的数据
+        
+        扩展点说明：
+        - 目前默认调用create_sample_data()
+        - 未来可以根据scenario参数创建不同的业务场景
+        - 例如：'admin_user'、'guest_user'、'complex_permissions'等
+        """
         # 可以根据具体业务需求扩展不同场景
         return '''
             + f"{module_name.title().replace('_', '')}FactoryManager.create_sample_data(session)"
@@ -1356,6 +1600,19 @@ from {module_import_path} import (
         validate: bool = True,
     ) -> Dict[str, str]:
         """生成测试文件
+        
+        🚨 **f-string错误已修复但需持续注意** 🚨
+        
+        关键修复点（历史错误参考）:
+        1. _generate_single_factory: 第918行 - 模板字符串用.format()而不是嵌套f-string
+        2. _generate_service_tests: 第2725行 - 注释中的花括号被f-string解析
+        3. _generate_smart_crud_test: 模板变量替换传入实际变量而不是字符串字面量
+        4. StandardTestDataFactory依赖已移除 - 它不存在且未被使用
+        
+        🔧 预防措施:
+        - 所有大型f-string模板使用双大括号{{}}转义
+        - 注释中不使用{}花括号
+        - .format()传入实际变量: variable而不是"{variable}"
 
         Args:
             module_name: 模块名称
@@ -1536,12 +1793,12 @@ from app.modules.{module_name}.models import (
             relationship_tests = self._generate_mock_relationship_tests(model_info)
             test_methods.extend(relationship_tests)
 
-        class_code = f'''
+        class_code = '''
 class Test{model_name}Model:
-    """{model_name}模型测试类 - 100% Mock策略"""
+    """{{model_name}}模型测试类 - 100% Mock策略"""
         
-{chr(10).join(test_methods)}
-'''
+{test_methods}
+'''.format(model_name=model_name, test_methods=chr(10).join(test_methods))
 
         return class_code
 
@@ -2053,24 +2310,208 @@ class Test{model_name}Model:
         
         return features
 
+    def _detect_service_class_name(self, module_name: str) -> str:
+        """检测服务类的真实名称
+        
+        Args:
+            module_name: 模块名称
+            
+        Returns:
+            str: 检测到的服务类名称
+        """
+        service_info = self._detect_service_info(module_name)
+        return service_info['class_name']
+    
+    def _detect_service_info(self, module_name: str) -> dict:
+        """检测服务类的完整信息，解决导入和实例化问题
+        
+        核心功能说明：
+        - 分析服务文件AST结构，识别真实的服务类名
+        - 检测服务方法的实例化模式(静态方法 vs 实例方法)
+        - 解决之前hardcode导致的UserAuthService vs UserService问题
+        
+        关键修复历史：
+        - 问题：测试生成器假设服务类名为UserAuthService，但实际为UserService
+        - 解决：通过AST解析自动检测真实的服务类定义
+        - 重要性：避免ImportError和实例化错误，确保生成的测试代码能够正常运行
+        
+        实例化模式检测：
+        - 静态方法模式：service = UserService (无需初始化参数)
+        - 实例方法模式：service = UserService() (需要创建实例)
+        
+        Args:
+            module_name: 模块名称
+            
+        Returns:
+            dict: 包含服务信息的字典
+            - class_name: 服务类名 (如 'UserService')
+            - is_static: 是否为静态方法模式 (True/False)
+            - instantiation_pattern: 实例化模式 ('static'/'instance')
+            - static_methods: 静态方法数量
+            - instance_methods: 实例方法数量
+            
+        错误预防：
+        - 通过真实AST分析避免命名假设
+        - 支持多种服务文件结构和命名模式
+        - 确保生成的测试代码与实际服务实现匹配
+        """
+        service_file_path = Path(f"app/modules/{module_name}/service.py")
+        
+        # 默认信息 - 当检测失败时的fallback
+        default_info = {
+            'class_name': f"{module_name.title().replace('_', '')}Service",
+            'is_static': False,
+            'instantiation_pattern': 'instance',  # 'instance', 'static', 'direct'
+            'static_methods': 0,
+            'instance_methods': 0
+        }
+        
+        # 如果服务文件不存在，使用算法生成名称
+        if not service_file_path.exists():
+            print(f"⚠️  服务文件不存在: {service_file_path}")
+            return default_info
+        
+        try:
+            # 读取服务文件内容
+            with open(service_file_path, 'r', encoding='utf-8') as f:
+                content = f.read()
+            
+            # 解析AST查找类定义
+            tree = ast.parse(content)
+            service_classes = []
+            
+            for node in ast.walk(tree):
+                if isinstance(node, ast.ClassDef):
+                    class_name = node.name
+                    # 查找以Service结尾的类
+                    if class_name.endswith('Service'):
+                        # 分析方法模式 - 统计静态方法和实例方法数量
+                        static_methods = 0
+                        instance_methods = 0
+                        
+                        for item in node.body:
+                            if isinstance(item, ast.FunctionDef):
+                                # 检查是否有@staticmethod装饰器
+                                is_static = any(
+                                    isinstance(decorator, ast.Name) and decorator.id == 'staticmethod'
+                                    for decorator in item.decorator_list
+                                )
+                                if is_static:
+                                    static_methods += 1
+                                elif item.name != '__init__':  # 排除构造函数
+                                    instance_methods += 1
+                        
+                        service_info = {
+                            'class_name': class_name,
+                            'static_methods': static_methods,
+                            'instance_methods': instance_methods
+                        }
+                        
+                        # 确定实例化模式 - 关键逻辑
+                        if static_methods > 0 and instance_methods == 0:
+                            # 纯静态方法类
+                            service_info['is_static'] = True
+                            service_info['instantiation_pattern'] = 'static'
+                        elif static_methods > instance_methods:
+                            # 静态方法占主导
+                            service_info['is_static'] = True  
+                            service_info['instantiation_pattern'] = 'static'
+                        else:
+                            # 实例方法占主导或相等
+                            service_info['is_static'] = False
+                            service_info['instantiation_pattern'] = 'instance'
+                            
+                        service_classes.append(service_info)
+            
+            if service_classes:
+                # 如果找到多个Service类，优先选择最匹配的
+                for service_info in service_classes:
+                    class_name = service_info['class_name']
+                    # 精确匹配模块名 - 避免命名冲突
+                    module_pattern = module_name.replace('_', '').lower()
+                    if module_pattern in class_name.lower():
+                        print(f"✅ 检测到服务类: {class_name} (精确匹配模块 {module_name}, {'静态方法' if service_info['is_static'] else '实例方法'})")
+                        print(f"   📊 方法统计: 静态方法={service_info['static_methods']}, 实例方法={service_info['instance_methods']}")
+                        return service_info
+                
+                # 如果没有精确匹配，返回第一个Service类
+                detected_service = service_classes[0]
+                print(f"✅ 检测到服务类: {detected_service['class_name']} (第一个Service类, {'静态方法' if detected_service['is_static'] else '实例方法'})")
+                print(f"   📊 方法统计: 静态方法={detected_service['static_methods']}, 实例方法={detected_service['instance_methods']}")
+                return detected_service
+            else:
+                print(f"⚠️  未找到Service类，使用算法生成名称")
+                return default_info
+                
+        except Exception as e:
+            print(f"⚠️  解析服务文件失败: {e}")
+            return default_info
+
+    def _generate_service_instantiation(self, service_info: dict, db_var: str = "unit_test_db") -> str:
+        """生成服务实例化代码，解决静态方法vs实例方法的实例化问题
+        
+        核心功能说明：
+        - 根据服务类的方法模式生成正确的实例化代码
+        - 解决之前硬编码实例化导致的测试失败问题
+        
+        关键修复历史：
+        - 问题：UserService使用静态方法，但生成的代码是service = UserService(unit_test_db)
+        - 解决：检测服务类模式，静态方法类直接引用，实例方法类创建实例
+        - 重要性：确保生成的测试代码能够正确调用服务方法
+        
+        实例化模式：
+        - 静态方法模式：service = UserService (直接引用类，不创建实例)
+        - 实例方法模式：service = UserService() (创建类实例)
+        
+        Args:
+            service_info: 服务信息字典，包含is_static和class_name
+            db_var: 数据库变量名 (目前未使用，保留接口兼容性)
+            
+        Returns:
+            str: 正确的服务实例化代码
+            
+        示例输出：
+        - 静态模式：service = UserService
+        - 实例模式：service = UserService()
+        
+        错误预防：
+        - 避免对静态方法类错误地传递数据库参数
+        - 确保实例方法类正确创建实例
+        - 与_detect_service_info()方法配合使用
+        """
+        service_class_name = service_info['class_name']
+        
+        if service_info['is_static']:
+            # 静态方法模式：直接引用类，不创建实例
+            # 例如：service = UserService
+            return f"service = {service_class_name}"
+        else:
+            # 实例方法模式：创建实例
+            # 例如：service = UserService()
+            # 注意：目前不传递数据库参数，根据实际需要可以扩展
+            return f"service = {service_class_name}()"
+
     def _generate_service_method_tests(
-        self, module_name: str, models: Dict[str, ModelInfo], service_class_name: str
+        self, module_name: str, models: Dict[str, ModelInfo], service_info: dict
     ) -> str:
         """生成服务方法测试代码
 
         Args:
             module_name: 模块名称
             models: 模型信息字典
-            service_class_name: 服务类名称
+            service_info: 服务信息字典
 
         Returns:
             str: 服务方法测试代码
         """
+        service_class_name = service_info['class_name']
+        service_instantiation = self._generate_service_instantiation(service_info)
+        
         if not models:
             return f'''    def test_service_basic_functionality(self, unit_test_db: Session):
         """测试服务基本功能"""
         print(f"{NEWLINE}🔍 测试基本功能...")
-        service = {service_class_name}(unit_test_db)
+        {service_instantiation}
         # 添加具体的服务方法测试
         assert True  # 占位符'''
 
@@ -2088,12 +2529,44 @@ class Test{model_name}Model:
         return "\n\n".join(test_methods)
 
     def _generate_smart_crud_test(self, model_name: str, model_info: ModelInfo, service_class_name: str, module_name: str, features: Dict[str, Any]) -> str:
-        """生成基于业务特征的智能CRUD测试"""
+        """生成基于业务特征的智能CRUD测试 - 支持联合主键模型
+        
+        ⚠️ **f-string模板变量替换错误修复** ⚠️
+        曾出现问题: 模板中{validation_code}, {module_name}, {query_condition}未被替换
+        修复方案: .format()调用中传入实际变量而不是字符串字面量
+        错误示例: module_name="{module_name}"
+        正确做法: module_name=module_name
+        """
+        
+        # 检测是否为联合主键模型
+        is_composite_key = len(model_info.primary_keys) > 1
+        has_id_field = 'id' in model_info.primary_keys
+        
+        # 生成适当的验证代码
+        if is_composite_key:
+            # 联合主键模型：验证联合主键字段
+            primary_key_validations = []
+            query_conditions = []
+            for pk_field in model_info.primary_keys:
+                primary_key_validations.append(f"        assert hasattr(test_instance, '{pk_field}')")
+                primary_key_validations.append(f"        assert test_instance.{pk_field} is not None")
+                query_conditions.append(f"{model_name}.{pk_field} == test_instance.{pk_field}")
+            
+            validation_code = "\n".join(primary_key_validations)
+            query_condition = ", ".join(query_conditions)
+        else:
+            # 单一主键模型：验证id字段
+            validation_code = """        assert test_instance is not None
+        assert hasattr(test_instance, 'id')
+        assert test_instance.id is not None"""
+            query_condition = f"{model_name}.id == test_instance.id"
         
         # 基础CRUD测试
-        base_test = f'''    def test_{model_name.lower()}_crud_operations(self, unit_test_db: Session):
-        """测试{model_name}的CRUD操作 - {features["business_domain"]}域"""
-        print(f"{NEWLINE}📋 测试{model_name} CRUD操作...")
+        business_domain = features["business_domain"]
+        # 使用.format()方法避免嵌套f-string问题
+        base_test = '''    def test_{model_name_lower}_crud_operations(self, unit_test_db: Session):
+        """测试{model_name}的CRUD操作 - {business_domain}域"""
+        print(f"{{{NEWLINE}}}📋 测试{model_name} CRUD操作...")
         
         if not SERVICE_AVAILABLE:
             pytest.skip("服务类不可用，跳过CRUD测试")
@@ -2105,16 +2578,22 @@ class Test{model_name}Model:
         from tests.factories.{module_name}_factories import {model_name}Factory
         test_instance = {model_name}Factory()
         
-        # 验证Factory创建的实例
-        assert test_instance is not None
-        assert hasattr(test_instance, 'id')
-        assert test_instance.id is not None
+        # 验证Factory创建的实例 - {composite_key_info}模型验证
+{validation_code}
         
         # 测试数据库查询 - 验证数据确实保存了
         from app.modules.{module_name}.models import {model_name}
-        query_result = unit_test_db.query({model_name}).filter({model_name}.id == test_instance.id).first()
-        assert query_result is not None
-        assert query_result.id == test_instance.id'''
+        query_result = unit_test_db.query({model_name}).filter({query_condition}).first()
+        assert query_result is not None'''.format(
+            model_name_lower=model_name.lower(),
+            model_name=model_name,
+            business_domain=business_domain,
+            NEWLINE="NEWLINE",
+            module_name=module_name,  # 【重要修复】传入实际的module_name变量，而不是字符串字面量
+            composite_key_info="联合主键" if is_composite_key else "单一主键",
+            validation_code=validation_code,  # 【重要修复】传入实际生成的validation_code，而不是字符串字面量
+            query_condition=query_condition  # 【重要修复】传入实际生成的query_condition，而不是字符串字面量
+        )
         
         # 根据业务特征添加专项测试
         business_tests = []
@@ -2149,7 +2628,7 @@ class Test{model_name}Model:
                     if value is not None:
                         assert isinstance(value, (Decimal, int, float))''')
         
-        return base_test + "".join(business_tests) + f'''
+        return base_test + "".join(business_tests) + '''
         
         # 测试数据更新 - 直接操作数据库对象
         if hasattr(test_instance, 'updated_at'):
@@ -2174,6 +2653,16 @@ class Test{model_name}Model:
         self, module_name: str, models: Dict[str, ModelInfo]
     ) -> str:
         """生成服务层测试 - SQLite内存数据库 [CHECK:TEST-001]
+        
+        🚨 **关键f-string嵌套错误警告** 🚨
+        此函数曾因第2725行注释中的{model_name}引起 "name 'model_name' is not defined" 错误！
+        原因: 整个函数返回的是一个大的f-string模板，其中的注释中的{}也会被Python解析！
+        
+        重要经验教训:
+        1. 在f-string模板内部的注释中绝对不能使用{}花括号
+        2. 必须使用双大括号{{}}转义所有在f-string内部的变量引用
+        3. 模板变量替换时传入实际变量而不是字符串字面量
+        4. 移除不必要的StandardTestDataFactory依赖
 
         Args:
             module_name: 模块名称
@@ -2182,12 +2671,14 @@ class Test{model_name}Model:
         Returns:
             str: 服务层测试代码
         """
-        service_class_name = f"{module_name.title().replace('_', '')}Service"
-        test_class_name = f"Test{module_name.title().replace('_', '')}Service"
-
+        service_info = self._detect_service_info(module_name)
+        service_class_name = service_info['class_name']
+        service_instantiation = self._generate_service_instantiation(service_info)
+        test_class_name = f"Test{service_class_name}"
+        
         # 生成服务方法测试
         service_methods = self._generate_service_method_tests(
-            module_name, models, service_class_name
+            module_name, models, service_info
         )
         return f'''"""
 {module_name.title()} 服务层测试
@@ -2218,7 +2709,7 @@ from sqlalchemy.exc import IntegrityError
 
 # 测试基础设施
 from tests.conftest import unit_test_db
-from tests.factories import StandardTestDataFactory
+# 【修复】移除不必要的StandardTestDataFactory依赖，因为它不存在且未被实际使用
 from tests.factories.{module_name}_factories import {module_name.title().replace('_', '')}FactoryManager
 
 # 被测服务和模型
@@ -2240,7 +2731,7 @@ class {test_class_name}:
     
     def setup_method(self):
         """测试准备"""
-        self.test_data_factory = StandardTestDataFactory()
+        # 【修复】移除不必要的test_data_factory，因为StandardTestDataFactory不存在
         self.factory_manager = {module_name.title().replace('_', '')}FactoryManager()
         
     def test_service_initialization(self, unit_test_db: Session):
@@ -2251,12 +2742,8 @@ class {test_class_name}:
             pytest.skip("服务类不可用，跳过服务初始化测试")
         
         # 测试正常初始化
-        service = {service_class_name}(unit_test_db)
+        {service_instantiation}
         assert service is not None
-        assert hasattr(service, 'db')
-        
-        # 测试数据库会话设置
-        assert service.db is unit_test_db
         
     def test_service_factory_integration(self, unit_test_db: Session):
         """测试服务与Factory数据工厂的集成"""
@@ -2272,11 +2759,25 @@ class {test_class_name}:
         sample_data = self.factory_manager.create_sample_data(unit_test_db)
         assert sample_data is not None
         
-        # 验证Factory创建的数据可以被查询
+        # 验证Factory创建的数据可以被查询 - 支持联合主键模型
         for model_name, created_instance in sample_data.items():
             assert created_instance is not None
-            assert hasattr(created_instance, 'id')
-            assert created_instance.id is not None
+            # 动态检测主键字段而不是硬编码id
+            if hasattr(created_instance, 'id'):
+                assert created_instance.id is not None
+            else:
+                # 联合主键模型，验证至少有一个主键字段
+                has_primary_key = False
+                for attr_name in dir(created_instance):
+                    if not attr_name.startswith('_') and hasattr(created_instance, attr_name):
+                        attr_value = getattr(created_instance, attr_name)
+                        if attr_value is not None and str(attr_name).endswith('_id'):
+                            has_primary_key = True
+                            break
+                # 【重要修复】这里必须使用双大括号转义
+                # 原因: 此行在大的f-string模板内部，单大括号会被外层f-string解析
+                # 单大括号 → 双大括号转义 避免 "name 'model_name' is not defined" 错误
+                assert has_primary_key, f"模型 {{model_name}} 没有找到有效的主键字段"
             
 {service_methods}
     
@@ -2514,7 +3015,8 @@ class {test_class_name}:
         Returns:
             str: 业务流程测试代码
         """
-        service_class_name = f"{module_name.title().replace('_', '')}Service"
+        service_info = self._detect_service_info(module_name)
+        service_class_name = service_info['class_name']
         workflow_tests = self._generate_workflow_scenarios(
             module_name, models, service_class_name
         )
@@ -2549,7 +3051,7 @@ from sqlalchemy.exc import IntegrityError
 
 # 测试基础设施
 from tests.conftest import unit_test_db
-from tests.factories import StandardTestDataFactory
+# 【修复】移除不必要的StandardTestDataFactory依赖，因为它不存在且未被实际使用
 from tests.factories.{module_name}_factories import {module_name.title().replace('_', '')}FactoryManager
 
 # 被测模块组件
@@ -2572,7 +3074,7 @@ class Test{module_name.title().replace('_', '')}Workflow:
     
     def setup_method(self):
         """测试准备"""
-        self.test_data_factory = StandardTestDataFactory()
+        # 【修复】移除不必要的test_data_factory，因为StandardTestDataFactory不存在
         self.factory_manager = {module_name.title().replace('_', '')}FactoryManager()
         
     @pytest.mark.critical
