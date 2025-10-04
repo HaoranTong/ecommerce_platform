@@ -59,6 +59,7 @@ import json
 from datetime import timedelta
 from fastapi import status
 from unittest.mock import Mock, patch
+from faker import Faker
 
 from app.main import app
 from app.core.auth import get_password_hash, create_access_token
@@ -231,6 +232,52 @@ class {class_name}:
             # 传统模式：依赖JWT认证fixture处理认证
             return ""
     
+    def _convert_to_dynamic_code(self, field: str, value: Any) -> str:
+        """将值转换为动态生成代码，避免硬编码"""
+        # 如果是字符串，检查是否是特定类型
+        if isinstance(value, str):
+            # 电话号码 - 生成中国手机号格式
+            if any(keyword in field.lower() for keyword in ['phone', 'mobile', 'tel']):
+                return 'f"1{fake.random_int(min=3, max=9)}{fake.random_int(min=100000000, max=999999999)}"'
+            # 验证码 - 生成6位数字
+            elif any(keyword in field.lower() for keyword in ['verification_code', 'code', 'verify']):
+                return 'fake.numerify("######")'
+            # Refresh Token - 使用认证系统获取真实token
+            elif any(keyword in field.lower() for keyword in ['refresh_token', 'refresh']):
+                return 'test_user_tokens[1]  # 使用认证系统获取的refresh_token'
+            # 邮箱地址
+            elif any(keyword in field.lower() for keyword in ['email', 'mail']):
+                return 'fake.email()'
+            # 用户名 - 生成符合规则的用户名（字母数字组合）
+            elif any(keyword in field.lower() for keyword in ['username', 'user_name']):
+                return 'fake.user_name().replace(".", "_")[:20]'
+            # 真实姓名 - 生成中文姓名或英文姓名
+            elif any(keyword in field.lower() for keyword in ['real_name', 'name']) and 'username' not in field.lower():
+                return 'fake.name()[:50]'
+            # 密码
+            elif any(keyword in field.lower() for keyword in ['password', 'pwd']):
+                return 'fake.password(length=12)'
+            # 地址
+            elif any(keyword in field.lower() for keyword in ['address', 'addr']):
+                return 'fake.address()'
+            # 一般字符串
+            else:
+                return 'fake.text(max_nb_chars=50)'
+        
+        # 数字类型
+        elif isinstance(value, int):
+            return 'fake.random_int(min=1, max=999999)'
+        elif isinstance(value, float):
+            return 'fake.random.uniform(0.0, 999.99)'
+        
+        # 布尔类型
+        elif isinstance(value, bool):
+            return 'fake.boolean()'
+        
+        # 其他类型保持原样
+        else:
+            return repr(value)
+
     def _generate_test_data_for_route(self, route: RouterInfo, models: Dict[str, ModelInfo]) -> str:
         """为路由生成测试数据 - 集成双工厂架构，处理数据依赖关系"""
         
@@ -243,17 +290,18 @@ class {class_name}:
         schema_data = self.analyze_pydantic_schema(module_name, route)
         
         if schema_data and isinstance(schema_data, dict):
-            # 将Schema分析结果转换为测试数据代码
+            # 将Schema分析结果转换为测试数据代码 - 生成动态代码而不是硬编码值
             data_assignments = []
             for field, value in schema_data.items():
-                if isinstance(value, str):
-                    data_assignments.append(f'    "{field}": "{value}"')
-                else:
-                    data_assignments.append(f'    "{field}": {repr(value)}')
+                # 生成动态调用代码，避免硬编码
+                dynamic_code = self._convert_to_dynamic_code(field, value)
+                data_assignments.append(f'    "{field}": {dynamic_code}')
             
             if route.method in ['POST', 'PUT', 'PATCH']:
                 assignments_str = ',\n'.join(data_assignments)
-                return f'''test_data = {{
+                return f'''        # 动态生成测试数据，避免硬编码
+        fake = Faker()
+        test_data = {{
 {assignments_str}
 }}'''
             else:
@@ -287,8 +335,8 @@ class {class_name}:
     def _requires_existing_user_data(self, route: RouterInfo) -> bool:
         """检测API是否需要已存在的用户数据"""
         function_name = route.function_name.lower()
-        # 这些API需要真实存在的用户凭据
-        dependency_apis = ['login', 'change_password', 'update_profile', 'delete_account']
+        # 这些API需要真实存在的用户凭据或特殊处理
+        dependency_apis = ['login', 'refresh', 'change_password', 'update_profile', 'delete_account']
         return any(api in function_name for api in dependency_apis)
     
     def _generate_existing_user_data_code(self, route: RouterInfo) -> str:
@@ -307,16 +355,43 @@ class {class_name}:
             "username": test_user.username,
             "password": "TestPassword123!"
         }'''
-        elif 'change_password' in function_name or 'password' in function_name:
-            return '''# 使用统一工厂创建已存在的用户进行密码修改测试
+        elif 'refresh' in function_name:
+            return '''# 通过登录API获取真实的refresh_token进行测试
+        # 先创建测试用户
         test_user = StandardTestDataFactory.create_user(
             mysql_integration_db,
-            username="test_password_user",
-            password_hash=get_password_hash("OldPassword123!")
+            username="test_refresh_user",
+            password_hash=get_password_hash("TestPassword123!")
         )
         
+        # 通过登录API获取refresh_token
+        login_response = api_client.post("/api/v1/user-auth/login", json={
+            "username": test_user.username,
+            "password": "TestPassword123!"
+        })
+        login_data = login_response.json()
+        
         test_data = {
-            "old_password": "OldPassword123!",
+            "refresh_token": login_data["refresh_token"]
+        }'''
+        elif 'change_password' in function_name or 'password' in function_name:
+            return '''# 确保认证用户和测试用户一致，创建具有已知密码的用户进行密码修改测试
+        # 创建具有已知密码的测试用户
+        test_user = StandardTestDataFactory.create_user(
+            mysql_integration_db,
+            username="test_password_change_user",
+            password_hash=get_password_hash("TestPassword123!")
+        )
+        
+        # 使用该用户进行认证
+        access_token = create_access_token(
+            data={"sub": str(test_user.id)},
+            expires_delta=timedelta(hours=1)
+        )
+        api_client.set_auth_headers(access_token)
+        
+        test_data = {
+            "old_password": "TestPassword123!",  # 与认证用户的实际密码一致
             "new_password": "NewPassword456!"
         }'''
         else:
