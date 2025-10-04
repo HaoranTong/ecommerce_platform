@@ -24,10 +24,13 @@
 import ast
 import os
 import re
+import secrets
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
+
+from faker import Faker
 
 
 @dataclass
@@ -286,7 +289,6 @@ class BaseTestGenerator(ABC):
             # 直接导入schemas.py文件，避免通过__init__.py导入models
             import importlib.util
             import sys
-            from pathlib import Path
             
             schema_file_path = self.project_root / f"app/modules/{module_name}/schemas.py"
             if not schema_file_path.exists():
@@ -311,7 +313,11 @@ class BaseTestGenerator(ABC):
                 # 根据路由功能推断Schema类名
                 schema_class_name = self._infer_schema_class(route)
                 if not schema_class_name:
-                    print(f"⚠️ 无法推断Schema类名，使用fallback数据")
+                    # 检查是否是正常不需要Schema的情况
+                    if self._should_have_schema(route):
+                        print(f"⚠️ 无法推断Schema类名，使用fallback数据")
+                    else:
+                        print(f"📋 {route.function_name} 无需Schema (GET请求或无参数POST)")
                     return self._generate_fallback_data(route)
                 
                 # 获取Schema类
@@ -336,6 +342,21 @@ class BaseTestGenerator(ABC):
             print(f"📋 详细错误: {traceback.format_exc()}")
             return self._generate_fallback_data(route)
     
+    def _should_have_schema(self, route: RouterInfo) -> bool:
+        """判断路由是否应该有Schema"""
+        # GET请求通常不需要请求体Schema
+        if route.method == 'GET':
+            return False
+        
+        # 某些特殊的POST请求不需要Schema
+        function_name = route.function_name.lower()
+        no_schema_functions = ['logout', 'health_check', 'ping']
+        if any(func in function_name for func in no_schema_functions):
+            return False
+        
+        # 其他POST、PUT、PATCH请求通常需要Schema
+        return route.method in ['POST', 'PUT', 'PATCH']
+    
     def _infer_schema_class(self, route: RouterInfo) -> Optional[str]:
         """根据路由功能推断Schema类名"""
         function_name = route.function_name.lower()
@@ -350,6 +371,15 @@ class BaseTestGenerator(ABC):
             return 'TokenRefresh'
         elif 'change' in function_name and 'password' in function_name:
             return 'UserChangePassword'
+        elif 'logout' in function_name:
+            # logout API 通常不需要请求体Schema
+            return None
+        elif 'get_current_user' in function_name or 'get_user' in function_name:
+            # GET API 通常不需要请求体Schema
+            return None
+        elif 'list_users' in function_name or 'list' in function_name:
+            # 列表API 通常不需要请求体Schema  
+            return None
         elif 'create' in function_name:
             # 根据模块推断创建Schema
             return self._infer_create_schema(route)
@@ -383,8 +413,6 @@ class BaseTestGenerator(ABC):
     
     def _generate_field_value(self, field_name: str, field_info) -> Any:
         """根据字段信息生成测试值 - 动态生成"""
-        import secrets
-        from faker import Faker
         fake = Faker()
         
         # 根据字段名称生成合适的动态测试值
@@ -447,8 +475,6 @@ class BaseTestGenerator(ABC):
     
     def _generate_fallback_data(self, route: RouterInfo) -> Dict[str, Any]:
         """生成fallback测试数据 - 动态生成"""
-        from faker import Faker
-        import secrets
         fake = Faker()
         
         function_name = route.function_name.lower()

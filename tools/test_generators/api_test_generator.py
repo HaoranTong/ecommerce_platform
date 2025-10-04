@@ -56,15 +56,14 @@ class APITestGenerator(BaseTestGenerator):
         imports = '''
 import pytest
 import json
+from datetime import timedelta
 from fastapi import status
 from unittest.mock import Mock, patch
-from faker import Faker
 
 from app.main import app
+from app.core.auth import get_password_hash, create_access_token
 from tests.conftest import api_client
 from tests.factories.data_factory import StandardTestDataFactory
-
-fake = Faker("zh_CN")
 '''
         
         # 生成测试类
@@ -115,22 +114,28 @@ class {class_name}:
 '''
     
     def _generate_single_route_test(self, route: RouterInfo, models: Dict[str, ModelInfo]) -> str:
-        """生成单个路由的测试方法"""
+        """生成单个路由的测试方法 - 集成双工厂架构"""
         
         method_name = f"test_{route.function_name}"
         
-        # 分析API依赖关系
-        dependency_setup = self._generate_dependency_setup(route)
+        # 检测是否需要已存在用户数据
+        needs_existing_user = self._requires_existing_user_data(route)
+        
+        # 根据数据依赖选择fixture参数
+        fixture_params = "api_client, mysql_integration_db" if needs_existing_user else "api_client"
+        
+        # 分析API依赖关系 - 使用工厂模式如果需要已存在用户
+        dependency_setup = self._generate_dependency_setup(route, use_factory=needs_existing_user)
         
         # 生成测试数据
         test_data = self._generate_test_data_for_route(route, models)
         
-        # 生成认证设置 - 使用真实JWT认证
+        # 生成认证设置 - 根据数据依赖选择认证方式
         auth_setup = ""
         requires_auth = self._requires_authentication(route)
         requires_admin = self._requires_admin_permission(route)
         
-        if requires_auth and route.function_name not in ['login_user', 'register_user']:
+        if requires_auth and route.function_name not in ['login_user', 'register_user'] and not needs_existing_user:
             if requires_admin:
                 auth_setup = '''
         # 使用管理员认证（因为这个API需要管理员权限）
@@ -144,18 +149,17 @@ class {class_name}:
         api_client.set_auth_headers(access_token)
         '''
         
-        # 生成请求代码
-        request_code = self._generate_request_code(route, test_data, requires_auth)
+        # 生成请求代码 - 支持用户上下文
+        request_code = self._generate_request_code(route, test_data, requires_auth, with_user_context=needs_existing_user)
         
         # 生成断言代码
         assertions = self._generate_assertions(route)
         
         return f'''
-    def {method_name}(self, api_client):
-        """测试{route.summary or route.function_name} - 使用真实JWT认证"""
+    def {method_name}(self, {fixture_params}):
+        """测试{route.summary or route.function_name} - 使用统一工厂和真实JWT认证"""
         {dependency_setup}{auth_setup}
         
-        # 准备测试数据
         {test_data}
         
         # 发送请求
@@ -192,15 +196,47 @@ class {class_name}:
         # 其他所有API都需要认证（默认安全策略）
         return True
     
-    def _generate_dependency_setup(self, route: RouterInfo) -> str:
-        """生成API依赖设置代码 - 简化版本，依赖JWT认证fixture处理认证"""
+    def _generate_dependency_setup(self, route: RouterInfo, use_factory: bool = False) -> str:
+        """生成API依赖设置代码 - 支持统一工厂模式"""
         
-        # 对于需要认证的API，依赖关系由JWT认证fixture处理
-        # 不再生成复杂的依赖代码，保持测试简洁
-        return ""
+        if use_factory:
+            # 使用统一工厂创建用户和认证
+            if self._requires_admin_permission(route):
+                return '''# 使用统一工厂创建管理员用户并获取token
+        admin_user = StandardTestDataFactory.create_user(
+            mysql_integration_db,
+            role="admin",
+            is_active=True
+        )
+        access_token = create_access_token(
+            data={"sub": str(admin_user.id)},
+            expires_delta=timedelta(hours=1)
+        )
+        api_client.set_auth_headers(access_token)'''
+            elif self._requires_authentication(route):
+                return '''# 使用统一工厂创建普通用户并获取token
+        normal_user = StandardTestDataFactory.create_user(
+            mysql_integration_db,
+            role="user",
+            is_active=True
+        )
+        access_token = create_access_token(
+            data={"sub": str(normal_user.id)},
+            expires_delta=timedelta(hours=1)
+        )
+        api_client.set_auth_headers(access_token)'''
+            else:
+                return '''# 无需认证的公开API'''
+        else:
+            # 传统模式：依赖JWT认证fixture处理认证
+            return ""
     
     def _generate_test_data_for_route(self, route: RouterInfo, models: Dict[str, ModelInfo]) -> str:
-        """为路由生成测试数据 - 基于Schema分析动态生成，避免硬编码"""
+        """为路由生成测试数据 - 集成双工厂架构，处理数据依赖关系"""
+        
+        # 检测是否需要已存在的用户数据
+        if self._requires_existing_user_data(route):
+            return self._generate_existing_user_data_code(route)
         
         # 使用基类的Schema分析功能
         module_name = self._extract_module_from_path(route.path)
@@ -248,6 +284,50 @@ class {class_name}:
 {assignments_str}
 }}'''
     
+    def _requires_existing_user_data(self, route: RouterInfo) -> bool:
+        """检测API是否需要已存在的用户数据"""
+        function_name = route.function_name.lower()
+        # 这些API需要真实存在的用户凭据
+        dependency_apis = ['login', 'change_password', 'update_profile', 'delete_account']
+        return any(api in function_name for api in dependency_apis)
+    
+    def _generate_existing_user_data_code(self, route: RouterInfo) -> str:
+        """生成使用统一工厂创建已存在用户的测试数据代码"""
+        function_name = route.function_name.lower()
+        
+        if 'login' in function_name:
+            return '''# 使用统一工厂创建已存在的用户进行登录测试
+        test_user = StandardTestDataFactory.create_user(
+            mysql_integration_db,
+            username="test_login_user",
+            password_hash=get_password_hash("TestPassword123!")
+        )
+        
+        test_data = {
+            "username": test_user.username,
+            "password": "TestPassword123!"
+        }'''
+        elif 'change_password' in function_name or 'password' in function_name:
+            return '''# 使用统一工厂创建已存在的用户进行密码修改测试
+        test_user = StandardTestDataFactory.create_user(
+            mysql_integration_db,
+            username="test_password_user",
+            password_hash=get_password_hash("OldPassword123!")
+        )
+        
+        test_data = {
+            "old_password": "OldPassword123!",
+            "new_password": "NewPassword456!"
+        }'''
+        else:
+            # 其他需要已存在用户的API
+            return '''# 使用统一工厂创建已存在的用户
+        test_user = StandardTestDataFactory.create_user(mysql_integration_db)
+        
+        test_data = {
+            "user_id": test_user.id
+        }'''
+    
     def _extract_module_from_path(self, path: str) -> str:
         """从路径中提取模块名"""
         # 从路径如 /user-auth/register 提取 user_auth
@@ -258,8 +338,8 @@ class {class_name}:
             return parts[0].replace('-', '_')
         return "unknown"
     
-    def _generate_request_code(self, route: RouterInfo, test_data: str, auth_required: bool) -> str:
-        """生成HTTP请求代码"""
+    def _generate_request_code(self, route: RouterInfo, test_data: str, auth_required: bool, with_user_context: bool = False) -> str:
+        """生成HTTP请求代码 - 支持用户上下文处理"""
         
         # 添加API前缀，确保路径正确
         full_path = f"/api/v1{route.path}"
@@ -269,28 +349,33 @@ class {class_name}:
             # 替换路径参数为测试值
             if '{user_id}' in full_path:
                 # 对于用户相关API，使用创建的用户ID
-                if 'test_user' in test_data:
+                if with_user_context or 'test_user' in test_data:
                     full_path = full_path.replace('{user_id}', '{test_user.id}')
-                    full_path = f'f"{full_path}"'
+                    path_str = f'f"{full_path}"'
                 else:
                     full_path = full_path.replace('{user_id}', '1')
-            # 可以添加更多路径参数处理
-            full_path = full_path.replace('{id}', '1')
+                    path_str = f'"{full_path}"'
+            else:
+                full_path = full_path.replace('{id}', '1')
+                path_str = f'"{full_path}"'
+        else:
+            path_str = f'"{full_path}"'
         
         if route.method == 'GET':
+            params_part = "params=query_params if 'query_params' in locals() else None" if with_user_context else "params=query_params"
             return f'''response = api_client.get(
-            "{full_path}",
-            params=query_params
+            {path_str},
+            {params_part}
         )'''
         elif route.method in ['POST', 'PUT', 'PATCH']:
             # 检查是否需要请求体 - 根据是否有test_data判断
             if 'test_data = {}' in test_data or not test_data.strip():
                 return f'''response = api_client.post(
-            "{full_path}"
+            {path_str}
         )'''
             else:
                 return f'''response = api_client.{route.method.lower()}(
-            "{full_path}",
+            {path_str},
             json=test_data
         )'''
         else:

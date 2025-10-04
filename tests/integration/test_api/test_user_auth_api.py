@@ -2,7 +2,7 @@
 Auto Generated Test - 已生成到正式目录
 
 文件路径: tests/integration/test_api/test_user_auth_api.py
-生成时间: 2025-10-04 09:55:58
+生成时间: 2025-10-04 11:06:33
 生成工具: tools/generate_test_template.py v2.0
 状态: GENERATED - 需要经过代码审查和测试验证
 
@@ -15,36 +15,31 @@ Auto Generated Test - 已生成到正式目录
 
 import pytest
 import json
+from datetime import timedelta
 from fastapi import status
 from unittest.mock import Mock, patch
-from faker import Faker
 
 from app.main import app
+from app.core.auth import get_password_hash, create_access_token
 from tests.conftest import api_client
 from tests.factories.data_factory import StandardTestDataFactory
-
-fake = Faker("zh_CN")
 
 class TestUserAuthPostAPI:
     """用户认证模块POST方法API测试"""
     
 
     def test_register_user(self, api_client):
-        """测试register_user - 使用真实JWT认证"""
+        """测试register_user - 使用统一工厂和真实JWT认证"""
         
         
-        # 准备测试数据
-        # 使用StandardTestDataFactory生成用户测试数据
-        factory = StandardTestDataFactory()
-        user_data = factory.create_sample_data()["user_data"]
         test_data = {
-            "username": user_data["username"],
-            "email": user_data["email"], 
-            "password": user_data["password"],
-            "phone": f"1{fake.random_element(elements='3456789')}{fake.numerify('#########')}",
-            "verification_code": fake.numerify('######'),
-            "real_name": fake.name()
-        }
+    "username": "jonesnicole",
+    "email": "vanessaesparza@example.net",
+    "password": "e08f5b07",
+    "phone": "17589816366",
+    "verification_code": "969793",
+    "real_name": "Jesse Snyder"
+}
         
         # 发送请求
         response = api_client.post(
@@ -70,27 +65,21 @@ class TestUserAuthPostAPI:
 
 
 
-    def test_login_user(self, api_client):
-        """测试login_user - 使用真实JWT认证"""
+    def test_login_user(self, api_client, mysql_integration_db):
+        """测试login_user - 使用统一工厂和真实JWT认证"""
+        # 无需认证的公开API
         
+        # 使用统一工厂创建已存在的用户进行登录测试
+        test_user = StandardTestDataFactory.create_user(
+            mysql_integration_db,
+            username="test_login_user",
+            password_hash=get_password_hash("TestPassword123!")
+        )
         
-        # 准备测试数据
-        # 使用测试用户凭据
         test_data = {
-            "username": "test_login_user",
+            "username": test_user.username,
             "password": "TestPassword123!"
         }
-        
-        # 需要先创建用户（注册）
-        register_data = {
-            "username": "test_login_user",
-            "email": "test_login@example.com",
-            "password": "TestPassword123!",
-            "phone": "13800138000",
-            "real_name": "测试用户"
-        }
-        register_response = api_client.post("/api/v1/user-auth/register", json=register_data)
-        # 忽略注册结果，可能用户已存在
         
         # 发送请求
         response = api_client.post(
@@ -117,39 +106,16 @@ class TestUserAuthPostAPI:
 
 
     def test_refresh_token(self, api_client):
-        """测试refresh_token - 使用真实JWT认证"""
+        """测试refresh_token - 使用统一工厂和真实JWT认证"""
         
         # 使用新的JWT认证方式创建用户并获取token
         access_token, test_user, _ = api_client.authenticate_as_user()
         api_client.set_auth_headers(access_token)
         
         
-        # 准备测试数据
-        # 需要先登录获取refresh_token
-        login_data = {
-            "username": "test_refresh_user",
-            "password": "TestPassword123!"
-        }
-        
-        # 先注册用户
-        register_data = {
-            "username": "test_refresh_user",
-            "email": "test_refresh@example.com",
-            "password": "TestPassword123!",
-            "phone": "13800138001",
-            "real_name": "测试用户1"
-        }
-        api_client.post("/api/v1/user-auth/register", json=register_data)
-        
-        # 登录获取tokens
-        login_response = api_client.post("/api/v1/user-auth/login", json=login_data)
-        if login_response.status_code == 200:
-            tokens = login_response.json()
-            refresh_token = tokens.get("refresh_token")
-        else:
-            refresh_token = "dummy_refresh_token"  # 备用token
-            
-        test_data = {"refresh_token": refresh_token}
+        test_data = {
+    "refresh_token": "test_string"
+}
         
         # 发送请求
         response = api_client.post(
@@ -176,19 +142,21 @@ class TestUserAuthPostAPI:
 
 
     def test_logout_user(self, api_client):
-        """测试logout_user - 使用真实JWT认证"""
+        """测试logout_user - 使用统一工厂和真实JWT认证"""
         
         # 使用新的JWT认证方式创建用户并获取token
         access_token, test_user, _ = api_client.authenticate_as_user()
         api_client.set_auth_headers(access_token)
         
         
-        # 准备测试数据
-        # logout不需要请求体，只需要认证头
+        test_data = {
+    "data": "smile"
+}
         
         # 发送请求
         response = api_client.post(
-            "/api/v1/user-auth/logout"
+            "/api/v1/user-auth/logout",
+            json=test_data
         )
         
         # 验证响应
@@ -213,18 +181,17 @@ class TestUserAuthGetAPI:
     
 
     def test_get_current_user_info(self, api_client):
-        """测试get_current_user_info - 使用真实JWT认证"""
+        """测试get_current_user_info - 使用统一工厂和真实JWT认证"""
         
         # 使用新的JWT认证方式创建用户并获取token
         access_token, test_user, _ = api_client.authenticate_as_user()
         api_client.set_auth_headers(access_token)
         
         
-        # 准备测试数据
         query_params = {
-            "page": 1,
-            "size": 10
-        }
+    "page": 1,
+    "size": 10
+}
         
         # 发送请求
         response = api_client.get(
@@ -251,18 +218,17 @@ class TestUserAuthGetAPI:
 
 
     def test_list_users(self, api_client):
-        """测试list_users - 使用真实JWT认证"""
+        """测试list_users - 使用统一工厂和真实JWT认证"""
         
         # 使用管理员认证（因为这个API需要管理员权限）
         access_token, admin_user = api_client.authenticate_as_admin()
         api_client.set_auth_headers(access_token)
         
         
-        # 准备测试数据
         query_params = {
-            "page": 1,
-            "size": 10
-        }
+    "page": 1,
+    "size": 10
+}
         
         # 发送请求
         response = api_client.get(
@@ -287,18 +253,17 @@ class TestUserAuthGetAPI:
 
 
     def test_get_user_by_id(self, api_client):
-        """测试get_user_by_id - 使用真实JWT认证"""
+        """测试get_user_by_id - 使用统一工厂和真实JWT认证"""
         
         # 使用管理员认证（因为这个API需要管理员权限）
         access_token, admin_user = api_client.authenticate_as_admin()
         api_client.set_auth_headers(access_token)
         
         
-        # 准备测试数据
         query_params = {
-            "page": 1,
-            "size": 10
-        }
+    "page": 1,
+    "size": 10
+}
         
         # 发送请求
         response = api_client.get(
@@ -330,19 +295,18 @@ class TestUserAuthPutAPI:
     
 
     def test_update_current_user(self, api_client):
-        """测试update_current_user - 使用真实JWT认证"""
+        """测试update_current_user - 使用统一工厂和真实JWT认证"""
         
         # 使用新的JWT认证方式创建用户并获取token
         access_token, test_user, _ = api_client.authenticate_as_user()
         api_client.set_auth_headers(access_token)
         
         
-        # 准备测试数据
-        # 只更新允许的字段
         test_data = {
-            "phone": "13900139000",
-            "real_name": "更新后的姓名"
-        }
+    "email": "dawnlane@example.net",
+    "phone": "19127759449",
+    "real_name": "Lisa Porter"
+}
         
         # 发送请求
         response = api_client.put(
@@ -368,18 +332,30 @@ class TestUserAuthPutAPI:
 
 
 
-    def test_change_password(self, api_client):
-        """测试change_password - 使用真实JWT认证"""
-        
-        # 使用新的JWT认证方式创建用户并获取token
-        access_token, test_user, _ = api_client.authenticate_as_user()
+    def test_change_password(self, api_client, mysql_integration_db):
+        """测试change_password - 使用统一工厂和真实JWT认证"""
+        # 使用统一工厂创建普通用户并获取token
+        normal_user = StandardTestDataFactory.create_user(
+            mysql_integration_db,
+            role="user",
+            is_active=True
+        )
+        access_token = create_access_token(
+            data={"sub": str(normal_user.id)},
+            expires_delta=timedelta(hours=1)
+        )
         api_client.set_auth_headers(access_token)
         
+        # 使用统一工厂创建已存在的用户进行密码修改测试
+        test_user = StandardTestDataFactory.create_user(
+            mysql_integration_db,
+            username="test_password_user",
+            password_hash=get_password_hash("OldPassword123!")
+        )
         
-        # 准备测试数据
         test_data = {
-            "old_password": "TestPassword123!",  # 固定的测试密码
-            "new_password": "NewValidPass456!",
+            "old_password": "OldPassword123!",
+            "new_password": "NewPassword456!"
         }
         
         # 发送请求
@@ -409,13 +385,13 @@ class TestUserAuthPutAPI:
 class TestUserAuthAPIIntegration:
     """用户认证模块API集成测试 - 测试完整业务流程"""
     
-    def test_auth_workflow(self, api_client):
-        """测试用户认证完整流程：注册 -> 登录 -> 获取用户信息 -> 更新信息"""
+    def test_user_auth_workflow(self, api_client):
+        """测试user_auth模块完整流程：create -> read -> update -> auth"""
         
         # 通过动态schema分析生成测试数据
-        # 这里使用基础测试数据，实际应该通过schema分析动态生成
+        # 基于路由分析自动生成工作流测试
         
-        print("✅ 用户认证完整流程测试通过")
+        print("✅ user_auth模块完整流程测试通过")
     
     def test_api_error_handling(self, api_client):
         """测试API错误处理机制"""

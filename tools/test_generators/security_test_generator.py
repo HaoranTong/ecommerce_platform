@@ -186,7 +186,7 @@ class {class_name}:
         for weak_password in weak_passwords:
             response = await api_client.post(
                 "/api/v1/user-auth/login",
-                json={{"username": "testuser", "password": weak_password}}
+                json={{"username": fake.user_name(), "password": weak_password}}
             )
             
             # 弱密码应该被拒绝（已经在注册时验证）
@@ -194,10 +194,11 @@ class {class_name}:
             assert response.status_code in [401, 400, 422]
         
         # 测试暴力破解防护
+        test_username = fake.user_name()
         for _ in range(10):
             response = await api_client.post(
                 "/api/v1/user-auth/login",
-                json={{"username": "testuser", "password": "wrong_password"}}
+                json={{"username": test_username, "password": fake.password()}}
             )
             await asyncio.sleep(0.1)
         
