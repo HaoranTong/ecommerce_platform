@@ -108,6 +108,15 @@ class StandardTestDataFactory:
             "password_hash": "hashed_password_123",
             "is_active": True,
             "email_verified": True,
+            "status": "active",  # 必需字段
+            "phone_verified": False,  # 必需字段
+            "two_factor_enabled": False,  # 必需字段
+            "failed_login_attempts": 0,
+            "phone": f"1{datetime.now().microsecond % 9 + 3}{datetime.now().microsecond % 1000000000:09d}"[:11],
+            "real_name": f"测试用户_{datetime.now().microsecond}",
+            "role": "user",
+            "created_at": datetime.now(),  # 必需字段
+            "updated_at": datetime.now(),  # 必需字段
         }
         defaults.update(kwargs)
 

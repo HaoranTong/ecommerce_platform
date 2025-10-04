@@ -203,7 +203,15 @@ function Invoke-ApiTests {
     
     Write-TestLog "🚀 运行API测试: $($ApiFiles.Name -join ', ')" "INFO"
     
+    # 设置测试数据库环境变量，确保API测试使用测试数据库而不是开发数据库
+    $env:DATABASE_URL = "mysql+pymysql://root:test_password@localhost:3308/ecommerce_platform_test"
+    Write-TestLog "🔧 设置测试数据库URL: $env:DATABASE_URL" "INFO"
+    
     $Result = & pytest $ApiFiles.FullName -v 2>&1
+    
+    # 清理环境变量
+    Remove-Item Env:DATABASE_URL -ErrorAction SilentlyContinue
+    Write-TestLog "🧹 清理测试环境变量" "INFO"
     
     if ($LASTEXITCODE -eq 0) {
         Write-TestLog "✅ API测试通过" "SUCCESS"

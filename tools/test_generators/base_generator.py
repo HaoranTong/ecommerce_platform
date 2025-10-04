@@ -346,6 +346,10 @@ class BaseTestGenerator(ABC):
             return 'UserLogin'
         elif 'update' in function_name:
             return 'UserUpdate'
+        elif 'refresh' in function_name and 'token' in function_name:
+            return 'TokenRefresh'
+        elif 'change' in function_name and 'password' in function_name:
+            return 'UserChangePassword'
         elif 'create' in function_name:
             # 根据模块推断创建Schema
             return self._infer_create_schema(route)
@@ -378,28 +382,33 @@ class BaseTestGenerator(ABC):
             return {}
     
     def _generate_field_value(self, field_name: str, field_info) -> Any:
-        """根据字段信息生成测试值"""
-        # 根据字段名称生成合适的测试值
+        """根据字段信息生成测试值 - 动态生成"""
+        import secrets
+        from faker import Faker
+        fake = Faker()
+        
+        # 根据字段名称生成合适的动态测试值
         field_name_lower = field_name.lower()
         
         if 'email' in field_name_lower:
-            return "test@example.com"
+            return fake.email()
         elif 'username' in field_name_lower:
-            return "test_user"
+            return fake.user_name()
         elif 'password' in field_name_lower:
-            return "test_password123"
+            return secrets.token_hex(4)
         elif 'phone' in field_name_lower:
-            return "13800138000"
+            # 生成符合中国手机号格式的号码: 1[3-9]xxxxxxxxx
+            return f"1{fake.random_element(elements=[3,4,5,6,7,8,9])}{fake.random_number(digits=9)}"
         elif 'verification_code' in field_name_lower or 'code' in field_name_lower:
-            return "123456"
+            return str(fake.random_int(100000, 999999))
         elif 'name' in field_name_lower:
-            return "测试用户"
+            return fake.name()
         elif field_name_lower in ['age', 'count', 'quantity']:
-            return 25
+            return fake.random_int(18, 80)
         elif field_name_lower in ['price', 'amount']:
-            return 99.99
+            return fake.random_int(10, 1000)
         elif field_name_lower in ['is_active', 'enabled', 'status']:
-            return True
+            return fake.boolean()
         else:
             # 根据字段类型推断
             return self._generate_by_type(field_info)
@@ -419,40 +428,44 @@ class BaseTestGenerator(ABC):
                 elif field_type == float:
                     return 99.99
                 elif field_type == bool:
-                    return True
+                    return fake.boolean()
                 elif hasattr(field_type, '__name__'):
                     # 处理其他类型
                     type_name = field_type.__name__.lower()
                     if 'datetime' in type_name:
-                        return "2024-01-01T00:00:00"
+                        return fake.date_time().isoformat()
                     elif 'date' in type_name:
-                        return "2024-01-01"
+                        return fake.date().isoformat()
                     elif 'uuid' in type_name:
-                        return "12345678-1234-1234-1234-123456789012"
+                        return str(fake.uuid4())
             
-            # 默认字符串值
-            return "test_value"
+            # 默认动态字符串值
+            return fake.word()
             
         except Exception:
-            return "test_value"
+            return fake.word()
     
     def _generate_fallback_data(self, route: RouterInfo) -> Dict[str, Any]:
-        """生成fallback测试数据"""
+        """生成fallback测试数据 - 动态生成"""
+        from faker import Faker
+        import secrets
+        fake = Faker()
+        
         function_name = route.function_name.lower()
         
         if 'register' in function_name:
             return {
-                "username": "test_user",
-                "email": "test@example.com", 
-                "password": "test_password123",
-                "phone": "13800138000",
-                "verification_code": "123456",
-                "real_name": "测试用户"
+                "username": fake.user_name(),
+                "email": fake.email(), 
+                "password": secrets.token_hex(4),
+                "phone": f"1{fake.random_element(elements=[3,4,5,6,7,8,9])}{fake.random_number(digits=9)}",
+                "verification_code": str(fake.random_int(100000, 999999)),
+                "real_name": fake.name()
             }
         elif 'login' in function_name:
             return {
-                "username": "test_user",
-                "password": "test_password123"
+                "username": fake.user_name(),
+                "password": secrets.token_hex(4)
             }
         else:
-            return {"data": "test_value"}
+            return {"data": fake.word()}

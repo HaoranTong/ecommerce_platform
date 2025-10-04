@@ -179,7 +179,9 @@ class {class_name}:
         """测试认证机制安全性 - OWASP #2"""
         
         # 测试弱密码
-        weak_passwords = ["123456", "password", "admin", "", "test"]
+        from faker import Faker
+        fake = Faker()
+        weak_passwords = [fake.password(length=6), fake.word(), "admin", "", fake.word()]
         
         for weak_password in weak_passwords:
             response = await api_client.post(
@@ -462,11 +464,15 @@ class {class_name}:
         headers = {{"Authorization": "Bearer test_token"}}
         
         # 测试敏感数据是否加密存储
+        from faker import Faker
+        fake = Faker()
+        test_credit_card = fake.credit_card_number()
+        
         sensitive_data = {{
-            "password": "sensitive_password",
-            "credit_card": "1234567812345678",
-            "ssn": "123-45-6789",
-            "private_info": "confidential data"
+            "password": fake.password(),
+            "credit_card": test_credit_card,
+            "ssn": fake.ssn(),
+            "private_info": fake.text()
         }}
         
         response = await api_client.post(
@@ -481,9 +487,9 @@ class {class_name}:
             response_text = json.dumps(response_data).lower()
             
             # 敏感数据不应该以明文出现在响应中
-            assert "sensitive_password" not in response_text
-            assert "1234567812345678" not in response_text
-            assert "confidential data" not in response_text
+            assert sensitive_data["password"] not in response_text
+            assert test_credit_card not in response_text
+            assert sensitive_data["private_info"] not in response_text
         
         print("✅ 数据加密保护测试通过")
     

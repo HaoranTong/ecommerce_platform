@@ -717,6 +717,9 @@ class IntelligentTestGenerator:
         # 获取模型导入路径
         module_import_path = f"app.modules.{module_name}.models"
 
+        # 生成模型导入列表
+        model_imports = ', '.join(models.keys()) if models else ""
+
         # 生成工厂文件头部
         factory_code = f'''"""
 智能生成的Factory Boy测试数据工厂 - {module_name}模块
@@ -756,7 +759,7 @@ warnings.filterwarnings('ignore', message='.*declarative base.*')
 warnings.filterwarnings('ignore', message='.*Table.*already defined.*')
 
 from {module_import_path} import (
-    {', '.join(models.keys())}
+    {model_imports}
 )
 
 

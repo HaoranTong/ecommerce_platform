@@ -1,5 +1,9 @@
 import sys
 from pathlib import Path
+import os
+
+# 在任何应用导入之前设置测试数据库环境变量
+os.environ["DATABASE_URL"] = "mysql+pymysql://root:test_password@localhost:3308/ecommerce_platform_test"
 
 import pytest
 import pytest_mock
@@ -343,7 +347,7 @@ def smoke_test_db(smoke_test_engine):
 
 @pytest.fixture(scope="function")
 def smoke_test_client(smoke_test_db, mock_admin_user):
-    """烟雾测试客户端"""
+    """烟雾测试客户端 - 使用Mock认证（方案1）"""
     # 导入认证函数
     from app.core.auth import (get_current_active_user, get_current_admin_user,
                                get_current_user)
@@ -373,6 +377,53 @@ def smoke_test_client(smoke_test_db, mock_admin_user):
         with TestClient(app) as test_client:
             yield test_client
     finally:
+        app.dependency_overrides.clear()
+
+
+# 为了向后兼容，提供一个mock_api_client fixture
+@pytest.fixture(scope="function") 
+def mock_api_client(mysql_integration_db, mock_admin_user):
+    """Mock认证的API客户端（向后兼容）"""
+    import os
+    
+    # 导入认证函数
+    from app.core.auth import (get_current_active_user, get_current_admin_user,
+                               get_current_user)
+
+    def override_get_db():
+        yield mysql_integration_db
+
+    async def override_get_current_user():
+        return mock_admin_user
+
+    async def override_get_current_active_user():
+        return mock_admin_user
+
+    async def override_get_current_admin_user():
+        return mock_admin_user
+
+    # 保存原始环境变量
+    original_database_url = os.environ.get("DATABASE_URL")
+
+    # 清除现有依赖覆盖
+    app.dependency_overrides.clear()
+
+    # 设置依赖覆盖 - 覆盖整个认证链条
+    app.dependency_overrides[get_db] = override_get_db
+    app.dependency_overrides[get_current_user] = override_get_current_user
+    app.dependency_overrides[get_current_active_user] = override_get_current_active_user
+    app.dependency_overrides[get_current_admin_user] = override_get_current_admin_user
+
+    try:
+        with TestClient(app) as test_client:
+            yield test_client
+    finally:
+        # 恢复原始环境变量
+        if original_database_url is not None:
+            os.environ["DATABASE_URL"] = original_database_url
+        elif "DATABASE_URL" in os.environ:
+            del os.environ["DATABASE_URL"]
+        
         app.dependency_overrides.clear()
 
 
@@ -507,37 +558,118 @@ def clean_integration_test_data(request):
 
 
 @pytest.fixture(scope="function")
-def api_client(mysql_integration_db, mock_admin_user):
-    """集成测试客户端"""
-    # 导入认证函数
-    from app.core.auth import (get_current_active_user, get_current_admin_user,
-                               get_current_user)
-
+def api_client(mysql_integration_db):
+    """集成测试客户端 - 使用真实JWT认证（方案2）"""
+    import os
+    from datetime import datetime, timedelta
+    from app.core.auth import create_access_token
+    from app.modules.user_auth.models import User
+    
     def override_get_db():
         yield mysql_integration_db
 
-    async def override_get_current_user():
-        return mock_admin_user
-
-    async def override_get_current_active_user():
-        return mock_admin_user
-
-    async def override_get_current_admin_user():
-        return mock_admin_user
-
-    # 清除现有依赖覆盖
+    # 保存原始环境变量
+    original_database_url = os.environ.get("DATABASE_URL")
+    
+    # 清除现有依赖覆盖，只覆盖数据库连接
     app.dependency_overrides.clear()
-
-    # 设置依赖覆盖 - 覆盖整个认证链条
     app.dependency_overrides[get_db] = override_get_db
-    app.dependency_overrides[get_current_user] = override_get_current_user
-    app.dependency_overrides[get_current_active_user] = override_get_current_active_user
-    app.dependency_overrides[get_current_admin_user] = override_get_current_admin_user
 
     try:
         with TestClient(app) as test_client:
+            # 为测试客户端添加认证帮助方法
+            def authenticate_as_admin():
+                """创建管理员用户并返回JWT token"""
+                import uuid
+                
+                # 创建唯一的测试管理员用户
+                unique_id = str(uuid.uuid4())[:8]
+                admin_user = User(
+                    username=f"test_admin_{unique_id}",
+                    email=f"admin_{unique_id}@test.com", 
+                    password_hash="$2b$12$dummy_hash_for_testing",
+                    role="admin",
+                    is_active=True,
+                    email_verified=True,
+                    status="active",
+                    phone_verified=True,
+                    two_factor_enabled=False,
+                    created_at=datetime.utcnow(),
+                    updated_at=datetime.utcnow()
+                )
+                mysql_integration_db.add(admin_user)
+                mysql_integration_db.commit()
+                mysql_integration_db.refresh(admin_user)
+                
+                # 生成真实JWT token
+                token_data = {"sub": str(admin_user.id)}
+                access_token = create_access_token(
+                    data=token_data,
+                    expires_delta=timedelta(hours=1)
+                )
+                return access_token, admin_user
+
+            def authenticate_as_user():
+                """创建普通用户并返回JWT token"""
+                import uuid
+                from app.core.auth import get_password_hash
+                
+                # 使用真实的密码和hash
+                test_password = "TestPassword123!"
+                password_hash = get_password_hash(test_password)
+                
+                # 创建唯一的测试普通用户
+                unique_id = str(uuid.uuid4())[:8]
+                normal_user = User(
+                    username=f"test_user_{unique_id}",
+                    email=f"user_{unique_id}@test.com",
+                    password_hash=password_hash, 
+                    role="user",
+                    is_active=True,
+                    email_verified=True,
+                    status="active",
+                    phone_verified=True,
+                    two_factor_enabled=False,
+                    created_at=datetime.utcnow(),
+                    updated_at=datetime.utcnow()
+                )
+                mysql_integration_db.add(normal_user)
+                mysql_integration_db.commit()
+                mysql_integration_db.refresh(normal_user)
+                
+                # 生成真实JWT token
+                token_data = {"sub": str(normal_user.id)}
+                access_token = create_access_token(
+                    data=token_data,
+                    expires_delta=timedelta(hours=1)
+                )
+                
+                # 返回token, user和密码
+                return access_token, normal_user, test_password
+
+            def set_auth_headers(token: str):
+                """设置认证头"""
+                test_client.headers.update({"Authorization": f"Bearer {token}"})
+
+            def clear_auth_headers():
+                """清除认证头"""
+                if "Authorization" in test_client.headers:
+                    del test_client.headers["Authorization"]
+
+            # 添加认证帮助方法到测试客户端
+            test_client.authenticate_as_admin = authenticate_as_admin
+            test_client.authenticate_as_user = authenticate_as_user
+            test_client.set_auth_headers = set_auth_headers
+            test_client.clear_auth_headers = clear_auth_headers
+            
             yield test_client
     finally:
+        # 恢复原始环境变量
+        if original_database_url is not None:
+            os.environ["DATABASE_URL"] = original_database_url
+        elif "DATABASE_URL" in os.environ:
+            del os.environ["DATABASE_URL"]
+        
         app.dependency_overrides.clear()
 
 
