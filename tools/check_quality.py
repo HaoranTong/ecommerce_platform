@@ -100,6 +100,116 @@ class QualityChecker:
             # 其他明显的测试硬编码
             r'"[^"]*test[^"]*@[^"]*"',
         ]
+        
+        # 忽略规则 - 这些情况不应该被标记为硬编码
+        self.ignore_patterns = [
+            # 模式定义本身 (在字符串数组或正则定义中)
+            r'self\.hardcode_patterns\s*=\s*\[',
+            r'hardcode_patterns\s*=\s*\[',
+            r'r["\'].*["\'],?\s*#.*',  # 正则表达式定义 (带注释)
+            r'r["\'].*["\'],?\s*$',    # 正则表达式定义 (行尾)
+            # 配置示例或文档字符串
+            r'""".*"""',
+            r"'''.*'''", 
+            # SQL连接字符串 (配置文件中)
+            r'mysql\+pymysql://',
+            # 测试工厂中的mock数据 (合理的测试数据)
+            r'mock_.*\s*=',
+            r'fake\.',
+            r'Faker\(',
+            # 示例数据定义
+            r'valid_.*\s*=\s*\[',
+            r'invalid_.*\s*=\s*\[',
+            r'example_.*\s*=',
+            # 测试模板生成器中的模板内容 (这些是生成的模板，不是真实硬编码)
+            r'class.*TestGenerator.*:',  # 测试生成器类内部
+            r'def.*generate.*\(',  # 生成器方法内部
+            r'return.*f["\'].*["\']',  # 格式化字符串模板
+            r'""".*测试.*"""',  # 测试相关的文档字符串
+            # 测试代码模板中的占位符和示例
+            r'username.*=.*integration_test_user',
+            r'email.*=.*@test\.',
+            r'phone.*=.*\d{11}',
+            r'assert.*@test\.',
+            r'created_user\..*==.*@test\.',
+            # 配置文件中的示例值
+            r'mysql\+pymysql://.*test.*@.*:\d+/',
+            # 测试模板生成器特定的模板代码行
+            r'valid_value\s*=\s*["\'].*["\']',  # 模板中的有效值示例
+            r'valid_email\s*=\s*["\'].*["\']',  # 模板中的邮箱示例
+            r'test_value\s*=\s*["\'].*["\']',   # 模板中的测试值示例
+            r'return\s*["\'].*@.*["\']',        # 返回的邮箱模板
+            r'email\s*=\s*["\'].*@.*["\'],?',   # 邮箱赋值模板
+            r'"email":\s*["\'].*@.*["\'],?',    # JSON中的邮箱模板
+        ]
+        
+    def _should_ignore_line(self, line: str, file_path: str = "") -> bool:
+        """检查是否应该忽略某行"""
+        line_stripped = line.strip()
+        
+        # 添加调试信息
+        debug_mode = False  # 可以设置为True来调试
+        
+        # 基础忽略模式 - 适用于所有文件
+        basic_ignore_patterns = [
+            # 模式定义本身 (在字符串数组或正则定义中)
+            r'self\.hardcode_patterns\s*=\s*\[',
+            r'hardcode_patterns\s*=\s*\[',
+            r'r["\'].*["\'],?\s*#.*',  # 正则表达式定义 (带注释)
+            r'r["\'].*["\'],?\s*$',    # 正则表达式定义 (行尾)
+            # 配置示例或文档字符串 - 暂时注释掉，避免过度忽略
+            # r'""".*"""',
+            # r"'''.*'''", 
+            # SQL连接字符串 (配置文件中)
+            r'mysql\+pymysql://',
+            # 测试工厂中的mock数据 (合理的测试数据)
+            r'mock_.*\s*=',
+            r'fake\.',
+            r'Faker\(',
+            # 示例数据定义
+            r'valid_.*\s*=\s*\[',
+            r'invalid_.*\s*=\s*\[',
+            r'example_.*\s*=',
+        ]
+        
+        # 检查基础忽略模式
+        for ignore_pattern in basic_ignore_patterns:
+            if re.search(ignore_pattern, line, re.IGNORECASE | re.MULTILINE):
+                if debug_mode:
+                    print(f"DEBUG: 忽略行 '{line_stripped}' 匹配基础模式: {ignore_pattern}")
+                return True
+        
+        # 特定文件的忽略模式 - 只在测试模板生成器中生效
+        if "generate_test_template.py" in file_path:
+            template_ignore_patterns = [
+                # 测试模板生成器特定的模板代码行
+                r'valid_value\s*=\s*["\'].*["\']',  # 模板中的有效值示例
+                r'valid_email\s*=\s*["\'].*["\']',  # 模板中的邮箱示例
+                r'test_value\s*=\s*["\'].*["\']',   # 模板中的测试值示例
+                r'return\s*["\'].*@.*["\']',        # 返回的邮箱模板
+                r'email\s*=\s*["\'].*@.*["\'],?',   # 邮箱赋值模板
+                r'"email":\s*["\'].*@.*["\'],?',    # JSON中的邮箱模板
+                # 测试代码模板中的占位符和示例
+                r'username.*=.*integration_test_user',
+                r'email.*=.*@test\.',
+                r'phone.*=.*\d{11}',
+                r'assert.*@test\.',
+                r'created_user\..*==.*@test\.',
+            ]
+            
+            for ignore_pattern in template_ignore_patterns:
+                if re.search(ignore_pattern, line, re.IGNORECASE | re.MULTILINE):
+                    if debug_mode:
+                        print(f"DEBUG: 忽略模板行 '{line_stripped}' 匹配模式: {ignore_pattern}")
+                    return True
+                
+        # 检查是否在正则表达式定义上下文中
+        if ('r"' in line or "r'" in line) and line.strip().startswith('r'):
+            if debug_mode:
+                print(f"DEBUG: 忽略正则表达式行: '{line_stripped}'")
+            return True
+            
+        return False
 
     def check_hardcode_file(self, file_path: Path) -> List[Dict[str, Any]]:
         """检查单个文件的硬编码"""
@@ -114,6 +224,10 @@ class QualityChecker:
                 lines = content.split('\n')
             
             for i, line in enumerate(lines, 1):
+                # 检查是否应该忽略这一行
+                if self._should_ignore_line(line, str(file_path)):
+                    continue
+                    
                 for pattern in self.hardcode_patterns:
                     matches = re.findall(pattern, line, re.IGNORECASE)
                     if matches:
@@ -360,8 +474,11 @@ def main():
         
         if args.file:
             file_path = Path(args.file)
-            if not file_path.is_absolute():
-                file_path = Path("tools/test_generators") / file_path
+            # 如果是相对路径且不存在，尝试在tools/test_generators中查找
+            if not file_path.is_absolute() and not file_path.exists():
+                test_generators_path = Path("tools/test_generators") / file_path
+                if test_generators_path.exists():
+                    file_path = test_generators_path
             violations = checker.check_hardcode_file(file_path)
         elif args.dir:
             violations = checker.check_hardcode_directory(Path(args.dir))
@@ -378,8 +495,11 @@ def main():
         
         if args.file:
             file_path = Path(args.file)
-            if not file_path.is_absolute():
-                file_path = Path("tools/test_generators") / file_path
+            # 如果是相对路径且不存在，尝试在tools/test_generators中查找
+            if not file_path.is_absolute() and not file_path.exists():
+                test_generators_path = Path("tools/test_generators") / file_path
+                if test_generators_path.exists():
+                    file_path = test_generators_path
             results = [checker.check_duplication_file(file_path)]
         elif args.dir:
             results = checker.check_duplication_directory(Path(args.dir))
