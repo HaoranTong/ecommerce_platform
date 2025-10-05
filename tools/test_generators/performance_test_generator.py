@@ -433,7 +433,10 @@ class {class_name}:
     async def test_sustained_load(self, async_api_client):
         """测试持续负载处理能力"""
         
-        headers = {{"Authorization": "Bearer test_token"}}
+        # 设置真实的身份验证
+        auth_result = await async_api_client.authenticate_as_user()
+        token = auth_result["token"]
+        headers = {{"Authorization": f"Bearer {{token}}"}}
         duration_seconds = 30  # 持续30秒的负载测试
         requests_per_second = 10  # 每秒10个请求
         
