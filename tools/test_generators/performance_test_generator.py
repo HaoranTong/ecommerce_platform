@@ -312,7 +312,10 @@ class {class_name}:
     async def test_concurrent_write_requests(self, async_api_client):
         """测试并发写请求处理能力"""
         
-        headers = {{"Authorization": "Bearer test_token"}}
+        # 设置真实的身份验证
+        auth_result = await async_api_client.authenticate_as_user()
+        token = auth_result["token"]
+        headers = {{"Authorization": f"Bearer {{token}}"}}
         concurrent_writes = 20  # 模拟20个并发写操作
         
         async def write_request(request_id):
