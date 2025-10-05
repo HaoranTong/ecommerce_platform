@@ -224,8 +224,7 @@ class {class_name}:
         
         # 模拟应用冷启动后的首次请求
         # 设置真实的身份验证
-        auth_result = await async_api_client.authenticate_as_admin()
-        token = auth_result["token"]
+        token, admin_user = await async_api_client.authenticate_as_admin()
         headers = {{"Authorization": f"Bearer {{token}}"}}
         
         start_time = time.time()
