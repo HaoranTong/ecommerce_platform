@@ -446,10 +446,10 @@ steps:
 
 ```powershell
 # 生成标准测试文件模板
-python scripts/generate_test_template.py module_name function_name
+python tools/generate_test_template.py module_name function_name
 
 # 验证测试文件结构
-python scripts/validate_test_structure.py
+python tools/validate_test_structure.py
 ```
 
 > 💡 **重要**: 生成的测试代码遵循 [测试标准文档](../standards/testing-standards.md) 中定义的命名规范和结构标准
@@ -457,5 +457,5 @@ python scripts/validate_test_structure.py
 ## 相关文档
 
 - **主文档**: [测试标准文档](../standards/testing-standards.md) - 测试规范和标准流程
-- [工作流程规范](../standards/workflow-standards.md) - 开发流程中的测试环节
+- [工作流程规范](../standards/software-development-lifecycle-standards.md) - 开发流程中的测试环节
 - [MASTER文档](../../MASTER.md) - 强制检查点

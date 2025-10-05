@@ -2,7 +2,7 @@
 Auto Generated Test - 已生成到正式目录
 
 文件路径: tests/factories/user_auth_factories.py
-生成时间: 2025-10-04 17:31:10
+生成时间: 2025-10-05 17:04:47
 生成工具: tools/generate_test_template.py v2.0
 状态: GENERATED - 需要经过代码审查和测试验证
 
@@ -100,8 +100,8 @@ class RolePermissionFactory(factory.alchemy.SQLAlchemyModelFactory):
         # 联合主键模型，不使用get_or_create
         sqlalchemy_get_or_create = None
 
-    role_id = factory.SubFactory(RoleFactory)
-    permission_id = factory.SubFactory(PermissionFactory)
+    role = factory.SubFactory(RoleFactory)
+    permission = factory.SubFactory(PermissionFactory)
     granted_by = None  # 自引用字段，避免循环依赖
     granted_at = factory.Faker('date_time_this_year')
     created_at = factory.LazyFunction(datetime.now)
@@ -116,7 +116,7 @@ class SessionFactory(factory.alchemy.SQLAlchemyModelFactory):
         sqlalchemy_session_persistence = "commit"
         sqlalchemy_get_or_create = ("name",) if hasattr(Session, "name") else None
 
-    user_id = factory.SubFactory(UserFactory)
+    user = factory.SubFactory(UserFactory)
     token_hash = factory.Sequence(lambda n: f'token_hash_{n}')
     expires_at = factory.LazyFunction(lambda: datetime.now() + timedelta(days=30))
     last_accessed_at = factory.Faker('date_time_this_year')
@@ -136,8 +136,8 @@ class UserRoleFactory(factory.alchemy.SQLAlchemyModelFactory):
         # 联合主键模型，不使用get_or_create
         sqlalchemy_get_or_create = None
 
-    user_id = factory.SubFactory(UserFactory)
-    role_id = factory.SubFactory(RoleFactory)
+    user = factory.SubFactory(UserFactory)
+    role = factory.SubFactory(RoleFactory)
     assigned_by = None  # 自引用字段，避免循环依赖
     assigned_at = factory.Faker('date_time_this_year')
     created_at = factory.LazyFunction(datetime.now)

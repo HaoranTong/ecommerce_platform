@@ -2,7 +2,7 @@
 Auto Generated Test - 已生成到正式目录
 
 文件路径: tests/e2e/test_user_auth_workflows.py
-生成时间: 2025-10-04 03:29:47
+生成时间: 2025-10-05 17:04:47
 生成工具: tools/generate_test_template.py v2.0
 状态: GENERATED - 需要经过代码审查和测试验证
 

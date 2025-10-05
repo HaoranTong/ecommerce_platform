@@ -1093,8 +1093,15 @@ from {module_import_path} import (
             # 设为None避免循环依赖，符合业务逻辑
             return f"{field.name} = None  # 自引用字段，避免循环依赖"
         else:
-            # 正常外键：使用SubFactory确保依赖对象被正确创建
-            return f"{field.name} = factory.SubFactory({target_model}Factory)"
+            # 正常外键：对于外键字段如role_id，我们要寻找对应的关系字段
+            # 因为Factory Boy的SubFactory应该设置关系对象而不是ID字段
+            if field.name.endswith('_id'):
+                # 从外键字段名推导关系字段名：role_id -> role, user_id -> user
+                relation_field = field.name[:-3]  # 移除'_id'后缀
+                return f"{relation_field} = factory.SubFactory({target_model}Factory)"
+            else:
+                # 直接外键字段（少见情况）
+                return f"{field.name} = factory.SubFactory({target_model}Factory)"
     
     def _infer_model_name_from_table(self, table_name: str) -> str:
         """从表名推导模型名 - 遵循数据库命名规范
@@ -1689,7 +1696,7 @@ from {module_import_path} import (
         # 如果包含烟雾测试类型，提供烟雾测试运行指南
         if test_type in ["all", "smoke"]:
             print("ℹ️  烟雾测试运行方式:")
-            print("   - 通用脚本: .\\scripts\\smoke_test.ps1")
+            print("   - 通用脚本: .\\tools\\smoke_test.ps1")
             print("   - pytest方式: python -m pytest tests/smoke/ -v")
             print("   - 涵盖: API连通性、系统健康检查、基础功能验证")
 
@@ -2510,7 +2517,7 @@ class Test{model_name}Model:
         if not models:
             return f'''    def test_service_basic_functionality(self, unit_test_db: Session):
         """测试服务基本功能"""
-        print(f"{NEWLINE}🔍 测试基本功能...")
+        print("\n🔍 测试基本功能...")
         {service_instantiation}
         # 添加具体的服务方法测试
         assert True  # 占位符'''
@@ -2566,7 +2573,7 @@ class Test{model_name}Model:
         # 使用.format()方法避免嵌套f-string问题
         base_test = '''    def test_{model_name_lower}_crud_operations(self, unit_test_db: Session):
         """测试{model_name}的CRUD操作 - {business_domain}域"""
-        print(f"{{{NEWLINE}}}📋 测试{model_name} CRUD操作...")
+        print("\\n📋 测试{model_name} CRUD操作...")
         
         if not SERVICE_AVAILABLE:
             pytest.skip("服务类不可用，跳过CRUD测试")
@@ -2588,7 +2595,7 @@ class Test{model_name}Model:
             model_name_lower=model_name.lower(),
             model_name=model_name,
             business_domain=business_domain,
-            NEWLINE="NEWLINE",
+            NEWLINE=NEWLINE,  # 【修复】传入实际的NEWLINE变量，而不是字符串字面量
             module_name=module_name,  # 【重要修复】传入实际的module_name变量，而不是字符串字面量
             composite_key_info="联合主键" if is_composite_key else "单一主键",
             validation_code=validation_code,  # 【重要修复】传入实际生成的validation_code，而不是字符串字面量
@@ -2628,7 +2635,8 @@ class Test{model_name}Model:
                     if value is not None:
                         assert isinstance(value, (Decimal, int, float))''')
         
-        return base_test + "".join(business_tests) + '''
+        # 【重要修复】使用动态生成的查询条件，支持联合主键模型
+        update_delete_test = '''
         
         # 测试数据更新 - 直接操作数据库对象
         if hasattr(test_instance, 'updated_at'):
@@ -2637,17 +2645,19 @@ class Test{model_name}Model:
             test_instance.updated_at = datetime.now()
             unit_test_db.commit()
             
-            # 验证更新成功
-            updated_instance = unit_test_db.query({model_name}).filter({model_name}.id == test_instance.id).first()
+            # 验证更新成功 - 使用正确的查询条件支持联合主键
+            updated_instance = unit_test_db.query({model_name}).filter({query_condition}).first()
             assert updated_instance.updated_at is not None
             
         # 测试数据删除
         unit_test_db.delete(test_instance)
         unit_test_db.commit()
         
-        # 验证删除成功
-        deleted_check = unit_test_db.query({model_name}).filter({model_name}.id == test_instance.id).first()
-        assert deleted_check is None'''
+        # 验证删除成功 - 使用正确的查询条件支持联合主键
+        deleted_check = unit_test_db.query({model_name}).filter({query_condition}).first()
+        assert deleted_check is None'''.format(model_name=model_name, query_condition=query_condition)
+        
+        return base_test + "".join(business_tests) + update_delete_test
 
     def _generate_service_tests(
         self, module_name: str, models: Dict[str, ModelInfo]
@@ -2680,13 +2690,14 @@ class Test{model_name}Model:
         service_methods = self._generate_service_method_tests(
             module_name, models, service_info
         )
-        return f'''"""
-{module_name.title()} 服务层测试
+        # 【关键修复】根据历史经验(git commit 3a4387a)，将f-string模板转为字符串format避免嵌套f-string变量作用域错误
+        template = '''"""
+{module_title} 服务层测试
 
 测试类型: 单元测试 - 服务层业务逻辑
 数据策略: SQLite内存数据库 (tests/unit/test_services/)
 测试范围: 服务类方法、数据库交互、业务逻辑验证
-生成时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+生成时间: {generation_time}
 
 符合标准: 
 - [CHECK:TEST-001] 测试标准合规
@@ -2707,20 +2718,23 @@ from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 
+# 全局常量
+NEWLINE = "\\n"
+
 # 测试基础设施
 from tests.conftest import unit_test_db
 # 【修复】移除不必要的StandardTestDataFactory依赖，因为它不存在且未被实际使用
-from tests.factories.{module_name}_factories import {module_name.title().replace('_', '')}FactoryManager
+from tests.factories.{module_name}_factories import {factory_manager_class}FactoryManager
 
 # 被测服务和模型
-from app.modules.{module_name}.models import {', '.join(models.keys())}
+from app.modules.{module_name}.models import {model_imports}
 
 # 尝试导入服务类，如果不存在就跳过相关测试
 try:
     from app.modules.{module_name}.service import {service_class_name}
     SERVICE_AVAILABLE = True
 except ImportError as e:
-    print(f"⚠️ 服务类导入失败: {{e}} - 将跳过服务相关测试")
+    print("⚠️ 服务类导入失败: " + str(e) + " - 将跳过服务相关测试")
     SERVICE_AVAILABLE = False
 
 
@@ -2732,11 +2746,11 @@ class {test_class_name}:
     def setup_method(self):
         """测试准备"""
         # 【修复】移除不必要的test_data_factory，因为StandardTestDataFactory不存在
-        self.factory_manager = {module_name.title().replace('_', '')}FactoryManager()
+        self.factory_manager = {factory_manager_class}FactoryManager()
         
     def test_service_initialization(self, unit_test_db: Session):
         """测试服务初始化和依赖注入"""
-        print(f"{NEWLINE}🔧 测试服务初始化...")
+        print("\\n🔧 测试服务初始化...")
         
         if not SERVICE_AVAILABLE:
             pytest.skip("服务类不可用，跳过服务初始化测试")
@@ -2747,7 +2761,7 @@ class {test_class_name}:
         
     def test_service_factory_integration(self, unit_test_db: Session):
         """测试服务与Factory数据工厂的集成"""
-        print(f"{NEWLINE}🏭 测试Factory集成...")
+        print("\\n🏭 测试Factory集成...")
         
         if not SERVICE_AVAILABLE:
             pytest.skip("服务类不可用，跳过Factory集成测试")
@@ -2774,16 +2788,17 @@ class {test_class_name}:
                         if attr_value is not None and str(attr_name).endswith('_id'):
                             has_primary_key = True
                             break
-                # 【重要修复】这里必须使用双大括号转义
-                # 原因: 此行在大的f-string模板内部，单大括号会被外层f-string解析
-                # 单大括号 → 双大括号转义 避免 "name 'model_name' is not defined" 错误
-                assert has_primary_key, f"模型 {{model_name}} 没有找到有效的主键字段"
+                # 【重要修复】双大括号转义避免f-string嵌套错误
+                assert has_primary_key, "模型 " + str(model_name) + " 没有找到有效的主键字段"
             
-{service_methods}
+{service_methods}'''
+        
+        # 添加剩余的测试方法到模板
+        template += '''
     
     def test_error_handling_and_validation(self, unit_test_db: Session):
         """测试错误处理和数据验证"""
-        print(f"{NEWLINE}⚠️ 测试错误处理...")
+        print("\\n⚠️ 测试错误处理...")
         
         if not SERVICE_AVAILABLE:
             pytest.skip("服务类不可用，跳过错误处理测试")
@@ -2792,17 +2807,17 @@ class {test_class_name}:
         self.factory_manager.setup_factories(unit_test_db)
         
         # 测试数据库约束违反
-        from tests.factories.{module_name}_factories import {list(models.keys())[0] if models else 'User'}Factory
+        from tests.factories.{module_name}_factories import {first_model_name}Factory
         
         # 创建第一个实例
-        first_instance = {list(models.keys())[0] if models else 'User'}Factory()
+        first_instance = {first_model_name}Factory()
         
         # 测试唯一约束冲突（如果有唯一字段）
         try:
             # 尝试创建具有相同唯一字段值的实例
             if hasattr(first_instance, 'email'):
                 duplicate_data = {{'email': first_instance.email}}
-                duplicate_instance = {list(models.keys())[0] if models else 'User'}Factory(**duplicate_data)
+                duplicate_instance = {first_model_name}Factory(**duplicate_data)
                 unit_test_db.commit()
                 # 如果到这里说明没有唯一约束，测试通过
                 assert True
@@ -2813,7 +2828,7 @@ class {test_class_name}:
         except Exception as e:
             # 其他错误
             unit_test_db.rollback()
-            print(f"意外错误: {{e}}")
+            print("意外错误: " + str(e))
             
         # 测试空值约束
         try:
@@ -2824,7 +2839,7 @@ class {test_class_name}:
             
     def test_transaction_handling(self, unit_test_db: Session):
         """测试事务处理和数据一致性"""
-        print(f"{NEWLINE}💾 测试事务处理...")
+        print("\\n💾 测试事务处理...")
         
         if not SERVICE_AVAILABLE:
             pytest.skip("服务类不可用，跳过事务处理测试")
@@ -2833,40 +2848,53 @@ class {test_class_name}:
         self.factory_manager.setup_factories(unit_test_db)
         
         # 测试事务回滚
-        from app.modules.{module_name}.models import {list(models.keys())[0] if models else 'User'}
+        from app.modules.{module_name}.models import {first_model_name}
         
         # 记录初始数据数量
-        initial_count = unit_test_db.query({list(models.keys())[0] if models else 'User'}).count()
+        initial_count = unit_test_db.query({first_model_name}).count()
         
         try:
             # 开始事务
-            from tests.factories.{module_name}_factories import {list(models.keys())[0] if models else 'User'}Factory
+            from tests.factories.{module_name}_factories import {first_model_name}Factory
             
             # 创建测试数据
-            test_instance = {list(models.keys())[0] if models else 'User'}Factory()
+            test_instance = {first_model_name}Factory()
             unit_test_db.flush()  # 刷新到数据库但不提交
             
             # 验证数据在事务中存在
-            temp_count = unit_test_db.query({list(models.keys())[0] if models else 'User'}).count()
+            temp_count = unit_test_db.query({first_model_name}).count()
             assert temp_count == initial_count + 1
             
             # 模拟错误并回滚
             unit_test_db.rollback()
             
             # 验证回滚后数据恢复
-            final_count = unit_test_db.query({list(models.keys())[0] if models else 'User'}).count()
+            final_count = unit_test_db.query({first_model_name}).count()
             assert final_count == initial_count
             
         except Exception as e:
             # 确保回滚
             unit_test_db.rollback()
-            print(f"事务测试异常: {{e}}")
+            print("事务测试异常: " + str(e))
             assert True  # 异常处理成功
             
     def teardown_method(self):
         """测试清理"""
         pass
 '''
+        
+        return template.format(
+            module_title=module_name.title(),
+            generation_time=datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            module_name=module_name,
+            factory_manager_class=module_name.title().replace('_', ''),
+            model_imports=', '.join(models.keys()),
+            service_class_name=service_class_name,
+            test_class_name=test_class_name,
+            service_instantiation=service_instantiation,
+            service_methods=service_methods,
+            first_model_name=list(models.keys())[0] if models else 'User'
+        )
 
     def _generate_workflow_scenarios(
         self, module_name: str, models: Dict[str, ModelInfo], service_class_name: str
@@ -4296,8 +4324,8 @@ Auto Generated Test - 已生成到正式目录
                     full_path = self.project_root / file_path
                     full_path.parent.mkdir(parents=True, exist_ok=True)
 
-                    # 创建临时文件
-                    temp_path = full_path.with_suffix(".tmp.py")
+                    # 创建临时文件 - 使用标准的Python文件名避免导入问题
+                    temp_path = full_path.parent / f"temp_{full_path.stem}.py"
                     with open(temp_path, "w", encoding="utf-8") as f:
                         f.write(content)
                     temp_files.append(temp_path)
@@ -4306,9 +4334,11 @@ Auto Generated Test - 已生成到正式目录
                     try:
                         import subprocess
 
+                        # 使用当前虚拟环境的Python解释器
+                        import sys
                         result = subprocess.run(
                             [
-                                "python",
+                                sys.executable,  # 使用当前Python解释器路径
                                 "-m",
                                 "pytest",
                                 str(temp_path),
@@ -4357,7 +4387,7 @@ Auto Generated Test - 已生成到正式目录
                                 "message": "测试收集失败",
                             }
                             print(f"  ❌ pytest收集失败: {file_path}")
-                            print("     错误: " + error_msg[:200] + "...")
+                            print("     错误: " + error_msg)
 
                     except subprocess.TimeoutExpired:
                         error_msg = "pytest收集超时"

@@ -2,7 +2,7 @@
 Auto Generated Test - 已生成到正式目录
 
 文件路径: tests/performance/test_user_auth_performance.py
-生成时间: 2025-10-04 03:29:47
+生成时间: 2025-10-05 17:04:47
 生成工具: tools/generate_test_template.py v2.0
 状态: GENERATED - 需要经过代码审查和测试验证
 
@@ -27,7 +27,7 @@ from tests.conftest import api_client
 class TestUserAuthResponseTime:
     """用户认证模块响应时间性能测试"""
     
-    async def test_api_response_time_p50(self, api_client: AsyncClient):
+    async def test_api_response_time_p50(self, async_api_client):
         """测试API响应时间P50指标 - 要求<200ms"""
         
         headers = {"Authorization": "Bearer test_token"}
@@ -37,7 +37,7 @@ class TestUserAuthResponseTime:
         for _ in range(100):
             start_time = time.time()
             
-            response = await api_client.get("/api/v1/user_auth/", headers=headers)
+            response = await async_api_client.get("/api/v1/user_auth/", headers=headers)
             
             end_time = time.time()
             response_time = (end_time - start_time) * 1000  # 转换为毫秒
@@ -65,7 +65,7 @@ class TestUserAuthResponseTime:
         
         print("✅ 响应时间性能测试通过")
     
-    async def test_database_query_performance(self, api_client: AsyncClient):
+    async def test_database_query_performance(self, async_api_client):
         """测试数据库查询性能"""
         
         headers = {"Authorization": "Bearer test_token"}
@@ -81,7 +81,7 @@ class TestUserAuthResponseTime:
         for endpoint in query_endpoints:
             start_time = time.time()
             
-            response = await api_client.get(endpoint, headers=headers)
+            response = await async_api_client.get(endpoint, headers=headers)
             
             end_time = time.time()
             query_time = (end_time - start_time) * 1000
@@ -96,14 +96,14 @@ class TestUserAuthResponseTime:
         
         print("✅ 数据库查询性能测试通过")
     
-    async def test_cold_start_performance(self, api_client: AsyncClient):
+    async def test_cold_start_performance(self, async_api_client):
         """测试冷启动性能"""
         
         # 模拟应用冷启动后的首次请求
         headers = {"Authorization": "Bearer test_token"}
         
         start_time = time.time()
-        response = await api_client.get("/api/v1/user_auth/health", headers=headers)
+        response = await async_api_client.get("/api/v1/user_auth/health", headers=headers)
         end_time = time.time()
         
         cold_start_time = (end_time - start_time) * 1000
@@ -120,7 +120,7 @@ class TestUserAuthResponseTime:
 class TestUserAuthConcurrency:
     """用户认证模块并发性能测试"""
     
-    async def test_concurrent_read_requests(self, api_client: AsyncClient):
+    async def test_concurrent_read_requests(self, async_api_client):
         """测试并发读请求处理能力"""
         
         headers = {"Authorization": "Bearer test_token"}
@@ -128,7 +128,7 @@ class TestUserAuthConcurrency:
         
         async def single_request():
             start_time = time.time()
-            response = await api_client.get("/api/v1/user_auth/", headers=headers)
+            response = await async_api_client.get("/api/v1/user_auth/", headers=headers)
             end_time = time.time()
             
             return {
@@ -169,7 +169,7 @@ class TestUserAuthConcurrency:
         
         print("✅ 并发读请求测试通过")
     
-    async def test_concurrent_write_requests(self, api_client: AsyncClient):
+    async def test_concurrent_write_requests(self, async_api_client):
         """测试并发写请求处理能力"""
         
         headers = {"Authorization": "Bearer test_token"}
@@ -183,7 +183,7 @@ class TestUserAuthConcurrency:
             }
             
             start_time = time.time()
-            response = await api_client.post(
+            response = await async_api_client.post(
                 "/api/v1/user_auth/test",
                 json=test_data,
                 headers=headers
@@ -219,7 +219,7 @@ class TestUserAuthConcurrency:
         
         print("✅ 并发写请求测试通过")
     
-    async def test_mixed_workload_performance(self, api_client: AsyncClient):
+    async def test_mixed_workload_performance(self, async_api_client):
         """测试混合工作负载性能"""
         
         headers = {"Authorization": "Bearer test_token"}
@@ -229,12 +229,12 @@ class TestUserAuthConcurrency:
         write_tasks = 15
         
         async def read_operation():
-            response = await api_client.get("/api/v1/user_auth/", headers=headers)
+            response = await async_api_client.get("/api/v1/user_auth/", headers=headers)
             return {"type": "read", "success": response.status_code == 200}
         
         async def write_operation():
             test_data = {"name": f"mixed_test_{time.time()}", "value": "test"}
-            response = await api_client.post("/api/v1/user_auth/test", json=test_data, headers=headers)
+            response = await async_api_client.post("/api/v1/user_auth/test", json=test_data, headers=headers)
             return {"type": "write", "success": response.status_code in [200, 201]}
         
         # 混合任务
@@ -275,7 +275,7 @@ class TestUserAuthConcurrency:
 class TestUserAuthLoadTest:
     """用户认证模块负载测试"""
     
-    async def test_sustained_load(self, api_client: AsyncClient):
+    async def test_sustained_load(self, async_api_client):
         """测试持续负载处理能力"""
         
         headers = {"Authorization": "Bearer test_token"}
@@ -291,7 +291,7 @@ class TestUserAuthLoadTest:
             # 每秒发送指定数量的请求
             batch_tasks = []
             for _ in range(requests_per_second):
-                task = api_client.get("/api/v1/user_auth/", headers=headers)
+                task = async_api_client.get("/api/v1/user_auth/", headers=headers)
                 batch_tasks.append(task)
             
             batch_responses = await asyncio.gather(*batch_tasks, return_exceptions=True)
@@ -333,7 +333,7 @@ class TestUserAuthLoadTest:
         
         print("✅ 持续负载测试通过")
     
-    async def test_peak_load_handling(self, api_client: AsyncClient):
+    async def test_peak_load_handling(self, async_api_client):
         """测试峰值负载处理能力"""
         
         headers = {"Authorization": "Bearer test_token"}
@@ -353,9 +353,9 @@ class TestUserAuthLoadTest:
                 session_success = True
                 for method, url, *data in operations:
                     if method == "GET":
-                        response = await api_client.get(url, headers=headers)
+                        response = await async_api_client.get(url, headers=headers)
                     else:
-                        response = await api_client.post(url, json=data[0] if data else {}, headers=headers)
+                        response = await async_api_client.post(url, json=data[0] if data else {}, headers=headers)
                     
                     if response.status_code >= 500:
                         session_success = False
@@ -392,7 +392,7 @@ class TestUserAuthLoadTest:
 class TestUserAuthBenchmark:
     """用户认证模块性能基准测试"""
     
-    async def test_performance_regression(self, api_client: AsyncClient):
+    async def test_performance_regression(self, async_api_client):
         """测试性能回归基准"""
         
         headers = {"Authorization": "Bearer test_token"}
@@ -409,7 +409,7 @@ class TestUserAuthBenchmark:
         list_times = []
         for _ in range(50):
             start = time.time()
-            response = await api_client.get("/api/v1/user_auth/", headers=headers)
+            response = await async_api_client.get("/api/v1/user_auth/", headers=headers)
             end = time.time()
             
             if response.status_code == 200:
@@ -419,7 +419,7 @@ class TestUserAuthBenchmark:
         search_times = []
         for _ in range(30):
             start = time.time()
-            response = await api_client.get("/api/v1/user_auth/search", params={"q": "test"}, headers=headers)
+            response = await async_api_client.get("/api/v1/user_auth/search", params={"q": "test"}, headers=headers)
             end = time.time()
             
             if response.status_code in [200, 404]:  # 404也是正常响应
@@ -430,7 +430,7 @@ class TestUserAuthBenchmark:
         for i in range(20):
             test_data = {"name": f"benchmark_{i}", "value": f"test_{i}"}
             start = time.time()
-            response = await api_client.post("/api/v1/user_auth/test", json=test_data, headers=headers)
+            response = await async_api_client.post("/api/v1/user_auth/test", json=test_data, headers=headers)
             end = time.time()
             
             if response.status_code in [200, 201, 422]:  # 422表示验证失败但服务正常
@@ -488,7 +488,7 @@ class TestUserAuthBenchmark:
         
         print("✅ 性能基准测试通过，无性能回归")
     
-    async def test_memory_usage_efficiency(self, api_client: AsyncClient):
+    async def test_memory_usage_efficiency(self, async_api_client):
         """测试内存使用效率"""
         
         headers = {"Authorization": "Bearer test_token"}
@@ -498,7 +498,7 @@ class TestUserAuthBenchmark:
         
         for i in range(1000):
             # 模拟处理大数据集的请求
-            task = api_client.get(
+            task = async_api_client.get(
                 "/api/v1/user_auth/",
                 params={"limit": 100, "offset": i * 100},
                 headers=headers
@@ -519,7 +519,7 @@ class TestUserAuthBenchmark:
         
         print("✅ 内存使用效率测试通过")
     
-    async def test_performance_under_stress(self, api_client: AsyncClient):
+    async def test_performance_under_stress(self, async_api_client):
         """测试压力条件下的性能表现"""
         
         headers = {"Authorization": "Bearer test_token"}
@@ -534,7 +534,7 @@ class TestUserAuthBenchmark:
             async def stress_request():
                 try:
                     start = time.time()
-                    response = await api_client.get("/api/v1/user_auth/", headers=headers)
+                    response = await async_api_client.get("/api/v1/user_auth/", headers=headers)
                     end = time.time()
                     
                     return {

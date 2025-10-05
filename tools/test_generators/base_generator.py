@@ -117,15 +117,23 @@ class BaseTestGenerator(ABC):
                 # 检查同步和异步函数定义
                 if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
                     # 查找带有@router装饰器的函数
-                    route_info = self._extract_route_info(node, content)
-                    if route_info:
-                        routes.append(route_info)
+                    try:
+                        route_info = self._extract_route_info(node, content)
+                        if route_info:
+                            routes.append(route_info)
+                    except Exception as e:
+                        print(f"❌ 提取路由信息失败 [{node.name}]: {e}")
+                        import traceback
+                        traceback.print_exc()
+                        continue
             
             print(f"📡 分析到 {len(routes)} 个API端点")
             return routes
             
         except Exception as e:
             print(f"❌ 分析路由文件失败: {e}")
+            import traceback
+            traceback.print_exc()
             return []
     
     def _extract_route_info(self, func_node: ast.FunctionDef, content: str) -> Optional[RouterInfo]:

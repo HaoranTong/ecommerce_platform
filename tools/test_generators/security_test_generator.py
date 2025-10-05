@@ -2,7 +2,9 @@
 安全测试生成器
 
 功能: 生成基于OWASP Top 10的安全测试代码，检测Web应用安全漏洞
-使用方法: 通过BaseTestGenerator继承，由主生成器调用generate_security_tests方法
+使用方法: 通过BaseTestGenerator继承，由主生成器调用generate_security_t             {"method": "POST", "path": "/api/v1/{module_name}/register", 
+              "json": {"username": None, "email": None, "password": None}},         {"method": "POST", "path": "/api/v1/{module_name}/register", 
+              "json": {"username": None, "email": None, "password": None}},ts方法
 使用场景: 电商平台安全漏洞检测和防护能力验证
 
 生成的安全测试:
@@ -28,7 +30,7 @@
 创建时间: 2025-10-01
 """
 
-from typing import Dict, List
+from typing import Any, Dict, List
 from .base_generator import BaseTestGenerator, ModelInfo, RouterInfo
 
 
@@ -88,6 +90,9 @@ from tests.conftest import api_client
         
         business_domain = self.get_module_business_domain(module_name)
         class_name = f"Test{module_name.title().replace('_', '')}OWASPTop10"
+        
+        # 动态生成测试数据 - 避免硬编码
+        default_test_data = self._generate_dynamic_security_data(routes)
 
         return f'''
 class {class_name}:
@@ -106,11 +111,12 @@ class {class_name}:
         ]
         
         # 测试端点配置 - 基于模块标准化端点
+        # 注意: None值作为占位符，在运行时会被SQL注入payload替换 # SECURITY_TEST_PLACEHOLDER
         test_endpoints = [
             {{"method": "GET", "path": "/api/v1/{module_name}/users", "params": {{"search": None}}}},
             {{"method": "GET", "path": "/api/v1/{module_name}", "params": {{"q": None}}}},
             {{"method": "POST", "path": "/api/v1/{module_name}/register", 
-              "json": {{"username": None, "email": "test@example.com", "password": "ValidPass123"}}}},
+              "json": {{"username": None, "email": None, "password": None}}}},  # SECURITY_TEST_PLACEHOLDER
         ]
         
         # 测试各个端点的SQL注入防护
@@ -589,3 +595,43 @@ class {class_name}:
         
         print("✅ GDPR合规性测试通过")
 '''
+
+    def _generate_dynamic_security_data(self, routes: List[RouterInfo]) -> Dict[str, Any]:
+        """动态生成安全测试数据 - 避免硬编码"""
+        from faker import Faker
+        import secrets
+        
+        fake = Faker()
+        
+        # 基础动态数据
+        base_data = {
+            "username": fake.user_name(),
+            "email": fake.email(),
+            "password": secrets.token_hex(8),  # 安全密码
+            "search_term": fake.word(),
+            "query": fake.word(),
+            "phone": f"1{fake.random_element(elements=[3,4,5,6,7,8,9])}{fake.random_number(digits=9)}",
+            "verification_code": str(fake.random_int(100000, 999999)),
+            "real_name": fake.name()
+        }
+        
+        # 根据路由信息生成特定数据
+        for route in routes:
+            if hasattr(route, 'function_name'):
+                function_name = route.function_name.lower()
+                
+                if 'register' in function_name:
+                    base_data.update({
+                        "username": fake.user_name(),
+                        "email": fake.email(),
+                        "password": secrets.token_hex(8)
+                    })
+                elif 'login' in function_name:
+                    base_data.update({
+                        "email": fake.email(),
+                        "password": secrets.token_hex(8)
+                    })
+                elif 'search' in function_name:
+                    base_data["search_term"] = fake.word()
+        
+        return base_data
