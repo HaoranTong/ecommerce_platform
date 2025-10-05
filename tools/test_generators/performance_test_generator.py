@@ -664,7 +664,10 @@ class {class_name}:
     async def test_memory_usage_efficiency(self, async_api_client):
         """测试内存使用效率"""
         
-        headers = {{"Authorization": "Bearer test_token"}}
+        # 设置真实的身份验证
+        auth_result = await async_api_client.authenticate_as_user()
+        token = auth_result["token"]
+        headers = {{"Authorization": f"Bearer {{token}}"}}
         
         # 模拟大量请求测试内存效率
         large_dataset_requests = []
