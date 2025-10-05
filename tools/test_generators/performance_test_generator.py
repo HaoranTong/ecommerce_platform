@@ -225,7 +225,10 @@ class {class_name}:
         """测试冷启动性能"""
         
         # 模拟应用冷启动后的首次请求
-        headers = {{"Authorization": "Bearer test_token"}}
+        # 设置真实的身份验证
+        auth_result = await async_api_client.authenticate_as_user()
+        token = auth_result["token"]
+        headers = {{"Authorization": f"Bearer {{token}}"}}
         
         start_time = time.time()
         response = await async_api_client.get("{auth_endpoint}", headers=headers)
