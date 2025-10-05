@@ -263,11 +263,12 @@ class {class_name}:
         # 设置真实的身份验证
         auth_result = await async_api_client.authenticate_as_admin()
         token = auth_result["token"]
+        headers = {{"Authorization": f"Bearer {{token}}"}}
         concurrent_users = 50  # 模拟50个并发用户
         
         async def single_request():
+            start_time = time.time()
             try:
-                start_time = time.time()
                 response = await async_api_client.get("{auth_endpoint}", headers=headers)
                 end_time = time.time()
                 
@@ -325,6 +326,7 @@ class {class_name}:
         # 设置真实的身份验证
         auth_result = await async_api_client.authenticate_as_admin()
         token = auth_result["token"]
+        headers = {{"Authorization": f"Bearer {{token}}"}}
         concurrent_writes = 20  # 模拟20个并发写操作
         
         async def write_request(request_id):
@@ -388,6 +390,7 @@ class {class_name}:
         # 设置真实的身份验证
         auth_result = await async_api_client.authenticate_as_admin()
         token = auth_result["token"]
+        headers = {{"Authorization": f"Bearer {{token}}"}}
         
         # 模拟真实场景：70%读操作，30%写操作
         read_tasks = 35
