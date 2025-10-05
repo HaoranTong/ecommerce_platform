@@ -4310,7 +4310,13 @@ Auto Generated Test - 已生成到正式目录
         temp_files = []
         try:
             for file_path, content in files.items():
-                if "test_" in file_path and file_path.endswith(".py"):
+                # 检查是否为测试文件 - 包含test_或以test_开头，并且是Python文件内容
+                is_test_file = (
+                    ("test_" in file_path or file_path.startswith("test_")) and 
+                    (file_path.endswith(".py") or ("import" in content and "def test_" in content))
+                )
+                
+                if is_test_file:
                     # 跳过integration、e2e和standalone测试的pytest收集，因为它们需要特殊环境
                     if "integration" in file_path or "e2e" in file_path or "standalone" in file_path:
                         collection_results["test_files"].append(file_path)
@@ -4321,6 +4327,10 @@ Auto Generated Test - 已生成到正式目录
                         print(f"  ⏭️ 跳过pytest收集: {file_path} (需要特殊环境)")
                         continue
                         
+                    # 确保文件路径有.py后缀
+                    if not file_path.endswith(".py"):
+                        file_path = file_path + ".py"
+                    
                     full_path = self.project_root / file_path
                     full_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -4352,18 +4362,22 @@ Auto Generated Test - 已生成到正式目录
                         )
 
                         if result.returncode == 0:
-                            # 解析收集到的测试数量
-                            output_lines = result.stdout.split("\n")
+                            # 解析收集到的测试数量 - 从"X tests collected"格式中提取
                             test_count = 0
-                            for line in output_lines:
-                                if "test session starts" in line:
-                                    continue
-                                elif (
-                                    "<Module" in line
-                                    or "<Function" in line
-                                    or "<Class" in line
-                                ):
-                                    test_count += 1
+                            output_text = result.stdout + result.stderr
+                            
+                            # 查找"X tests collected"模式
+                            import re
+                            collected_match = re.search(r'(\d+)\s+tests?\s+collected', output_text)
+                            if collected_match:
+                                test_count = int(collected_match.group(1))
+                            else:
+                                # 备用方案：计算test_开头的函数数量
+                                test_functions = [
+                                    line for line in output_text.split('\n') 
+                                    if '::test_' in line and not line.strip().startswith('#')
+                                ]
+                                test_count = len(test_functions)
 
                             collection_results["collected_tests"] += test_count
                             collection_results["test_files"].append(file_path)
