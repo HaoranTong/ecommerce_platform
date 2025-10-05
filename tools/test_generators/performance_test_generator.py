@@ -260,7 +260,10 @@ class {class_name}:
     async def test_concurrent_read_requests(self, async_api_client):
         """测试并发读请求处理能力"""
         
-        headers = {{"Authorization": "Bearer test_token"}}
+        # 设置真实的身份验证
+        auth_result = await async_api_client.authenticate_as_user()
+        token = auth_result["token"]
+        headers = {{"Authorization": f"Bearer {{token}}"}}
         concurrent_users = 50  # 模拟50个并发用户
         
         async def single_request():
