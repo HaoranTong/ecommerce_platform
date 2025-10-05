@@ -190,7 +190,10 @@ class {class_name}:
     async def test_database_query_performance(self, async_api_client):
         """测试数据库查询性能"""
         
-        headers = {{"Authorization": "Bearer test_token"}}
+        # 设置真实的身份验证
+        auth_result = await async_api_client.authenticate_as_user()
+        token = auth_result["token"]
+        headers = {{"Authorization": f"Bearer {{token}}"}}
         query_times = []
         
         # 测试不同类型的查询性能
