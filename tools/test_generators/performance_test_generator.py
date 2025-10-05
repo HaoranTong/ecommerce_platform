@@ -40,6 +40,49 @@ from .base_generator import BaseTestGenerator, ModelInfo, RouterInfo
 
 class PerformanceTestGenerator(BaseTestGenerator):
     """性能测试代码生成器"""
+
+    def _select_auth_endpoint(self, routes: List[RouterInfo], module_name: str) -> str:
+        """选择认证相关的端点"""
+        if routes:
+            # 优先选择需要认证的GET端点
+            auth_required_routes = [r for r in routes if r.auth_required and r.method == "GET"]
+            if auth_required_routes:
+                return f"/api/v1{auth_required_routes[0].path}"
+            
+            # 回退：使用第一个GET端点
+            get_routes = [r for r in routes if r.method == "GET"]
+            if get_routes:
+                return f"/api/v1{get_routes[0].path}"
+            
+            # 再回退：使用第一个端点
+            return f"/api/v1{routes[0].path}"
+        
+        # 最终回退：使用API模块名
+        module_path = module_name.replace('_', '-')
+        return f"/api/v1/{module_path}/"
+
+    def _select_post_endpoint(self, routes: List[RouterInfo], module_name: str) -> str:
+        """选择POST类型的端点"""
+        if routes:
+            # 优先选择不是认证相关的POST端点
+            post_routes = [
+                r for r in routes 
+                if r.method == 'POST' and not any(keyword in r.path.lower() for keyword in ['login', 'register', 'token'])
+            ]
+            if post_routes:
+                return f"/api/v1{post_routes[0].path}"
+            
+            # 回退：使用任何POST端点
+            any_post_routes = [r for r in routes if r.method == 'POST']
+            if any_post_routes:
+                return f"/api/v1{any_post_routes[0].path}"
+            
+            # 再回退：使用第一个端点
+            return f"/api/v1{routes[0].path}"
+        
+        # 最终回退：使用API模块名
+        module_path = module_name.replace('_', '-')
+        return f"/api/v1/{module_path}/"
     
     def generate_tests(self, module_name: str, models: Dict[str, ModelInfo]) -> Dict[str, str]:
         """生成性能测试代码"""
@@ -95,6 +138,9 @@ from tests.conftest import api_client
         
         business_domain = self.get_module_business_domain(module_name)
         class_name = f"Test{module_name.title().replace('_', '')}ResponseTime"
+        auth_endpoint = self._select_auth_endpoint(routes, module_name)
+        post_endpoint = self._select_post_endpoint(routes, module_name)
+        module_path = module_name.replace('_', '-')
         
         return f'''
 class {class_name}:
@@ -110,7 +156,7 @@ class {class_name}:
         for _ in range(100):
             start_time = time.time()
             
-            response = await async_api_client.get("/api/v1/{module_name}/", headers=headers)
+            response = await async_api_client.get("{auth_endpoint}", headers=headers)
             
             end_time = time.time()
             response_time = (end_time - start_time) * 1000  # 转换为毫秒
@@ -146,9 +192,9 @@ class {class_name}:
         
         # 测试不同类型的查询性能
         query_endpoints = [
-            "/api/v1/{module_name}/",           # 列表查询
-            "/api/v1/{module_name}/search",     # 搜索查询
-            "/api/v1/{module_name}/1",          # 单记录查询
+            f"/api/v1/{module_path}/",           # 列表查询
+            f"/api/v1/{module_path}/search",     # 搜索查询
+            f"/api/v1/{module_path}/1",          # 单记录查询
         ]
         
         for endpoint in query_endpoints:
@@ -176,7 +222,7 @@ class {class_name}:
         headers = {{"Authorization": "Bearer test_token"}}
         
         start_time = time.time()
-        response = await async_api_client.get("/api/v1/{module_name}/health", headers=headers)
+        response = await async_api_client.get("{auth_endpoint}", headers=headers)
         end_time = time.time()
         
         cold_start_time = (end_time - start_time) * 1000
@@ -194,6 +240,9 @@ class {class_name}:
         
         business_domain = self.get_module_business_domain(module_name)
         class_name = f"Test{module_name.title().replace('_', '')}Concurrency"
+        auth_endpoint = self._select_auth_endpoint(routes, module_name)
+        post_endpoint = self._select_post_endpoint(routes, module_name)
+        module_path = module_name.replace('_', '-')
         
         return f'''
 class {class_name}:
@@ -207,7 +256,7 @@ class {class_name}:
         
         async def single_request():
             start_time = time.time()
-            response = await async_api_client.get("/api/v1/{module_name}/", headers=headers)
+            response = await async_api_client.get("{auth_endpoint}", headers=headers)
             end_time = time.time()
             
             return {{
@@ -263,7 +312,7 @@ class {class_name}:
             
             start_time = time.time()
             response = await async_api_client.post(
-                "/api/v1/{module_name}/test",
+                "{post_endpoint}",
                 json=test_data,
                 headers=headers
             )
@@ -308,12 +357,12 @@ class {class_name}:
         write_tasks = 15
         
         async def read_operation():
-            response = await async_api_client.get("/api/v1/{module_name}/", headers=headers)
+            response = await async_api_client.get("{auth_endpoint}", headers=headers)
             return {{"type": "read", "success": response.status_code == 200}}
         
         async def write_operation():
             test_data = {{"name": f"mixed_test_{{time.time()}}", "value": "test"}}
-            response = await async_api_client.post("/api/v1/{module_name}/test", json=test_data, headers=headers)
+            response = await async_api_client.post("{post_endpoint}", json=test_data, headers=headers)
             return {{"type": "write", "success": response.status_code in [200, 201]}}
         
         # 混合任务
@@ -354,6 +403,9 @@ class {class_name}:
         """生成负载测试"""
         
         business_domain = self.get_module_business_domain(module_name)
+        auth_endpoint = self._select_auth_endpoint(routes, module_name)
+        post_endpoint = self._select_post_endpoint(routes, module_name)
+        module_path = module_name.replace('_', '-')
         class_name = f"Test{module_name.title().replace('_', '')}LoadTest"
         
         return f'''
@@ -376,7 +428,7 @@ class {class_name}:
             # 每秒发送指定数量的请求
             batch_tasks = []
             for _ in range(requests_per_second):
-                task = async_api_client.get("/api/v1/{module_name}/", headers=headers)
+                task = async_api_client.get("{auth_endpoint}", headers=headers)
                 batch_tasks.append(task)
             
             batch_responses = await asyncio.gather(*batch_tasks, return_exceptions=True)
@@ -429,10 +481,10 @@ class {class_name}:
             try:
                 # 用户典型操作序列
                 operations = [
-                    ("GET", "/api/v1/{module_name}/"),
-                    ("GET", "/api/v1/{module_name}/search"),
-                    ("POST", "/api/v1/{module_name}/test", {{"name": "peak_test"}}),
-                    ("GET", "/api/v1/{module_name}/1"),
+                    ("GET", f"/api/v1/{module_path}/"),
+                    ("GET", f"/api/v1/{module_path}/search"),
+                    ("POST", "{post_endpoint}", {{"name": "peak_test"}}),
+                    ("GET", f"/api/v1/{module_path}/1"),
                 ]
                 
                 session_success = True
@@ -478,6 +530,9 @@ class {class_name}:
         
         business_domain = self.get_module_business_domain(module_name)
         class_name = f"Test{module_name.title().replace('_', '')}Benchmark"
+        auth_endpoint = self._select_auth_endpoint(routes, module_name)
+        post_endpoint = self._select_post_endpoint(routes, module_name)
+        module_path = module_name.replace('_', '-')
         
         return f'''
 class {class_name}:
@@ -500,7 +555,7 @@ class {class_name}:
         list_times = []
         for _ in range(50):
             start = time.time()
-            response = await async_api_client.get("/api/v1/{module_name}/", headers=headers)
+            response = await async_api_client.get("{auth_endpoint}", headers=headers)
             end = time.time()
             
             if response.status_code == 200:
@@ -510,7 +565,7 @@ class {class_name}:
         search_times = []
         for _ in range(30):
             start = time.time()
-            response = await async_api_client.get("/api/v1/{module_name}/search", params={{"q": "test"}}, headers=headers)
+            response = await async_api_client.get(f"/api/v1/{module_path}/search", params={{"q": "test"}}, headers=headers)
             end = time.time()
             
             if response.status_code in [200, 404]:  # 404也是正常响应
@@ -521,7 +576,7 @@ class {class_name}:
         for i in range(20):
             test_data = {{"name": f"benchmark_{{i}}", "value": f"test_{{i}}"}}
             start = time.time()
-            response = await async_api_client.post("/api/v1/{module_name}/test", json=test_data, headers=headers)
+            response = await async_api_client.post("{post_endpoint}", json=test_data, headers=headers)
             end = time.time()
             
             if response.status_code in [200, 201, 422]:  # 422表示验证失败但服务正常
@@ -541,7 +596,7 @@ class {class_name}:
         
         # 测试吞吐量
         throughput_start = time.time()
-        throughput_tasks = [api_client.get("/api/v1/{module_name}/", headers=headers) for _ in range(100)]
+        throughput_tasks = [async_api_client.get("{auth_endpoint}", headers=headers) for _ in range(100)]
         throughput_responses = await asyncio.gather(*throughput_tasks, return_exceptions=True)
         throughput_time = time.time() - throughput_start
         
@@ -590,7 +645,7 @@ class {class_name}:
         for i in range(1000):
             # 模拟处理大数据集的请求
             task = async_api_client.get(
-                "/api/v1/{module_name}/",
+                "{auth_endpoint}",
                 params={{"limit": 100, "offset": i * 100}},
                 headers=headers
             )
@@ -625,7 +680,7 @@ class {class_name}:
             async def stress_request():
                 try:
                     start = time.time()
-                    response = await async_api_client.get("/api/v1/{module_name}/", headers=headers)
+                    response = await async_api_client.get("{auth_endpoint}", headers=headers)
                     end = time.time()
                     
                     return {{

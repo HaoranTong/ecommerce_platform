@@ -2,7 +2,7 @@
 Auto Generated Test - 已生成到正式目录
 
 文件路径: tests/integration/test_user_auth_integration.py
-生成时间: 2025-10-05 21:24:40
+生成时间: 2025-10-05 22:34:45
 生成工具: tools/generate_test_template.py v2.0
 状态: GENERATED - 需要经过代码审查和测试验证
 

@@ -2,7 +2,7 @@
 Auto Generated Test - 已生成到正式目录
 
 文件路径: tests/performance/test_user_auth_performance.py
-生成时间: 2025-10-05 22:11:26
+生成时间: 2025-10-05 22:34:45
 生成工具: tools/generate_test_template.py v2.0
 状态: GENERATED - 需要经过代码审查和测试验证
 
@@ -37,7 +37,7 @@ class TestUserAuthResponseTime:
         for _ in range(100):
             start_time = time.time()
             
-            response = await async_api_client.get("/api/v1/user_auth/", headers=headers)
+            response = await async_api_client.get("/api/v1/user-auth/me", headers=headers)
             
             end_time = time.time()
             response_time = (end_time - start_time) * 1000  # 转换为毫秒
@@ -73,9 +73,9 @@ class TestUserAuthResponseTime:
         
         # 测试不同类型的查询性能
         query_endpoints = [
-            "/api/v1/user_auth/",           # 列表查询
-            "/api/v1/user_auth/search",     # 搜索查询
-            "/api/v1/user_auth/1",          # 单记录查询
+            f"/api/v1/user-auth/",           # 列表查询
+            f"/api/v1/user-auth/search",     # 搜索查询
+            f"/api/v1/user-auth/1",          # 单记录查询
         ]
         
         for endpoint in query_endpoints:
@@ -103,7 +103,7 @@ class TestUserAuthResponseTime:
         headers = {"Authorization": "Bearer test_token"}
         
         start_time = time.time()
-        response = await async_api_client.get("/api/v1/user_auth/health", headers=headers)
+        response = await async_api_client.get("/api/v1/user-auth/me", headers=headers)
         end_time = time.time()
         
         cold_start_time = (end_time - start_time) * 1000
@@ -128,7 +128,7 @@ class TestUserAuthConcurrency:
         
         async def single_request():
             start_time = time.time()
-            response = await async_api_client.get("/api/v1/user_auth/", headers=headers)
+            response = await async_api_client.get("/api/v1/user-auth/me", headers=headers)
             end_time = time.time()
             
             return {
@@ -184,7 +184,7 @@ class TestUserAuthConcurrency:
             
             start_time = time.time()
             response = await async_api_client.post(
-                "/api/v1/user_auth/test",
+                "/api/v1/user-auth/refresh",
                 json=test_data,
                 headers=headers
             )
@@ -229,12 +229,12 @@ class TestUserAuthConcurrency:
         write_tasks = 15
         
         async def read_operation():
-            response = await async_api_client.get("/api/v1/user_auth/", headers=headers)
+            response = await async_api_client.get("/api/v1/user-auth/me", headers=headers)
             return {"type": "read", "success": response.status_code == 200}
         
         async def write_operation():
             test_data = {"name": f"mixed_test_{time.time()}", "value": "test"}
-            response = await async_api_client.post("/api/v1/user_auth/test", json=test_data, headers=headers)
+            response = await async_api_client.post("/api/v1/user-auth/refresh", json=test_data, headers=headers)
             return {"type": "write", "success": response.status_code in [200, 201]}
         
         # 混合任务
@@ -291,7 +291,7 @@ class TestUserAuthLoadTest:
             # 每秒发送指定数量的请求
             batch_tasks = []
             for _ in range(requests_per_second):
-                task = async_api_client.get("/api/v1/user_auth/", headers=headers)
+                task = async_api_client.get("/api/v1/user-auth/me", headers=headers)
                 batch_tasks.append(task)
             
             batch_responses = await asyncio.gather(*batch_tasks, return_exceptions=True)
@@ -344,10 +344,10 @@ class TestUserAuthLoadTest:
             try:
                 # 用户典型操作序列
                 operations = [
-                    ("GET", "/api/v1/user_auth/"),
-                    ("GET", "/api/v1/user_auth/search"),
-                    ("POST", "/api/v1/user_auth/test", {"name": "peak_test"}),
-                    ("GET", "/api/v1/user_auth/1"),
+                    ("GET", f"/api/v1/user-auth/"),
+                    ("GET", f"/api/v1/user-auth/search"),
+                    ("POST", "/api/v1/user-auth/refresh", {"name": "peak_test"}),
+                    ("GET", f"/api/v1/user-auth/1"),
                 ]
                 
                 session_success = True
@@ -409,7 +409,7 @@ class TestUserAuthBenchmark:
         list_times = []
         for _ in range(50):
             start = time.time()
-            response = await async_api_client.get("/api/v1/user_auth/", headers=headers)
+            response = await async_api_client.get("/api/v1/user-auth/me", headers=headers)
             end = time.time()
             
             if response.status_code == 200:
@@ -419,7 +419,7 @@ class TestUserAuthBenchmark:
         search_times = []
         for _ in range(30):
             start = time.time()
-            response = await async_api_client.get("/api/v1/user_auth/search", params={"q": "test"}, headers=headers)
+            response = await async_api_client.get(f"/api/v1/user-auth/search", params={"q": "test"}, headers=headers)
             end = time.time()
             
             if response.status_code in [200, 404]:  # 404也是正常响应
@@ -430,7 +430,7 @@ class TestUserAuthBenchmark:
         for i in range(20):
             test_data = {"name": f"benchmark_{i}", "value": f"test_{i}"}
             start = time.time()
-            response = await async_api_client.post("/api/v1/user_auth/test", json=test_data, headers=headers)
+            response = await async_api_client.post("/api/v1/user-auth/refresh", json=test_data, headers=headers)
             end = time.time()
             
             if response.status_code in [200, 201, 422]:  # 422表示验证失败但服务正常
@@ -450,7 +450,7 @@ class TestUserAuthBenchmark:
         
         # 测试吞吐量
         throughput_start = time.time()
-        throughput_tasks = [api_client.get("/api/v1/user_auth/", headers=headers) for _ in range(100)]
+        throughput_tasks = [async_api_client.get("/api/v1/user-auth/me", headers=headers) for _ in range(100)]
         throughput_responses = await asyncio.gather(*throughput_tasks, return_exceptions=True)
         throughput_time = time.time() - throughput_start
         
@@ -499,7 +499,7 @@ class TestUserAuthBenchmark:
         for i in range(1000):
             # 模拟处理大数据集的请求
             task = async_api_client.get(
-                "/api/v1/user_auth/",
+                "/api/v1/user-auth/me",
                 params={"limit": 100, "offset": i * 100},
                 headers=headers
             )
@@ -534,7 +534,7 @@ class TestUserAuthBenchmark:
             async def stress_request():
                 try:
                     start = time.time()
-                    response = await async_api_client.get("/api/v1/user_auth/", headers=headers)
+                    response = await async_api_client.get("/api/v1/user-auth/me", headers=headers)
                     end = time.time()
                     
                     return {
