@@ -267,10 +267,8 @@ class {class_name}:
         
         async def single_request():
             try:
-                # 每个请求创建独立的headers避免共享状态
-                request_headers = {{"Authorization": f"Bearer {{token}}"}}
                 start_time = time.time()
-                response = await async_api_client.get("{auth_endpoint}", headers=request_headers)
+                response = await async_api_client.get("{auth_endpoint}", headers=headers)
                 end_time = time.time()
                 
                 return {{
@@ -280,9 +278,11 @@ class {class_name}:
                     "error": None
                 }}
             except Exception as e:
+                end_time = time.time()
+                print(f"⚠️ 并发读请求异常: {{str(e)}}")
                 return {{
                     "status_code": None,
-                    "response_time": 0,
+                    "response_time": (end_time - start_time) * 1000,
                     "success": False,
                     "error": str(e)
                 }}
@@ -328,8 +328,6 @@ class {class_name}:
         concurrent_writes = 20  # 模拟20个并发写操作
         
         async def write_request(request_id):
-            # 每个请求创建独立的headers避免共享状态
-            request_headers = {{"Authorization": f"Bearer {{token}}"}}
             test_data = {{
                 "name": f"concurrent_test_{{request_id}}",
                 "value": f"test_value_{{request_id}}",
@@ -341,7 +339,7 @@ class {class_name}:
                 response = await async_api_client.post(
                     "{post_endpoint}",
                     json=test_data,
-                    headers=request_headers
+                    headers=headers
                 )
                 end_time = time.time()
                 
@@ -396,21 +394,17 @@ class {class_name}:
         write_tasks = 15
         
         async def read_operation():
-            # 每个请求创建独立的headers避免共享状态
-            request_headers = {{"Authorization": f"Bearer {{token}}"}}
             try:
-                response = await async_api_client.get("{auth_endpoint}", headers=request_headers)
+                response = await async_api_client.get("{auth_endpoint}", headers=headers)
                 return {{"type": "read", "success": response.status_code == 200}}
             except Exception as e:
                 print(f"⚠️ 混合负载读操作异常: {{str(e)}}")
                 return {{"type": "read", "success": False, "error": str(e)}}
         
         async def write_operation():
-            # 每个请求创建独立的headers避免共享状态
-            request_headers = {{"Authorization": f"Bearer {{token}}"}}
             test_data = {{"name": f"mixed_test_{{time.time()}}", "value": "test"}}
             try:
-                response = await async_api_client.post("{post_endpoint}", json=test_data, headers=request_headers)
+                response = await async_api_client.post("{post_endpoint}", json=test_data, headers=headers)
                 return {{"type": "write", "success": response.status_code in [200, 201]}}
             except Exception as e:
                 print(f"⚠️ 混合负载写操作异常: {{str(e)}}")
