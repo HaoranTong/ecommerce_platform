@@ -320,8 +320,7 @@ class {class_name}:
         """测试并发写请求处理能力"""
         
         # 设置真实的身份验证
-        auth_result = await async_api_client.authenticate_as_admin()
-        token = auth_result["token"]
+        token, admin_user = await async_api_client.authenticate_as_admin()
         headers = {{"Authorization": f"Bearer {{token}}"}}
         concurrent_writes = 20  # 模拟20个并发写操作
         
@@ -384,8 +383,7 @@ class {class_name}:
         """测试混合工作负载性能"""
         
         # 设置真实的身份验证
-        auth_result = await async_api_client.authenticate_as_admin()
-        token = auth_result["token"]
+        token, admin_user = await async_api_client.authenticate_as_admin()
         headers = {{"Authorization": f"Bearer {{token}}"}}
         
         # 模拟真实场景：70%读操作，30%写操作
@@ -460,8 +458,7 @@ class {class_name}:
         """测试持续负载处理能力"""
         
         # 设置真实的身份验证
-        auth_result = await async_api_client.authenticate_as_admin()
-        token = auth_result["token"]
+        token, admin_user = await async_api_client.authenticate_as_admin()
         headers = {{"Authorization": f"Bearer {{token}}"}}
         duration_seconds = 30  # 持续30秒的负载测试
         requests_per_second = 10  # 每秒10个请求
@@ -521,8 +518,7 @@ class {class_name}:
         """测试峰值负载处理能力"""
         
         # 设置真实的身份验证
-        auth_result = await async_api_client.authenticate_as_admin()
-        token = auth_result["token"]
+        token, admin_user = await async_api_client.authenticate_as_admin()
         headers = {{"Authorization": f"Bearer {{token}}"}}
         peak_concurrent_users = 100  # 峰值并发用户数
         
@@ -592,8 +588,7 @@ class {class_name}:
         """测试性能回归基准"""
         
         # 设置真实的身份验证
-        auth_result = await async_api_client.authenticate_as_admin()
-        token = auth_result["token"]
+        token, admin_user = await async_api_client.authenticate_as_admin()
         headers = {{"Authorization": f"Bearer {{token}}"}}
         
         # 性能基准数据（应该来自历史数据或预设基准）
@@ -691,8 +686,7 @@ class {class_name}:
         """测试内存使用效率"""
         
         # 设置真实的身份验证
-        auth_result = await async_api_client.authenticate_as_admin()
-        token = auth_result["token"]
+        token, admin_user = await async_api_client.authenticate_as_admin()
         headers = {{"Authorization": f"Bearer {{token}}"}}
         
         # 模拟大量请求测试内存效率
@@ -725,8 +719,7 @@ class {class_name}:
         """测试压力条件下的性能表现"""
         
         # 设置真实的身份验证
-        auth_result = await async_api_client.authenticate_as_admin()
-        token = auth_result["token"]
+        token, admin_user = await async_api_client.authenticate_as_admin()
         headers = {{"Authorization": f"Bearer {{token}}"}}
         
         # 逐步增加负载压力
