@@ -150,8 +150,7 @@ class {class_name}:
         """测试API响应时间P50指标 - 要求<200ms"""
         
         # 使用真实JWT身份验证
-        auth_result = await async_api_client.authenticate_as_admin()
-        token = auth_result["token"]
+        token, admin_user = await async_api_client.authenticate_as_admin()
         headers = {{"Authorization": f"Bearer {{token}}"}}
         response_times = []
         
