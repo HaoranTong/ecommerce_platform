@@ -565,7 +565,10 @@ class {class_name}:
     async def test_performance_regression(self, async_api_client):
         """测试性能回归基准"""
         
-        headers = {{"Authorization": "Bearer test_token"}}
+        # 设置真实的身份验证
+        auth_result = await async_api_client.authenticate_as_user()
+        token = auth_result["token"]
+        headers = {{"Authorization": f"Bearer {{token}}"}}
         
         # 性能基准数据（应该来自历史数据或预设基准）
         performance_baselines = {{
