@@ -494,7 +494,10 @@ class {class_name}:
     async def test_peak_load_handling(self, async_api_client):
         """测试峰值负载处理能力"""
         
-        headers = {{"Authorization": "Bearer test_token"}}
+        # 设置真实的身份验证
+        auth_result = await async_api_client.authenticate_as_user()
+        token = auth_result["token"]
+        headers = {{"Authorization": f"Bearer {{token}}"}}
         peak_concurrent_users = 100  # 峰值并发用户数
         
         async def user_session():
