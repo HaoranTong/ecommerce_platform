@@ -2,7 +2,7 @@
 Auto Generated Test - 已生成到正式目录
 
 文件路径: tests/unit/test_models/test_user_auth_models.py
-生成时间: 2025-10-04 03:29:47
+生成时间: 2025-10-04 17:31:10
 生成工具: tools/generate_test_template.py v2.0
 状态: GENERATED - 需要经过代码审查和测试验证
 
@@ -25,7 +25,7 @@ from app.modules.user_auth.models import (
 
 
 class TestPermissionModel:
-    """Permission模型测试类 - 100% Mock策略"""
+    """{model_name}模型测试类 - 100% Mock策略"""
         
     def test_model_instance_creation(self, mocker):
         """测试Permission模型实例创建"""
@@ -167,7 +167,7 @@ class TestPermissionModel:
 
 
 class TestRoleModel:
-    """Role模型测试类 - 100% Mock策略"""
+    """{model_name}模型测试类 - 100% Mock策略"""
         
     def test_model_instance_creation(self, mocker):
         """测试Role模型实例创建"""
@@ -304,7 +304,7 @@ class TestRoleModel:
 
 
 class TestRolePermissionModel:
-    """RolePermission模型测试类 - 100% Mock策略"""
+    """{model_name}模型测试类 - 100% Mock策略"""
         
     def test_model_instance_creation(self, mocker):
         """测试RolePermission模型实例创建"""
@@ -451,7 +451,7 @@ class TestRolePermissionModel:
 
 
 class TestSessionModel:
-    """Session模型测试类 - 100% Mock策略"""
+    """{model_name}模型测试类 - 100% Mock策略"""
         
     def test_model_instance_creation(self, mocker):
         """测试Session模型实例创建"""
@@ -638,7 +638,7 @@ class TestSessionModel:
 
 
 class TestUserModel:
-    """User模型测试类 - 100% Mock策略"""
+    """{model_name}模型测试类 - 100% Mock策略"""
         
     def test_model_instance_creation(self, mocker):
         """测试User模型实例创建"""
@@ -1035,7 +1035,7 @@ class TestUserModel:
 
 
 class TestUserRoleModel:
-    """UserRole模型测试类 - 100% Mock策略"""
+    """{model_name}模型测试类 - 100% Mock策略"""
         
     def test_model_instance_creation(self, mocker):
         """测试UserRole模型实例创建"""

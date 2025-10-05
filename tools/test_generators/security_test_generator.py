@@ -88,12 +88,12 @@ from tests.conftest import api_client
         
         business_domain = self.get_module_business_domain(module_name)
         class_name = f"Test{module_name.title().replace('_', '')}OWASPTop10"
-        
+
         return f'''
 class {class_name}:
     """{business_domain}模块OWASP Top 10安全测试"""
     
-    async def test_sql_injection_protection(self, api_client: AsyncClient):
+    async def test_sql_injection_protection(self, async_api_client):
         """测试SQL注入防护 - OWASP #1"""
         
         # SQL注入攻击载荷
@@ -105,27 +105,39 @@ class {class_name}:
             "1' OR 1=1#"
         ]
         
-        # 测试各个参数位置的SQL注入
+        # 测试端点配置 - 基于模块标准化端点
+        test_endpoints = [
+            {{"method": "GET", "path": "/api/v1/{module_name}/users", "params": {{"search": None}}}},
+            {{"method": "GET", "path": "/api/v1/{module_name}", "params": {{"q": None}}}},
+            {{"method": "POST", "path": "/api/v1/{module_name}/register", 
+              "json": {{"username": None, "email": "test@example.com", "password": "ValidPass123"}}}},
+        ]
+        
+        # 测试各个端点的SQL注入防护
         for payload in sql_payloads:
-            # 测试查询参数注入
-            response = await api_client.get(
-                "/api/v1/{module_name}/search",
-                params={{"q": payload}}
-            )
-            # 应该返回400/422而不是500，说明有输入验证
-            assert response.status_code != status.HTTP_500_INTERNAL_SERVER_ERROR
-            
-            # 测试POST数据注入
-            if routes:  # 如果有POST路由
-                response = await api_client.post(
-                    "/api/v1/{module_name}/test",
-                    json={{"name": payload, "value": payload}}
-                )
-                assert response.status_code != status.HTTP_500_INTERNAL_SERVER_ERROR
+            for endpoint in test_endpoints:
+                try:
+                    if endpoint["method"] == "GET":
+                        # 更新查询参数
+                        params = {{k: payload if v is None else v for k, v in endpoint["params"].items()}}
+                        response = await async_api_client.get(endpoint["path"], params=params)
+                    elif endpoint["method"] == "POST":
+                        # 更新JSON数据
+                        json_data = {{k: payload if v is None else v for k, v in endpoint["json"].items()}}
+                        response = await async_api_client.post(endpoint["path"], json=json_data)
+                    
+                    # 应该返回400/422而不是500，说明有输入验证
+                    assert response.status_code != status.HTTP_500_INTERNAL_SERVER_ERROR, f"SQL注入可能成功: {{endpoint}}"
+                    
+                except Exception as e:
+                    # 如果端点不存在，跳过测试
+                    if "404" in str(e) or "Not Found" in str(e):
+                        continue
+                    raise
         
         print("✅ SQL注入防护测试通过")
     
-    async def test_xss_protection(self, api_client: AsyncClient):
+    async def test_xss_protection(self, async_api_client):
         """测试XSS跨站脚本防护 - OWASP #7"""
         
         # XSS攻击载荷
@@ -141,7 +153,7 @@ class {class_name}:
         
         for payload in xss_payloads:
             # 测试输入字段的XSS防护
-            response = await api_client.post(
+            response = await async_api_client.post(
                 "/api/v1/{module_name}/test",
                 json={{"description": payload, "comment": payload}},
                 headers=headers
@@ -156,13 +168,13 @@ class {class_name}:
         
         print("✅ XSS防护测试通过")
     
-    async def test_csrf_protection(self, api_client: AsyncClient):
+    async def test_csrf_protection(self, async_api_client):
         """测试CSRF跨站请求伪造防护 - OWASP #8"""
         
         headers = {{"Authorization": "Bearer test_token"}}
         
         # 测试缺少CSRF token的请求
-        response = await api_client.post(
+        response = await async_api_client.post(
             "/api/v1/{module_name}/sensitive-action",
             json={{"action": "delete", "target": "important_data"}},
             headers=headers
@@ -175,7 +187,7 @@ class {class_name}:
         
         print("✅ CSRF防护测试通过")
     
-    async def test_broken_authentication(self, api_client: AsyncClient):
+    async def test_broken_authentication(self, async_api_client):
         """测试认证机制安全性 - OWASP #2"""
         
         # 测试弱密码
@@ -184,7 +196,7 @@ class {class_name}:
         weak_passwords = [fake.password(length=6), fake.word(), "admin", "", fake.word()]
         
         for weak_password in weak_passwords:
-            response = await api_client.post(
+            response = await async_api_client.post(
                 "/api/v1/user-auth/login",
                 json={{"username": fake.user_name(), "password": weak_password}}
             )
@@ -196,7 +208,7 @@ class {class_name}:
         # 测试暴力破解防护
         test_username = fake.user_name()
         for _ in range(10):
-            response = await api_client.post(
+            response = await async_api_client.post(
                 "/api/v1/user-auth/login",
                 json={{"username": test_username, "password": fake.password()}}
             )
@@ -205,13 +217,13 @@ class {class_name}:
         # 应该有频率限制或账户锁定
         print("✅ 认证安全测试通过")
     
-    async def test_sensitive_data_exposure(self, api_client: AsyncClient):
+    async def test_sensitive_data_exposure(self, async_api_client):
         """测试敏感数据泄露防护 - OWASP #3"""
         
         headers = {{"Authorization": "Bearer test_token"}}
         
         # 测试API响应是否泄露敏感信息
-        response = await api_client.get("/api/v1/user-auth/me", headers=headers)
+        response = await async_api_client.get("/api/v1/user-auth/me", headers=headers)
         
         if response.status_code == 200:
             user_data = response.json().get("data", {{}})
@@ -228,19 +240,19 @@ class {class_name}:
         
         print("✅ 敏感数据保护测试通过")
     
-    async def test_security_misconfiguration(self, api_client: AsyncClient):
+    async def test_security_misconfiguration(self, async_api_client):
         """测试安全配置错误 - OWASP #6"""
         
         # 测试是否暴露调试信息
-        response = await api_client.get("/api/v1/debug")
+        response = await async_api_client.get("/api/v1/debug")
         assert response.status_code == 404  # 生产环境不应该有debug端点
         
         # 测试是否暴露系统信息
-        response = await api_client.get("/api/v1/system/info")
+        response = await async_api_client.get("/api/v1/system/info")
         assert response.status_code == 404  # 不应该暴露系统信息
         
         # 测试错误处理
-        response = await api_client.get("/api/v1/nonexistent")
+        response = await async_api_client.get("/api/v1/nonexistent")
         assert response.status_code == 404
         
         # 确保错误响应不包含内部路径或堆栈信息
@@ -263,7 +275,7 @@ class {class_name}:
 class {class_name}:
     """{business_domain}模块认证授权安全测试"""
     
-    async def test_unauthorized_access(self, api_client: AsyncClient):
+    async def test_unauthorized_access(self, async_api_client):
         """测试未授权访问防护"""
         
         # 测试不带token的请求
@@ -274,13 +286,13 @@ class {class_name}:
         ]
         
         for endpoint in protected_endpoints:
-            response = await api_client.get(endpoint)
+            response = await async_api_client.get(endpoint)
             # 应该返回401未授权，而不是200
             assert response.status_code in [401, 404, 405]
         
         print("✅ 未授权访问防护测试通过")
     
-    async def test_token_validation(self, api_client: AsyncClient):
+    async def test_token_validation(self, async_api_client):
         """测试Token验证机制"""
         
         # 测试无效token
@@ -294,18 +306,18 @@ class {class_name}:
         
         for token in invalid_tokens:
             headers = {{"Authorization": f"Bearer {{token}}"}}
-            response = await api_client.get("/api/v1/{module_name}/protected", headers=headers)
+            response = await async_api_client.get("/api/v1/{module_name}/protected", headers=headers)
             assert response.status_code == 401
         
         # 测试过期token（模拟）
         expired_token = "expired.jwt.token"
         headers = {{"Authorization": f"Bearer {{expired_token}}"}}
-        response = await api_client.get("/api/v1/{module_name}/protected", headers=headers)
+        response = await async_api_client.get("/api/v1/{module_name}/protected", headers=headers)
         assert response.status_code == 401
         
         print("✅ Token验证测试通过")
     
-    async def test_privilege_escalation(self, api_client: AsyncClient):
+    async def test_privilege_escalation(self, async_api_client):
         """测试权限提升防护"""
         
         # 使用普通用户token尝试访问管理员端点
@@ -319,13 +331,13 @@ class {class_name}:
         ]
         
         for endpoint in admin_endpoints:
-            response = await api_client.get(endpoint, headers=headers)
+            response = await async_api_client.get(endpoint, headers=headers)
             # 应该返回403权限不足，而不是200
             assert response.status_code in [403, 404, 405]
         
         print("✅ 权限提升防护测试通过")
     
-    async def test_session_security(self, api_client: AsyncClient):
+    async def test_session_security(self, async_api_client):
         """测试会话安全性"""
         
         headers = {{"Authorization": "Bearer test_token"}}
@@ -336,7 +348,7 @@ class {class_name}:
         # 测试并发会话限制
         concurrent_requests = []
         for _ in range(10):
-            req = api_client.get("/api/v1/{module_name}/me", headers=headers)
+            req = async_api_client.get("/api/v1/{module_name}/me", headers=headers)
             concurrent_requests.append(req)
         
         responses = await asyncio.gather(*concurrent_requests, return_exceptions=True)
@@ -357,7 +369,7 @@ class {class_name}:
 class {class_name}:
     """{business_domain}模块输入验证安全测试"""
     
-    async def test_malicious_input_handling(self, api_client: AsyncClient):
+    async def test_malicious_input_handling(self, async_api_client):
         """测试恶意输入处理"""
         
         headers = {{"Authorization": "Bearer test_token"}}
@@ -382,7 +394,7 @@ class {class_name}:
                 "comment": payload
             }}
             
-            response = await api_client.post(
+            response = await async_api_client.post(
                 "/api/v1/{module_name}/test",
                 json=test_data,
                 headers=headers
@@ -393,7 +405,7 @@ class {class_name}:
         
         print("✅ 恶意输入处理测试通过")
     
-    async def test_data_type_validation(self, api_client: AsyncClient):
+    async def test_data_type_validation(self, async_api_client):
         """测试数据类型验证"""
         
         headers = {{"Authorization": "Bearer test_token"}}
@@ -410,7 +422,7 @@ class {class_name}:
         ]
         
         for invalid_data in invalid_data_types:
-            response = await api_client.post(
+            response = await async_api_client.post(
                 "/api/v1/{module_name}/validate",
                 json=invalid_data,
                 headers=headers
@@ -421,7 +433,7 @@ class {class_name}:
         
         print("✅ 数据类型验证测试通过")
     
-    async def test_file_upload_security(self, api_client: AsyncClient):
+    async def test_file_upload_security(self, async_api_client):
         """测试文件上传安全性"""
         
         headers = {{"Authorization": "Bearer test_token"}}
@@ -437,7 +449,7 @@ class {class_name}:
         for filename, content, content_type in malicious_files:
             files = {{"file": (filename, content, content_type)}}
             
-            response = await api_client.post(
+            response = await async_api_client.post(
                 "/api/v1/{module_name}/upload",
                 files=files,
                 headers=headers
@@ -459,7 +471,7 @@ class {class_name}:
 class {class_name}:
     """{business_domain}模块数据保护安全测试"""
     
-    async def test_data_encryption(self, api_client: AsyncClient):
+    async def test_data_encryption(self, async_api_client):
         """测试数据加密保护"""
         
         headers = {{"Authorization": "Bearer test_token"}}
@@ -476,7 +488,7 @@ class {class_name}:
             "private_info": fake.text()
         }}
         
-        response = await api_client.post(
+        response = await async_api_client.post(
             "/api/v1/{module_name}/store-sensitive",
             json=sensitive_data,
             headers=headers
@@ -494,7 +506,7 @@ class {class_name}:
         
         print("✅ 数据加密保护测试通过")
     
-    async def test_data_access_control(self, api_client: AsyncClient):
+    async def test_data_access_control(self, async_api_client):
         """测试数据访问控制"""
         
         # 使用用户A的token尝试访问用户B的数据
@@ -504,7 +516,7 @@ class {class_name}:
         headers = {{"Authorization": f"Bearer {{user_a_token}}"}}
         
         # 尝试访问其他用户的私人数据
-        response = await api_client.get(
+        response = await async_api_client.get(
             f"/api/v1/{module_name}/user/{{user_b_id}}/private",
             headers=headers
         )
@@ -513,7 +525,7 @@ class {class_name}:
         assert response.status_code in [403, 404]
         
         # 尝试修改其他用户的数据
-        response = await api_client.put(
+        response = await async_api_client.put(
             f"/api/v1/{module_name}/user/{{user_b_id}}/profile",
             json={{"name": "hacked"}},
             headers=headers
@@ -523,13 +535,13 @@ class {class_name}:
         
         print("✅ 数据访问控制测试通过")
     
-    async def test_data_leakage_prevention(self, api_client: AsyncClient):
+    async def test_data_leakage_prevention(self, async_api_client):
         """测试数据泄露防护"""
         
         headers = {{"Authorization": "Bearer test_token"}}
         
         # 测试批量数据导出是否有限制
-        response = await api_client.get(
+        response = await async_api_client.get(
             "/api/v1/{module_name}/export/all",
             headers=headers
         )
@@ -538,7 +550,7 @@ class {class_name}:
         assert response.status_code in [403, 404, 405]
         
         # 测试分页查询是否有合理限制
-        response = await api_client.get(
+        response = await async_api_client.get(
             "/api/v1/{module_name}/list",
             params={{"limit": 100000}},  # 尝试获取大量数据
             headers=headers
@@ -552,13 +564,13 @@ class {class_name}:
         
         print("✅ 数据泄露防护测试通过")
     
-    async def test_gdpr_compliance(self, api_client: AsyncClient):
+    async def test_gdpr_compliance(self, async_api_client):
         """测试GDPR合规性"""
         
         headers = {{"Authorization": "Bearer test_token"}}
         
         # 测试数据删除权（被遗忘权）
-        response = await api_client.delete(
+        response = await async_api_client.delete(
             "/api/v1/user-auth/me/data",
             headers=headers
         )
@@ -567,7 +579,7 @@ class {class_name}:
         assert response.status_code in [200, 202, 204, 404]
         
         # 测试数据导出权
-        response = await api_client.get(
+        response = await async_api_client.get(
             "/api/v1/user-auth/me/export",
             headers=headers
         )

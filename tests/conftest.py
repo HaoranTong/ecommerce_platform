@@ -35,6 +35,7 @@ from app.modules.product_catalog.models import (SKU, Brand, Category, Product,
 # 用户认证模块模型（API路由需要User模型）
 from app.modules.user_auth.models import (Permission, Role, RolePermission,
                                           Session, User, UserRole)
+# 恢复通用数据工厂 - 双工厂模式的重要组成部分
 from tests.factories.data_factory import (StandardTestDataFactory,
                                           TestDataValidator)
 
@@ -670,6 +671,66 @@ def api_client(mysql_integration_db):
         elif "DATABASE_URL" in os.environ:
             del os.environ["DATABASE_URL"]
         
+        app.dependency_overrides.clear()
+
+
+@pytest.fixture(scope="function")  
+async def async_api_client(mysql_integration_db):
+    """异步API客户端 - 用于性能和安全测试
+    
+    专门为需要真实并发能力的测试提供AsyncClient：
+    - 性能测试：测试并发性能和吞吐量
+    - 安全测试：测试在并发攻击下的防护能力
+    
+    使用httpx.AsyncClient以支持真正的异步HTTP请求
+    """
+    from httpx import AsyncClient
+    from app.core.database import get_db
+    
+    def override_get_db():
+        yield mysql_integration_db
+
+    # 清除现有依赖覆盖，只覆盖数据库连接
+    app.dependency_overrides.clear()
+    app.dependency_overrides[get_db] = override_get_db
+
+    try:
+        async with AsyncClient(app=app, base_url="http://testserver") as async_client:
+            # 为异步客户端添加认证帮助方法
+            async def authenticate_as_admin():
+                """创建管理员用户并返回JWT token"""
+                import uuid
+                from datetime import datetime, timedelta
+                from app.core.auth import create_access_token
+                from app.modules.user_auth.models import User
+                
+                # 创建唯一的测试管理员用户
+                unique_id = str(uuid.uuid4())[:8]
+                admin_user = User(
+                    username=f"async_admin_{unique_id}",
+                    email=f"async_admin_{unique_id}@test.com", 
+                    password_hash="$2b$12$dummy_hash_for_testing",
+                    is_active=True,
+                    created_at=datetime.now(),
+                    updated_at=datetime.now()
+                )
+                
+                mysql_integration_db.add(admin_user)
+                mysql_integration_db.commit()
+                mysql_integration_db.refresh(admin_user)
+                
+                # 创建JWT token
+                access_token = create_access_token(
+                    data={"sub": admin_user.username, "user_id": admin_user.id},
+                    expires_delta=timedelta(hours=1)
+                )
+                
+                return {"token": access_token, "user": admin_user}
+
+            # 添加认证方法到客户端
+            async_client.authenticate_as_admin = authenticate_as_admin
+            yield async_client
+    finally:
         app.dependency_overrides.clear()
 
 

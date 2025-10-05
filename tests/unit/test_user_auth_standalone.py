@@ -2,7 +2,7 @@
 Auto Generated Test - 已生成到正式目录
 
 文件路径: tests/unit/test_user_auth_standalone.py
-生成时间: 2025-10-04 03:29:47
+生成时间: 2025-10-04 17:31:10
 生成工具: tools/generate_test_template.py v2.0
 状态: GENERATED - 需要经过代码审查和测试验证
 
@@ -21,12 +21,12 @@ from sqlalchemy.exc import IntegrityError
 
 # 测试基础设施
 from tests.conftest import unit_test_db
-from tests.factories import StandardTestDataFactory
+# 【修复】移除不必要的StandardTestDataFactory依赖，因为它不存在且未被实际使用
 from tests.factories.user_auth_factories import UserAuthFactoryManager
 
 # 被测模块组件
 try:
-    from app.modules.user_auth.service import UserAuthService
+    from app.modules.user_auth.service import UserService
     from app.modules.user_auth.models import Permission, Role, RolePermission, Session, User, UserRole
     COMPONENTS_AVAILABLE = True
 except ImportError as e:
@@ -44,7 +44,7 @@ class TestUserAuthWorkflow:
     
     def setup_method(self):
         """测试准备"""
-        self.test_data_factory = StandardTestDataFactory()
+        # 【修复】移除不必要的test_data_factory，因为StandardTestDataFactory不存在
         self.factory_manager = UserAuthFactoryManager()
         
     @pytest.mark.critical
@@ -56,7 +56,7 @@ class TestUserAuthWorkflow:
             pytest.skip("组件不可用，跳过业务流程测试")
             
         # 1. 初始化服务和工厂
-        service = UserAuthService(unit_test_db)
+        service = UserService(unit_test_db)
         self.factory_manager.setup_factories(unit_test_db)
         
         # 2. 准备测试数据
@@ -79,7 +79,7 @@ class TestUserAuthWorkflow:
         if not COMPONENTS_AVAILABLE:
             pytest.skip("组件不可用，跳过正常业务场景测试")
             
-        service = UserAuthService(unit_test_db)
+        service = UserService(unit_test_db)
         self.factory_manager.setup_factories(unit_test_db)
         
         # 创建正常业务数据
@@ -96,7 +96,7 @@ class TestUserAuthWorkflow:
         if not COMPONENTS_AVAILABLE:
             pytest.skip("组件不可用，跳过边界条件测试")
             
-        service = UserAuthService(unit_test_db)
+        service = UserService(unit_test_db)
         
         # 测试空数据场景
         with pytest.raises((ValueError, TypeError)):
@@ -121,7 +121,7 @@ class TestUserAuthWorkflow:
         if not COMPONENTS_AVAILABLE:
             pytest.skip("组件不可用，跳过异常处理测试")
             
-        service = UserAuthService(unit_test_db)
+        service = UserService(unit_test_db)
         
         # 测试数据库异常恢复
         try:
@@ -143,7 +143,7 @@ class TestUserAuthWorkflow:
         if not COMPONENTS_AVAILABLE:
             pytest.skip("组件不可用，跳过性能测试")
             
-        service = UserAuthService(unit_test_db)
+        service = UserService(unit_test_db)
         self.factory_manager.setup_factories(unit_test_db)
         
         # 批量数据处理测试
@@ -166,7 +166,7 @@ class TestUserAuthWorkflow:
         
         print(f"📊 批量处理完成: {batch_size}条记录, 用时{processing_time:.2f}秒")
         
-    def _execute_complete_workflow(self, service: "UserAuthService", test_data: dict, db: Session) -> dict:
+    def _execute_complete_workflow(self, service: "UserService", test_data: dict, db: Session) -> dict:
         """执行完整业务流程"""
         workflow_result = {
             'success': False,
