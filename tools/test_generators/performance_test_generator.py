@@ -698,7 +698,10 @@ class {class_name}:
     async def test_performance_under_stress(self, async_api_client):
         """测试压力条件下的性能表现"""
         
-        headers = {{"Authorization": "Bearer test_token"}}
+        # 设置真实的身份验证
+        auth_result = await async_api_client.authenticate_as_user()
+        token = auth_result["token"]
+        headers = {{"Authorization": f"Bearer {{token}}"}}
         
         # 逐步增加负载压力
         stress_levels = [10, 25, 50, 75, 100]  # 并发用户数
