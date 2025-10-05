@@ -2897,7 +2897,7 @@ class {test_class_name}:
         )
 
     def _generate_workflow_scenarios(
-        self, module_name: str, models: Dict[str, ModelInfo], service_class_name: str
+        self, module_name: str, models: Dict[str, ModelInfo], service_class_name: str, service_info: Dict[str, Any], service_init_code: str, service_init_comment: str
     ) -> str:
         """生成工作流场景测试
 
@@ -2905,6 +2905,7 @@ class {test_class_name}:
             module_name: 模块名称
             models: 模型信息字典
             service_class_name: 服务类名称
+            service_info: 服务类信息（包含is_static等）
 
         Returns:
             str: 工作流场景测试代码
@@ -2916,7 +2917,8 @@ class {test_class_name}:
         if not COMPONENTS_AVAILABLE:
             pytest.skip("组件不可用，跳过基础工作流测试")
             
-        service = {service_class_name}(unit_test_db)
+        {service_init_comment}
+        {service_init_code}
         # 添加具体的工作流测试
         assert service is not None'''
 
@@ -2932,7 +2934,8 @@ class {test_class_name}:
         if not COMPONENTS_AVAILABLE:
             pytest.skip("组件不可用，跳过正常业务场景测试")
             
-        service = {service_class_name}(unit_test_db)
+        {service_init_comment}
+        {service_init_code}
         self.factory_manager.setup_factories(unit_test_db)
         
         # 创建正常业务数据
@@ -2952,7 +2955,8 @@ class {test_class_name}:
         if not COMPONENTS_AVAILABLE:
             pytest.skip("组件不可用，跳过边界条件测试")
             
-        service = {service_class_name}(unit_test_db)
+        {service_init_comment}
+        {service_init_code}
         
         # 测试空数据场景
         with pytest.raises((ValueError, TypeError)):
@@ -2980,7 +2984,8 @@ class {test_class_name}:
         if not COMPONENTS_AVAILABLE:
             pytest.skip("组件不可用，跳过异常处理测试")
             
-        service = {service_class_name}(unit_test_db)
+        {service_init_comment}
+        {service_init_code}
         
         # 测试数据库异常恢复
         try:
@@ -3005,7 +3010,8 @@ class {test_class_name}:
         if not COMPONENTS_AVAILABLE:
             pytest.skip("组件不可用，跳过性能测试")
             
-        service = {service_class_name}(unit_test_db)
+        {service_init_comment}
+        {service_init_code}
         self.factory_manager.setup_factories(unit_test_db)
         
         # 批量数据处理测试
@@ -3045,8 +3051,19 @@ class {test_class_name}:
         """
         service_info = self._detect_service_info(module_name)
         service_class_name = service_info['class_name']
+        
+        # 根据服务类型生成正确的初始化代码
+        if service_info.get('is_static', False):
+            # 静态方法：直接使用类名，不实例化
+            service_init_code = f"service = {service_class_name}"
+            service_init_comment = "# 静态方法服务，直接使用类名"
+        else:
+            # 实例方法：需要实例化
+            service_init_code = f"service = {service_class_name}()"
+            service_init_comment = "# 实例方法服务，需要创建实例"
+        
         workflow_tests = self._generate_workflow_scenarios(
-            module_name, models, service_class_name
+            module_name, models, service_class_name, service_info, service_init_code, service_init_comment
         )
 
         return f'''"""
@@ -3114,7 +3131,8 @@ class Test{module_name.title().replace('_', '')}Workflow:
             pytest.skip("组件不可用，跳过业务流程测试")
             
         # 1. 初始化服务和工厂
-        service = {service_class_name}(unit_test_db)
+        {service_init_comment}
+        {service_init_code}
         self.factory_manager.setup_factories(unit_test_db)
         
         # 2. 准备测试数据

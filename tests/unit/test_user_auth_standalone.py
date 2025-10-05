@@ -2,7 +2,7 @@
 Auto Generated Test - 已生成到正式目录
 
 文件路径: tests/unit/test_user_auth_standalone.py
-生成时间: 2025-10-05 17:14:58
+生成时间: 2025-10-05 17:27:39
 生成工具: tools/generate_test_template.py v2.0
 状态: GENERATED - 需要经过代码审查和测试验证
 
@@ -56,7 +56,8 @@ class TestUserAuthWorkflow:
             pytest.skip("组件不可用，跳过业务流程测试")
             
         # 1. 初始化服务和工厂
-        service = UserService(unit_test_db)
+        # 静态方法服务，直接使用类名
+        service = UserService
         self.factory_manager.setup_factories(unit_test_db)
         
         # 2. 准备测试数据
@@ -79,7 +80,8 @@ class TestUserAuthWorkflow:
         if not COMPONENTS_AVAILABLE:
             pytest.skip("组件不可用，跳过正常业务场景测试")
             
-        service = UserService(unit_test_db)
+        # 静态方法服务，直接使用类名
+        service = UserService
         self.factory_manager.setup_factories(unit_test_db)
         
         # 创建正常业务数据
@@ -96,7 +98,8 @@ class TestUserAuthWorkflow:
         if not COMPONENTS_AVAILABLE:
             pytest.skip("组件不可用，跳过边界条件测试")
             
-        service = UserService(unit_test_db)
+        # 静态方法服务，直接使用类名
+        service = UserService
         
         # 测试空数据场景
         with pytest.raises((ValueError, TypeError)):
@@ -121,7 +124,8 @@ class TestUserAuthWorkflow:
         if not COMPONENTS_AVAILABLE:
             pytest.skip("组件不可用，跳过异常处理测试")
             
-        service = UserService(unit_test_db)
+        # 静态方法服务，直接使用类名
+        service = UserService
         
         # 测试数据库异常恢复
         try:
@@ -143,7 +147,8 @@ class TestUserAuthWorkflow:
         if not COMPONENTS_AVAILABLE:
             pytest.skip("组件不可用，跳过性能测试")
             
-        service = UserService(unit_test_db)
+        # 静态方法服务，直接使用类名
+        service = UserService
         self.factory_manager.setup_factories(unit_test_db)
         
         # 批量数据处理测试
