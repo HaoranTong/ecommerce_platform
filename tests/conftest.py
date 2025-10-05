@@ -725,10 +725,51 @@ async def async_api_client(mysql_integration_db):
                     expires_delta=timedelta(hours=1)
                 )
                 
-                return {"token": access_token, "user": admin_user}
+                return access_token, admin_user
+
+            async def authenticate_as_user():
+                """创建普通用户并返回JWT token"""
+                import uuid
+                from datetime import datetime, timedelta
+                from app.core.auth import create_access_token, get_password_hash
+                from app.modules.user_auth.models import User
+                
+                # 使用真实的密码和hash
+                test_password = "TestPassword123!"
+                password_hash = get_password_hash(test_password)
+                
+                # 创建唯一的测试普通用户
+                unique_id = str(uuid.uuid4())[:8]
+                normal_user = User(
+                    username=f"async_user_{unique_id}",
+                    email=f"async_user_{unique_id}@test.com",
+                    password_hash=password_hash, 
+                    role="user",
+                    is_active=True,
+                    email_verified=True,
+                    status="active",
+                    phone_verified=True,
+                    two_factor_enabled=False,
+                    created_at=datetime.now(),
+                    updated_at=datetime.now()
+                )
+                
+                mysql_integration_db.add(normal_user)
+                mysql_integration_db.commit()
+                mysql_integration_db.refresh(normal_user)
+                
+                # 生成真实JWT token
+                token_data = {"sub": str(normal_user.id)}
+                access_token = create_access_token(
+                    data=token_data,
+                    expires_delta=timedelta(hours=1)
+                )
+                
+                return access_token, normal_user
 
             # 添加认证方法到客户端
             async_client.authenticate_as_admin = authenticate_as_admin
+            async_client.authenticate_as_user = authenticate_as_user
             yield async_client
     finally:
         app.dependency_overrides.clear()

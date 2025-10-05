@@ -2,7 +2,7 @@
 Auto Generated Test - 已生成到正式目录
 
 文件路径: tests/performance/test_user_auth_performance.py
-生成时间: 2025-10-05 22:34:45
+生成时间: 2025-10-05 23:03:59
 生成工具: tools/generate_test_template.py v2.0
 状态: GENERATED - 需要经过代码审查和测试验证
 
@@ -22,7 +22,7 @@ from fastapi import status
 from datetime import datetime, timedelta
 
 from app.main import app
-from tests.conftest import api_client
+from tests.conftest import async_api_client
 
 class TestUserAuthResponseTime:
     """用户认证模块响应时间性能测试"""
@@ -30,7 +30,9 @@ class TestUserAuthResponseTime:
     async def test_api_response_time_p50(self, async_api_client):
         """测试API响应时间P50指标 - 要求<200ms"""
         
-        headers = {"Authorization": "Bearer test_token"}
+        # 使用真实JWT身份验证
+        token, admin_user = await async_api_client.authenticate_as_admin()
+        headers = {"Authorization": f"Bearer {token}"}
         response_times = []
         
         # 执行100次请求测量响应时间
@@ -68,7 +70,9 @@ class TestUserAuthResponseTime:
     async def test_database_query_performance(self, async_api_client):
         """测试数据库查询性能"""
         
-        headers = {"Authorization": "Bearer test_token"}
+        # 设置真实的身份验证
+        token, test_user = async_api_client.authenticate_as_user()
+        headers = {"Authorization": f"Bearer {token}"}
         query_times = []
         
         # 测试不同类型的查询性能
@@ -100,7 +104,9 @@ class TestUserAuthResponseTime:
         """测试冷启动性能"""
         
         # 模拟应用冷启动后的首次请求
-        headers = {"Authorization": "Bearer test_token"}
+        # 设置真实的身份验证
+        token, test_user = async_api_client.authenticate_as_user()
+        headers = {"Authorization": f"Bearer {token}"}
         
         start_time = time.time()
         response = await async_api_client.get("/api/v1/user-auth/me", headers=headers)
@@ -123,7 +129,9 @@ class TestUserAuthConcurrency:
     async def test_concurrent_read_requests(self, async_api_client):
         """测试并发读请求处理能力"""
         
-        headers = {"Authorization": "Bearer test_token"}
+        # 设置真实的身份验证
+        token, test_user = async_api_client.authenticate_as_user()
+        headers = {"Authorization": f"Bearer {token}"}
         concurrent_users = 50  # 模拟50个并发用户
         
         async def single_request():
@@ -172,7 +180,9 @@ class TestUserAuthConcurrency:
     async def test_concurrent_write_requests(self, async_api_client):
         """测试并发写请求处理能力"""
         
-        headers = {"Authorization": "Bearer test_token"}
+        # 设置真实的身份验证
+        token, test_user = async_api_client.authenticate_as_user()
+        headers = {"Authorization": f"Bearer {token}"}
         concurrent_writes = 20  # 模拟20个并发写操作
         
         async def write_request(request_id):
@@ -222,7 +232,9 @@ class TestUserAuthConcurrency:
     async def test_mixed_workload_performance(self, async_api_client):
         """测试混合工作负载性能"""
         
-        headers = {"Authorization": "Bearer test_token"}
+        # 设置真实的身份验证
+        token, test_user = async_api_client.authenticate_as_user()
+        headers = {"Authorization": f"Bearer {token}"}
         
         # 模拟真实场景：70%读操作，30%写操作
         read_tasks = 35
@@ -278,7 +290,9 @@ class TestUserAuthLoadTest:
     async def test_sustained_load(self, async_api_client):
         """测试持续负载处理能力"""
         
-        headers = {"Authorization": "Bearer test_token"}
+        # 设置真实的身份验证
+        token, test_user = async_api_client.authenticate_as_user()
+        headers = {"Authorization": f"Bearer {token}"}
         duration_seconds = 30  # 持续30秒的负载测试
         requests_per_second = 10  # 每秒10个请求
         
@@ -336,7 +350,9 @@ class TestUserAuthLoadTest:
     async def test_peak_load_handling(self, async_api_client):
         """测试峰值负载处理能力"""
         
-        headers = {"Authorization": "Bearer test_token"}
+        # 设置真实的身份验证
+        token, test_user = async_api_client.authenticate_as_user()
+        headers = {"Authorization": f"Bearer {token}"}
         peak_concurrent_users = 100  # 峰值并发用户数
         
         async def user_session():
@@ -395,7 +411,9 @@ class TestUserAuthBenchmark:
     async def test_performance_regression(self, async_api_client):
         """测试性能回归基准"""
         
-        headers = {"Authorization": "Bearer test_token"}
+        # 设置真实的身份验证
+        token, test_user = async_api_client.authenticate_as_user()
+        headers = {"Authorization": f"Bearer {token}"}
         
         # 性能基准数据（应该来自历史数据或预设基准）
         performance_baselines = {
@@ -491,7 +509,9 @@ class TestUserAuthBenchmark:
     async def test_memory_usage_efficiency(self, async_api_client):
         """测试内存使用效率"""
         
-        headers = {"Authorization": "Bearer test_token"}
+        # 设置真实的身份验证
+        token, test_user = async_api_client.authenticate_as_user()
+        headers = {"Authorization": f"Bearer {token}"}
         
         # 模拟大量请求测试内存效率
         large_dataset_requests = []
@@ -522,7 +542,9 @@ class TestUserAuthBenchmark:
     async def test_performance_under_stress(self, async_api_client):
         """测试压力条件下的性能表现"""
         
-        headers = {"Authorization": "Bearer test_token"}
+        # 设置真实的身份验证
+        token, test_user = async_api_client.authenticate_as_user()
+        headers = {"Authorization": f"Bearer {token}"}
         
         # 逐步增加负载压力
         stress_levels = [10, 25, 50, 75, 100]  # 并发用户数

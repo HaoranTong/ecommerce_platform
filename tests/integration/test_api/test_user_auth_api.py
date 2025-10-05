@@ -2,7 +2,7 @@
 Auto Generated Test - 已生成到正式目录
 
 文件路径: tests/integration/test_api/test_user_auth_api.py
-生成时间: 2025-10-05 22:34:45
+生成时间: 2025-10-05 23:03:59
 生成工具: tools/generate_test_template.py v2.0
 状态: GENERATED - 需要经过代码审查和测试验证
 
@@ -422,7 +422,7 @@ class TestUserAuthAPIIntegration:
     """用户认证模块API集成测试 - 测试完整业务流程"""
     
     def test_user_auth_workflow(self, api_client):
-        """测试user_auth模块完整流程：auth -> read -> create -> update"""
+        """测试user_auth模块完整流程：read -> create -> update -> auth"""
         
         # 通过动态schema分析生成测试数据
         # 基于路由分析自动生成工作流测试
