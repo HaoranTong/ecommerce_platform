@@ -258,8 +258,7 @@ class {class_name}:
         """测试并发读请求处理能力"""
         
         # 设置真实的身份验证
-        auth_result = await async_api_client.authenticate_as_admin()
-        token = auth_result["token"]
+        token, admin_user = await async_api_client.authenticate_as_admin()
         headers = {{"Authorization": f"Bearer {{token}}"}}
         concurrent_users = 50  # 模拟50个并发用户
         
