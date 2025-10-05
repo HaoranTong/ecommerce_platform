@@ -365,7 +365,10 @@ class {class_name}:
     async def test_mixed_workload_performance(self, async_api_client):
         """测试混合工作负载性能"""
         
-        headers = {{"Authorization": "Bearer test_token"}}
+        # 设置真实的身份验证
+        auth_result = await async_api_client.authenticate_as_user()
+        token = auth_result["token"]
+        headers = {{"Authorization": f"Bearer {{token}}"}}
         
         # 模拟真实场景：70%读操作，30%写操作
         read_tasks = 35
