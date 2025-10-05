@@ -263,19 +263,29 @@ class {class_name}:
         # 设置真实的身份验证
         auth_result = await async_api_client.authenticate_as_admin()
         token = auth_result["token"]
-        headers = {{"Authorization": f"Bearer {{token}}"}}
         concurrent_users = 50  # 模拟50个并发用户
         
         async def single_request():
-            start_time = time.time()
-            response = await async_api_client.get("{auth_endpoint}", headers=headers)
-            end_time = time.time()
-            
-            return {{
-                "status_code": response.status_code,
-                "response_time": (end_time - start_time) * 1000,
-                "success": response.status_code == 200
-            }}
+            try:
+                # 每个请求创建独立的headers避免共享状态
+                request_headers = {{"Authorization": f"Bearer {{token}}"}}
+                start_time = time.time()
+                response = await async_api_client.get("{auth_endpoint}", headers=request_headers)
+                end_time = time.time()
+                
+                return {{
+                    "status_code": response.status_code,
+                    "response_time": (end_time - start_time) * 1000,
+                    "success": response.status_code == 200,
+                    "error": None
+                }}
+            except Exception as e:
+                return {{
+                    "status_code": None,
+                    "response_time": 0,
+                    "success": False,
+                    "error": str(e)
+                }}
         
         # 并发执行请求
         start_time = time.time()
@@ -315,10 +325,11 @@ class {class_name}:
         # 设置真实的身份验证
         auth_result = await async_api_client.authenticate_as_admin()
         token = auth_result["token"]
-        headers = {{"Authorization": f"Bearer {{token}}"}}
         concurrent_writes = 20  # 模拟20个并发写操作
         
         async def write_request(request_id):
+            # 每个请求创建独立的headers避免共享状态
+            request_headers = {{"Authorization": f"Bearer {{token}}"}}
             test_data = {{
                 "name": f"concurrent_test_{{request_id}}",
                 "value": f"test_value_{{request_id}}",
@@ -326,19 +337,30 @@ class {class_name}:
             }}
             
             start_time = time.time()
-            response = await async_api_client.post(
-                "{post_endpoint}",
-                json=test_data,
-                headers=headers
-            )
-            end_time = time.time()
-            
-            return {{
-                "request_id": request_id,
-                "status_code": response.status_code,
-                "response_time": (end_time - start_time) * 1000,
-                "success": response.status_code in [200, 201]
-            }}
+            try:
+                response = await async_api_client.post(
+                    "{post_endpoint}",
+                    json=test_data,
+                    headers=request_headers
+                )
+                end_time = time.time()
+                
+                return {{
+                    "request_id": request_id,
+                    "status_code": response.status_code,
+                    "response_time": (end_time - start_time) * 1000,
+                    "success": response.status_code in [200, 201]
+                }}
+            except Exception as e:
+                end_time = time.time()
+                print(f"⚠️ 写请求 {{request_id}} 异常: {{str(e)}}")
+                return {{
+                    "request_id": request_id,
+                    "status_code": 0,
+                    "response_time": (end_time - start_time) * 1000,
+                    "success": False,
+                    "error": str(e)
+                }}
         
         # 并发执行写请求
         start_time = time.time()
@@ -368,20 +390,31 @@ class {class_name}:
         # 设置真实的身份验证
         auth_result = await async_api_client.authenticate_as_admin()
         token = auth_result["token"]
-        headers = {{"Authorization": f"Bearer {{token}}"}}
         
         # 模拟真实场景：70%读操作，30%写操作
         read_tasks = 35
         write_tasks = 15
         
         async def read_operation():
-            response = await async_api_client.get("{auth_endpoint}", headers=headers)
-            return {{"type": "read", "success": response.status_code == 200}}
+            # 每个请求创建独立的headers避免共享状态
+            request_headers = {{"Authorization": f"Bearer {{token}}"}}
+            try:
+                response = await async_api_client.get("{auth_endpoint}", headers=request_headers)
+                return {{"type": "read", "success": response.status_code == 200}}
+            except Exception as e:
+                print(f"⚠️ 混合负载读操作异常: {{str(e)}}")
+                return {{"type": "read", "success": False, "error": str(e)}}
         
         async def write_operation():
+            # 每个请求创建独立的headers避免共享状态
+            request_headers = {{"Authorization": f"Bearer {{token}}"}}
             test_data = {{"name": f"mixed_test_{{time.time()}}", "value": "test"}}
-            response = await async_api_client.post("{post_endpoint}", json=test_data, headers=headers)
-            return {{"type": "write", "success": response.status_code in [200, 201]}}
+            try:
+                response = await async_api_client.post("{post_endpoint}", json=test_data, headers=request_headers)
+                return {{"type": "write", "success": response.status_code in [200, 201]}}
+            except Exception as e:
+                print(f"⚠️ 混合负载写操作异常: {{str(e)}}")
+                return {{"type": "write", "success": False, "error": str(e)}}
         
         # 混合任务
         tasks = []
