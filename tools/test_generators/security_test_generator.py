@@ -2,9 +2,7 @@
 安全测试生成器
 
 功能: 生成基于OWASP Top 10的安全测试代码，检测Web应用安全漏洞
-使用方法: 通过BaseTestGenerator继承，由主生成器调用generate_security_t             {"method": "POST", "path": "/api/v1/{module_name}/register", 
-              "json": {"username": None, "email": None, "password": None}},         {"method": "POST", "path": "/api/v1/{module_name}/register", 
-              "json": {"username": None, "email": None, "password": None}},ts方法
+使用方法: 通过BaseTestGenerator继承，由主生成器调用generate_security_tests方法
 使用场景: 电商平台安全漏洞检测和防护能力验证
 
 生成的安全测试:
@@ -47,6 +45,17 @@ class SecurityTestGenerator(BaseTestGenerator):
     def _generate_security_test_content(self, module_name: str, routes: List[RouterInfo], models: Dict[str, ModelInfo]) -> str:
         """生成安全测试文件内容"""
         
+        # 生成动态测试数据 - 避免硬编码
+        from faker import Faker
+        import secrets
+        fake = Faker()
+        
+        # 动态生成测试token和ID
+        test_token = f"security_test_{secrets.token_hex(8)}"
+        user_level_token = f"user_level_{secrets.token_hex(8)}"
+        user_a_token = f"user_a_{secrets.token_hex(6)}"
+        user_b_id = f"test_user_{fake.random_int(1000, 9999)}"
+        
         header = self.generate_test_file_header(
             module_name,
             "安全防护",
@@ -67,16 +76,16 @@ from tests.conftest import api_client
 '''
         
         # 生成OWASP Top 10测试类
-        owasp_class = self._generate_owasp_top10_tests(module_name, routes, models)
+        owasp_class = self._generate_owasp_top10_tests(module_name, routes, models, test_token)
         
         # 生成认证授权测试类
-        auth_class = self._generate_authentication_tests(module_name, routes, models)
+        auth_class = self._generate_authentication_tests(module_name, routes, models, test_token, user_level_token)
         
         # 生成输入验证测试类
-        input_validation_class = self._generate_input_validation_tests(module_name, routes, models)
+        input_validation_class = self._generate_input_validation_tests(module_name, routes, models, test_token)
         
         # 生成数据保护测试类
-        data_protection_class = self._generate_data_protection_tests(module_name, models)
+        data_protection_class = self._generate_data_protection_tests(module_name, models, test_token, user_a_token, user_b_id)
         
         return header + imports + "\n\n".join([
             owasp_class,
@@ -85,7 +94,7 @@ from tests.conftest import api_client
             data_protection_class
         ])
     
-    def _generate_owasp_top10_tests(self, module_name: str, routes: List[RouterInfo], models: Dict[str, ModelInfo]) -> str:
+    def _generate_owasp_top10_tests(self, module_name: str, routes: List[RouterInfo], models: Dict[str, ModelInfo], test_token: str) -> str:
         """生成OWASP Top 10安全测试"""
         
         business_domain = self.get_module_business_domain(module_name)
@@ -155,7 +164,7 @@ class {class_name}:
             "<svg onload=alert('XSS')>"
         ]
         
-        headers = {{"Authorization": "Bearer test_token"}}
+        headers = {{"Authorization": "Bearer {test_token}"}}
         
         for payload in xss_payloads:
             # 测试输入字段的XSS防护
@@ -177,7 +186,7 @@ class {class_name}:
     async def test_csrf_protection(self, async_api_client):
         """测试CSRF跨站请求伪造防护 - OWASP #8"""
         
-        headers = {{"Authorization": "Bearer test_token"}}
+        headers = {{"Authorization": "Bearer {test_token}"}}
         
         # 测试缺少CSRF token的请求
         response = await async_api_client.post(
@@ -226,7 +235,7 @@ class {class_name}:
     async def test_sensitive_data_exposure(self, async_api_client):
         """测试敏感数据泄露防护 - OWASP #3"""
         
-        headers = {{"Authorization": "Bearer test_token"}}
+        headers = {{"Authorization": "Bearer {test_token}"}}
         
         # 测试API响应是否泄露敏感信息
         response = await async_api_client.get("/api/v1/user-auth/me", headers=headers)
@@ -271,7 +280,7 @@ class {class_name}:
         print("✅ 安全配置测试通过")
 '''
     
-    def _generate_authentication_tests(self, module_name: str, routes: List[RouterInfo], models: Dict[str, ModelInfo]) -> str:
+    def _generate_authentication_tests(self, module_name: str, routes: List[RouterInfo], models: Dict[str, ModelInfo], test_token: str, user_level_token: str) -> str:
         """生成认证授权测试"""
         
         business_domain = self.get_module_business_domain(module_name)
@@ -327,7 +336,7 @@ class {class_name}:
         """测试权限提升防护"""
         
         # 使用普通用户token尝试访问管理员端点
-        user_token = "user_level_token"
+        user_token = "{user_level_token}"
         headers = {{"Authorization": f"Bearer {{user_token}}"}}
         
         admin_endpoints = [
@@ -346,7 +355,7 @@ class {class_name}:
     async def test_session_security(self, async_api_client):
         """测试会话安全性"""
         
-        headers = {{"Authorization": "Bearer test_token"}}
+        headers = {{"Authorization": "Bearer {test_token}"}}
         
         # 测试会话固定攻击防护
         # 登录前后的会话ID应该不同
@@ -365,7 +374,7 @@ class {class_name}:
         print(f"✅ 会话安全测试通过，并发请求处理正常: {{len(successful_responses)}}/10")
 '''
     
-    def _generate_input_validation_tests(self, module_name: str, routes: List[RouterInfo], models: Dict[str, ModelInfo]) -> str:
+    def _generate_input_validation_tests(self, module_name: str, routes: List[RouterInfo], models: Dict[str, ModelInfo], test_token: str) -> str:
         """生成输入验证测试"""
         
         business_domain = self.get_module_business_domain(module_name)
@@ -378,7 +387,7 @@ class {class_name}:
     async def test_malicious_input_handling(self, async_api_client):
         """测试恶意输入处理"""
         
-        headers = {{"Authorization": "Bearer test_token"}}
+        headers = {{"Authorization": "Bearer {test_token}"}}
         
         # 恶意输入载荷
         malicious_inputs = [
@@ -414,7 +423,7 @@ class {class_name}:
     async def test_data_type_validation(self, async_api_client):
         """测试数据类型验证"""
         
-        headers = {{"Authorization": "Bearer test_token"}}
+        headers = {{"Authorization": "Bearer {test_token}"}}
         
         # 类型错误测试
         invalid_data_types = [
@@ -442,7 +451,7 @@ class {class_name}:
     async def test_file_upload_security(self, async_api_client):
         """测试文件上传安全性"""
         
-        headers = {{"Authorization": "Bearer test_token"}}
+        headers = {{"Authorization": "Bearer {test_token}"}}
         
         # 恶意文件测试
         malicious_files = [
@@ -467,7 +476,7 @@ class {class_name}:
         print("✅ 文件上传安全测试通过")
 '''
     
-    def _generate_data_protection_tests(self, module_name: str, models: Dict[str, ModelInfo]) -> str:
+    def _generate_data_protection_tests(self, module_name: str, models: Dict[str, ModelInfo], test_token: str, user_a_token: str, user_b_id: str) -> str:
         """生成数据保护测试"""
         
         business_domain = self.get_module_business_domain(module_name)
@@ -480,7 +489,7 @@ class {class_name}:
     async def test_data_encryption(self, async_api_client):
         """测试数据加密保护"""
         
-        headers = {{"Authorization": "Bearer test_token"}}
+        headers = {{"Authorization": "Bearer {test_token}"}}
         
         # 测试敏感数据是否加密存储
         from faker import Faker
@@ -516,14 +525,14 @@ class {class_name}:
         """测试数据访问控制"""
         
         # 使用用户A的token尝试访问用户B的数据
-        user_a_token = "user_a_token"
-        user_b_id = "user_b_id"
+        user_a_token_val = "{user_a_token}"
+        user_b_id_val = "{user_b_id}"
         
-        headers = {{"Authorization": f"Bearer {{user_a_token}}"}}
+        headers = {{"Authorization": f"Bearer {{user_a_token_val}}"}}
         
         # 尝试访问其他用户的私人数据
         response = await async_api_client.get(
-            f"/api/v1/{module_name}/user/{{user_b_id}}/private",
+            f"/api/v1/{module_name}/user/{{user_b_id_val}}/private",
             headers=headers
         )
         
@@ -532,7 +541,7 @@ class {class_name}:
         
         # 尝试修改其他用户的数据
         response = await async_api_client.put(
-            f"/api/v1/{module_name}/user/{{user_b_id}}/profile",
+            f"/api/v1/{module_name}/user/{{user_b_id_val}}/profile",
             json={{"name": "hacked"}},
             headers=headers
         )
@@ -573,7 +582,7 @@ class {class_name}:
     async def test_gdpr_compliance(self, async_api_client):
         """测试GDPR合规性"""
         
-        headers = {{"Authorization": "Bearer test_token"}}
+        headers = {{"Authorization": "Bearer {test_token}"}}
         
         # 测试数据删除权（被遗忘权）
         response = await async_api_client.delete(
