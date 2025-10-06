@@ -100,7 +100,7 @@ class BrandRead(BrandBase, TimestampSchema):
 class CategoryCreate(BaseSchema):
     """分类创建模式"""
 
-    name: str = Field(..., max_length=100, description="分类名称")
+    name: str = Field(..., min_length=1, max_length=100, description="分类名称")
     parent_id: Optional[int] = Field(None, description="父分类ID")
     sort_order: int = Field(default=0, ge=0, description="排序顺序")
     is_active: Optional[bool] = Field(True, description="是否激活")
@@ -157,8 +157,8 @@ class ProductCreate(BaseSchema):
     description: Optional[str] = Field(None, description="商品描述")
     brand_id: Optional[int] = Field(None, description="品牌ID")
     category_id: Optional[int] = Field(None, description="分类ID")
-    status: str = Field(
-        "draft", pattern="^(draft|published|archived)$", description="商品状态"
+    status: Literal["draft", "published", "archived"] = Field(
+        "draft", description="商品状态（draft, published, archived）"
     )
     seo_title: Optional[str] = Field(None, max_length=200, description="SEO标题")
     seo_description: Optional[str] = Field(None, description="SEO描述")
@@ -173,8 +173,8 @@ class ProductUpdate(BaseSchema):
     description: Optional[str] = Field(None, description="商品描述")
     brand_id: Optional[int] = Field(None, description="品牌ID")
     category_id: Optional[int] = Field(None, description="分类ID")
-    status: Optional[str] = Field(
-        None, pattern="^(draft|published|archived)$", description="商品状态"
+    status: Optional[Literal["draft", "published", "archived"]] = Field(
+        None, description="商品状态（draft, published, archived）"
     )
     seo_title: Optional[str] = Field(None, max_length=200, description="SEO标题")
     seo_description: Optional[str] = Field(None, description="SEO描述")
@@ -185,8 +185,8 @@ class ProductUpdate(BaseSchema):
 class ProductPublish(BaseSchema):
     """商品发布模式"""
 
-    status: str = Field(
-        "published", pattern="^(draft|published|archived)$", description="发布状态"
+    status: Literal["draft", "published", "archived"] = Field(
+        "published", description="发布状态（draft, published, archived）"
     )
 
 
@@ -224,9 +224,11 @@ class ProductSearch(BaseSchema):
     status: Optional[str] = Field(
         None, pattern="^(draft|published|archived)$", description="状态筛选"
     )
-    sort_by: Optional[str] = Field("created_at", description="排序字段")
-    sort_order: Optional[str] = Field(
-        "desc", pattern="^(asc|desc)$", description="排序方向"
+    sort_by: Optional[Literal["created_at", "name", "price", "view_count"]] = Field(
+        "created_at", description="排序字段"
+    )
+    sort_order: Optional[Literal["asc", "desc"]] = Field(
+        "desc", description="排序方向（asc 或 desc）"
     )
 
 
