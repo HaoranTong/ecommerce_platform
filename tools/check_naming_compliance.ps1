@@ -6,14 +6,14 @@ param(
     [string]$CheckType = "all",  # all, api, database, docs, code
     
     [Parameter(Mandatory = $false)]
-    [string]$DocsPath = "docs/modules",  # 文档目录路径，可指定其他目录
+    [string]$DocsPath = "docs/design/modules",  # 文档目录路径，可指定其他目录
     
+        [Parameter(Mandatory = $false)]
+        [string]$ModuleName = "" , # 业务概念名，如 product-catalog
     [Parameter(Mandatory = $false)]
     [switch]$Fix = $false        # 是否尝试自动修复
 )
-
-# 命名规范配置
-$NamingConfig = @{
+$NamingConfig = @{    
     # 模块标准映射 - 更新为新架构
     ModuleMappings = @{
         # 业务概念名 -> 技术实现名映射
@@ -68,6 +68,21 @@ $NamingConfig = @{
         "VariableName" = "^[a-z][a-zA-Z0-9_]*$"  # snake_case
     }
 }
+
+    # 根据 ModuleName 参数获取技术实现名
+    if ($ModuleName) {
+        if ($NamingConfig.ModuleMappings.ContainsKey($ModuleName)) {
+            $TechModule = $NamingConfig.ModuleMappings[$ModuleName]
+        } else {
+            $TechModule = $ModuleName -replace '-','_'
+        }
+    } else {
+        $TechModule = ""
+    }
+    # 如果指定了 ModuleName 且使用默认 DocsPath，则调整到该模块的设计文档目录
+    if ($ModuleName -and $DocsPath -eq "docs/design/modules") {
+        $DocsPath = "docs/design/modules/$ModuleName"
+    }
 
 function Write-ColorOutput {
     param([string]$Message, [string]$Color = "White")
