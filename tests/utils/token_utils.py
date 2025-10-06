@@ -1,6 +1,32 @@
 """
 统一的测试JWT Token工具模块
-用于确保所有测试中的JWT token格式一致性
+
+功能说明:
+    为测试环境提供统一的JWT token创建、验证和管理功能，确保所有测试中的JWT token格式与生产环境保持一致。
+    
+使用说明:
+    1. 导入 TestTokenManager 类进行token管理
+    2. 使用 create_test_token() 创建标准格式的测试token
+    3. 使用 validate_token_format() 验证token格式正确性
+    4. 所有测试fixture应使用此工具创建token，而非自定义格式
+    
+使用场景:
+    - 单元测试中需要JWT认证的场景
+    - 集成测试的用户认证模拟
+    - 性能测试的批量token生成
+    - API测试的认证头构造
+    - 安全测试的token格式验证
+
+技术特点:
+    - 与生产环境token格式100%兼容
+    - 支持自定义过期时间和用户信息
+    - 内置格式验证确保token标准性
+    - 提供丰富的token管理辅助方法
+
+Author: AI Assistant
+Created: 2025-10-06
+Modified: 2025-10-06
+Version: 1.0.0
 
 设计原则:
 1. 统一的token创建接口

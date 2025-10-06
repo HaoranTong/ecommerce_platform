@@ -316,7 +316,33 @@ Get-Help .\tools\<script_name>.ps1 -Full
 - **工具故障排查**: `tools/troubleshooting.md`
 - **AI检查点卡片**: `tools/checkpoint-cards.md`
 
-## 🚨 注意事项
+## � 新增工具更新 (v1.1.0)
+
+### 🆕 最新添加的工具
+
+| 工具 | 功能描述 | 版本 | 更新内容 |
+|------|----------|------|----------|
+| `tests/utils/token_utils.py` | **JWT Token统一工具模块** | v1.0.0 | 新增 - 提供测试环境统一的JWT token创建、验证和管理功能 |
+| `docs/standards/jwt-token-format-standard.md` | **JWT Token格式标准文档** | v1.0.0 | 新增 - 建立JWT token格式统一标准，确保测试生产环境一致性 |
+
+### 🔧 工具优化更新
+
+| 工具 | 更新版本 | 主要改进 |
+|------|----------|----------|
+| `generate_test_template.py` | v1.1.0 | 修复pytest collection超时问题，优化复杂测试收集性能 |
+| `test_generators/performance_test_generator.py` | v1.1.0 | 移除硬编码，实现智能endpoint选择，修复模板格式化错误 |
+| `test_generators/security_test_generator.py` | v1.1.0 | 修复内容损坏，添加comprehensive错误预防文档 |
+| `test_generators/api_test_generator.py` | v1.1.0 | 添加模板格式化指南，防止双重转义错误 |
+| `test_generators/e2e_test_generator.py` | v1.1.0 | 添加错误预防文档，提高代码生成质量 |
+| `test_generators/base_generator.py` | v1.1.0 | 添加通用格式化错误预防指南，适用于所有生成器 |
+
+### 🎯 使用建议
+
+- **JWT Token管理**: 所有新的测试代码应使用 `TestTokenManager` 创建token，确保格式一致性
+- **测试代码生成**: 使用更新后的生成器，自动避免常见的模板格式化错误
+- **标准合规**: 新增的JWT token必须符合 `jwt-token-format-standard.md` 规范
+
+## �🚨 注意事项
 
 1. **权限要求**: 部分工具需要管理员权限执行
 2. **环境依赖**: 确保已安装Python 3.8+和PowerShell 5.1+

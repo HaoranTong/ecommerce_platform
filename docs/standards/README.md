@@ -26,6 +26,7 @@ standards/
 ├── deployment-standards.md            # L2领域：容器化部署规范
 ├── document-dependencies-standards.md # L2领域：文档依赖管理规范
 ├── document-management-standards.md   # L2领域：文档管理规范
+├── jwt-token-format-standard.md       # L2领域：JWT Token格式标准 🆕
 ├── performance-standards.md           # L2领域：性能标准规范
 ├── scripts-standards.md               # L2领域：DevOps脚本规范
 ├── technology-stack-standards.md      # L2领域：技术栈标准规范
@@ -53,6 +54,7 @@ standards/
 | **performance-standards.md** | 性能标准和优化规范 | 强制 | L2领域 |
 | **scripts-standards.md** | DevOps脚本管理规范 | 强制 | L2领域 |
 | **technology-stack-standards.md** | 技术栈标准和版本规范 | 强制 | L2领域 |
+| **jwt-token-format-standard.md** | JWT Token格式统一标准 🆕 | 强制 | L2领域 |
 | **testing-standards.md** | 测试编写和执行（五层架构） | 强制 | L2领域 |
 | **workflow-standards.md** | 开发流程 | 强制 | L2领域 |
 | **openapi.yaml** | 全局API契约定义 | 强制 | 契约 |
@@ -81,4 +83,5 @@ standards/
 - **任何命名操作** → 检查 [naming-conventions-standards.md](naming-conventions-standards.md)
 - **API设计** → 检查 [api-standards.md](api-standards.md)
 - **数据库操作** → 检查 [database-standards.md](database-standards.md)
+- **JWT Token操作** → 检查 [jwt-token-format-standard.md](jwt-token-format-standard.md) 🆕
 - **创建文档** → 检查 [document-management-standards.md](document-management-standards.md)

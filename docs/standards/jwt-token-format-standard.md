@@ -1,9 +1,23 @@
 # JWT Token格式标准文档
 
-> **版本**: v1.0  
+<!--
+Author: AI Assistant
+Created: 2025-10-06
+Modified: 2025-10-06
+Version: 1.0.0
+Document Type: Standards Layer - JWT Token Format Specification
+Inherits From: PROJECT-FOUNDATION.md, document-management-standards.md
+Related Standards: security-standards.md, testing-standards.md
+Status: Active
+-->
+
+> **版本**: v1.0.0  
 > **创建日期**: 2025-10-06  
+> **最后修改**: 2025-10-06  
 > **负责人**: Development Team  
+> **文档类型**: 标准规范 (Standards Layer)
 > **适用范围**: 所有测试和生产代码中的JWT token使用
+> **继承关系**: 遵循 PROJECT-FOUNDATION.md 中的安全要求，符合 document-management-standards.md 格式规范
 
 ## 🎯 标准概述
 
