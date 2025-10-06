@@ -401,10 +401,9 @@ function Invoke-StandardsValidation {
             $fullDir = $docItem.FullName
             $AllDocs = $AllDocs | Where-Object { $_.Path -like "$fullDir*" }
         } else {
-            # DocPath 是文件，匹配文件路径或名称
+            # DocPath 是文件，仅匹配该文件的完整路径
             $fullPath = $docItem.FullName
-            $leaf = $docItem.Name
-            $AllDocs = $AllDocs | Where-Object { $_.Path -eq $fullPath -or $_.Name -eq $leaf }
+            $AllDocs = $AllDocs | Where-Object { $_.Path -eq $fullPath }
         }
         if ($AllDocs.Count -eq 0) {
             Write-Host "❌ 未找到符合条件的文档: $DocPath" -ForegroundColor Red

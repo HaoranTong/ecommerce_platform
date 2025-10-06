@@ -191,7 +191,7 @@ class SKU(Base, TimestampMixin):
     - 重量体积等物理属性
     """
 
-    __tablename__ = "skus"
+    __tablename__ = "product_skus"
 
     # 主键
     id = Column(Integer, primary_key=True, autoincrement=True, index=True)

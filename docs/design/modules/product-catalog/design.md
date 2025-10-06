@@ -60,7 +60,7 @@ labels:
 ### 关键设计决策
 | 决策点 | 选择方案 | 理由 | 替代方案 |
 |--------|----------|------|----------|
-| 主键类型 | UUID | 避免整型自增冲突，便于跨服务唯一性 | 自增ID |
+| 主键类型 | Integer (自增) | 索引更小、性能更优，符合 database-standards.md 默认 | UUID (CHAR(36)) |
 | 数据访问 | SQLAlchemy ORM | 与现有核心一致，方便模型定义 | 原生SQL |
 | 缓存策略 | Redis | 高频查询数据缓存，降低DB压力 | 本地缓存 |
 
@@ -78,13 +78,15 @@ graph TB
 ### 2.2 模块内部架构
 ```plaintext
 product_catalog/
-├── router.py           # API路由层
-├── service.py          # 业务逻辑层
-├── repository.py       # 数据访问层
-├── models.py           # 数据模型层
-├── schemas.py          # DTO层
-└── dependencies.py     # 依赖注入
-```  
+├── router.py             # API 路由层
+├── service.py            # 业务逻辑层（调用 Repository）
+├── repository.py         # 数据访问层（CRUD 封装）
+├── category_service.py   # 分类业务逻辑示例
+├── models.py             # 数据模型层
+├── schemas.py            # DTO 层 (Pydantic V2)
+├── dependencies.py       # 依赖注入 & 权限校验
+└── README.md             # 模块使用说明 & 示例
+```
 
 ### 层次职责
 - **API层**: 负责请求路由与参数校验
@@ -97,7 +99,7 @@ product_catalog/
 ```sql
 -- categories 表
 CREATE TABLE categories (
-    id CHAR(36) PRIMARY KEY,
+    id INT PRIMARY KEY AUTO_INCREMENT,
     name VARCHAR(100) NOT NULL,
     parent_id CHAR(36),
     sort_order INT DEFAULT 0,
@@ -106,7 +108,7 @@ CREATE TABLE categories (
 
 -- brands 表
 CREATE TABLE brands (
-    id CHAR(36) PRIMARY KEY,
+    id INT PRIMARY KEY AUTO_INCREMENT,
     name VARCHAR(100) UNIQUE NOT NULL,
     slug VARCHAR(100) UNIQUE,
     is_active BOOLEAN DEFAULT TRUE
@@ -114,7 +116,7 @@ CREATE TABLE brands (
 
 -- products 表
 CREATE TABLE products (
-    id CHAR(36) PRIMARY KEY,
+    id INT PRIMARY KEY AUTO_INCREMENT,
     name VARCHAR(200) NOT NULL,
     description TEXT,
     category_id CHAR(36) NOT NULL,
@@ -125,13 +127,43 @@ CREATE TABLE products (
     updated_at DATETIME
 );
 
--- skus 表
+-- product_skus 表
 CREATE TABLE product_skus (
-    id CHAR(36) PRIMARY KEY,
+    id INT PRIMARY KEY AUTO_INCREMENT,
     product_id CHAR(36) NOT NULL,
     sku_code VARCHAR(50) UNIQUE NOT NULL,
     price DECIMAL(10,2) NOT NULL,
     is_active BOOLEAN DEFAULT TRUE
+);
+-- product_attributes 表
+CREATE TABLE product_attributes (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    product_id INT NOT NULL,
+    attribute_name VARCHAR(100) NOT NULL,
+    attribute_value VARCHAR(255) NOT NULL
+);
+
+-- sku_attributes 表
+CREATE TABLE sku_attributes (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    sku_id INT NOT NULL,
+    attribute_name VARCHAR(100) NOT NULL,
+    attribute_value VARCHAR(255) NOT NULL
+);
+
+-- product_images 表
+CREATE TABLE product_images (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    product_id INT NOT NULL,
+    image_url VARCHAR(500) NOT NULL,
+    sort_order INT DEFAULT 0
+);
+
+-- product_tags 表
+CREATE TABLE product_tags (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    product_id INT NOT NULL,
+    tag VARCHAR(50) NOT NULL
 );
 ```
 
@@ -156,7 +188,8 @@ sequenceDiagram
 ## 5. 接口设计
 
 ### 基础路径
-- `/api/v1/product-catalog/`
+- 全局前缀由 `main.py` 挂载: `/api/v1`
+- 模块相对路径：`/product-catalog/`
 
 ### 端点示例
 | 方法 | 路径                                | 功能                     |
