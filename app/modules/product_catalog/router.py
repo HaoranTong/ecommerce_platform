@@ -11,7 +11,7 @@ from app.modules.user_auth.models import User
 
 from .dependencies import require_admin
 from .models import SKU, Brand, Category, Product
-from .repository import CategoryRepository  # add repository import
+from .repository import CategoryRepository, ProductRepository, SKURepository  # add imports
 from .schemas import (BrandCreate, BrandRead, BrandUpdate, CategoryCreate,
                       CategoryRead, CategoryUpdate, ProductCreate, ProductRead,
                       ProductUpdate, SKUCreate, SKURead, SKUUpdate)
@@ -112,18 +112,13 @@ async def create_brand(
 async def create_product(
     payload: ProductCreate,
     db: Session = Depends(get_db),
-        _: Any = Depends(require_admin),
+    admin: Any = Depends(require_admin),
 ):
     """创建新商品（需要管理员权限）"""
+    product = Product(**payload.model_dump())
     try:
-        product_data = payload.model_dump()
-        product = Product(**product_data)
-        db.add(product)
-        db.commit()
-        db.refresh(product)
-        return product
+        return ProductRepository.create(db, product)
     except Exception as e:
-        db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"商品创建失败: {str(e)}",
@@ -143,24 +138,13 @@ async def list_products(
     status: Optional[str] = Query(
         None, description="按状态筛选（draft, published, archived）"
     ),
+    skip: int = Query(0, ge=0, description="跳过记录数"),
+    limit: int = Query(100, ge=1, le=1000, description="返回记录数"),
     db: Session = Depends(get_db),
 ):
-    """获取商品列表，支持分页和筛选"""
-    query = db.query(Product).filter(Product.is_deleted == False)
-
-    if search:
-        query = query.filter(
-            (Product.name.contains(search)) | (Product.description.contains(search))
-        )
-    if category_id is not None:
-        query = query.filter(Product.category_id == category_id)
-    if brand_id is not None:
-        query = query.filter(Product.brand_id == brand_id)
-    if status is not None:
-        query = query.filter(Product.status == status)
-
-    products = query.all()
-    return products
+    """获取商品列表，调用 ProductRepository"""
+    filters = {"search": search, "category_id": category_id, "status": status}
+    return ProductRepository.list(db, skip=skip, limit=limit, **filters)
 
 
 @router.get(
@@ -171,15 +155,9 @@ async def list_products(
 )
 async def get_product(product_id: int, db: Session = Depends(get_db)):
     """获取单个商品详情"""
-    product = (
-        db.query(Product)
-        .filter(Product.id == product_id, Product.is_deleted == False)
-        .first()
-    )
+    product = ProductRepository.get_by_id(db, product_id)
     if not product:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail=f"商品ID {product_id} 不存在"
-        )
+        raise HTTPException(status.HTTP_404_NOT_FOUND, f"商品ID {product_id} 不存在")
     return product
 
 
@@ -189,33 +167,17 @@ async def get_product(product_id: int, db: Session = Depends(get_db)):
     summary="更新商品信息",
     description="根据商品ID更新商品信息，需要管理员权限"
 )
-async def update_product(
-    product_id: int,
-    payload: ProductUpdate,
-    db: Session = Depends(get_db),
-        _: Any = Depends(require_admin),
-):
+async def update_product(product_id: int, payload: ProductUpdate, db: Session = Depends(get_db),
+        admin: Any = Depends(require_admin)):
     """更新商品信息（需要管理员权限）"""
-    product = db.query(Product).get(product_id)
+    product = ProductRepository.get_by_id(db, product_id)
     if not product:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail=f"商品ID {product_id} 不存在"
-        )
-
+        raise HTTPException(status.HTTP_404_NOT_FOUND, f"商品ID {product_id} 不存在")
+    data = payload.model_dump(exclude_unset=True)
     try:
-        update_data = payload.dict(exclude_unset=True)
-        for field, value in update_data.items():
-            setattr(product, field, value)
-
-        db.commit()
-        db.refresh(product)
-        return product
+        return ProductRepository.update(db, product, data)
     except Exception as e:
-        db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"商品更新失败: {str(e)}",
-        )
+        raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, f"商品更新失败: {e}")
 
 
 @router.delete(
@@ -230,11 +192,10 @@ async def delete_product(
     admin: Any = Depends(require_admin),
 ):
     """软删除指定商品（需管理员权限）"""
-    product = db.query(Product).filter(Product.id == product_id).first()
+    product = ProductRepository.get_by_id(db, product_id)
     if not product:
         raise HTTPException(status.HTTP_404_NOT_FOUND, f"商品ID {product_id} 不存在")
-    product.is_deleted = True
-    db.commit()
+    ProductRepository.soft_delete(db, product)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
@@ -242,188 +203,51 @@ async def delete_product(
 
 
 @router.post(
-    "/product-catalog/skus", response_model=SKURead, status_code=status.HTTP_201_CREATED
+    "/product-catalog/skus",
+    response_model=SKURead,
+    status_code=status.HTTP_201_CREATED,
+    summary="创建SKU",
+    description="创建SKU，需要管理员权限"
 )
 async def create_sku(
     payload: SKUCreate,
     db: Session = Depends(get_db),
-    current_admin: User = Depends(get_current_admin_user),
+    admin: Any = Depends(require_admin),
 ):
-    """创建新SKU（需要管理员权限）"""
-    # 验证产品是否存在
-    product = db.query(Product).filter(Product.id == payload.product_id).first()
-    if not product:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"产品ID {payload.product_id} 不存在",
-        )
-
-    # 检查SKU码是否重复
-    existing_sku = db.query(SKU).filter(SKU.sku_code == payload.sku_code).first()
-    if existing_sku:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"SKU码 {payload.sku_code} 已存在",
-        )
-
+    """创建SKU（需要管理员权限）"""
+    sku = SKU(**payload.model_dump())
     try:
-        sku_data = payload.dict(exclude={"attributes"})
-        sku = SKU(**sku_data)
-        db.add(sku)
-        db.commit()
-        db.refresh(sku)
-        return sku
+        return SKURepository.create(db, sku)
     except Exception as e:
-        db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"SKU创建失败: {str(e)}",
-        )
+        raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, f"SKU创建失败: {e}")
 
 
-@router.get("/product-catalog/skus", response_model=List[SKURead])
+@router.get(
+    "/product-catalog/skus",
+    response_model=List[SKURead]
+)
 async def list_skus(
-    search: Optional[str] = Query(None, description="搜索SKU名称或编码"),
-    product_id: Optional[int] = Query(None, description="按产品ID筛选"),
-    is_active: Optional[bool] = Query(None, description="按状态筛选"),
-    skip: int = Query(0, ge=0, description="跳过记录数"),
-    limit: int = Query(100, ge=1, le=1000, description="限制记录数"),
+    product_id: Optional[int] = Query(None, description="按商品ID过滤"),
+    is_active: Optional[bool] = Query(None, description="按是否激活过滤"),
     db: Session = Depends(get_db),
 ):
     """获取SKU列表"""
-    query = db.query(SKU)
-
-    if search:
-        query = query.filter(
-            (SKU.name.contains(search)) | (SKU.sku_code.contains(search))
-        )
-    if product_id:
-        query = query.filter(SKU.product_id == product_id)
-    if is_active is not None:
-        query = query.filter(SKU.is_active == is_active)
-
-    return query.offset(skip).limit(limit).all()
+    return SKURepository.list(db, product_id, is_active)
 
 
 @router.get("/product-catalog/skus/{sku_id}", response_model=SKURead)
 async def get_sku(sku_id: int, db: Session = Depends(get_db)):
-    """根据ID获取SKU详情"""
-    sku = db.query(SKU).filter(SKU.id == sku_id).first()
+    """获取单个SKU详情"""
+    sku = SKURepository.get_by_id(db, sku_id)
     if not sku:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail=f"SKU ID {sku_id} 不存在"
-        )
+        raise HTTPException(status.HTTP_404_NOT_FOUND, f"SKU ID {sku_id} 不存在")
     return sku
 
 
 @router.put("/product-catalog/skus/{sku_id}", response_model=SKURead)
-async def update_sku(
-    sku_id: int,
-    payload: SKUUpdate,
-    db: Session = Depends(get_db),
-    current_admin: User = Depends(get_current_admin_user),
-):
-    """更新SKU（需要管理员权限）"""
-    sku = db.query(SKU).filter(SKU.id == sku_id).first()
+async def update_sku(sku_id: int, payload: SKUUpdate, db: Session = Depends(get_db), admin: Any = Depends(require_admin)):
+    """更新SKU信息"""
+    sku = SKURepository.get_by_id(db, sku_id)
     if not sku:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail=f"SKU ID {sku_id} 不存在"
-        )
-
-    try:
-        update_data = payload.dict(exclude_unset=True)
-        for field, value in update_data.items():
-            setattr(sku, field, value)
-        db.commit()
-        db.refresh(sku)
-        return sku
-    except Exception as e:
-        db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"SKU更新失败: {str(e)}",
-        )
-
-
-@router.delete("/product-catalog/skus/{sku_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_sku(
-    sku_id: int,
-    db: Session = Depends(get_db),
-    current_admin: User = Depends(get_current_admin_user),
-):
-    """删除SKU（需要管理员权限）"""
-    sku = db.query(SKU).filter(SKU.id == sku_id).first()
-    if not sku:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail=f"SKU ID {sku_id} 不存在"
-        )
-
-    try:
-        db.delete(sku)
-        db.commit()
-    except Exception as e:
-        db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"SKU删除失败: {str(e)}",
-        )
-
-
-# ============ 产品关联的SKU API（兼容旧接口）============
-
-
-@router.post(
-    "/product-catalog/products/{product_id}/skus",
-    response_model=SKURead,
-    status_code=status.HTTP_201_CREATED,
-)
-async def create_product_sku(
-    product_id: int,
-    payload: dict,  # 使用dict来兼容测试中的数据格式
-    db: Session = Depends(get_db),
-    current_admin: User = Depends(get_current_admin_user),
-):
-    """为特定产品创建SKU（兼容接口）"""
-    # 验证产品是否存在
-    product = db.query(Product).filter(Product.id == product_id).first()
-    if not product:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail=f"产品ID {product_id} 不存在"
-        )
-
-    # 检查SKU码是否重复（如果提供了）
-    if "sku_code" in payload:
-        existing_sku = db.query(SKU).filter(SKU.sku_code == payload["sku_code"]).first()
-        if existing_sku:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"SKU码 {payload['sku_code']} 已存在",
-            )
-
-    try:
-        # 转换payload到SKU字段格式
-        sku_data = {
-            "product_id": product_id,
-            "sku_code": payload.get(
-                "sku_code", f"SKU-{product_id}-{int(__import__('time').time())}"
-            ),
-            "name": payload.get("name"),
-            "price": float(payload.get("price", 0)),
-            "cost_price": payload.get("cost_price"),
-            "market_price": payload.get("market_price"),
-            "weight": payload.get("weight"),
-            "volume": payload.get("volume"),
-            "is_active": payload.get("is_active", True),
-        }
-
-        sku = SKU(**sku_data)
-        db.add(sku)
-        db.commit()
-        db.refresh(sku)
-        return sku
-    except Exception as e:
-        db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"SKU创建失败: {str(e)}",
-        )
+        raise HTTPException(status.HTTP_404_NOT_FOUND, f"SKU ID {sku_id} 不存在")
+    data = payload.model

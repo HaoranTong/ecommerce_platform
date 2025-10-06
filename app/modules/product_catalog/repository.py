@@ -40,3 +40,80 @@ class CategoryRepository:
     @staticmethod
     def count_products(db: Session, category_id: int) -> int:
         return db.query(Product).filter(Product.category_id == category_id).count()
+
+
+class ProductRepository:
+    """商品数据访问"""
+
+    @staticmethod
+    def create(db: Session, product: Product) -> Product:
+        db.add(product)
+        db.commit()
+        db.refresh(product)
+        return product
+
+    @staticmethod
+    def get_by_id(db: Session, product_id: int) -> Optional[Product]:
+        return db.query(Product).filter(Product.id == product_id, Product.is_deleted == False).first()
+
+    @staticmethod
+    def list(db: Session, skip: int = 0, limit: int = 100, **filters) -> List[Product]:
+        query = db.query(Product).filter(Product.is_deleted == False)
+        if filters.get('category_id') is not None:
+            query = query.filter(Product.category_id == filters['category_id'])
+        if filters.get('status') is not None:
+            query = query.filter(Product.status == filters['status'])
+        if filters.get('search'):
+            term = f"%{filters['search']}%"
+            query = query.filter((Product.name.like(term)) | (Product.description.like(term)))
+        return query.offset(skip).limit(limit).all()
+
+    @staticmethod
+    def update(db: Session, product: Product, data: Dict[str, Any]) -> Product:
+        for k, v in data.items():
+            setattr(product, k, v)
+        db.commit()
+        db.refresh(product)
+        return product
+
+    @staticmethod
+    def soft_delete(db: Session, product: Product) -> None:
+        product.is_deleted = True
+        db.commit()
+
+
+class SKURepository:
+    """SKU数据访问"""
+
+    @staticmethod
+    def create(db: Session, sku: SKU) -> SKU:
+        db.add(sku)
+        db.commit()
+        db.refresh(sku)
+        return sku
+
+    @staticmethod
+    def get_by_id(db: Session, sku_id: int) -> Optional[SKU]:
+        return db.query(SKU).filter(SKU.id == sku_id).first()
+
+    @staticmethod
+    def list(db: Session, product_id: Optional[int] = None, is_active: Optional[bool] = None) -> List[SKU]:
+        query = db.query(SKU)
+        if product_id is not None:
+            query = query.filter(SKU.product_id == product_id)
+        if is_active is not None:
+            query = query.filter(SKU.is_active == is_active)
+        return query.all()
+
+    @staticmethod
+    def update(db: Session, sku: SKU, data: Dict[str, Any]) -> SKU:
+        for k, v in data.items():
+            setattr(sku, k, v)
+        db.commit()
+        db.refresh(sku)
+        return sku
+
+    @staticmethod
+    def soft_delete(db: Session, sku: SKU) -> None:
+        sku.is_active = False
+        db.commit()
