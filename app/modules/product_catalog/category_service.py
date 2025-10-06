@@ -84,9 +84,7 @@ class CategoryService:
         try:
             return CategoryRepository.create(db, category)
         except IntegrityError:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST, detail="分类创建失败，数据冲突"
-            )
+            raise ServiceException("分类创建失败，数据冲突")
 
     @staticmethod
     def get_category_by_id(
