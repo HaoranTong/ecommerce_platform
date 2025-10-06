@@ -719,9 +719,9 @@ async def async_api_client(mysql_integration_db):
                 mysql_integration_db.commit()
                 mysql_integration_db.refresh(admin_user)
                 
-                # 创建JWT token
+                # 创建JWT token - 修复：sub字段必须是用户ID字符串
                 access_token = create_access_token(
-                    data={"sub": admin_user.username, "user_id": admin_user.id},
+                    data={"sub": str(admin_user.id)},
                     expires_delta=timedelta(hours=1)
                 )
                 
