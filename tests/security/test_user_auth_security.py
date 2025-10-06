@@ -2,7 +2,7 @@
 Auto Generated Test - 已生成到正式目录
 
 文件路径: tests/security/test_user_auth_security.py
-生成时间: 2025-10-05 23:03:59
+生成时间: 2025-10-06 01:12:38
 生成工具: tools/generate_test_template.py v2.0
 状态: GENERATED - 需要经过代码审查和测试验证
 
@@ -83,7 +83,7 @@ class TestUserAuthOWASPTop10:
             "<svg onload=alert('XSS')>"
         ]
         
-        headers = {"Authorization": "Bearer security_test_2e2165cb73261a5d"}
+        headers = {"Authorization": "Bearer security_test_336f0cf4954af3d0"}
         
         # 使用真实的POST端点进行XSS测试
         test_endpoint = "/api/v1/user-auth/register"
@@ -108,7 +108,7 @@ class TestUserAuthOWASPTop10:
     async def test_csrf_protection(self, async_api_client):
         """测试CSRF跨站请求伪造防护 - OWASP #8"""
         
-        headers = {"Authorization": "Bearer security_test_2e2165cb73261a5d"}
+        headers = {"Authorization": "Bearer security_test_336f0cf4954af3d0"}
         
         # 使用真实的POST端点进行CSRF测试
         sensitive_endpoint = "/api/v1/user-auth/register"
@@ -160,7 +160,7 @@ class TestUserAuthOWASPTop10:
     async def test_sensitive_data_exposure(self, async_api_client):
         """测试敏感数据泄露防护 - OWASP #3"""
         
-        headers = {"Authorization": "Bearer security_test_2e2165cb73261a5d"}
+        headers = {"Authorization": "Bearer security_test_336f0cf4954af3d0"}
         
         # 测试API响应是否泄露敏感信息
         response = await async_api_client.get("/api/v1/user-auth/me", headers=headers)
@@ -258,7 +258,7 @@ class TestUserAuthAuthentication:
         """测试权限提升防护"""
         
         # 使用普通用户token尝试访问管理员端点
-        user_token = "user_level_e7e5b89619701863"
+        user_token = "user_level_2e1379ea16a711c5"
         headers = {"Authorization": f"Bearer {user_token}"}
         
         admin_endpoints = [
@@ -277,7 +277,7 @@ class TestUserAuthAuthentication:
     async def test_session_security(self, async_api_client):
         """测试会话安全性"""
         
-        headers = {"Authorization": "Bearer security_test_2e2165cb73261a5d"}
+        headers = {"Authorization": "Bearer security_test_336f0cf4954af3d0"}
         
         # 测试会话固定攻击防护
         # 登录前后的会话ID应该不同
@@ -303,7 +303,7 @@ class TestUserAuthInputValidation:
     async def test_malicious_input_handling(self, async_api_client):
         """测试恶意输入处理"""
         
-        headers = {"Authorization": "Bearer security_test_2e2165cb73261a5d"}
+        headers = {"Authorization": "Bearer security_test_336f0cf4954af3d0"}
         
         # 恶意输入载荷
         malicious_inputs = [
@@ -339,7 +339,7 @@ class TestUserAuthInputValidation:
     async def test_data_type_validation(self, async_api_client):
         """测试数据类型验证"""
         
-        headers = {"Authorization": "Bearer security_test_2e2165cb73261a5d"}
+        headers = {"Authorization": "Bearer security_test_336f0cf4954af3d0"}
         
         # 类型错误测试
         invalid_data_types = [
@@ -367,7 +367,7 @@ class TestUserAuthInputValidation:
     async def test_file_upload_security(self, async_api_client):
         """测试文件上传安全性"""
         
-        headers = {"Authorization": "Bearer security_test_2e2165cb73261a5d"}
+        headers = {"Authorization": "Bearer security_test_336f0cf4954af3d0"}
         
         # 恶意文件测试
         malicious_files = [
@@ -399,7 +399,7 @@ class TestUserAuthDataProtection:
     async def test_data_encryption(self, async_api_client):
         """测试数据加密保护"""
         
-        headers = {"Authorization": "Bearer security_test_2e2165cb73261a5d"}
+        headers = {"Authorization": "Bearer security_test_336f0cf4954af3d0"}
         
         # 测试敏感数据是否加密存储
         from faker import Faker
@@ -435,8 +435,8 @@ class TestUserAuthDataProtection:
         """测试数据访问控制"""
         
         # 使用用户A的token尝试访问用户B的数据
-        user_a_token_val = "user_a_29f7a4c46c2c"
-        user_b_id_val = "test_user_9475"
+        user_a_token_val = "user_a_f467f0de9bb2"
+        user_b_id_val = "test_user_1301"
         
         headers = {"Authorization": f"Bearer {user_a_token_val}"}
         
@@ -492,7 +492,7 @@ class TestUserAuthDataProtection:
     async def test_gdpr_compliance(self, async_api_client):
         """测试GDPR合规性"""
         
-        headers = {"Authorization": "Bearer security_test_2e2165cb73261a5d"}
+        headers = {"Authorization": "Bearer security_test_336f0cf4954af3d0"}
         
         # 测试数据删除权（被遗忘权）
         response = await async_api_client.delete(
