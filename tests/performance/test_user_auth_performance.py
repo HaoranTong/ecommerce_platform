@@ -273,6 +273,8 @@ class TestUserAuthConcurrency:
         
         async def write_operation():
             # 使用生成的测试数据模板（添加时间戳确保唯一性）
+            import time
+            request_id = int(time.time() * 1000) % 10000  # 生成唯一ID
             test_data = {
                 "real_name": f"perf_test_user_{request_id}",
                 "phone": f"1800000{request_id:04d}"
@@ -394,24 +396,28 @@ class TestUserAuthLoadTest:
         async def user_session():
             """模拟单个用户会话"""
             try:
+                import time
+                request_id = int(time.time() * 1000) % 10000  # 生成唯一ID
                 # 用户典型操作序列
                 operations = [
-                    ("GET", f"/api/v1/user-auth/"),
-                    ("GET", f"/api/v1/user-auth/search"),
+                    ("GET", "/api/v1/user-auth/me"),  # 获取当前用户信息
+                    ("GET", "/api/v1/user-auth/users"),  # 用户列表
                     ("PUT", "/api/v1/user-auth/me", {
-                "real_name": f"perf_test_user_{request_id}",
-                "phone": f"1800000{request_id:04d}"
-            }),
-                    ("GET", f"/api/v1/user-auth/1"),
+                        "real_name": f"perf_test_user_{request_id}",
+                        "phone": f"1800000{request_id:04d}"
+                    }),  # 更新用户信息
                 ]
                 
                 session_success = True
                 for method, url, *data in operations:
                     if method == "GET":
                         response = await async_api_client.get(url, headers=headers)
+                    elif method == "PUT":
+                        response = await async_api_client.put(url, json=data[0] if data else {}, headers=headers)
                     else:
                         response = await async_api_client.post(url, json=data[0] if data else {}, headers=headers)
                     
+                    # 只有500错误才认为是严重失败
                     if response.status_code >= 500:
                         session_success = False
                         break
@@ -419,7 +425,8 @@ class TestUserAuthLoadTest:
                     await asyncio.sleep(0.1)  # 用户操作间隔
                 
                 return session_success
-            except Exception:
+            except Exception as e:
+                print(f"⚠️ 用户会话异常: {str(e)}")
                 return False
         
         # 模拟峰值负载
