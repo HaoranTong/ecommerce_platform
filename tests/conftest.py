@@ -40,7 +40,54 @@ from tests.factories.data_factory import (StandardTestDataFactory,
                                           TestDataValidator)
 
 # 测试数据库配置 - 根据环境动态选择
-import os
+
+# ========== 共同认证辅助函数 ==========
+import uuid
+
+def create_test_admin_user():
+    """创建测试管理员用户的共同函数"""
+    unique_id = str(uuid.uuid4())[:8]
+    return User(
+        username=f"test_admin_{unique_id}",
+        email=f"admin_{unique_id}@test.com", 
+        password_hash="$2b$12$dummy_hash_for_testing",
+        role="admin",
+        is_active=True,
+        is_verified=True
+    )
+
+def create_test_regular_user():
+    """创建测试普通用户的共同函数"""
+    unique_id = str(uuid.uuid4())[:8]
+    return User(
+        username=f"test_user_{unique_id}",
+        email=f"user_{unique_id}@test.com", 
+        password_hash="$2b$12$dummy_hash_for_testing",
+        role="user",
+        is_active=True,
+        is_verified=True
+    )
+
+def create_and_save_test_user(db, user_func, **kwargs):
+    """创建并保存测试用户到数据库的通用函数"""
+    from datetime import datetime
+    
+    user = user_func()
+    
+    # 应用额外的属性
+    for key, value in kwargs.items():
+        setattr(user, key, value)
+    
+    # 设置时间戳
+    if not hasattr(user, 'created_at') or user.created_at is None:
+        user.created_at = datetime.utcnow()
+    if not hasattr(user, 'updated_at') or user.updated_at is None:
+        user.updated_at = datetime.utcnow()
+    
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return user
 
 def get_smoke_test_config():
     """根据环境变量动态选择烟雾测试配置"""
@@ -385,7 +432,6 @@ def smoke_test_client(smoke_test_db, mock_admin_user):
 @pytest.fixture(scope="function") 
 def mock_api_client(mysql_integration_db, mock_admin_user):
     """Mock认证的API客户端（向后兼容）"""
-    import os
     
     # 导入认证函数
     from app.core.auth import (get_current_active_user, get_current_admin_user,
@@ -436,20 +482,8 @@ def mysql_integration_engine():
 
     try:
         engine = create_engine(INTEGRATION_TEST_DATABASE_URL)
-
-        # 确保导入所有模型以创建完整的数据库schema
-        from app.modules.order_management.models import Order, OrderItem
-        from app.modules.payment_service.models import Payment, Refund
-        from app.modules.product_catalog.models import (SKU, Brand, Category,
-                                                        Product,
-                                                        ProductAttribute,
-                                                        ProductImage,
-                                                        ProductTag,
-                                                        SKUAttribute)
-        from app.modules.shopping_cart.models import Cart, CartItem
-        from app.modules.user_auth.models import (Permission, Role,
-                                                  RolePermission, Session,
-                                                  User, UserRole)
+        
+        # 所有模型已在文件顶部导入，SQLAlchemy会自动处理表创建
 
         # 创建所有表
         Base.metadata.create_all(bind=engine)
@@ -561,7 +595,6 @@ def clean_integration_test_data(request):
 @pytest.fixture(scope="function")
 def api_client(mysql_integration_db):
     """集成测试客户端 - 使用真实JWT认证（方案2）"""
-    import os
     from datetime import datetime, timedelta
     from app.core.auth import create_access_token
     from app.modules.user_auth.models import User
@@ -581,23 +614,15 @@ def api_client(mysql_integration_db):
             # 为测试客户端添加认证帮助方法
             def authenticate_as_admin():
                 """创建管理员用户并返回JWT token"""
-                import uuid
+                # 使用共同的辅助函数创建管理员用户
+                admin_user = create_test_admin_user()
+                admin_user.created_at = datetime.utcnow()
+                admin_user.updated_at = datetime.utcnow()
+                admin_user.email_verified = True
+                admin_user.status = "active"
+                admin_user.phone_verified = True
+                admin_user.two_factor_enabled = False
                 
-                # 创建唯一的测试管理员用户
-                unique_id = str(uuid.uuid4())[:8]
-                admin_user = User(
-                    username=f"test_admin_{unique_id}",
-                    email=f"admin_{unique_id}@test.com", 
-                    password_hash="$2b$12$dummy_hash_for_testing",
-                    role="admin",
-                    is_active=True,
-                    email_verified=True,
-                    status="active",
-                    phone_verified=True,
-                    two_factor_enabled=False,
-                    created_at=datetime.utcnow(),
-                    updated_at=datetime.utcnow()
-                )
                 mysql_integration_db.add(admin_user)
                 mysql_integration_db.commit()
                 mysql_integration_db.refresh(admin_user)
@@ -612,28 +637,22 @@ def api_client(mysql_integration_db):
 
             def authenticate_as_user():
                 """创建普通用户并返回JWT token"""
-                import uuid
                 from app.core.auth import get_password_hash
                 
                 # 使用真实的密码和hash
                 test_password = "TestPassword123!"
                 password_hash = get_password_hash(test_password)
                 
-                # 创建唯一的测试普通用户
-                unique_id = str(uuid.uuid4())[:8]
-                normal_user = User(
-                    username=f"test_user_{unique_id}",
-                    email=f"user_{unique_id}@test.com",
-                    password_hash=password_hash, 
-                    role="user",
-                    is_active=True,
-                    email_verified=True,
-                    status="active",
-                    phone_verified=True,
-                    two_factor_enabled=False,
-                    created_at=datetime.utcnow(),
-                    updated_at=datetime.utcnow()
-                )
+                # 使用共同的辅助函数创建普通用户
+                normal_user = create_test_regular_user()
+                normal_user.password_hash = password_hash
+                normal_user.created_at = datetime.utcnow()
+                normal_user.updated_at = datetime.utcnow()
+                normal_user.email_verified = True
+                normal_user.status = "active"
+                normal_user.phone_verified = True
+                normal_user.two_factor_enabled = False
+                
                 mysql_integration_db.add(normal_user)
                 mysql_integration_db.commit()
                 mysql_integration_db.refresh(normal_user)
@@ -699,21 +718,12 @@ async def async_api_client(mysql_integration_db):
             # 为异步客户端添加认证帮助方法
             async def authenticate_as_admin():
                 """创建管理员用户并返回JWT token"""
-                import uuid
                 from datetime import datetime, timedelta
-                from app.core.auth import create_access_token
-                from app.modules.user_auth.models import User
                 
-                # 创建唯一的测试管理员用户
-                unique_id = str(uuid.uuid4())[:8]
-                admin_user = User(
-                    username=f"async_admin_{unique_id}",
-                    email=f"async_admin_{unique_id}@test.com", 
-                    password_hash="$2b$12$dummy_hash_for_testing",
-                    is_active=True,
-                    created_at=datetime.now(),
-                    updated_at=datetime.now()
-                )
+                # 使用共同的辅助函数创建管理员用户
+                admin_user = create_test_admin_user()
+                admin_user.created_at = datetime.now()
+                admin_user.updated_at = datetime.now()
                 
                 mysql_integration_db.add(admin_user)
                 mysql_integration_db.commit()
@@ -730,30 +740,22 @@ async def async_api_client(mysql_integration_db):
 
             async def authenticate_as_user():
                 """创建普通用户并返回JWT token"""
-                import uuid
                 from datetime import datetime, timedelta
-                from app.core.auth import create_access_token, get_password_hash
-                from app.modules.user_auth.models import User
+                from app.core.auth import get_password_hash
                 
                 # 使用真实的密码和hash
                 test_password = "TestPassword123!"
                 password_hash = get_password_hash(test_password)
                 
-                # 创建唯一的测试普通用户
-                unique_id = str(uuid.uuid4())[:8]
-                normal_user = User(
-                    username=f"async_user_{unique_id}",
-                    email=f"async_user_{unique_id}@test.com",
-                    password_hash=password_hash, 
-                    role="user",
-                    is_active=True,
-                    email_verified=True,
-                    status="active",
-                    phone_verified=True,
-                    two_factor_enabled=False,
-                    created_at=datetime.now(),
-                    updated_at=datetime.now()
-                )
+                # 使用共同的辅助函数创建普通用户
+                normal_user = create_test_regular_user()
+                normal_user.password_hash = password_hash
+                normal_user.email_verified = True
+                normal_user.status = "active"
+                normal_user.phone_verified = True
+                normal_user.two_factor_enabled = False
+                normal_user.created_at = datetime.now()
+                normal_user.updated_at = datetime.now()
                 
                 mysql_integration_db.add(normal_user)
                 mysql_integration_db.commit()
