@@ -56,6 +56,7 @@ labels:
 | POST   | /api/v1/product-catalog/brands            | 创建品牌（需要管理员权限）                 | BrandCreate                                                    | BrandRead          |
 | GET    | /api/v1/product-catalog/skus              | 查询SKU列表                             | `product_id`、`is_active`                                         | List[SKURead]      |
 | POST   | /api/v1/product-catalog/skus              | 创建SKU（需要管理员权限）                  | SKUCreate                                                       | SKURead            |
+| DELETE | /api/v1/product-catalog/skus/{id}         | 删除SKU（软删除，需要管理员权限）           | `id`                                                             | 204 No Content     |
 
 <!-- 其他端点同理，按需补充 -->
 

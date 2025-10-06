@@ -2,16 +2,16 @@
 商品目录模块路由定义
 """
 
-from typing import List, Optional
-
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status, Response
 from sqlalchemy.orm import Session
+from typing import List, Optional, Any
 
-from app.core.auth import get_current_admin_user
 from app.core.database import get_db
 from app.modules.user_auth.models import User
 
+from .dependencies import require_admin
 from .models import SKU, Brand, Category, Product
+from .repository import CategoryRepository  # add repository import
 from .schemas import (BrandCreate, BrandRead, BrandUpdate, CategoryCreate,
                       CategoryRead, CategoryUpdate, ProductCreate, ProductRead,
                       ProductUpdate, SKUCreate, SKURead, SKUUpdate)
@@ -32,7 +32,7 @@ router = APIRouter()
 async def create_category(
     payload: CategoryCreate,
     db: Session = Depends(get_db),
-        _: Any = Depends(require_admin),
+    admin: Any = Depends(require_admin),
 ):
     """创建新分类（需要管理员权限）"""
     try:
@@ -63,17 +63,8 @@ async def list_categories(
     limit: int = Query(100, ge=1, le=1000, description="返回记录数"),
     db: Session = Depends(get_db),
 ):
-    """获取分类列表，支持分页和筛选"""
-    query = db.query(Category)
-
-    # 筛选条件
-    if parent_id is not None:
-        query = query.filter(Category.parent_id == parent_id)
-    if is_active is not None:
-        query = query.filter(Category.is_active == is_active)
-
-    # 分页
-    categories = query.offset(skip).limit(limit).all()
+    """获取分类列表，调用 CategoryRepository"""
+    categories = CategoryRepository.list(db, parent_id, is_active, skip, limit)
     return categories
 
 
@@ -228,29 +219,23 @@ async def update_product(
 
 
 @router.delete(
-    "/product-catalog/products/{product_id}", status_code=status.HTTP_204_NO_CONTENT
+    "/product-catalog/products/{product_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="删除商品",
+    description="软删除商品，需要管理员权限"
 )
 async def delete_product(
     product_id: int,
     db: Session = Depends(get_db),
-        _: Any = Depends(require_admin),
+    admin: Any = Depends(require_admin),
 ):
-    """删除商品（需要管理员权限，软删除）"""
-    product = db.query(Product).get(product_id)
+    """软删除指定商品（需管理员权限）"""
+    product = db.query(Product).filter(Product.id == product_id).first()
     if not product:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail=f"商品ID {product_id} 不存在"
-        )
-
-    try:
-        product.soft_delete()
-        db.commit()
-    except Exception as e:
-        db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"商品删除失败: {str(e)}",
-        )
+        raise HTTPException(status.HTTP_404_NOT_FOUND, f"商品ID {product_id} 不存在")
+    product.is_deleted = True
+    db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 # ============ SKU管理API ============

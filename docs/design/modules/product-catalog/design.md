@@ -205,6 +205,7 @@ sequenceDiagram
 | POST | `/brands`                           | 创建品牌                 |
 | GET  | `/skus`                             | 查询SKU列表              |
 | POST | `/skus`                             | 创建SKU                  |
+| DELETE | `/skus/{id}`                      | 删除SKU(软删除)          |
 
 ## 6. 安全考虑
 - 认证：JWT Bearer Token，管理员权限控制写接口
