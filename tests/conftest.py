@@ -53,7 +53,7 @@ def create_test_admin_user():
         password_hash="$2b$12$dummy_hash_for_testing",
         role="admin",
         is_active=True,
-        is_verified=True
+        email_verified=True
     )
 
 def create_test_regular_user():
@@ -65,7 +65,7 @@ def create_test_regular_user():
         password_hash="$2b$12$dummy_hash_for_testing",
         role="user",
         is_active=True,
-        is_verified=True
+        email_verified=True
     )
 
 def create_and_save_test_user(db, user_func, **kwargs):
