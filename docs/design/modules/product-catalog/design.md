@@ -1,3 +1,18 @@
+---
+title: "product-catalog 模块 - 技术设计文档"
+version: "1.0.0"
+status: "draft"
+created: "2025-10-06"
+updated: "2025-10-06"
+owner: "待填写"
+dependencies:
+  - "../../standards/document-management-standards.md"
+  - "../../standards/architecture-standards.md"
+labels:
+  - module: product-catalog
+  - layer: L2
+---
+
 <!--
 文档说明：
 - 内容：模块技术设计文档模板
@@ -5,250 +20,178 @@
 - 使用方法：基于需求文档进行技术设计，记录设计理由
 -->
 
-# product-catalog模块 - 技术设计文档
+# product-catalog 模块 - 技术设计文档
 
-📅 **创建日期**: 2025-09-16  
-👤 **设计者**: {技术负责人}  
-✅ **评审状态**: {设计中|待评审|已评审|已确认}  
-🔄 **最后更新**: 2025-09-16  
+## 依赖标准
+- [文档管理标准](../../standards/document-management-standards.md)
+- [应用架构](../../architecture/application-architecture.md)
+- [数据架构](../../architecture/data-architecture.md)
+- [架构标准](../../standards/architecture-standards.md)
 
-## 设计概述
+## 概述
+本文档详细描述product-catalog模块的技术设计方案，包括架构选择、数据模型、接口设计和性能考量。
+
+## 具体标准
+
+### 技术设计标准
+- 设计决策必须记录决策点、选择方案、理由和替代方案
+- 数据模型遵循第三范式，使用标准命名约定
+- API设计遵循RESTful规范，统一错误处理
+- 缓存策略明确TTL和失效机制
+- 性能指标量化，包含响应时间和并发要求
+
+📅 **创建日期**: 2025-10-06  
+👤 **设计者**: 系统架构师  
+✅ **评审状态**: 草稿  
+🔄 **最后更新**: 2025-10-06  
+
+## 1. 引言
 
 ### 设计目标
-- {设计目标1}
-- {设计目标2}
-- {设计目标3}
+- 提供商品信息、分类、品牌和 SKU 的完整 CRUD 接口
+- 满足高并发查询需求，响应时间 <200ms
+- 与库存模块解耦，查询实时库存但不直接维护
 
 ### 设计原则
-- **单一职责**: {如何体现}
-- **开放封闭**: {如何实现}
-- **依赖倒置**: {依赖关系设计}
+- **单一职责**: API层、业务层、数据层职责清晰
+- **开放封闭**: 对新功能扩展开放，对已有功能接口兼容封闭
+- **依赖倒置**: 高层模块不依赖底层实现，依赖抽象接口
 
 ### 关键设计决策
 | 决策点 | 选择方案 | 理由 | 替代方案 |
 |--------|----------|------|----------|
-| {决策1} | {选择方案} | {选择理由} | {其他方案} |
-| {决策2} | {选择方案} | {选择理由} | {其他方案} |
+| 主键类型 | UUID | 避免整型自增冲突，便于跨服务唯一性 | 自增ID |
+| 数据访问 | SQLAlchemy ORM | 与现有核心一致，方便模型定义 | 原生SQL |
+| 缓存策略 | Redis | 高频查询数据缓存，降低DB压力 | 本地缓存 |
 
-## 系统架构设计
+## 2. 设计概览
 
-### 整体架构
+### 2.1 整体架构
 ```mermaid
 graph TB
-    A[API层] --> B[业务逻辑层]
-    B --> C[数据访问层]
-    C --> D[数据存储层]
-```
+    Router[API Router] --> Service[Service Layer]
+    Service --> Model[Models Layer]
+    Model --> DB[MySQL]
+    Service --> Cache[Redis]
+```  
 
-### 模块内部架构
-```
-{模块名}/
+### 2.2 模块内部架构
+```plaintext
+product_catalog/
 ├── router.py           # API路由层
 ├── service.py          # 业务逻辑层
 ├── repository.py       # 数据访问层
 ├── models.py           # 数据模型层
-├── schemas.py          # 数据传输对象
-├── dependencies.py     # 依赖注入
-└── utils.py            # 工具函数
-```
+├── schemas.py          # DTO层
+└── dependencies.py     # 依赖注入
+```  
 
 ### 层次职责
-- **API层**: {职责描述}
-- **业务层**: {职责描述}
-- **数据层**: {职责描述}
+- **API层**: 负责请求路由与参数校验
+- **业务层**: 核心逻辑处理与边界校验
+- **数据层**: CRUD 操作与事务管理
 
-## 数据库设计
+## 3. 数据模型
 
 ### 表结构设计
 ```sql
--- {表名1}
-CREATE TABLE {table_name1} (
-    id INT PRIMARY KEY AUTO_INCREMENT,
-    -- 字段定义
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+-- categories 表
+CREATE TABLE categories (
+    id CHAR(36) PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    parent_id CHAR(36),
+    sort_order INT DEFAULT 0,
+    is_active BOOLEAN DEFAULT TRUE
 );
 
--- {表名2}
-CREATE TABLE {table_name2} (
-    -- 表结构
+-- brands 表
+CREATE TABLE brands (
+    id CHAR(36) PRIMARY KEY,
+    name VARCHAR(100) UNIQUE NOT NULL,
+    slug VARCHAR(100) UNIQUE,
+    is_active BOOLEAN DEFAULT TRUE
+);
+
+-- products 表
+CREATE TABLE products (
+    id CHAR(36) PRIMARY KEY,
+    name VARCHAR(200) NOT NULL,
+    description TEXT,
+    category_id CHAR(36) NOT NULL,
+    brand_id CHAR(36) NOT NULL,
+    status VARCHAR(20) DEFAULT 'draft',
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at DATETIME,
+    updated_at DATETIME
+);
+
+-- skus 表
+CREATE TABLE product_skus (
+    id CHAR(36) PRIMARY KEY,
+    product_id CHAR(36) NOT NULL,
+    sku_code VARCHAR(50) UNIQUE NOT NULL,
+    price DECIMAL(10,2) NOT NULL,
+    is_active BOOLEAN DEFAULT TRUE
 );
 ```
-
-### 索引设计
-| 表名 | 索引名 | 索引字段 | 索引类型 | 用途 |
-|------|--------|----------|----------|------|
-| {表名} | {索引名} | {字段列表} | {BTREE/UNIQUE} | {查询场景} |
 
 ### 数据关系
-- **一对多**: {关系描述}
-- **多对多**: {关系描述}
-- **外键约束**: {约束说明}
+- **Category→Product**: 一对多
+- **Brand→Product**: 一对多
+- **Product→SKU**: 一对多
 
-## API设计
-
-### API架构
-- **基础路径**: `/api/v1/product-catalog/`
-- **认证方式**: JWT Bearer Token
-- **数据格式**: JSON
-
-### 端点设计
-| 方法 | 路径 | 功能 | 请求参数 | 响应格式 |
-|------|------|------|----------|----------|
-| POST | `/api/v1/product-catalog/{resource}` | {功能} | {参数} | {响应} |
-| GET | `/api/v1/product-catalog/{resource}` | {功能} | {参数} | {响应} |
-
-### 错误处理设计
-```json
-{
-    "error": {
-        "code": "MODULE_ERROR_001",
-        "message": "错误描述",
-        "details": {}
-    }
-}
-```
-
-## 业务逻辑设计
-
-### 核心业务流程
+## 4. 业务流程
 ```mermaid
 sequenceDiagram
-    participant C as Client
-    participant A as API
-    participant S as Service
-    participant R as Repository
-    participant D as Database
-    
-    C->>A: 请求
-    A->>S: 业务处理
-    S->>R: 数据操作
-    R->>D: SQL查询
-    D-->>R: 返回数据
-    R-->>S: 数据对象
-    S-->>A: 业务结果
-    A-->>C: API响应
+    Client->>API: 请求商品列表
+    API->>Service: 业务处理
+    Service->>Repo: 数据查询
+    Repo->>DB: 执行 SQL
+    DB-->>Repo: 返回数据
+    Repo-->>Service: 返回模型
+    Service-->>API: 返回响应
+    API-->>Client: 返回 JSON
 ```
 
-### 业务规则实现
-- **规则1**: {实现方式}
-- **规则2**: {实现方式}
+## 5. 接口设计
 
-### 状态机设计
-```mermaid
-stateDiagram-v2
-    [*] --> 状态1
-    状态1 --> 状态2: 条件1
-    状态2 --> 状态3: 条件2
-    状态3 --> [*]
+### 基础路径
+- `/api/v1/product-catalog/`
+
+### 端点示例
+| 方法 | 路径                                | 功能                     |
+|------|-------------------------------------|--------------------------|
+| GET  | `/products`                         | 查询商品列表             |
+| GET  | `/products/{id}`                    | 查询商品详情             |
+| POST | `/products`                         | 创建商品                 |
+| PUT  | `/products/{id}`                    | 更新商品                 |
+| DELETE | `/products/{id}`                  | 删除商品(软删除)         |
+| GET  | `/categories`                       | 查询分类列表             |
+| POST | `/categories`                       | 创建分类                 |
+| GET  | `/brands`                           | 查询品牌列表             |
+| POST | `/brands`                           | 创建品牌                 |
+| GET  | `/skus`                             | 查询SKU列表              |
+| POST | `/skus`                             | 创建SKU                  |
+
+## 6. 安全考虑
+- 认证：JWT Bearer Token，管理员权限控制写接口
+- 授权：RBAC 细粒度权限
+- 数据保护：敏感字段加密
+
+## 7. 性能考量
+- 列表查询响应 <200ms，支持 500QPS
+- Redis 缓存热门数据，TTL 30 分钟
+- 分页使用索引优化查询
+
+## 8. 变更影响
+- 向后兼容：新增字段需兼容老版本客户端
+- 数据库迁移：使用 Alembic 脚本安全升级
+- 影响：与 inventory-management 接口版本需同步调整
+
+## 工具校验
+```bash
+tools/validate_standards.ps1 -Action full -DocPath docs/design/modules/product-catalog/design.md
+``` 
+```bash
+tools/check_naming_compliance.ps1 -ModuleName product-catalog
 ```
-
-## 集成设计
-
-### 模块依赖
-- **依赖模块1**: {依赖内容和接口}
-- **依赖模块2**: {依赖内容和接口}
-
-### 外部服务集成
-| 服务名 | 集成方式 | 用途 | 容错机制 |
-|--------|----------|------|----------|
-| {服务1} | {REST/MQ} | {用途} | {容错方案} |
-| {服务2} | {REST/MQ} | {用途} | {容错方案} |
-
-### 事件设计
-- **发布事件**: {事件列表和格式}
-- **订阅事件**: {事件列表和处理}
-
-## 性能设计
-
-### 缓存策略
-- **应用缓存**: Redis缓存{缓存内容}
-- **查询缓存**: 缓存{查询结果}
-- **缓存失效**: {失效策略}
-
-### 数据库优化
-- **查询优化**: {优化策略}
-- **连接池**: {配置方案}
-- **读写分离**: {是否需要}
-
-### 异步处理
-- **异步任务**: {任务类型}
-- **队列设计**: {队列方案}
-
-## 安全设计
-
-### 认证授权
-- **认证方式**: JWT Token
-- **权限控制**: RBAC模型
-- **API安全**: 接口防护措施
-
-### 数据安全
-- **敏感数据**: {加密方案}
-- **数据脱敏**: {脱敏规则}
-- **审计日志**: {日志内容}
-
-### 输入验证
-- **参数校验**: Pydantic模型验证
-- **SQL注入**: 参数化查询
-- **XSS防护**: 输出编码
-
-## 可扩展性设计
-
-### 水平扩展
-- **无状态设计**: {如何实现}
-- **负载均衡**: {方案选择}
-- **数据分片**: {是否需要}
-
-### 垂直扩展
-- **资源配置**: {配置建议}
-- **性能监控**: {监控指标}
-
-### 降级策略
-- **限流**: {限流策略}
-- **熔断**: {熔断条件}
-- **降级**: {降级方案}
-
-## 监控设计
-
-### 业务监控
-- **业务指标**: {监控指标}
-- **告警规则**: {告警条件}
-
-### 技术监控
-- **性能指标**: 响应时间、QPS、错误率
-- **资源指标**: CPU、内存、磁盘
-- **日志监控**: 错误日志、访问日志
-
-## 测试策略
-
-### 单元测试
-- **测试覆盖**: 业务逻辑层100%覆盖
-- **测试框架**: pytest
-- **Mock策略**: {Mock方案}
-
-### 集成测试
-- **测试范围**: API接口测试
-- **测试环境**: {环境配置}
-- **测试数据**: {数据准备}
-
-### 性能测试
-- **压测目标**: {性能目标}
-- **测试场景**: {测试用例}
-
-## 实施计划
-
-### 开发阶段
-1. **阶段1**: 数据模型和API设计 ({时间})
-2. **阶段2**: 核心业务逻辑实现 ({时间})
-3. **阶段3**: 集成测试和优化 ({时间})
-
-### 风险控制
-- **技术风险**: {风险和缓解}
-- **进度风险**: {风险和缓解}
-- **质量风险**: {风险和缓解}
-
-## 变更记录
-
-| 日期 | 版本 | 变更内容 | 变更人 |
-|------|------|----------|--------|
-| 2025-09-16 | v1.0 | 初始设计 | {姓名} |

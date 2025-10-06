@@ -1026,7 +1026,7 @@ module-specific-standards.md / scripting-standards.md / testing-standards.md
 - 《命名规范标准》（naming-conventions-standards.md）
 - 《开发命名规范》（code-standards.md）
 - 《测试管理标准》（testing-standards.md）
-- 《自动化工具使用指南》（scripts/README.md）
+- 《自动化工具使用指南》（tools/README.md）
 - 《文档模板目录》（docs/templates/README.md）
 
 ---

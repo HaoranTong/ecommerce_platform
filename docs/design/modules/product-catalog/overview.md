@@ -1,3 +1,19 @@
+---
+title: "商品目录模块 (product-catalog) - 模块概述"
+version: "1.0.0"
+status: "draft"
+created: "2025-10-06"
+updated: "2025-10-06"
+owner: "待填写"
+dependencies:
+  - "../../standards/document-management-standards.md"
+  - "../../standards/module-design-template.md"
+  - "../../standards/module-implementation-template.md"
+labels:
+  - module: product-catalog
+  - layer: L2
+---
+
 <!--
 文档说明：
 - 内容：模块文档标准模板，用于创建新的模块文档  
@@ -19,7 +35,28 @@
 
 # 商品目录模块 (product-catalog)
 
-📝 **状态**: 🔄 更新中  
+## 依赖标准
+- [文档管理标准](../../standards/document-management-standards.md)
+- [应用架构](../../architecture/application-architecture.md)
+- [业务架构](../../architecture/business-architecture.md)
+- [模块设计模板](../../standards/module-design-template.md)
+- [模块实施模板](../../standards/module-implementation-template.md)
+
+## 具体标准
+
+### 模块架构标准
+- 采用模块化单体架构，遵循依赖倒置原则
+- API层、业务层、数据层职责分离
+- 使用FastAPI框架，SQLAlchemy ORM，Redis缓存
+- 主键统一使用UUID，支持软删除和时间戳混入
+
+### 业务规则标准
+- 分类支持无限级嵌套，建议不超过3级
+- SKU编码全平台唯一性约束
+- 商品管理操作需要管理员权限
+- 删除操作采用软删除策略
+
+📝 **状态**: 更新中  
 📅 **创建日期**: 2024-12-19  
 👤 **负责人**: 系统架构师  
 🔄 **最后更新**: 2024-12-19  
@@ -44,6 +81,8 @@
 - **包含功能**: 商品CRUD、分类管理、品牌管理、SKU管理、商品属性、商品图片、商品标签
 - **排除功能**: 库存数量管理(库存模块)、价格计算逻辑(订单模块)、商品推荐算法(推荐模块)
 - **依赖模块**: user-auth(权限验证)、core/database(数据持久化)、core/redis_client(缓存)
+- **依赖接口**:
+  - GET `/api/v1/inventory/availability` : 查询商品库存可用性  
 - **被依赖**: shopping-cart、order-management、inventory-management、recommendation-system
 
 ## 技术架构
@@ -67,7 +106,7 @@ graph TD
 ```
 
 ### 核心组件
-```
+```plaintext
 product_catalog/
 ├── router.py           # API路由定义 (399行，21个API端点)
 ├── service.py          # 业务逻辑处理
@@ -83,7 +122,7 @@ product_catalog/
 - **依赖原则**: 依赖注入和接口抽象
 
 ### 核心基础设施
-```
+```plaintext
 app/core/               # 核心基础设施
 ├── database.py         # 数据库连接管理
 ├── redis_client.py     # Redis缓存客户端  
@@ -92,7 +131,7 @@ app/core/               # 核心基础设施
 ```
 
 ### 适配器集成
-```
+```plaintext
 app/adapters/           # 第三方服务适配器
 ├── {service_type}/     # 服务类型目录
 │   ├── {provider}_adapter.py

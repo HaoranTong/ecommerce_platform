@@ -1,3 +1,36 @@
+---
+title: "商品目录模块API实现文档"
+version: "1.0.0"
+status: "released"
+created: "2025-09-15"
+updated: "2025-09-19"
+owner: "后端开发团队"
+dependencies:
+  - "../../standards/document-management-standards.md"
+  - "../../standards/api-standards.md"
+  - "../../standards/software-development-lifecycle-standards.md"
+labels:
+  - module: product-catalog
+  - layer: L2
+---
+
+# 商品目录模块API实现文档
+
+## 依赖标准
+- [文档管理标准](../../standards/document-management-standards.md)
+- [应用架构](../../architecture/application-architecture.md)
+- [API 标准](../../standards/api-standards.md)
+- [软件开发生命周期标准](../../standards/software-development-lifecycle-standards.md)
+
+## 具体标准
+
+### API实施标准
+- 每个接口必须记录实现位置、功能描述、测试状态
+- 权限验证统一通过FastAPI的Depends机制
+- 错误处理包装为模块自定义异常
+- 数据验证使用Pydantic模型
+- 接口覆盖率和测试覆盖率必须达到100%
+
 # 商品目录模块API实现文档
 
 ## 文档信息
@@ -5,7 +38,6 @@
 - **实现版本**: v1.0.0
 - **创建时间**: 2025-09-15
 - **维护人员**: 后端开发团队
-- **最后更新**: 2025-09-19
 - **文档状态**: 正式版本
 
 ## 实现概述
@@ -13,6 +45,7 @@
 商品目录模块API基于FastAPI框架实现，采用RESTful架构风格，提供完整的商品、分类、品牌和SKU管理功能。支持层次化的分类管理、完整的商品信息管理和灵活的SKU规格配置。
 
 ## 实施状态总览
+## 文档信息
 
 ### 已实现接口
 

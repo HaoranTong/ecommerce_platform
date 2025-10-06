@@ -6,6 +6,9 @@ param(
     [string]$CheckType = "all",  # all, api, database, docs, code
     
     [Parameter(Mandatory = $false)]
+    [string]$DocsPath = "docs/modules",  # 文档目录路径，可指定其他目录
+    
+    [Parameter(Mandatory = $false)]
     [switch]$Fix = $false        # 是否尝试自动修复
 )
 
@@ -245,59 +248,33 @@ function Test-DatabaseNaming {
 function Test-DocumentationNaming {
     Write-ColorOutput "📚 检查文档命名规范..." "Blue"
     
-    $violations = @()
-    
-    # 检查模块文档目录命名
-    $modulesDirs = Get-ChildItem -Path "docs/modules" -Directory
-    
-    foreach ($dir in $modulesDirs) {
-        $dirName = $dir.Name
-        
-        # 文档目录应该使用业务概念名（kebab-case）
-        # 检查是否在模块映射表的键中（业务概念名）
-        $isValidModuleName = $false
-        if ($NamingConfig.ModuleMappings.ContainsKey($dirName)) {
-            $isValidModuleName = $true
-        }
-        
-        # 特殊目录名称也是合法的
-        $specialDirs = @("api", "README.md")
-        if ($dirName -in $specialDirs) {
-            $isValidModuleName = $true
-        }
-        
-        if (-not $isValidModuleName) {
-            $violations += @{
-                Type = "文档目录命名"
-                File = "docs/design/modules/$dirName"
-                Issue = "模块目录名称不符合规范: $dirName"
-                Line = 0
-                Suggestion = "使用kebab-case格式的业务概念名，参考模块映射表的键名"
+    # 支持文件或目录路径
+    if (Test-Path $DocsPath -PathType Leaf) {
+        $items = @(Get-Item $DocsPath)
+        $checkFile = $true
+    } elseif (Test-Path $DocsPath -PathType Container) {
+        $items = Get-ChildItem -Path $DocsPath -Directory
+        $checkFile = $false
+    } else {
+        Write-Host "❌ 文档路径不存在: $DocsPath" -ForegroundColor Red
+        return $violations
+    }
+    foreach ($item in $items) {
+        if ($checkFile) {
+            # 文件命名检查: kebab-case.md
+            $fileName = $item.Name
+            if ($fileName -notmatch '^[a-z0-9]+(-[a-z0-9]+)*\.md$') {
+                $violations += @{ Type = '文档文件命名'; File = $DocsPath; Issue = "文件名不符合规范: $fileName"; Line = 0; Suggestion = '使用kebab-case命名，末尾.md' }
+            }
+        } else {
+            # 模块目录命名检查
+            $dirName = $item.Name
+            $isValid = $NamingConfig.ModuleMappings.ContainsKey($dirName)
+            if (-not $isValid) {
+                $violations += @{ Type = '文档目录命名'; File = $item.FullName; Issue = "目录名称不符合规范: $dirName"; Line = 0; Suggestion = '使用kebab-case模块名称' }
             }
         }
     }
-    
-    # 检查API文档目录命名
-    if (Test-Path "docs/api/modules") {
-        $apiDirs = Get-ChildItem -Path "docs/api/modules" -Directory
-        
-        foreach ($dir in $apiDirs) {
-            $dirName = $dir.Name
-            
-            # API文档应该使用简短的模块英文名
-            if (-not $NamingConfig.ModuleMappings.ContainsKey($dirName)) {
-                $violations += @{
-                    Type = "API文档目录命名"
-                    File = "docs/api/modules/$dirName"
-                    Issue = "API文档目录名称不符合规范: $dirName"
-                    Line = 0
-                    Suggestion = "使用模块英文名称，参考模块映射表"
-                }
-            }
-        }
-    }
-    
-    return $violations
 }
 
 function Test-CodeNaming {

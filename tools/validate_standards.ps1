@@ -28,7 +28,9 @@
 - content: 内容完整性检查
 
 .PARAMETER DocPath
-可选参数，指定单个文档路径进行验证，支持相对路径或绝对路径
+可选参数，指定单个文档或目录路径进行验证：
+- 当 DocPath 为文件时，仅验证该文件；
+- 当 DocPath 为目录时，递归验证该目录下所有 Markdown 文档；
 
 .PARAMETER Detailed
 可选开关，显示详细的问题诊断信息，包括相似内容摘要
@@ -61,7 +63,7 @@ tools/validate_standards.ps1 -Action dependencies
 - docs/adr/ADR-003-document-architecture-restructure.md (重构决策)
 - tools/README.md (脚本工具说明)
 
-技术债务: 格式检查中的深层标题(>3级)和无语言标识代码块为可接受的细节问题
+技术债务: 格式检查中的深层标题(>4级)和无语言标识代码块为可接受的细节问题
 #>
 
 param(
@@ -70,7 +72,8 @@ param(
     [string]$Action,
     
     [string]$DocPath = "",
-    [switch]$Detailed = $false
+    [switch]$Detailed = $false,
+    [switch]$Fix = $false  # 自动修复：添加缺失的 Front Matter
 )
 
 Write-Host "🔍 标准文档验证 - $Action" -ForegroundColor Cyan
@@ -81,35 +84,30 @@ $StandardsPath = "docs/standards"
 
 # 动态获取所有标准文档（通过文件名中的"standards"关键字识别）
 function Get-AllStandardDocs {
+    param()
     $AllDocs = @()
-    
-    # 获取所有包含"standards"关键字的.md文件
-    $StandardFiles = Get-ChildItem "$StandardsPath/*standards*.md" | Where-Object { $_.Name -like "*standards*.md" }
-    
-    foreach ($File in $StandardFiles) {
+    # 收集 docs 目录下所有 Markdown 文档
+    $AllFiles = Get-ChildItem -Path "docs" -Recurse -Filter "*.md" -ErrorAction SilentlyContinue
+    foreach ($File in $AllFiles) {
         $Content = Get-Content $File.FullName -Raw -ErrorAction SilentlyContinue
-        
-        # 解析版本信息头中的level信息
-        $LevelMatch = [regex]::Match($Content, '<!--version info: v[\d.]+, created: [\d-]+, level: (L\d), dependencies: ([^>]*)-->')
-        
-        if ($LevelMatch.Success) {
-            $Level = $LevelMatch.Groups[1].Value
-        } else {
-            # 如果没有找到level信息，根据文件名推断
-            if ($File.Name -eq "README.md") {
-                $Level = "L0"
-            } elseif ($File.Name -in @("naming-conventions-standards.md", "workflow-standards.md")) {
-                $Level = "L1"
-            } else {
-                $Level = "L2"
-            }
+        $Level = ""
+        # 1. 尝试通过 YAML front matter 中的 labels 声明解析层级
+        if ($Content -match '^labels:') {
+            if ($Content -match '^[ \t]*-\s*"[lL]0"') { $Level = 'L0' }
+            elseif ($Content -match '^[ \t]*-\s*"[lL]1"') { $Level = 'L1' }
+            elseif ($Content -match '^[ \t]*-\s*"[lL]2"') { $Level = 'L2' }
+            elseif ($Content -match '^[ \t]*-\s*"[lL]3"') { $Level = 'L3' }
         }
-        
-        $AllDocs += @{
-            Path = $File.FullName
-            Name = $File.Name
-            Level = $Level
+        # 2. 根据路径归类层级
+        if (-not $Level) {
+            $path = $File.FullName.ToLower()
+            if ($path -like '*\docs\requirements\*') { $Level = 'L0' }
+            elseif ($path -like '*\docs\architecture\*') { $Level = 'L1' }
+            elseif ($path -like '*\docs\design\modules\*') { $Level = 'L2' }
+            elseif ($path -like '*\docs\standards\*') { $Level = 'L3' }
+            else { $Level = 'L2' }
         }
+        $AllDocs += @{ Path = $File.FullName; Name = $File.Name; Level = $Level }
     }
     return $AllDocs
 }
@@ -206,12 +204,16 @@ function Test-FormatConsistency {
             continue
         }
         
-        # 1. 检查版本信息头格式
-        if ($Content -match '<!--[^>]*version[^>]*-->') {
-            Write-Host "     ✅ 版本信息头格式正确" -ForegroundColor Green
+        # 1. 检查 YAML Front Matter 头部信息
+        $hasFrontMatter = ($Content -match '^---\s*' -and $Content -match 'title:\s*".+"' -and $Content -match 'version:\s*".+"' -and $Content -match 'status:\s*".+"' -and $Content -match 'created:\s*".+"' -and $Content -match 'updated:\s*".+"' -and $Content -match 'owner:\s*".+"' -and $Content -match 'dependencies:' -and $Content -match 'labels:')
+        if ($hasFrontMatter) {
+            Write-Host "     ✅ Front Matter 头部信息格式正确" -ForegroundColor Green
         } else {
-            Write-Host "     ❌ 缺少标准版本信息头 <!--version info-->" -ForegroundColor Red
+            Write-Host "     ❌ 缺少标准 YAML Front Matter 头部(title, version, status, created, updated, owner, dependencies, labels)" -ForegroundColor Red
             $FormatIssues++
+            if ($Fix) {
+                Add-FrontMatter -FilePath $Doc.Path
+            }
         }
         
         # 2. 检查依赖声明格式
@@ -224,9 +226,10 @@ function Test-FormatConsistency {
             }
         }
         
-        # 3. 检查标题格式一致性 (# ## ###)
-        $HeaderMatches = [regex]::Matches($Content, '^#{1,6}\s+', [System.Text.RegularExpressions.RegexOptions]::Multiline)
-        $InvalidHeaders = $HeaderMatches | Where-Object { $_.Value -notmatch '^#{1,3}\s+' }
+    # 3. 检查标题格式一致性 (# ## ### ####)
+    $HeaderMatches = [regex]::Matches($Content, '^#{1,6}\s+', [System.Text.RegularExpressions.RegexOptions]::Multiline)
+    # 允许标题层级最多4级，超过4级视为深层标题
+    $InvalidHeaders = $HeaderMatches | Where-Object { $_.Value -notmatch '^#{1,4}\s+' }
         
         if ($InvalidHeaders.Count -gt 0) {
             Write-Host "     ⚠️  存在深层标题 (>3级): $($InvalidHeaders.Count)个" -ForegroundColor Yellow
@@ -385,11 +388,26 @@ function Invoke-StandardsValidation {
     }
     Write-Host ""
     
-    # 如果指定了单个文档路径
+    # 如果指定了文档或目录路径
     if ($DocPath) {
-        $AllDocs = $AllDocs | Where-Object { $_.Path -eq $DocPath -or $_.Name -eq (Split-Path $DocPath -Leaf) }
+        # 尝试获取目标项（文件或目录）
+        $docItem = Get-Item -LiteralPath $DocPath -ErrorAction SilentlyContinue
+        if (-not $docItem) {
+            Write-Host "❌ 指定路径不存在: $DocPath" -ForegroundColor Red
+            return $false
+        }
+        if ($docItem.PSIsContainer) {
+            # DocPath 是目录，过滤该目录下所有文档
+            $fullDir = $docItem.FullName
+            $AllDocs = $AllDocs | Where-Object { $_.Path -like "$fullDir*" }
+        } else {
+            # DocPath 是文件，匹配文件路径或名称
+            $fullPath = $docItem.FullName
+            $leaf = $docItem.Name
+            $AllDocs = $AllDocs | Where-Object { $_.Path -eq $fullPath -or $_.Name -eq $leaf }
+        }
         if ($AllDocs.Count -eq 0) {
-            Write-Host "❌ 指定的文档路径不存在或不是标准文档: $DocPath" -ForegroundColor Red
+            Write-Host "❌ 未找到符合条件的文档: $DocPath" -ForegroundColor Red
             return $false
         }
     }
