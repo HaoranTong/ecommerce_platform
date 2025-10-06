@@ -43,19 +43,19 @@ labels:
 
 ### 端点列表
 
-| 方法   | 路径                                      | 功能                     | 请求参数                                   | 响应模型           |
-|--------|-------------------------------------------|--------------------------|--------------------------------------------|--------------------|
-| GET    | /api/v1/product-catalog/products          | 查询商品列表             | `page`、`size`                              | List[ProductRead]  |
-| GET    | /api/v1/product-catalog/products/{id}     | 查询商品详情             | `id`                                      | ProductRead        |
-| POST   | /api/v1/product-catalog/products          | 创建商品                 | ProductCreate                             | ProductRead        |
-| PUT    | /api/v1/product-catalog/products/{id}     | 更新商品                 | `id`、ProductUpdate                       | ProductRead        |
-| DELETE | /api/v1/product-catalog/products/{id}     | 删除商品(软删除)         | `id`                                      | 204 No Content     |
-| GET    | /api/v1/product-catalog/categories        | 查询分类列表             | 无                                         | List[CategoryRead] |
-| POST   | /api/v1/product-catalog/categories        | 创建分类                 | CategoryCreate                            | CategoryRead       |
-| GET    | /api/v1/product-catalog/brands            | 查询品牌列表             | 无                                         | List[BrandRead]    |
-| POST   | /api/v1/product-catalog/brands            | 创建品牌                 | BrandCreate                               | BrandRead          |
-| GET    | /api/v1/product-catalog/skus              | 查询SKU列表              | `product_id`, `is_active`                  | List[SKURead]      |
-| POST   | /api/v1/product-catalog/skus              | 创建SKU                  | SKUCreate                                 | SKURead            |
+| 方法   | 路径                                      | 功能                                    | 请求参数                                                         | 响应模型           |
+|--------|-------------------------------------------|-----------------------------------------|------------------------------------------------------------------|--------------------|
+| GET    | /api/v1/product-catalog/products          | 查询商品列表                              | `search`、`category_id`、`brand_id`、`status`、`skip`、`limit`     | List[ProductRead]  |
+| GET    | /api/v1/product-catalog/products/{id}     | 查询商品详情                              | `id`                                                             | ProductRead        |
+| POST   | /api/v1/product-catalog/products          | 创建商品（需要管理员权限）                 | ProductCreate                                                  | ProductRead        |
+| PUT    | /api/v1/product-catalog/products/{id}     | 更新商品（需要管理员权限）                 | `id`、ProductUpdate                                           | ProductRead        |
+| DELETE | /api/v1/product-catalog/products/{id}     | 删除商品(软删除，需要管理员权限)           | `id`                                                             | 204 No Content     |
+| GET    | /api/v1/product-catalog/categories        | 查询分类列表                              | `skip`、`limit`、`parent_id`、`is_active`                         | List[CategoryRead] |
+| POST   | /api/v1/product-catalog/categories        | 创建分类（需要管理员权限）                 | CategoryCreate                                                 | CategoryRead       |
+| GET    | /api/v1/product-catalog/brands            | 查询品牌列表                              | 无                                                               | List[BrandRead]    |
+| POST   | /api/v1/product-catalog/brands            | 创建品牌（需要管理员权限）                 | BrandCreate                                                    | BrandRead          |
+| GET    | /api/v1/product-catalog/skus              | 查询SKU列表                             | `product_id`、`is_active`                                         | List[SKURead]      |
+| POST   | /api/v1/product-catalog/skus              | 创建SKU（需要管理员权限）                  | SKUCreate                                                       | SKURead            |
 
 <!-- 其他端点同理，按需补充 -->
 
