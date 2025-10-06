@@ -11,7 +11,7 @@
 - 在路由中调用：ProductService.create_product(product_data)
 """
 
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 from fastapi import HTTPException, status
 from sqlalchemy import and_, or_
@@ -19,6 +19,8 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
 
 from .models import Category, Product
+from .repository import BrandRepository, SKURepository
+from .models import Brand, SKU
 
 
 class ProductService:
@@ -292,3 +294,69 @@ class ProductService:
             )
             .all()
         )
+
+
+class BrandService:
+    """品牌管理业务逻辑服务"""
+
+    @staticmethod
+    def create_brand(db: Session, data: Dict[str, Any]) -> Brand:
+        brand = Brand(**data)
+        return BrandRepository.create(db, brand)
+
+    @staticmethod
+    def get_brand(db: Session, brand_id: int) -> Optional[Brand]:
+        return BrandRepository.get_by_id(db, brand_id)
+
+    @staticmethod
+    def list_brands(db: Session) -> List[Brand]:
+        return BrandRepository.list(db)
+
+    @staticmethod
+    def update_brand(db: Session, brand_id: int, data: Dict[str, Any]) -> Brand:
+        brand = BrandRepository.get_by_id(db, brand_id)
+        if not brand:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, f"品牌ID {brand_id} 不存在")
+        return BrandRepository.update(db, brand, data)
+
+    @staticmethod
+    def delete_brand(db: Session, brand_id: int) -> bool:
+        brand = BrandRepository.get_by_id(db, brand_id)
+        if not brand:
+            return False
+        BrandRepository.soft_delete(db, brand)
+        return True
+
+
+class SKUService:
+    """SKU管理业务逻辑服务"""
+
+    @staticmethod
+    def create_sku(db: Session, data: Dict[str, Any]) -> SKU:
+        sku = SKU(**data)
+        return SKURepository.create(db, sku)
+
+    @staticmethod
+    def get_sku(db: Session, sku_id: int) -> Optional[SKU]:
+        return SKURepository.get_by_id(db, sku_id)
+
+    @staticmethod
+    def list_skus(
+        db: Session, product_id: Optional[int] = None, is_active: Optional[bool] = None
+    ) -> List[SKU]:
+        return SKURepository.list(db, product_id, is_active)
+
+    @staticmethod
+    def update_sku(db: Session, sku_id: int, data: Dict[str, Any]) -> SKU:
+        sku = SKURepository.get_by_id(db, sku_id)
+        if not sku:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, f"SKU ID {sku_id} 不存在")
+        return SKURepository.update(db, sku, data)
+
+    @staticmethod
+    def delete_sku(db: Session, sku_id: int) -> bool:
+        sku = SKURepository.get_by_id(db, sku_id)
+        if not sku:
+            return False
+        SKURepository.soft_delete(db, sku)
+        return True
