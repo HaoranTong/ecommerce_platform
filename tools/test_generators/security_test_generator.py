@@ -1,16 +1,34 @@
 """
 安全测试生成器
 
+🚨 **关键模板格式化错误预防指南** 🚨
+
+常见错误类型和正确解决方案:
+
+1. **f-string模板中的花括号转义错误**:
+   ❌ 错误: f"/api/v1/{{module_name}}/endpoint"  # 双重转义
+   ✅ 正确: f"/api/v1/{module_name}/endpoint"    # 直接变量引用
+
+2. **URL路径模板错误**:
+   ❌ 错误: "倢/api/v1/{api_module_name}/test倢"  # 乱码字符
+   ✅ 正确: f"/api/v1/{module_name}/test"        # 清晰的路径格式
+
+3. **代码模板中的变量作用域**:
+   ❌ 错误: 在字符串模板中引用未传递的变量
+   ✅ 正确: 确保所有模板变量都通过.format()或f-string正确传递
+
+4. **HTTP请求模板格式**:
+   ❌ 错误: 混合引号和特殊字符导致语法错误
+   ✅ 正确: 使用一致的引号风格和正确的转义
+
 功能: 生成基于OWASP Top 10的安全测试代码，检测Web应用安全漏洞
 使用方法: 通过BaseTestGenerator继承，由主生成器调用generate_security_tests方法
 使用场景: 电商平台安全漏洞检测和防护能力验证
 
 生成的安全测试:
-1. SQL注入测试 - 检测数据库                倢/api/v1/{api_module_name}/test倢,询注入漏洞
-2. XSS攻击测试 -             倢/api/v1/{api_module_name}/sensitive-action倢,            倢/api/v1/{api_module_name}/protected倢,
-            倢/api/v1/{api_module_name}/admin倢,
-            倢/api/v1/{api_module_name}/user-data倢脚本攻击防护
-3. CSRF防护测试 - 验            response = await async_api_client.get(倢/api/v1/{api_module_name}/protected倢, headers=headers)跨站请求伪        response = await async_api_client.get(倢/api/v1/{api_module_name}/protected倢, headers=headers)防护机制
+1. SQL注入测试 - 检测数据库查询注入漏洞
+2. XSS攻击测试 - 验证跨站脚本攻击防护
+3. CSRF防护测试 - 验证跨站请求伪造防护机制
 4. 认证绕过测试 - 检测身份认证绕过漏洞
 5. 权限提升测试 - 验证访问控制和权限边界
 6. 敏感数据泄露测试 - 检测数据暴露风险
@@ -28,6 +46,7 @@
 版本: v1.0.0
 作者: AI Assistant
 创建时间: 2025-10-01
+更新时间: 2025-10-06 (修复内容混乱问题，添加模板格式化指南)
 """
 
 from typing import Any, Dict, List

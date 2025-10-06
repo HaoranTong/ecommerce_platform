@@ -11,7 +11,11 @@
 3. 压力测试 - 系统极限负载下的稳定性测试
 4. 内存使用测试 - API调用内存消耗监控
 5. 数据库性能测试 - 数据库查询效率测试
-6. 缓存效果测试 - Redis缓存命中率和性能测试
+6. 缓存效果测试 - Redis缓存命中率和        business_domain = self.get_module_business_domain(module_name)
+        class_name = f"Test{module_name.title().replace('_', '')}LoadTest"
+        auth_endpoint = self._select_auth_endpoint(routes, module_name)
+        write_endpoint, write_method = self._select_write_endpoint(routes, module_name)
+        test_data_template = self._generate_write_test_data(routes, module_name)
 
 输出位置: tests/performance/test_{module}_performance.py
 测试框架: pytest + pytest-benchmark + locust
@@ -34,12 +38,61 @@
 """
 
 import asyncio
-from typing import Dict, List
+from typing import Dict, List, Tuple
 from .base_generator import BaseTestGenerator, ModelInfo, RouterInfo
 
 
 class PerformanceTestGenerator(BaseTestGenerator):
     """性能测试代码生成器"""
+
+    def _generate_write_test_data(self, routes: List[RouterInfo], module_name: str, request_id: str = "{{request_id}}") -> str:
+        """
+        根据路由信息生成适合的写操作测试数据模板
+        
+        🚨 **模板格式化关键注意事项** 🚨
+        - 返回的字符串将作为Python代码模板使用
+        - 避免使用双重花括号 {{}} 转义，会导致变量不被替换
+        - 确保f-string中的变量引用格式正确: f"value_{variable}" 不是 f"value_{{variable}}"
+        
+        Args:
+            routes: 路由信息列表
+            module_name: 模块名称
+            request_id: 请求ID（用于生成唯一数据）
+            
+        Returns:
+            str: 测试数据字典的字符串表示，格式为Python字典代码
+        """
+        # 查找PUT端点来推断更新字段
+        put_routes = [r for r in routes if r.method == 'PUT' and r.auth_required]
+        
+        # 基于常见的更新字段模式生成数据
+        if put_routes and any('me' in route.path or 'profile' in route.path for route in put_routes):
+            # 用户资料更新类端点
+            # ✅ 正确格式：使用单层花括号，确保变量能正确替换到生成的代码中
+            return '''{
+                "real_name": f"perf_test_user_{request_id}",
+                "phone": f"1800000{request_id:04d}"
+            }'''
+        elif any(keyword in module_name for keyword in ['product', 'catalog', 'inventory']):
+            # 商品/库存类模块
+            return '''{
+                "name": f"perf_test_product_{request_id}",
+                "description": f"Performance test product {request_id}",
+                "price": "99.99"
+            }'''
+        elif any(keyword in module_name for keyword in ['order', 'cart']):
+            # 订单/购物车类模块
+            return '''{
+                "quantity": "1",
+                "notes": f"Performance test order {request_id}"
+            }'''
+        else:
+            # 通用测试数据
+            return '''{
+                "name": f"perf_test_{request_id}",
+                "value": f"test_value_{request_id}",
+                "timestamp": datetime.now().isoformat()
+            }'''
 
     def _select_auth_endpoint(self, routes: List[RouterInfo], module_name: str) -> str:
         """选择认证相关的端点"""
@@ -61,28 +114,43 @@ class PerformanceTestGenerator(BaseTestGenerator):
         module_path = module_name.replace('_', '-')
         return f"/api/v1/{module_path}/"
 
-    def _select_post_endpoint(self, routes: List[RouterInfo], module_name: str) -> str:
-        """选择POST类型的端点"""
+    def _select_write_endpoint(self, routes: List[RouterInfo], module_name: str) -> tuple[str, str]:
+        """
+        选择适合写操作性能测试的端点
+        
+        Returns:
+            tuple[str, str]: (endpoint_url, http_method)
+        """
         if routes:
-            # 优先选择不是认证相关的POST端点
+            # 优先选择适合性能测试的POST端点（非认证相关）
             post_routes = [
                 r for r in routes 
-                if r.method == 'POST' and not any(keyword in r.path.lower() for keyword in ['login', 'register', 'token'])
+                if r.method == 'POST' and not any(keyword in r.path.lower() for keyword in ['login', 'register', 'refresh', 'logout'])
             ]
             if post_routes:
-                return f"/api/v1{post_routes[0].path}"
+                return f"/api/v1{post_routes[0].path}", "POST"
             
-            # 回退：使用任何POST端点
+            # 回退：选择需要认证的PUT端点（适合更新操作）
+            put_routes = [r for r in routes if r.method == 'PUT' and r.auth_required]
+            if put_routes:
+                return f"/api/v1{put_routes[0].path}", "PUT"
+            
+            # 再回退：使用任何需要认证的POST端点
+            auth_post_routes = [r for r in routes if r.method == 'POST' and r.auth_required]
+            if auth_post_routes:
+                return f"/api/v1{auth_post_routes[0].path}", "POST"
+            
+            # 最终回退：使用第一个POST端点
             any_post_routes = [r for r in routes if r.method == 'POST']
             if any_post_routes:
-                return f"/api/v1{any_post_routes[0].path}"
+                return f"/api/v1{any_post_routes[0].path}", "POST"
             
-            # 再回退：使用第一个端点
-            return f"/api/v1{routes[0].path}"
+            # 使用第一个端点
+            return f"/api/v1{routes[0].path}", routes[0].method
         
         # 最终回退：使用API模块名
         module_path = module_name.replace('_', '-')
-        return f"/api/v1/{module_path}/"
+        return f"/api/v1/{module_path}/", "POST"
     
     def generate_tests(self, module_name: str, models: Dict[str, ModelInfo]) -> Dict[str, str]:
         """生成性能测试代码"""
@@ -139,7 +207,8 @@ from tests.conftest import api_client
         business_domain = self.get_module_business_domain(module_name)
         class_name = f"Test{module_name.title().replace('_', '')}ResponseTime"
         auth_endpoint = self._select_auth_endpoint(routes, module_name)
-        post_endpoint = self._select_post_endpoint(routes, module_name)
+        write_endpoint, write_method = self._select_write_endpoint(routes, module_name)
+        test_data_template = self._generate_write_test_data(routes, module_name)
         module_path = module_name.replace('_', '-')
         
         return f'''
@@ -247,7 +316,8 @@ class {class_name}:
         business_domain = self.get_module_business_domain(module_name)
         class_name = f"Test{module_name.title().replace('_', '')}Concurrency"
         auth_endpoint = self._select_auth_endpoint(routes, module_name)
-        post_endpoint = self._select_post_endpoint(routes, module_name)
+        write_endpoint, write_method = self._select_write_endpoint(routes, module_name)
+        test_data_template = self._generate_write_test_data(routes, module_name)
         module_path = module_name.replace('_', '-')
         
         return f'''
@@ -325,16 +395,14 @@ class {class_name}:
         concurrent_writes = 20  # 模拟20个并发写操作
         
         async def write_request(request_id):
-            test_data = {{
-                "name": f"concurrent_test_{{request_id}}",
-                "value": f"test_value_{{request_id}}",
-                "timestamp": datetime.now().isoformat()
-            }}
+            # 使用生成的测试数据模板
+            test_data = {test_data_template}
             
             start_time = time.time()
             try:
-                response = await async_api_client.post(
-                    "{post_endpoint}",
+                # 使用确定的HTTP方法
+                response = await async_api_client.{write_method.lower()}(
+                    "{write_endpoint}",
                     json=test_data,
                     headers=headers
                 )
@@ -399,9 +467,11 @@ class {class_name}:
                 return {{"type": "read", "success": False, "error": str(e)}}
         
         async def write_operation():
-            test_data = {{"name": f"mixed_test_{{time.time()}}", "value": "test"}}
+            # 使用生成的测试数据模板（添加时间戳确保唯一性）
+            test_data = {test_data_template}
             try:
-                response = await async_api_client.post("{post_endpoint}", json=test_data, headers=headers)
+                # 使用确定的HTTP方法
+                response = await async_api_client.{write_method.lower()}("{write_endpoint}", json=test_data, headers=headers)
                 return {{"type": "write", "success": response.status_code in [200, 201]}}
             except Exception as e:
                 print(f"⚠️ 混合负载写操作异常: {{str(e)}}")
@@ -446,7 +516,8 @@ class {class_name}:
         
         business_domain = self.get_module_business_domain(module_name)
         auth_endpoint = self._select_auth_endpoint(routes, module_name)
-        post_endpoint = self._select_post_endpoint(routes, module_name)
+        write_endpoint, write_method = self._select_write_endpoint(routes, module_name)
+        test_data_template = self._generate_write_test_data(routes, module_name)
         module_path = module_name.replace('_', '-')
         class_name = f"Test{module_name.title().replace('_', '')}LoadTest"
         
@@ -529,7 +600,7 @@ class {class_name}:
                 operations = [
                     ("GET", f"/api/v1/{module_path}/"),
                     ("GET", f"/api/v1/{module_path}/search"),
-                    ("POST", "{post_endpoint}", {{"name": "peak_test"}}),
+                    ("{write_method}", "{write_endpoint}", {test_data_template}),
                     ("GET", f"/api/v1/{module_path}/1"),
                 ]
                 
@@ -577,7 +648,8 @@ class {class_name}:
         business_domain = self.get_module_business_domain(module_name)
         class_name = f"Test{module_name.title().replace('_', '')}Benchmark"
         auth_endpoint = self._select_auth_endpoint(routes, module_name)
-        post_endpoint = self._select_post_endpoint(routes, module_name)
+        write_endpoint, write_method = self._select_write_endpoint(routes, module_name)
+        test_data_template = self._generate_write_test_data(routes, module_name)
         module_path = module_name.replace('_', '-')
         
         return f'''
@@ -624,7 +696,7 @@ class {class_name}:
         for i in range(20):
             test_data = {{"name": f"benchmark_{{i}}", "value": f"test_{{i}}"}}
             start = time.time()
-            response = await async_api_client.post("{post_endpoint}", json=test_data, headers=headers)
+            response = await async_api_client.{write_method.lower()}("{write_endpoint}", json=test_data, headers=headers)
             end = time.time()
             
             if response.status_code in [200, 201, 422]:  # 422表示验证失败但服务正常

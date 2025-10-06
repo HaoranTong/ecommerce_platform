@@ -1,6 +1,30 @@
 """
 API测试生成器 - 清理版本
 
+🚨 **关键模板格式化错误预防指南** 🚨
+
+常见错误类型和正确解决方案:
+
+1. **API端点路径模板错误**:
+   ❌ 错误: f"/api/v1/{{module_name}}/endpoint"  # 双重花括号转义
+   ✅ 正确: f"/api/v1/{module_name}/endpoint"    # 直接变量引用
+
+2. **JSON数据模板格式错误**:
+   ❌ 错误: '''{{
+       "field": "{{value}}"     # 内部双重转义
+   }}'''
+   ✅ 正确: '''{
+       "field": "{value}"       # 简单替换或使用变量
+   }'''
+
+3. **测试方法名生成错误**:
+   ❌ 错误: f"test_{{operation}}_{{endpoint}}"   # 过度转义
+   ✅ 正确: f"test_{operation}_{endpoint}"       # 直接变量组合
+
+4. **HTTP状态码断言模板**:
+   ❌ 错误: 字符串拼接导致语法错误
+   ✅ 正确: 使用标准的pytest断言格式
+
 功能: 专门生成FastAPI端点的集成测试代码，覆盖HTTP接口测试
 使用方法: 通过BaseTestGenerator继承，由主生成器调用generate_api_tests方法
 使用场景: 电商平台模块API接口自动化测试代码生成
@@ -24,6 +48,7 @@ API测试生成器 - 清理版本
 版本: v2.0.0 - 清理版本
 作者: AI Assistant
 创建时间: 2025-10-04
+更新时间: 2025-10-06 (添加模板格式化错误预防指南)
 """
 
 from typing import Dict, List, Any

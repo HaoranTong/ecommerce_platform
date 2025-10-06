@@ -4441,6 +4441,13 @@ Auto Generated Test - 已生成到正式目录
 
                         # 使用当前虚拟环境的Python解释器
                         import sys
+                        # 根据测试类型设置合适的超时时间
+                        timeout_seconds = 30  # 默认30秒
+                        if any(keyword in file_path for keyword in ['performance', 'security', 'e2e']):
+                            timeout_seconds = 60  # 复杂测试类型60秒
+                        elif 'integration' in file_path:
+                            timeout_seconds = 45  # 集成测试45秒
+                        
                         result = subprocess.run(
                             [
                                 sys.executable,  # 使用当前Python解释器路径
@@ -4453,7 +4460,7 @@ Auto Generated Test - 已生成到正式目录
                             capture_output=True,
                             text=True,
                             cwd=str(self.project_root),
-                            timeout=30,
+                            timeout=timeout_seconds,
                         )
 
                         if result.returncode == 0:

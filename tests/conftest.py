@@ -602,10 +602,10 @@ def api_client(mysql_integration_db):
                 mysql_integration_db.commit()
                 mysql_integration_db.refresh(admin_user)
                 
-                # 生成真实JWT token
-                token_data = {"sub": str(admin_user.id)}
-                access_token = create_access_token(
-                    data=token_data,
+                # 生成真实JWT token - 使用统一工具
+                from tests.utils.token_utils import create_test_token
+                access_token = create_test_token(
+                    user_id=admin_user.id,
                     expires_delta=timedelta(hours=1)
                 )
                 return access_token, admin_user
@@ -638,10 +638,10 @@ def api_client(mysql_integration_db):
                 mysql_integration_db.commit()
                 mysql_integration_db.refresh(normal_user)
                 
-                # 生成真实JWT token
-                token_data = {"sub": str(normal_user.id)}
-                access_token = create_access_token(
-                    data=token_data,
+                # 生成真实JWT token - 使用统一工具
+                from tests.utils.token_utils import create_test_token
+                access_token = create_test_token(
+                    user_id=normal_user.id,
                     expires_delta=timedelta(hours=1)
                 )
                 
@@ -719,9 +719,10 @@ async def async_api_client(mysql_integration_db):
                 mysql_integration_db.commit()
                 mysql_integration_db.refresh(admin_user)
                 
-                # 创建JWT token - 修复：sub字段必须是用户ID字符串
-                access_token = create_access_token(
-                    data={"sub": str(admin_user.id)},
+                # 创建JWT token - 使用统一工具确保格式标准
+                from tests.utils.token_utils import create_test_token
+                access_token = create_test_token(
+                    user_id=admin_user.id,
                     expires_delta=timedelta(hours=1)
                 )
                 
@@ -758,10 +759,10 @@ async def async_api_client(mysql_integration_db):
                 mysql_integration_db.commit()
                 mysql_integration_db.refresh(normal_user)
                 
-                # 生成真实JWT token
-                token_data = {"sub": str(normal_user.id)}
-                access_token = create_access_token(
-                    data=token_data,
+                # 生成真实JWT token - 使用统一工具
+                from tests.utils.token_utils import create_test_token
+                access_token = create_test_token(
+                    user_id=normal_user.id,
                     expires_delta=timedelta(hours=1)
                 )
                 
