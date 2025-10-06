@@ -26,6 +26,8 @@ router = APIRouter()
     "/product-catalog/categories",
     response_model=CategoryRead,
     status_code=status.HTTP_201_CREATED,
+    summary="创建新分类",
+    description="创建新的商品分类，需要管理员权限"
 )
 async def create_category(
     payload: CategoryCreate,
@@ -48,7 +50,12 @@ async def create_category(
         )
 
 
-@router.get("/product-catalog/categories", response_model=List[CategoryRead])
+@router.get(
+    "/product-catalog/categories",
+    response_model=List[CategoryRead],
+    summary="获取分类列表",
+    description="按条件查询分类列表，支持父分类过滤和激活状态过滤"
+)
 async def list_categories(
     parent_id: Optional[int] = Query(None, description="按父分类筛选"),
     is_active: Optional[bool] = Query(None, description="按状态筛选"),
@@ -77,6 +84,8 @@ async def list_categories(
     "/product-catalog/brands",
     response_model=BrandRead,
     status_code=status.HTTP_201_CREATED,
+    summary="创建新品牌",
+    description="创建新的品牌，需要管理员权限"
 )
 async def create_brand(
     payload: BrandCreate,
@@ -106,6 +115,8 @@ async def create_brand(
     "/product-catalog/products",
     response_model=ProductRead,
     status_code=status.HTTP_201_CREATED,
+    summary="创建新商品",
+    description="创建新的商品，需要管理员权限"
 )
 async def create_product(
     payload: ProductCreate,
@@ -128,7 +139,12 @@ async def create_product(
         )
 
 
-@router.get("/product-catalog/products", response_model=List[ProductRead])
+@router.get(
+    "/product-catalog/products",
+    response_model=List[ProductRead],
+    summary="获取商品列表",
+    description="按条件查询商品列表，支持搜索、分类、品牌和状态过滤"
+)
 async def list_products(
     search: Optional[str] = Query(None, description="搜索商品名称或描述"),
     category_id: Optional[int] = Query(None, description="按分类筛选"),
@@ -156,7 +172,12 @@ async def list_products(
     return products
 
 
-@router.get("/product-catalog/products/{product_id}", response_model=ProductRead)
+@router.get(
+    "/product-catalog/products/{product_id}",
+    response_model=ProductRead,
+    summary="获取商品详情",
+    description="根据商品ID获取商品详情，返回404当商品不存在"
+)
 async def get_product(product_id: int, db: Session = Depends(get_db)):
     """获取单个商品详情"""
     product = (
@@ -171,7 +192,12 @@ async def get_product(product_id: int, db: Session = Depends(get_db)):
     return product
 
 
-@router.put("/product-catalog/products/{product_id}", response_model=ProductRead)
+@router.put(
+    "/product-catalog/products/{product_id}",
+    response_model=ProductRead,
+    summary="更新商品信息",
+    description="根据商品ID更新商品信息，需要管理员权限"
+)
 async def update_product(
     product_id: int,
     payload: ProductUpdate,
