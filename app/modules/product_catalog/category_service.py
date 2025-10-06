@@ -17,7 +17,8 @@ from fastapi import HTTPException, status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
 
-from app.models import Category, Product
+from .models import Category
+from .repository import CategoryRepository
 
 
 class CategoryService:
@@ -52,11 +53,9 @@ class CategoryService:
             HTTPException: 分类名称重复或父分类不存在时抛出错误
         """
         # 验证分类名称唯一性（同级别下）
-        existing_category = (
-            db.query(Category)
-            .filter(Category.name == name, Category.parent_id == parent_id)
-            .first()
-        )
+        existing_category = db.query(Category).filter(
+            Category.name == name, Category.parent_id == parent_id
+        ).first()
 
         if existing_category:
             raise HTTPException(
@@ -82,14 +81,9 @@ class CategoryService:
             is_active=is_active,
             meta_data=meta_data or {},
         )
-
         try:
-            db.add(category)
-            db.commit()
-            db.refresh(category)
-            return category
+            return CategoryRepository.create(db, category)
         except IntegrityError:
-            db.rollback()
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST, detail="分类创建失败，数据冲突"
             )
@@ -109,12 +103,7 @@ class CategoryService:
         Returns:
             Category: 分类对象或None
         """
-        query = db.query(Category)
-
-        if include_children:
-            query = query.options(joinedload(Category.children))
-
-        return query.filter(Category.id == category_id).first()
+        return CategoryRepository.get_by_id(db, category_id)
 
     @staticmethod
     def get_categories(
@@ -137,22 +126,7 @@ class CategoryService:
         Returns:
             List[Category]: 分类列表
         """
-        query = db.query(Category)
-
-        if parent_id is not None:
-            query = query.filter(Category.parent_id == parent_id)
-        else:
-            query = query.filter(Category.parent_id.is_(None))
-
-        if is_active is not None:
-            query = query.filter(Category.is_active == is_active)
-
-        return (
-            query.order_by(Category.sort_order, Category.name)
-            .offset(skip)
-            .limit(limit)
-            .all()
-        )
+        return CategoryRepository.list(db, parent_id, is_active, skip, limit)
 
     @staticmethod
     def get_category_tree(
@@ -171,9 +145,7 @@ class CategoryService:
         """
 
         def build_tree(parent_id: Optional[int]) -> List[Dict[str, Any]]:
-            categories = CategoryService.get_categories(
-                db, parent_id, is_active, limit=1000
-            )
+            categories = CategoryRepository.list(db, parent_id, is_active, 0, 1000)
             tree = []
 
             for category in categories:
@@ -183,7 +155,7 @@ class CategoryService:
                     "description": category.description,
                     "sort_order": category.sort_order,
                     "is_active": category.is_active,
-                    "product_count": CategoryService.get_product_count(db, category.id),
+                    "product_count": CategoryRepository.count_products(db, category.id),
                     "children": build_tree(category.id),
                 }
                 tree.append(category_dict)
