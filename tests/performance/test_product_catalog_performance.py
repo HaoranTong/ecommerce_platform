@@ -1,8 +1,8 @@
 """
 Auto Generated Test - 已生成到正式目录
 
-文件路径: tests/performance/test_user_auth_performance.py
-生成时间: 2025-10-07 03:03:04
+文件路径: tests/performance/test_product_catalog_performance.py
+生成时间: 2025-10-07 02:50:40
 生成工具: tools/generate_test_template.py v2.0
 状态: GENERATED - 需要经过代码审查和测试验证
 
@@ -24,8 +24,8 @@ from datetime import datetime, timedelta
 from app.main import app
 from tests.conftest import api_client
 
-class TestUserAuthResponseTime:
-    """用户认证模块响应时间性能测试"""
+class TestProductCatalogResponseTime:
+    """商品管理模块响应时间性能测试"""
     
     async def test_api_response_time_p50(self, async_api_client):
         """测试API响应时间P50指标 - 要求<200ms"""
@@ -39,7 +39,7 @@ class TestUserAuthResponseTime:
         for _ in range(100):
             start_time = time.time()
             
-            response = await async_api_client.get("/api/v1/user-auth/me", headers=headers)
+            response = await async_api_client.get("/api/v1/product-catalog/categories", headers=headers)
             
             end_time = time.time()
             response_time = (end_time - start_time) * 1000  # 转换为毫秒
@@ -54,7 +54,7 @@ class TestUserAuthResponseTime:
         p99 = statistics.quantiles(response_times, n=100)[98]  # 99th percentile
         avg = statistics.mean(response_times)
         
-        print(f"📊 用户认证响应时间统计:")
+        print(f"📊 商品管理响应时间统计:")
         print(f"   P50: {p50:.1f}ms")
         print(f"   P95: {p95:.1f}ms")
         print(f"   P99: {p99:.1f}ms")
@@ -77,9 +77,9 @@ class TestUserAuthResponseTime:
         
         # 测试不同类型的查询性能
         query_endpoints = [
-            f"/api/v1/user-auth/",           # 列表查询
-            f"/api/v1/user-auth/search",     # 搜索查询
-            f"/api/v1/user-auth/1",          # 单记录查询
+            f"/api/v1/product-catalog/",           # 列表查询
+            f"/api/v1/product-catalog/search",     # 搜索查询
+            f"/api/v1/product-catalog/1",          # 单记录查询
         ]
         
         for endpoint in query_endpoints:
@@ -109,7 +109,7 @@ class TestUserAuthResponseTime:
         headers = {"Authorization": f"Bearer {token}"}
         
         start_time = time.time()
-        response = await async_api_client.get("/api/v1/user-auth/me", headers=headers)
+        response = await async_api_client.get("/api/v1/product-catalog/categories", headers=headers)
         end_time = time.time()
         
         cold_start_time = (end_time - start_time) * 1000
@@ -123,8 +123,8 @@ class TestUserAuthResponseTime:
 
 
 
-class TestUserAuthConcurrency:
-    """用户认证模块并发性能测试"""
+class TestProductCatalogConcurrency:
+    """商品管理模块并发性能测试"""
     
     async def test_concurrent_read_requests(self, async_api_client):
         """测试并发读请求处理能力"""
@@ -137,7 +137,7 @@ class TestUserAuthConcurrency:
         async def single_request():
             start_time = time.time()
             try:
-                response = await async_api_client.get("/api/v1/user-auth/me", headers=headers)
+                response = await async_api_client.get("/api/v1/product-catalog/categories", headers=headers)
                 end_time = time.time()
                 
                 return {
@@ -199,15 +199,16 @@ class TestUserAuthConcurrency:
         async def write_request(request_id):
             # 使用生成的测试数据模板
             test_data = {
-                "real_name": f"perf_test_user_{request_id}",
-                "phone": f"1800000{request_id:04d}"
+                "name": f"perf_test_product_{request_id}",
+                "description": f"Performance test product {request_id}",
+                "price": "99.99"
             }
             
             start_time = time.time()
             try:
                 # 使用确定的HTTP方法
-                response = await async_api_client.put(
-                    "/api/v1/user-auth/me",
+                response = await async_api_client.post(
+                    "/api/v1/product-catalog/categories",
                     json=test_data,
                     headers=headers
                 )
@@ -265,7 +266,7 @@ class TestUserAuthConcurrency:
         
         async def read_operation():
             try:
-                response = await async_api_client.get("/api/v1/user-auth/me", headers=headers)
+                response = await async_api_client.get("/api/v1/product-catalog/categories", headers=headers)
                 return {"type": "read", "success": response.status_code == 200}
             except Exception as e:
                 print(f"⚠️ 混合负载读操作异常: {str(e)}")
@@ -273,14 +274,16 @@ class TestUserAuthConcurrency:
         
         async def write_operation():
             # 使用生成的测试数据模板（添加时间戳确保唯一性）
-            request_id = int(__import__('time').time() * 1000) % 10000  # 生成唯一ID
+            import time
+            request_id = int(time.time() * 1000) % 10000  # 生成唯一ID
             test_data = {
-                "real_name": f"perf_test_user_{request_id}",
-                "phone": f"1800000{request_id:04d}"
+                "name": f"perf_test_product_{request_id}",
+                "description": f"Performance test product {request_id}",
+                "price": "99.99"
             }
             try:
                 # 使用确定的HTTP方法
-                response = await async_api_client.put("/api/v1/user-auth/me", json=test_data, headers=headers)
+                response = await async_api_client.post("/api/v1/product-catalog/categories", json=test_data, headers=headers)
                 return {"type": "write", "success": response.status_code in [200, 201]}
             except Exception as e:
                 print(f"⚠️ 混合负载写操作异常: {str(e)}")
@@ -321,8 +324,8 @@ class TestUserAuthConcurrency:
 
 
 
-class TestUserAuthLoadTest:
-    """用户认证模块负载测试"""
+class TestProductCatalogLoadTest:
+    """商品管理模块负载测试"""
     
     async def test_sustained_load(self, async_api_client):
         """测试持续负载处理能力"""
@@ -342,7 +345,7 @@ class TestUserAuthLoadTest:
             # 每秒发送指定数量的请求
             batch_tasks = []
             for _ in range(requests_per_second):
-                task = async_api_client.get("/api/v1/user-auth/me", headers=headers)
+                task = async_api_client.get("/api/v1/product-catalog/categories", headers=headers)
                 batch_tasks.append(task)
             
             batch_responses = await asyncio.gather(*batch_tasks, return_exceptions=True)
@@ -395,14 +398,16 @@ class TestUserAuthLoadTest:
         async def user_session():
             """模拟单个用户会话"""
             try:
-                request_id = int(__import__('time').time() * 1000) % 10000  # 生成唯一ID
+                import time
+                request_id = int(time.time() * 1000) % 10000  # 生成唯一ID
                 # 用户典型操作序列
                 operations = [
-                    ("GET", "/api/v1/user-auth/me"),  # 获取当前用户信息
-                    ("GET", "/api/v1/user-auth/users"),  # 用户列表
-                    ("PUT", "/api/v1/user-auth/me", {
-                "real_name": f"perf_test_user_{request_id}",
-                "phone": f"1800000{request_id:04d}"
+                    ("GET", "/api/v1/product-catalog/categories"),  # 获取当前用户信息
+                    ("GET", "/api/v1/product-catalog/users"),  # 用户列表
+                    ("POST", "/api/v1/product-catalog/categories", {
+                "name": f"perf_test_product_{request_id}",
+                "description": f"Performance test product {request_id}",
+                "price": "99.99"
             }),  # 更新用户信息
                 ]
                 
@@ -449,8 +454,8 @@ class TestUserAuthLoadTest:
 
 
 
-class TestUserAuthBenchmark:
-    """用户认证模块性能基准测试"""
+class TestProductCatalogBenchmark:
+    """商品管理模块性能基准测试"""
     
     async def test_performance_regression(self, async_api_client):
         """测试性能回归基准"""
@@ -471,7 +476,7 @@ class TestUserAuthBenchmark:
         list_times = []
         for _ in range(50):
             start = time.time()
-            response = await async_api_client.get("/api/v1/user-auth/me", headers=headers)
+            response = await async_api_client.get("/api/v1/product-catalog/categories", headers=headers)
             end = time.time()
             
             if response.status_code == 200:
@@ -481,7 +486,7 @@ class TestUserAuthBenchmark:
         search_times = []
         for _ in range(30):
             start = time.time()
-            response = await async_api_client.get(f"/api/v1/user-auth/search", params={"q": "test"}, headers=headers)
+            response = await async_api_client.get(f"/api/v1/product-catalog/search", params={"q": "test"}, headers=headers)
             end = time.time()
             
             if response.status_code in [200, 404]:  # 404也是正常响应
@@ -492,7 +497,7 @@ class TestUserAuthBenchmark:
         for i in range(20):
             test_data = {"name": f"benchmark_{i}", "value": f"test_{i}"}
             start = time.time()
-            response = await async_api_client.put("/api/v1/user-auth/me", json=test_data, headers=headers)
+            response = await async_api_client.post("/api/v1/product-catalog/categories", json=test_data, headers=headers)
             end = time.time()
             
             if response.status_code in [200, 201, 422]:  # 422表示验证失败但服务正常
@@ -512,7 +517,7 @@ class TestUserAuthBenchmark:
         
         # 测试吞吐量
         throughput_start = time.time()
-        throughput_tasks = [async_api_client.get("/api/v1/user-auth/me", headers=headers) for _ in range(100)]
+        throughput_tasks = [async_api_client.get("/api/v1/product-catalog/categories", headers=headers) for _ in range(100)]
         throughput_responses = await asyncio.gather(*throughput_tasks, return_exceptions=True)
         throughput_time = time.time() - throughput_start
         
@@ -523,7 +528,7 @@ class TestUserAuthBenchmark:
         current_metrics["throughput_minimum"] = successful_throughput_requests / throughput_time
         
         # 性能基准比较
-        print(f"📊 用户认证性能基准测试结果:")
+        print(f"📊 商品管理性能基准测试结果:")
         
         regression_found = False
         for metric, baseline in performance_baselines.items():
@@ -563,7 +568,7 @@ class TestUserAuthBenchmark:
         for i in range(1000):
             # 模拟处理大数据集的请求
             task = async_api_client.get(
-                "/api/v1/user-auth/me",
+                "/api/v1/product-catalog/categories",
                 params={"limit": 100, "offset": i * 100},
                 headers=headers
             )
@@ -600,7 +605,7 @@ class TestUserAuthBenchmark:
             async def stress_request():
                 try:
                     start = time.time()
-                    response = await async_api_client.get("/api/v1/user-auth/me", headers=headers)
+                    response = await async_api_client.get("/api/v1/product-catalog/categories", headers=headers)
                     end = time.time()
                     
                     return {

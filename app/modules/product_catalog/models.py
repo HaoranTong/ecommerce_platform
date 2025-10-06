@@ -24,6 +24,16 @@ from app.core.database import Base
 from app.shared.base_models import (JSONType, ModelRegistry, SoftDeleteMixin,
                                     TimestampMixin)
 
+__all__ = [
+    "Category",
+    "Brand",
+    "Product",
+    "SKU",
+    "ProductAttribute",
+    "ProductImage",
+    "ProductTag",
+]
+
 
 @ModelRegistry.register
 class Category(Base, TimestampMixin, SoftDeleteMixin):
@@ -118,8 +128,10 @@ class Product(Base, TimestampMixin, SoftDeleteMixin):
     id = Column(Integer, primary_key=True, autoincrement=True, index=True)
 
     # 商品基础信息
-    name = Column(String(200), nullable=False)
-    description = Column(Text, nullable=True)
+    # 示例: 商品名称
+    name = Column(String(200), nullable=False, comment="商品名称: Smartphone X")
+    # 示例: 商品描述
+    description = Column(Text, nullable=True, comment="商品描述: Latest smartphone model")
 
     # 关联信息
     brand_id = Column(Integer, ForeignKey("brands.id"), nullable=True)
@@ -202,8 +214,10 @@ class SKU(Base, TimestampMixin):
     )
 
     # SKU信息
-    sku_code = Column(String(100), unique=True, nullable=False)
-    name = Column(String(200), nullable=True)
+    # 示例: SKU编码
+    sku_code = Column(String(100), unique=True, nullable=False, comment="SKU编码: SKU12345")
+    # 示例: SKU名称
+    name = Column(String(200), nullable=True, comment="SKU名称: Smartphone X Black")
 
     # 价格信息
     price = Column(DECIMAL(10, 2), nullable=False)
@@ -275,7 +289,7 @@ class SKUAttribute(Base, TimestampMixin):
     id = Column(Integer, primary_key=True, autoincrement=True, index=True)
 
     # SKU关联
-    sku_id = Column(Integer, ForeignKey("skus.id", ondelete="CASCADE"), nullable=False)
+    sku_id = Column(Integer, ForeignKey("product_skus.id", ondelete="CASCADE"), nullable=False)
 
     # 属性信息
     attribute_name = Column(String(100), nullable=False)
@@ -307,10 +321,11 @@ class ProductImage(Base, TimestampMixin):
     id = Column(Integer, primary_key=True, autoincrement=True, index=True)
 
     # 关联（商品或SKU）
+    # product_id 必填，因为图片主要属于商品；sku_id 可选，用于SKU专属图片
     product_id = Column(
-        Integer, ForeignKey("products.id", ondelete="CASCADE"), nullable=True
+        Integer, ForeignKey("products.id", ondelete="CASCADE"), nullable=False
     )
-    sku_id = Column(Integer, ForeignKey("skus.id", ondelete="CASCADE"), nullable=True)
+    sku_id = Column(Integer, ForeignKey("product_skus.id", ondelete="CASCADE"), nullable=True)
 
     # 图片信息
     image_url = Column(String(500), nullable=False)

@@ -802,11 +802,14 @@ from {module_import_path} import (
         sorted_models = self._sort_models_by_dependencies(models)
         
         # 为每个模型生成Factory类
+        # 维护已生成的Factory列表，用于检测前向引用
+        generated_factories = set()
         for model_name, model_info in sorted_models:
             factory_class = self._generate_single_factory(
-                model_name, model_info, models
+                model_name, model_info, models, generated_factories
             )
             factory_code += factory_class + "\n\n"
+            generated_factories.add(model_name)
 
         # 生成工厂管理器类
         manager_class = self._generate_factory_manager(module_name, models)
@@ -908,7 +911,8 @@ from {module_import_path} import (
         return result
 
     def _generate_single_factory(
-        self, model_name: str, model_info: ModelInfo, all_models: Dict[str, ModelInfo]
+        self, model_name: str, model_info: ModelInfo, all_models: Dict[str, ModelInfo],
+        generated_factories: set = None
     ) -> str:
         """生成单个模型的Factory类 - 支持联合主键模型
         
@@ -927,10 +931,14 @@ from {module_import_path} import (
             model_name: 模型名称
             model_info: 模型信息
             all_models: 所有模型信息，用于解析外键关系
+            generated_factories: 已生成的Factory集合，用于检测前向引用
 
         Returns:
             str: Factory类代码
         """
+        if generated_factories is None:
+            generated_factories = set()
+        
         factory_name = f"{model_name}Factory"
         
         # 检测是否为联合主键模型
@@ -964,7 +972,7 @@ from {module_import_path} import (
                 # 单一主键ID通常由数据库自动生成，跳过
                 continue
 
-            field_def = self._generate_field_definition(field, model_info, all_models)
+            field_def = self._generate_field_definition(field, model_info, all_models, generated_factories)
             if field_def:
                 field_definitions.append(f"    {field_def}")
 
@@ -977,7 +985,8 @@ from {module_import_path} import (
         return class_def
 
     def _generate_field_definition(
-        self, field: FieldInfo, model_info: ModelInfo, all_models: Dict[str, ModelInfo]
+        self, field: FieldInfo, model_info: ModelInfo, all_models: Dict[str, ModelInfo],
+        generated_factories: set = None
     ) -> str:
         """生成单个字段的Factory定义
 
@@ -985,13 +994,17 @@ from {module_import_path} import (
             field: 字段信息
             model_info: 当前模型信息
             all_models: 所有模型信息
+            generated_factories: 已生成的Factory集合
 
         Returns:
             str: 字段定义代码
         """
+        if generated_factories is None:
+            generated_factories = set()
+            
         # 处理外键关系
         if field.foreign_key:
-            return self._generate_foreign_key_definition(field, all_models)
+            return self._generate_foreign_key_definition(field, all_models, generated_factories)
 
         # 根据字段类型生成合适的Factory定义
         if (
@@ -1030,9 +1043,14 @@ from {module_import_path} import (
             return self._generate_default_field_definition(field)
 
     def _generate_foreign_key_definition(
-        self, field: FieldInfo, all_models: Dict[str, ModelInfo]
+        self, field: FieldInfo, all_models: Dict[str, ModelInfo],
+        generated_factories: set = None
     ) -> str:
         """生成外键字段定义 - 基于真实模型运行时检测的动态方式
+        
+        智能检测前向引用（Forward Reference）：
+        - 如果外键指向的Factory还未生成，且字段可空，则设为None
+        - 避免 "NameError: name 'XXXFactory' is not defined"
         
         核心理念：
         - 完全基于SQLAlchemy模型的运行时检测结果
@@ -1092,6 +1110,15 @@ from {module_import_path} import (
             # 自引用字段（如granted_by, assigned_by, parent_id等）
             # 设为None避免循环依赖，符合业务逻辑
             return f"{field.name} = None  # 自引用字段，避免循环依赖"
+        
+        # 检测前向引用：目标Factory是否还未生成
+        is_forward_reference = (generated_factories is not None and 
+                               target_model not in generated_factories)
+        
+        if is_forward_reference and field.nullable:
+            # 前向引用 + 可空字段 = 设为None避免NameError
+            # 例如：ProductImage.sku_id 引用 SKU，但SKUFactory还未定义
+            return f"{field.name} = None  # 可空外键，避免前向引用错误 (目标: {target_model}Factory)"
         else:
             # 正常外键：对于外键字段如role_id，我们要寻找对应的关系字段
             # 因为Factory Boy的SubFactory应该设置关系对象而不是ID字段

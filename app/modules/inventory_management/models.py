@@ -82,7 +82,7 @@ class InventoryStock(BaseModel):
     id = Column(Integer, primary_key=True, index=True)
     sku_id = Column(
         Integer,
-        ForeignKey("skus.id"),
+        ForeignKey("product_skus.id"),
         unique=True,
         index=True,
         nullable=False,

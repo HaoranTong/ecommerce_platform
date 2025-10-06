@@ -1,8 +1,8 @@
 """
 Auto Generated Test - 已生成到正式目录
 
-文件路径: tests/unit/test_user_auth_standalone.py
-生成时间: 2025-10-07 02:00:48
+文件路径: tests/unit/test_product_catalog_standalone.py
+生成时间: 2025-10-07 01:05:57
 生成工具: tools/generate_test_template.py v2.0
 状态: GENERATED - 需要经过代码审查和测试验证
 
@@ -25,12 +25,12 @@ NEWLINE = "\n"
 # 测试基础设施
 from tests.conftest import unit_test_db
 # 【修复】移除不必要的StandardTestDataFactory依赖，因为它不存在且未被实际使用
-from tests.factories.user_auth_factories import UserAuthFactoryManager
+from tests.factories.product_catalog_factories import ProductCatalogFactoryManager
 
 # 被测模块组件
 try:
-    from app.modules.user_auth.service import UserService
-    from app.modules.user_auth.models import Permission, Role, RolePermission, Session, User, UserRole
+    from app.modules.product_catalog.service import ProductService
+    from app.modules.product_catalog.models import Brand, Category, Product, ProductAttribute, ProductImage, ProductTag, SKU, SKUAttribute
     COMPONENTS_AVAILABLE = True
 except ImportError as e:
     print(f"⚠️ 组件导入警告: {e}")
@@ -42,17 +42,17 @@ except ImportError as e:
 @pytest.mark.unit
 @pytest.mark.workflow  
 @pytest.mark.standalone
-class TestUserAuthWorkflow:
+class TestProductCatalogWorkflow:
     """业务流程测试类 - 完整场景验证"""
     
     def setup_method(self):
         """测试准备"""
         # 【修复】移除不必要的test_data_factory，因为StandardTestDataFactory不存在
-        self.factory_manager = UserAuthFactoryManager()
+        self.factory_manager = ProductCatalogFactoryManager()
         
     @pytest.mark.critical
-    def test_complete_user_auth_workflow(self, unit_test_db: Session):
-        """测试完整user_auth业务流程 - 关键路径"""
+    def test_complete_product_catalog_workflow(self, unit_test_db: Session):
+        """测试完整product_catalog业务流程 - 关键路径"""
         print(f"\n🔄 执行完整业务流程测试...")
         
         if not COMPONENTS_AVAILABLE:
@@ -60,7 +60,7 @@ class TestUserAuthWorkflow:
             
         # 1. 初始化服务和工厂
         # 静态方法服务，直接使用类名
-        service = UserService
+        service = ProductService
         self.factory_manager.setup_factories(unit_test_db)
         
         # 2. 准备测试数据
@@ -84,19 +84,19 @@ class TestUserAuthWorkflow:
             pytest.skip("组件不可用，跳过正常业务场景测试")
             
         # 静态方法服务，直接使用类名
-        service = UserService
+        service = ProductService
         self.factory_manager.setup_factories(unit_test_db)
         
         # 创建正常业务数据
         normal_data = self.factory_manager.create_test_scenario(unit_test_db, 'normal')
         
-        # 测试主要服务方法: create_user
-        assert hasattr(service, 'create_user')
-        assert callable(getattr(service, 'create_user'))
+        # 测试主要服务方法: create_product
+        assert hasattr(service, 'create_product')
+        assert callable(getattr(service, 'create_product'))
         
         # 尝试调用方法（如果不需要参数）
         try:
-            method = getattr(service, 'create_user')
+            method = getattr(service, 'create_product')
             # 检查方法签名，避免调用需要参数的方法
             import inspect
             sig = inspect.signature(method)
@@ -117,11 +117,11 @@ class TestUserAuthWorkflow:
             pytest.skip("组件不可用，跳过边界条件测试")
             
         # 静态方法服务，直接使用类名
-        service = UserService
+        service = ProductService
         
-        # 测试第二个服务方法: authenticate_user
-        assert hasattr(service, 'authenticate_user')
-        assert callable(getattr(service, 'authenticate_user'))
+        # 测试第二个服务方法: get_product_by_id
+        assert hasattr(service, 'get_product_by_id')
+        assert callable(getattr(service, 'get_product_by_id'))
         
         # 测试极限数据场景
         edge_case_data = {
@@ -142,14 +142,14 @@ class TestUserAuthWorkflow:
             pytest.skip("组件不可用，跳过异常处理测试")
             
         # 静态方法服务，直接使用类名
-        service = UserService
+        service = ProductService
         
-        # 验证方法 1: create_user
-        assert hasattr(service, 'create_user')
-        assert callable(getattr(service, 'create_user'))
-        # 验证方法 2: authenticate_user
-        assert hasattr(service, 'authenticate_user')
-        assert callable(getattr(service, 'authenticate_user'))
+        # 验证方法 1: create_product
+        assert hasattr(service, 'create_product')
+        assert callable(getattr(service, 'create_product'))
+        # 验证方法 2: get_product_by_id
+        assert hasattr(service, 'get_product_by_id')
+        assert callable(getattr(service, 'get_product_by_id'))
 
     def test_performance_critical_paths(self, unit_test_db: Session):
         """测试性能关键路径"""
@@ -159,7 +159,7 @@ class TestUserAuthWorkflow:
             pytest.skip("组件不可用，跳过性能测试")
             
         # 静态方法服务，直接使用类名
-        service = UserService
+        service = ProductService
         self.factory_manager.setup_factories(unit_test_db)
         
         # 批量数据处理测试
@@ -172,15 +172,15 @@ class TestUserAuthWorkflow:
         # 测试性能关键路径
         start_time = datetime.now()
         
-        # 性能测试方法 1: create_user
-        assert hasattr(service, 'create_user')
-        assert callable(getattr(service, 'create_user'))
-        # 性能测试方法 2: authenticate_user
-        assert hasattr(service, 'authenticate_user')
-        assert callable(getattr(service, 'authenticate_user'))
-        # 性能测试方法 3: get_user_by_id
-        assert hasattr(service, 'get_user_by_id')
-        assert callable(getattr(service, 'get_user_by_id'))
+        # 性能测试方法 1: create_product
+        assert hasattr(service, 'create_product')
+        assert callable(getattr(service, 'create_product'))
+        # 性能测试方法 2: get_product_by_id
+        assert hasattr(service, 'get_product_by_id')
+        assert callable(getattr(service, 'get_product_by_id'))
+        # 性能测试方法 3: get_products
+        assert hasattr(service, 'get_products')
+        assert callable(getattr(service, 'get_products'))
         end_time = datetime.now()
         processing_time = (end_time - start_time).total_seconds()
         
@@ -189,7 +189,7 @@ class TestUserAuthWorkflow:
         
         print(f"📊 性能测试完成: 用时{processing_time:.2f}秒")
         
-    def _execute_complete_workflow(self, service: "UserService", test_data: dict, db: Session) -> dict:
+    def _execute_complete_workflow(self, service: "ProductService", test_data: dict, db: Session) -> dict:
         """执行完整业务流程"""
         workflow_result = {
             'success': False,

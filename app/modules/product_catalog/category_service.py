@@ -32,7 +32,6 @@ class CategoryService:
         parent_id: Optional[int] = None,
         sort_order: int = 0,
         is_active: bool = True,
-        meta_data: Optional[Dict[str, Any]] = None,
     ) -> Category:
         """
         创建新分类
@@ -79,7 +78,6 @@ class CategoryService:
             parent_id=parent_id,
             sort_order=sort_order,
             is_active=is_active,
-            meta_data=meta_data or {},
         )
         try:
             return CategoryRepository.create(db, category)

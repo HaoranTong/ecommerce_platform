@@ -436,7 +436,8 @@ class BaseTestGenerator(ABC):
             
             test_data = {}
             for field_name, field_info in model_fields.items():
-                test_data[field_name] = self._generate_field_value(field_name, field_info)
+                value = self._generate_field_value(field_name, field_info)
+                test_data[field_name] = value
             
             return test_data
             
@@ -476,6 +477,7 @@ class BaseTestGenerator(ABC):
     
     def _generate_by_type(self, field_info) -> Any:
         """根据字段类型生成默认值"""
+        fake = Faker()  # Create Faker instance in this method scope
         try:
             # 尝试从field_info获取类型信息
             if hasattr(field_info, 'annotation'):

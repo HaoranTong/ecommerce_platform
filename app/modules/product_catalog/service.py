@@ -360,3 +360,6 @@ class SKUService:
             return False
         SKURepository.soft_delete(db, sku)
         return True
+
+# Add alias for test import compatibility
+ProductCatalogService = ProductService

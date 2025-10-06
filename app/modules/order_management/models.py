@@ -121,7 +121,7 @@ class OrderItem(Base):
         Integer, ForeignKey("products.id"), nullable=False, index=True, comment="商品ID"
     )
     sku_id = Column(
-        Integer, ForeignKey("skus.id"), nullable=False, index=True, comment="SKU ID"
+        Integer, ForeignKey("product_skus.id"), nullable=False, index=True, comment="SKU ID"
     )
 
     # 商品快照信息 - 防止后续商品信息变更影响历史订单

@@ -468,6 +468,7 @@ class {class_name}:
         
         async def write_operation():
             # 使用生成的测试数据模板（添加时间戳确保唯一性）
+            request_id = int(__import__('time').time() * 1000) % 10000  # 生成唯一ID
             test_data = {test_data_template}
             try:
                 # 使用确定的HTTP方法
@@ -596,21 +597,24 @@ class {class_name}:
         async def user_session():
             """模拟单个用户会话"""
             try:
+                request_id = int(__import__('time').time() * 1000) % 10000  # 生成唯一ID
                 # 用户典型操作序列
                 operations = [
-                    ("GET", f"/api/v1/{module_path}/"),
-                    ("GET", f"/api/v1/{module_path}/search"),
-                    ("{write_method}", "{write_endpoint}", {test_data_template}),
-                    ("GET", f"/api/v1/{module_path}/1"),
+                    ("GET", "{auth_endpoint}"),  # 获取当前用户信息
+                    ("GET", "/api/v1/{module_path}/users"),  # 用户列表
+                    ("{write_method}", "{write_endpoint}", {test_data_template}),  # 更新用户信息
                 ]
                 
                 session_success = True
                 for method, url, *data in operations:
                     if method == "GET":
                         response = await async_api_client.get(url, headers=headers)
+                    elif method == "PUT":
+                        response = await async_api_client.put(url, json=data[0] if data else {{}}, headers=headers)
                     else:
                         response = await async_api_client.post(url, json=data[0] if data else {{}}, headers=headers)
                     
+                    # 只有500错误才认为是严重失败
                     if response.status_code >= 500:
                         session_success = False
                         break
@@ -618,7 +622,8 @@ class {class_name}:
                     await asyncio.sleep(0.1)  # 用户操作间隔
                 
                 return session_success
-            except Exception:
+            except Exception as e:
+                print(f"⚠️ 用户会话异常: {{str(e)}}")
                 return False
         
         # 模拟峰值负载

@@ -1,8 +1,8 @@
 """
 Auto Generated Test - 已生成到正式目录
 
-文件路径: tests/security/test_user_auth_security.py
-生成时间: 2025-10-07 03:03:04
+文件路径: tests/security/test_product_catalog_security.py
+生成时间: 2025-10-07 02:50:40
 生成工具: tools/generate_test_template.py v2.0
 状态: GENERATED - 需要经过代码审查和测试验证
 
@@ -23,8 +23,8 @@ from unittest.mock import patch
 from app.main import app
 from tests.conftest import api_client
 
-class TestUserAuthOWASPTop10:
-    """用户认证模块OWASP Top 10安全测试"""
+class TestProductCatalogOWASPTop10:
+    """商品管理模块OWASP Top 10安全测试"""
     
     async def test_sql_injection_protection(self, async_api_client):
         """测试SQL注入防护 - OWASP #1"""
@@ -39,8 +39,8 @@ class TestUserAuthOWASPTop10:
         ]
         
         # 使用动态选择的端点进行SQL注入测试
-        get_endpoint = "/api/v1/user-auth/me"
-        post_endpoint = "/api/v1/user-auth/register"
+        get_endpoint = "/api/v1/product-catalog/categories"
+        post_endpoint = "/api/v1/product-catalog/categories"
         
         test_endpoints = [
             {"method": "GET", "path": get_endpoint, "params": {"search": None}},
@@ -83,10 +83,10 @@ class TestUserAuthOWASPTop10:
             "<svg onload=alert('XSS')>"
         ]
         
-        headers = {"Authorization": "Bearer security_test_1f87d33fd5afc61b"}
+        headers = {"Authorization": "Bearer security_test_67cabbdf6da52166"}
         
         # 使用真实的POST端点进行XSS测试
-        test_endpoint = "/api/v1/user-auth/register"
+        test_endpoint = "/api/v1/product-catalog/categories"
         
         for payload in xss_payloads:
             # 测试输入字段的XSS防护
@@ -108,10 +108,10 @@ class TestUserAuthOWASPTop10:
     async def test_csrf_protection(self, async_api_client):
         """测试CSRF跨站请求伪造防护 - OWASP #8"""
         
-        headers = {"Authorization": "Bearer security_test_1f87d33fd5afc61b"}
+        headers = {"Authorization": "Bearer security_test_67cabbdf6da52166"}
         
         # 使用真实的POST端点进行CSRF测试
-        sensitive_endpoint = "/api/v1/user-auth/register"
+        sensitive_endpoint = "/api/v1/product-catalog/categories"
         
         # 测试缺少CSRF token的请求
         response = await async_api_client.post(
@@ -160,7 +160,7 @@ class TestUserAuthOWASPTop10:
     async def test_sensitive_data_exposure(self, async_api_client):
         """测试敏感数据泄露防护 - OWASP #3"""
         
-        headers = {"Authorization": "Bearer security_test_1f87d33fd5afc61b"}
+        headers = {"Authorization": "Bearer security_test_67cabbdf6da52166"}
         
         # 测试API响应是否泄露敏感信息
         response = await async_api_client.get("/api/v1/user-auth/me", headers=headers)
@@ -206,17 +206,17 @@ class TestUserAuthOWASPTop10:
 
 
 
-class TestUserAuthAuthentication:
-    """用户认证模块认证授权安全测试"""
+class TestProductCatalogAuthentication:
+    """商品管理模块认证授权安全测试"""
     
     async def test_unauthorized_access(self, async_api_client):
         """测试未授权访问防护"""
         
         # 测试不带token的请求
         protected_endpoints = [
-            "/api/v1/user_auth/protected",
-            "/api/v1/user_auth/admin",
-            "/api/v1/user_auth/user-data"
+            "/api/v1/product_catalog/protected",
+            "/api/v1/product_catalog/admin",
+            "/api/v1/product_catalog/user-data"
         ]
         
         for endpoint in protected_endpoints:
@@ -240,7 +240,7 @@ class TestUserAuthAuthentication:
         
         for token in invalid_tokens:
             headers = {"Authorization": f"Bearer {token}"}
-            response = await async_api_client.get("/api/v1/user-auth/me", headers=headers)
+            response = await async_api_client.get("/api/v1/product-catalog/categories", headers=headers)
             # 对于真实存在的端点，期望401（未授权）或403（禁止访问）
             if response.status_code not in [404, 405]:  # 端点存在
                 assert response.status_code in [401, 403]
@@ -248,7 +248,7 @@ class TestUserAuthAuthentication:
         # 测试过期token（模拟）
         expired_token = "expired.jwt.token"
         headers = {"Authorization": f"Bearer {expired_token}"}
-        response = await async_api_client.get("/api/v1/user-auth/me", headers=headers)
+        response = await async_api_client.get("/api/v1/product-catalog/categories", headers=headers)
         if response.status_code not in [404, 405]:  # 端点存在
             assert response.status_code in [401, 403]
         
@@ -258,13 +258,13 @@ class TestUserAuthAuthentication:
         """测试权限提升防护"""
         
         # 使用普通用户token尝试访问管理员端点
-        user_token = "user_level_fea28f7b10c5ecfe"
+        user_token = "user_level_623f0b1e95f5f32f"
         headers = {"Authorization": f"Bearer {user_token}"}
         
         admin_endpoints = [
-            "/api/v1/user_auth/admin/users",
-            "/api/v1/user_auth/admin/settings",
-            "/api/v1/user_auth/admin/delete"
+            "/api/v1/product_catalog/admin/users",
+            "/api/v1/product_catalog/admin/settings",
+            "/api/v1/product_catalog/admin/delete"
         ]
         
         for endpoint in admin_endpoints:
@@ -277,7 +277,7 @@ class TestUserAuthAuthentication:
     async def test_session_security(self, async_api_client):
         """测试会话安全性"""
         
-        headers = {"Authorization": "Bearer security_test_1f87d33fd5afc61b"}
+        headers = {"Authorization": "Bearer security_test_67cabbdf6da52166"}
         
         # 测试会话固定攻击防护
         # 登录前后的会话ID应该不同
@@ -285,7 +285,7 @@ class TestUserAuthAuthentication:
         # 测试并发会话限制
         concurrent_requests = []
         for _ in range(10):
-            req = async_api_client.get("/api/v1/user_auth/me", headers=headers)
+            req = async_api_client.get("/api/v1/product_catalog/me", headers=headers)
             concurrent_requests.append(req)
         
         responses = await asyncio.gather(*concurrent_requests, return_exceptions=True)
@@ -297,13 +297,13 @@ class TestUserAuthAuthentication:
 
 
 
-class TestUserAuthInputValidation:
-    """用户认证模块输入验证安全测试"""
+class TestProductCatalogInputValidation:
+    """商品管理模块输入验证安全测试"""
     
     async def test_malicious_input_handling(self, async_api_client):
         """测试恶意输入处理"""
         
-        headers = {"Authorization": "Bearer security_test_1f87d33fd5afc61b"}
+        headers = {"Authorization": "Bearer security_test_67cabbdf6da52166"}
         
         # 恶意输入载荷
         malicious_inputs = [
@@ -326,7 +326,7 @@ class TestUserAuthInputValidation:
             }
             
             response = await async_api_client.post(
-                "/api/v1/user-auth/register",
+                "/api/v1/product-catalog/categories",
                 json=test_data,
                 headers=headers
             )
@@ -339,7 +339,7 @@ class TestUserAuthInputValidation:
     async def test_data_type_validation(self, async_api_client):
         """测试数据类型验证"""
         
-        headers = {"Authorization": "Bearer security_test_1f87d33fd5afc61b"}
+        headers = {"Authorization": "Bearer security_test_67cabbdf6da52166"}
         
         # 类型错误测试
         invalid_data_types = [
@@ -354,7 +354,7 @@ class TestUserAuthInputValidation:
         
         for invalid_data in invalid_data_types:
             response = await async_api_client.post(
-                "/api/v1/user-auth/register",
+                "/api/v1/product-catalog/categories",
                 json=invalid_data,
                 headers=headers
             )
@@ -367,7 +367,7 @@ class TestUserAuthInputValidation:
     async def test_file_upload_security(self, async_api_client):
         """测试文件上传安全性"""
         
-        headers = {"Authorization": "Bearer security_test_1f87d33fd5afc61b"}
+        headers = {"Authorization": "Bearer security_test_67cabbdf6da52166"}
         
         # 恶意文件测试
         malicious_files = [
@@ -381,7 +381,7 @@ class TestUserAuthInputValidation:
             files = {"file": (filename, content, content_type)}
             
             response = await async_api_client.post(
-                "/api/v1/user-auth/register",
+                "/api/v1/product-catalog/categories",
                 files=files,
                 headers=headers
             )
@@ -393,13 +393,13 @@ class TestUserAuthInputValidation:
 
 
 
-class TestUserAuthDataProtection:
-    """用户认证模块数据保护安全测试"""
+class TestProductCatalogDataProtection:
+    """商品管理模块数据保护安全测试"""
     
     async def test_data_encryption(self, async_api_client):
         """测试数据加密保护"""
         
-        headers = {"Authorization": "Bearer security_test_1f87d33fd5afc61b"}
+        headers = {"Authorization": "Bearer security_test_67cabbdf6da52166"}
         
         # 测试敏感数据是否加密存储
         from faker import Faker
@@ -414,7 +414,7 @@ class TestUserAuthDataProtection:
         }
         
         response = await async_api_client.post(
-            "/api/v1/user_auth/store-sensitive",
+            "/api/v1/product_catalog/store-sensitive",
             json=sensitive_data,
             headers=headers
         )
@@ -435,14 +435,14 @@ class TestUserAuthDataProtection:
         """测试数据访问控制"""
         
         # 使用用户A的token尝试访问用户B的数据
-        user_a_token_val = "user_a_031a8dee265c"
-        user_b_id_val = "test_user_9190"
+        user_a_token_val = "user_a_dd59a0d6ef6c"
+        user_b_id_val = "test_user_8949"
         
         headers = {"Authorization": f"Bearer {user_a_token_val}"}
         
         # 尝试访问其他用户的私人数据
         response = await async_api_client.get(
-            f"/api/v1/user_auth/user/{user_b_id_val}/private",
+            f"/api/v1/product_catalog/user/{user_b_id_val}/private",
             headers=headers
         )
         
@@ -451,7 +451,7 @@ class TestUserAuthDataProtection:
         
         # 尝试修改其他用户的数据
         response = await async_api_client.put(
-            f"/api/v1/user_auth/user/{user_b_id_val}/profile",
+            f"/api/v1/product_catalog/user/{user_b_id_val}/profile",
             json={"name": "hacked"},
             headers=headers
         )
@@ -467,7 +467,7 @@ class TestUserAuthDataProtection:
         
         # 测试批量数据导出是否有限制
         response = await async_api_client.get(
-            "/api/v1/user_auth/export/all",
+            "/api/v1/product_catalog/export/all",
             headers=headers
         )
         
@@ -476,7 +476,7 @@ class TestUserAuthDataProtection:
         
         # 测试分页查询是否有合理限制
         response = await async_api_client.get(
-            "/api/v1/user_auth/list",
+            "/api/v1/product_catalog/list",
             params={"limit": 100000},  # 尝试获取大量数据
             headers=headers
         )
@@ -492,7 +492,7 @@ class TestUserAuthDataProtection:
     async def test_gdpr_compliance(self, async_api_client):
         """测试GDPR合规性"""
         
-        headers = {"Authorization": "Bearer security_test_1f87d33fd5afc61b"}
+        headers = {"Authorization": "Bearer security_test_67cabbdf6da52166"}
         
         # 测试数据删除权（被遗忘权）
         response = await async_api_client.delete(

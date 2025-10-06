@@ -44,7 +44,6 @@ async def create_category(
         parent_id=payload.parent_id,
         sort_order=payload.sort_order,
         is_active=payload.is_active,
-        meta_data=getattr(payload, 'meta_data', None)
     )
 
 
