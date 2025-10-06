@@ -32,7 +32,7 @@ router = APIRouter()
 async def create_category(
     payload: CategoryCreate,
     db: Session = Depends(get_db),
-    current_admin: User = Depends(get_current_admin_user),
+        _: Any = Depends(require_admin),
 ):
     """创建新分类（需要管理员权限）"""
     try:
@@ -90,7 +90,7 @@ async def list_categories(
 async def create_brand(
     payload: BrandCreate,
     db: Session = Depends(get_db),
-    current_admin: User = Depends(get_current_admin_user),
+        _: Any = Depends(require_admin),
 ):
     """创建新品牌（需要管理员权限）"""
     try:
@@ -121,7 +121,7 @@ async def create_brand(
 async def create_product(
     payload: ProductCreate,
     db: Session = Depends(get_db),
-    current_admin: User = Depends(get_current_admin_user),
+        _: Any = Depends(require_admin),
 ):
     """创建新商品（需要管理员权限）"""
     try:
@@ -202,7 +202,7 @@ async def update_product(
     product_id: int,
     payload: ProductUpdate,
     db: Session = Depends(get_db),
-    current_admin: User = Depends(get_current_admin_user),
+        _: Any = Depends(require_admin),
 ):
     """更新商品信息（需要管理员权限）"""
     product = db.query(Product).get(product_id)
@@ -233,7 +233,7 @@ async def update_product(
 async def delete_product(
     product_id: int,
     db: Session = Depends(get_db),
-    current_admin: User = Depends(get_current_admin_user),
+        _: Any = Depends(require_admin),
 ):
     """删除商品（需要管理员权限，软删除）"""
     product = db.query(Product).get(product_id)
