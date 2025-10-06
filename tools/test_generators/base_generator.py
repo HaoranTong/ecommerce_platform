@@ -1,26 +1,17 @@
 """
 基础测试生成器
 
-🚨 **所有测试生成器通用格式化错误预防指南** 🚨
+所有测试生成器通用格式化错误预防指南
 
 这些规则适用于所有继承此基类的测试生成器:
 
-1. **Python字符串模板中的变量引用**:
-   ❌ 错误模式:
-   - f"value_{{variable}}"          # 双重花括号导致字面量输出
-   - f"""{{
-       "key": "{{value}}"           # 模板内部双重转义
-   }}"""
-   
-   ✅ 正确模式:
-   - f"value_{variable}"            # 直接变量引用
-   - f'''{
-       "key": "{value}"             # 简单变量替换
-   }'''
+1. Python字符串模板中的变量引用:
+   错误模式: 双重花括号导致字面量输出
+   正确模式: 直接变量引用，简单变量替换
 
-2. **f-string模板生成规则**:
+2. f-string模板生成规则:
    - 当生成的代码本身需要使用f-string时，使用单层花括号
-   - 避免在返回的字符串模板中使用{{}}转义
+   - 避免在返回的字符串模板中使用双花括号转义
    - 确保变量在作用域内可用
 
 3. **代码模板调试技巧**:
@@ -61,6 +52,7 @@ import ast
 import os
 import re
 import secrets
+import traceback
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
@@ -159,7 +151,6 @@ class BaseTestGenerator(ABC):
                             routes.append(route_info)
                     except Exception as e:
                         print(f"❌ 提取路由信息失败 [{node.name}]: {e}")
-                        import traceback
                         traceback.print_exc()
                         continue
             
@@ -168,7 +159,6 @@ class BaseTestGenerator(ABC):
             
         except Exception as e:
             print(f"❌ 分析路由文件失败: {e}")
-            import traceback
             traceback.print_exc()
             return []
     
@@ -382,7 +372,6 @@ class BaseTestGenerator(ABC):
             
         except Exception as e:
             print(f"⚠️ Schema分析失败: {e}, 使用fallback数据")
-            import traceback
             print(f"📋 详细错误: {traceback.format_exc()}")
             return self._generate_fallback_data(route)
     

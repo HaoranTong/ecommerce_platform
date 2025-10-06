@@ -49,7 +49,11 @@
 更新时间: 2025-10-06 (修复内容混乱问题，添加模板格式化指南)
 """
 
+import secrets
 from typing import Any, Dict, List
+
+from faker import Faker
+
 from .base_generator import BaseTestGenerator, ModelInfo, RouterInfo
 
 
@@ -67,8 +71,6 @@ class SecurityTestGenerator(BaseTestGenerator):
         """生成安全测试文件内容"""
         
         # 生成动态测试数据 - 避免硬编码
-        from faker import Faker
-        import secrets
         fake = Faker()
         
         # 动态生成测试token和ID
@@ -673,9 +675,6 @@ class {class_name}:
 
     def _generate_dynamic_security_data(self, routes: List[RouterInfo]) -> Dict[str, Any]:
         """动态生成安全测试数据 - 避免硬编码"""
-        from faker import Faker
-        import secrets
-        
         fake = Faker()
         
         # 基础动态数据
