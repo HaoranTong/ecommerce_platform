@@ -11,7 +11,9 @@ from app.modules.user_auth.models import User
 
 from .dependencies import require_admin
 from .models import SKU, Brand, Category, Product
-from .repository import CategoryRepository, ProductRepository, SKURepository  # add imports
+from .repository import SKURepository, BrandRepository
+from .category_service import CategoryService
+from .service import ProductService
 from .schemas import (BrandCreate, BrandRead, BrandUpdate, CategoryCreate,
                       CategoryRead, CategoryUpdate, ProductCreate, ProductRead,
                       ProductUpdate, SKUCreate, SKURead, SKUUpdate)
@@ -35,19 +37,15 @@ async def create_category(
     admin: Any = Depends(require_admin),
 ):
     """创建新分类（需要管理员权限）"""
-    try:
-        category_data = payload.model_dump()
-        category = Category(**category_data)
-        db.add(category)
-        db.commit()
-        db.refresh(category)
-        return category
-    except Exception as e:
-        db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"分类创建失败: {str(e)}",
-        )
+    return CategoryService.create_category(
+        db,
+        name=payload.name,
+        description=payload.description,
+        parent_id=payload.parent_id,
+        sort_order=payload.sort_order,
+        is_active=payload.is_active,
+        meta_data=getattr(payload, 'meta_data', None)
+    )
 
 
 @router.get(
@@ -64,8 +62,7 @@ async def list_categories(
     db: Session = Depends(get_db),
 ):
     """获取分类列表，调用 CategoryRepository"""
-    categories = CategoryRepository.list(db, parent_id, is_active, skip, limit)
-    return categories
+    return CategoryService.get_categories(db, parent_id, is_active, skip, limit)
 
 
 # ============ 品牌管理API ============
@@ -81,22 +78,86 @@ async def list_categories(
 async def create_brand(
     payload: BrandCreate,
     db: Session = Depends(get_db),
-        _: Any = Depends(require_admin),
+    admin: Any = Depends(require_admin),
 ):
     """创建新品牌（需要管理员权限）"""
+    brand = Brand(**payload.model_dump())
     try:
-        brand_data = payload.model_dump()
-        brand = Brand(**brand_data)
-        db.add(brand)
-        db.commit()
-        db.refresh(brand)
-        return brand
+        return BrandRepository.create(db, brand)
     except Exception as e:
-        db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"品牌创建失败: {str(e)}",
-        )
+        raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, f"品牌创建失败: {e}")
+
+
+@router.get(
+    "/product-catalog/brands",
+    response_model=List[BrandRead],
+    summary="获取品牌列表",
+    description="查询所有品牌，无需管理员权限"
+)
+async def list_brands(
+    db: Session = Depends(get_db)
+):
+    """获取品牌列表"""
+    return BrandRepository.list(db)
+
+
+@router.get(
+    "/product-catalog/brands/{brand_id}",
+    response_model=BrandRead,
+    summary="获取品牌详情",
+    description="根据品牌ID获取品牌信息"
+)
+async def get_brand(
+    brand_id: int,
+    db: Session = Depends(get_db)
+):
+    """获取单个品牌详情"""
+    brand = BrandRepository.get_by_id(db, brand_id)
+    if not brand:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, f"品牌ID {brand_id} 不存在")
+    return brand
+
+
+@router.put(
+    "/product-catalog/brands/{brand_id}",
+    response_model=BrandRead,
+    summary="更新品牌信息",
+    description="根据品牌ID更新品牌信息，需要管理员权限"
+)
+async def update_brand(
+    brand_id: int,
+    payload: BrandUpdate,
+    db: Session = Depends(get_db),
+    admin: Any = Depends(require_admin)
+):
+    """更新品牌信息（需要管理员权限）"""
+    brand = BrandRepository.get_by_id(db, brand_id)
+    if not brand:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, f"品牌ID {brand_id} 不存在")
+    data = payload.model_dump(exclude_unset=True)
+    try:
+        return BrandRepository.update(db, brand, data)
+    except Exception as e:
+        raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, f"品牌更新失败: {e}")
+
+
+@router.delete(
+    "/product-catalog/brands/{brand_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="删除品牌",
+    description="软删除品牌，需要管理员权限"
+)
+async def delete_brand(
+    brand_id: int,
+    db: Session = Depends(get_db),
+    admin: Any = Depends(require_admin)
+):
+    """软删除品牌（需要管理员权限）"""
+    brand = BrandRepository.get_by_id(db, brand_id)
+    if not brand:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, f"品牌ID {brand_id} 不存在")
+    BrandRepository.soft_delete(db, brand)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 # ============ 商品管理API ============
@@ -115,14 +176,16 @@ async def create_product(
     admin: Any = Depends(require_admin),
 ):
     """创建新商品（需要管理员权限）"""
-    product = Product(**payload.model_dump())
-    try:
-        return ProductRepository.create(db, product)
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"商品创建失败: {str(e)}",
-        )
+    return ProductService.create_product(
+        db,
+        name=payload.name,
+        sku=payload.sku if hasattr(payload, 'sku') else None,
+        price=payload.price if hasattr(payload, 'price') else None,
+        category_id=payload.category_id,
+        description=payload.description,
+        stock_quantity=getattr(payload, 'stock_quantity', 0),
+        image_url=getattr(payload, 'image_url', None)
+    )
 
 
 @router.get(
@@ -143,8 +206,14 @@ async def list_products(
     db: Session = Depends(get_db),
 ):
     """获取商品列表，调用 ProductRepository"""
-    filters = {"search": search, "category_id": category_id, "status": status}
-    return ProductRepository.list(db, skip=skip, limit=limit, **filters)
+    return ProductService.get_products(
+        db,
+        skip=skip,
+        limit=limit,
+        category_id=category_id,
+        status=status,
+        search=search
+    )
 
 
 @router.get(
@@ -155,7 +224,7 @@ async def list_products(
 )
 async def get_product(product_id: int, db: Session = Depends(get_db)):
     """获取单个商品详情"""
-    product = ProductRepository.get_by_id(db, product_id)
+    product = ProductService.get_product_by_id(db, product_id)
     if not product:
         raise HTTPException(status.HTTP_404_NOT_FOUND, f"商品ID {product_id} 不存在")
     return product
@@ -170,14 +239,11 @@ async def get_product(product_id: int, db: Session = Depends(get_db)):
 async def update_product(product_id: int, payload: ProductUpdate, db: Session = Depends(get_db),
         admin: Any = Depends(require_admin)):
     """更新商品信息（需要管理员权限）"""
-    product = ProductRepository.get_by_id(db, product_id)
-    if not product:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, f"商品ID {product_id} 不存在")
-    data = payload.model_dump(exclude_unset=True)
-    try:
-        return ProductRepository.update(db, product, data)
-    except Exception as e:
-        raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, f"商品更新失败: {e}")
+    return ProductService.update_product(
+        db,
+        product_id,
+        **payload.model_dump(exclude_unset=True)
+    )
 
 
 @router.delete(
@@ -192,10 +258,7 @@ async def delete_product(
     admin: Any = Depends(require_admin),
 ):
     """软删除指定商品（需管理员权限）"""
-    product = ProductRepository.get_by_id(db, product_id)
-    if not product:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, f"商品ID {product_id} 不存在")
-    ProductRepository.soft_delete(db, product)
+    ProductService.delete_product(db, product_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
@@ -250,4 +313,18 @@ async def update_sku(sku_id: int, payload: SKUUpdate, db: Session = Depends(get_
     sku = SKURepository.get_by_id(db, sku_id)
     if not sku:
         raise HTTPException(status.HTTP_404_NOT_FOUND, f"SKU ID {sku_id} 不存在")
-    data = payload.model
+    data = payload.model_dump(exclude_unset=True)
+    try:
+        return SKURepository.update(db, sku, data)
+    except Exception as e:
+        raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, f"SKU更新失败: {e}")
+
+
+@router.delete("/product-catalog/skus/{sku_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_sku(sku_id: int, db: Session = Depends(get_db), admin: Any = Depends(require_admin)):
+    """软删除SKU"""
+    sku = SKURepository.get_by_id(db, sku_id)
+    if not sku:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, f"SKU ID {sku_id} 不存在")
+    SKURepository.soft_delete(db, sku)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

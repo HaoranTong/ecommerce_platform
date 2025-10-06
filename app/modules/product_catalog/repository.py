@@ -40,6 +40,38 @@ class CategoryRepository:
     @staticmethod
     def count_products(db: Session, category_id: int) -> int:
         return db.query(Product).filter(Product.category_id == category_id).count()
+ 
+class BrandRepository:
+    """品牌数据访问"""
+    @staticmethod
+    def create(db: Session, brand: Brand) -> Brand:
+        db.add(brand)
+        db.commit()
+        db.refresh(brand)
+        return brand
+
+    @staticmethod
+    def get_by_id(db: Session, brand_id: int) -> Optional[Brand]:
+        return db.query(Brand).filter(Brand.id == brand_id).first()
+
+    @staticmethod
+    def list(db: Session) -> List[Brand]:
+        return db.query(Brand).all()
+
+    @staticmethod
+    def update(db: Session, brand: Brand, data: Dict[str, Any]) -> Brand:
+        for k, v in data.items():
+            setattr(brand, k, v)
+        db.commit()
+        db.refresh(brand)
+        return brand
+
+    @staticmethod
+    def soft_delete(db: Session, brand: Brand) -> None:
+        # Perform soft delete if is_active field exists
+        if hasattr(brand, 'is_active'):
+            brand.is_active = False
+        db.commit()
 
 
 class ProductRepository:

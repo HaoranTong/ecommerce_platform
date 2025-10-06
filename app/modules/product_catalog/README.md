@@ -45,7 +45,7 @@ product_catalog/
 
 ## 相关文档
 
-- [API规范](../../docs/modules/product-catalog/api-spec.md)
-- [API实现](../../docs/modules/product-catalog/api-implementation.md)
-- [数据模型](../../docs/modules/product-catalog/data-models.md)
-- [业务流程](../../docs/modules/product-catalog/business-logic.md)
+- [设计文档](../../docs/design/modules/product-catalog/design.md)
+- [API规范](../../docs/design/modules/product-catalog/api-spec.md)
+- [数据模型](../../docs/design/modules/product-catalog/data-models.md)
+- [业务流程](../../docs/design/modules/product-catalog/business-logic.md)
