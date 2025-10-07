@@ -2285,7 +2285,7 @@ class Test{repo_name}:
         model_info = models[model_name]
         return [f for f in model_info.fields if f.primary_key]
     
-    def _infer_query_parameter(self, method_name: str, model_name: str, models: Dict[str, ModelInfo]) -> str:
+    def _infer_query_parameter(self, method_name: str, model_name: str, models: Dict[str, ModelInfo]) -> tuple[str, bool]:
         """推断自定义查询方法需要的参数
         
         根据方法名推断应该使用哪个字段作为查询参数：
@@ -2293,17 +2293,46 @@ class Test{repo_name}:
         - get_by_email -> entity.email
         - get_by_name -> entity.name
         - check_exists -> username=entity.username, email=entity.email
+        - get (联合主键) -> 需要所有主键字段
+        
+        Returns:
+            tuple: (参数字符串, 是否需要TODO注释)
         """
+        # 特殊处理联合主键的get方法
+        if method_name == 'get' and self._has_composite_primary_key(model_name, models):
+            pk_fields = self._get_primary_key_fields(model_name, models)
+            param_str = ', '.join([f'entity.{f.name}' for f in pk_fields])
+            return (param_str, False)
+        
+        # 特殊处理联合主键的delete方法
+        if method_name == 'delete' and self._has_composite_primary_key(model_name, models):
+            pk_fields = self._get_primary_key_fields(model_name, models)
+            param_str = ', '.join([f'entity.{f.name}' for f in pk_fields])
+            return (param_str, False)
+        
         # 提取方法名中的字段名
         if method_name.startswith('get_by_'):
-            field_name = method_name[7:]  # 移除'get_by_'
-            return f'entity.{field_name}'
+            field_part = method_name[7:]  # 移除'get_by_'
+            # 特殊处理复合查询（如username_or_email）
+            if '_or_' in field_part:
+                # 使用第一个字段
+                field_name = field_part.split('_or_')[0]
+                return (f'entity.{field_name}', False)
+            else:
+                return (f'entity.{field_part}', False)
         elif method_name == 'check_exists':
             # check_exists通常接受多个可选参数
-            return 'username=entity.username, email=entity.email'
+            return ('username=entity.username, email=entity.email', False)
+        elif method_name in ['get_user_roles', 'get_role_users', 'get_role_permissions', 'get_user_permissions']:
+            # 这些方法需要特定ID参数，需要TODO
+            return ('', True)
         else:
             # 默认使用id（如果有的话）
-            return 'entity.id'
+            has_composite_pk = self._has_composite_primary_key(model_name, models)
+            if has_composite_pk:
+                # 联合主键模型需要TODO
+                return ('', True)
+            return ('entity.id', False)
     
     def _get_test_value_for_field(self, field: 'FieldInfo', suffix: str = "测试") -> str:
         """为字段生成测试值
@@ -2436,7 +2465,7 @@ class Test{repo_name}:
         is_bool_return = method_info.return_type == 'bool'
         
         # 🔥 智能推断查询参数
-        query_param = self._infer_query_parameter(method_name, model_name, models)
+        query_param, needs_todo = self._infer_query_parameter(method_name, model_name, models)
         has_composite_pk = self._has_composite_primary_key(model_name, models)
         
         if is_bool_return:
@@ -2534,7 +2563,39 @@ class Test{repo_name}:
 '''
         else:
             # 返回单个对象的方法（如get_by_id, get_by_username）
-            return f'''    def test_{method_name}_found(self, unit_test_db: Session):
+            if needs_todo or not query_param:
+                # 需要手动调整参数的方法
+                return f'''    def test_{method_name}_found(self, unit_test_db: Session):
+        """测试{method_name} - 查询到数据"""
+        # 准备测试数据
+        entity = {entity_creation}
+        unit_test_db.add(entity)
+        unit_test_db.commit()
+        
+        # 执行Repository方法
+        result = {repo_name}.{method_name}(unit_test_db)  # TODO: 根据实际方法签名调整参数
+        
+        # 验证结果
+        assert result is not None
+        # TODO: 添加具体字段验证
+    
+    def test_{method_name}_not_found(self, unit_test_db: Session):
+        """测试{method_name} - 数据不存在"""
+        result = {repo_name}.{method_name}(unit_test_db)  # TODO: 根据实际方法签名调整参数
+        
+        assert result is None or (isinstance(result, list) and len(result) == 0)
+'''
+            else:
+                # 可以自动推断参数的方法
+                # 提取字段名用于验证
+                if ',' in query_param:
+                    # 多个参数（如联合主键）- 使用第一个字段验证
+                    first_param = query_param.split(',')[0].strip()
+                    verify_field = first_param.split('.')[-1]
+                else:
+                    verify_field = query_param.split('.')[-1]
+                
+                return f'''    def test_{method_name}_found(self, unit_test_db: Session):
         """测试{method_name} - 查询到数据"""
         # 准备测试数据
         entity = {entity_creation}
@@ -2546,7 +2607,7 @@ class Test{repo_name}:
         
         # 验证结果
         assert result is not None
-        assert result.{query_param.split('.')[-1]} == entity.{query_param.split('.')[-1]}
+        assert result.{verify_field} == entity.{verify_field}
     
     def test_{method_name}_not_found(self, unit_test_db: Session):
         """测试{method_name} - 数据不存在"""

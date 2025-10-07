@@ -2,7 +2,7 @@
 Auto Generated Test - 已生成到正式目录
 
 文件路径: tests/unit/test_repositories/test_user_auth_repositories.py
-生成时间: 2025-10-07 23:07:23
+生成时间: 2025-10-07 23:17:19
 生成工具: tools/generate_test_template.py v2.0
 状态: GENERATED - 需要经过代码审查和测试验证
 
@@ -152,11 +152,11 @@ class TestUserRepository:
         unit_test_db.commit()
         
         # 执行Repository方法
-        result = UserRepository.get_by_username_or_email(unit_test_db, entity.username_or_email)
+        result = UserRepository.get_by_username_or_email(unit_test_db, entity.username)
         
         # 验证结果
         assert result is not None
-        assert result.username_or_email == entity.username_or_email
+        assert result.username == entity.username
     
     def test_get_by_username_or_email_not_found(self, unit_test_db: Session):
         """测试get_by_username_or_email - 数据不存在"""
@@ -731,11 +731,11 @@ class TestUserRoleRepository:
         unit_test_db.commit()
         
         # 执行Repository方法
-        result = UserRoleRepository.get(unit_test_db, entity.id)
+        result = UserRoleRepository.get(unit_test_db, entity.user_id, entity.role_id)
         
         # 验证结果
         assert result is not None
-        assert result.id == entity.id
+        assert result.user_id == entity.user_id
     
     def test_get_not_found(self, unit_test_db: Session):
         """测试get - 数据不存在"""
@@ -813,11 +813,11 @@ class TestUserRoleRepository:
         unit_test_db.commit()
         
         # 执行Repository方法
-        result = UserRoleRepository.delete(unit_test_db, entity.id)
+        result = UserRoleRepository.delete(unit_test_db, entity.user_id, entity.role_id)
         
         # 验证结果
         assert result is not None
-        assert result.id == entity.id
+        assert result.user_id == entity.user_id
     
     def test_delete_not_found(self, unit_test_db: Session):
         """测试delete - 数据不存在"""
@@ -839,17 +839,17 @@ class TestUserRoleRepository:
         unit_test_db.commit()
         
         # 执行Repository方法
-        result = UserRoleRepository.delete_all_user_roles(unit_test_db, entity.id)
+        result = UserRoleRepository.delete_all_user_roles(unit_test_db)  # TODO: 根据实际方法签名调整参数
         
         # 验证结果
         assert result is not None
-        assert result.id == entity.id
+        # TODO: 添加具体字段验证
     
     def test_delete_all_user_roles_not_found(self, unit_test_db: Session):
         """测试delete_all_user_roles - 数据不存在"""
-        result = UserRoleRepository.delete_all_user_roles(unit_test_db, "nonexistent_value_12345")
+        result = UserRoleRepository.delete_all_user_roles(unit_test_db)  # TODO: 根据实际方法签名调整参数
         
-        assert result is None
+        assert result is None or (isinstance(result, list) and len(result) == 0)
 
 
 
@@ -930,11 +930,11 @@ class TestRolePermissionRepository:
         unit_test_db.commit()
         
         # 执行Repository方法
-        result = RolePermissionRepository.get(unit_test_db, entity.id)
+        result = RolePermissionRepository.get(unit_test_db, entity.role_id, entity.permission_id)
         
         # 验证结果
         assert result is not None
-        assert result.id == entity.id
+        assert result.role_id == entity.role_id
     
     def test_get_not_found(self, unit_test_db: Session):
         """测试get - 数据不存在"""
@@ -1012,11 +1012,11 @@ class TestRolePermissionRepository:
         unit_test_db.commit()
         
         # 执行Repository方法
-        result = RolePermissionRepository.delete(unit_test_db, entity.id)
+        result = RolePermissionRepository.delete(unit_test_db, entity.role_id, entity.permission_id)
         
         # 验证结果
         assert result is not None
-        assert result.id == entity.id
+        assert result.role_id == entity.role_id
     
     def test_delete_not_found(self, unit_test_db: Session):
         """测试delete - 数据不存在"""
@@ -1038,17 +1038,17 @@ class TestRolePermissionRepository:
         unit_test_db.commit()
         
         # 执行Repository方法
-        result = RolePermissionRepository.delete_all_role_permissions(unit_test_db, entity.id)
+        result = RolePermissionRepository.delete_all_role_permissions(unit_test_db)  # TODO: 根据实际方法签名调整参数
         
         # 验证结果
         assert result is not None
-        assert result.id == entity.id
+        # TODO: 添加具体字段验证
     
     def test_delete_all_role_permissions_not_found(self, unit_test_db: Session):
         """测试delete_all_role_permissions - 数据不存在"""
-        result = RolePermissionRepository.delete_all_role_permissions(unit_test_db, "nonexistent_value_12345")
+        result = RolePermissionRepository.delete_all_role_permissions(unit_test_db)  # TODO: 根据实际方法签名调整参数
         
-        assert result is None
+        assert result is None or (isinstance(result, list) and len(result) == 0)
 
 
 
