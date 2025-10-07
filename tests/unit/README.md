@@ -4,19 +4,29 @@
 
 ## 📁 重组后的标准化目录结构
 
-按照 testing-standards.md 规范，测试文件已重新组织为三层结构：
+按照 testing-standards.md 规范和四层架构要求，测试文件已重新组织为四层结构：
 
-### test_models/ - 模型层单元测试
+### test_models/ - 模型层单元测试 (100% Mock)
 - `test_inventory_models.py` - 库存管理模型测试
 - `test_product_catalog_models.py` - 产品目录模型测试  
 - `test_models_sqlite.py` - SQLite数据库模型测试
 - `test_data_models_relationships.py` - 数据模型关系测试
 
-### test_services/ - 服务层单元测试  
+**测试策略**: 100% Mock对象，无数据库依赖，纯业务逻辑验证
+
+### test_repositories/ - 数据访问层单元测试 (SQLite内存数据库)
+- `test_product_catalog_repositories.py` - 产品目录Repository测试
+- `test_user_auth_repositories.py` - 用户认证Repository测试
+
+**测试策略**: SQLite内存数据库，测试CRUD操作、查询条件、事务处理
+
+### test_services/ - 服务层单元测试 (Mock Repository)  
 - `test_member_service.py` - 会员服务功能测试
 - `test_point_service.py` - 积分服务功能测试
 - `test_benefit_service.py` - 权益服务功能测试
 - `test_inventory_service_simple.py` - 库存服务测试
+
+**测试策略**: Mock Repository依赖，隔离测试业务逻辑
 
 ### test_utils/ - 工具类单元测试
 - (待添加工具类测试文件)

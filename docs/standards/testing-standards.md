@@ -33,13 +33,14 @@
 
 ## 测试层级 (70%, 2%, 20%, 6%, 2%)
 
-### 单元测试 (70%)
-- test_models/: Mock测试
-- test_services/: SQLite内存
-- *_standalone.py: SQLite内存
+### 单元测试 (70%) - 四层架构
+- test_models/: 100% Mock测试，无数据库依赖
+- test_repositories/: SQLite内存数据库，测试数据访问层
+- test_services/: Mock Repository，测试业务逻辑层
+- *_standalone.py: SQLite内存，测试完整业务流程
 
 ### 烟雾测试 (2%)
-- tests/smoke/: SQLite文件
+- tests/smoke/: SQLite文件数据库
 
 ### 集成测试 (20%)
 - tests/integration/: MySQL Docker
@@ -50,16 +51,17 @@
 ### 专项测试 (2%)
 - 性能测试, 安全测试
 
-## 数据库策略
+## 数据库策略（四层架构）
 
-| 测试位置 | Mock | 数据库 | Fixture |
-|---------|------|--------|---------|
-| tests/unit/test_models/ | 100% | 无 | pytest-mock |
-| tests/unit/test_services/ | 0% | SQLite内存 | unit_test_db |
-| tests/unit/*_standalone.py | 0% | SQLite内存 | unit_test_db |
-| tests/smoke/ | 0% | SQLite文件 | smoke_test_db |
-| tests/integration/ | 0% | MySQL Docker | mysql_integration_db |
-| tests/e2e/ | 0% | MySQL Docker | mysql_e2e_db |
+| 测试位置 | Mock | 数据库 | Fixture | 架构层级 |
+|---------|------|--------|---------|----------|
+| tests/unit/test_models/ | 100% | 无 | pytest-mock | Model层 |
+| tests/unit/test_repositories/ | 0% | SQLite内存 | unit_test_db | Repository层 |
+| tests/unit/test_services/ | Mock Repo | 无 | pytest-mock | Service层 |
+| tests/unit/*_standalone.py | 0% | SQLite内存 | unit_test_db | 完整流程 |
+| tests/smoke/ | 0% | SQLite文件 | smoke_test_db | 系统级 |
+| tests/integration/ | 0% | MySQL Docker | mysql_integration_db | 系统级 |
+| tests/e2e/ | 0% | MySQL Docker | mysql_e2e_db | 系统级 |
 
 ## 测试实现示例
 
@@ -312,13 +314,15 @@ def test_mysql_json_field_operations(mysql_integration_db):
 > - 📁 **目录已创建**: 目录已创建但测试文件为空，待开发
 > - 📄 **文件已存在**: 具体的测试文件已创建
 
-### 统一目录结构
+### 统一目录结构（四层架构）
 ```text
 tests/
 ├── unit/                           # 单元测试 (70%) 📁
 │   ├── README.md                  # 单元测试说明文档 📄
-│   ├── test_models/               # Mock测试 - 纯业务逻辑 📁
-│   └── test_services/             # SQLite内存 - 数据交互 📁
+│   ├── test_models/               # Mock测试 - Model层，100% Mock 📁
+│   ├── test_repositories/         # SQLite内存 - Repository层，数据访问测试 📁
+│   ├── test_services/             # Mock Repository - Service层，业务逻辑测试 📁
+│   └── *_standalone.py            # SQLite内存 - 完整业务流程测试 �
 ├── smoke/                         # 烟雾测试 (2%) ✅
 │   ├── README.md                  # 烟雾测试说明文档 📄
 │   ├── test_health.py             # 健康检查 📄
@@ -346,11 +350,12 @@ tests/
 
 ### 测试文件分类执行规范
 
-| 测试分类 | 存放位置 | 数据库 | 执行命令 | 执行时机 | 时间要求 |
-|---------|---------|--------|---------|---------|----------|
-| **Mock单元测试** | `tests/unit/test_models/` | 无 | `pytest tests/unit/test_models/` | 代码提交前 | <30秒 |
-| **数据库单元测试** | `tests/unit/test_services/` | SQLite内存 | `pytest tests/unit/test_services/` | 代码提交前 | <1分钟 |
-| **业务流程测试** | `tests/unit/*_standalone.py` | SQLite内存 | `pytest tests/unit/*_standalone.py` | 代码提交前 | <2分钟 |
+| 测试分类 | 存放位置 | 数据库 | 执行命令 | 执行时机 | 时间要求 | 架构层级 |
+|---------|---------|--------|---------|---------|----------|----------|
+| **Mock单元测试** | `tests/unit/test_models/` | 无 | `pytest tests/unit/test_models/` | 代码提交前 | <30秒 | Model层 |
+| **Repository测试** | `tests/unit/test_repositories/` | SQLite内存 | `pytest tests/unit/test_repositories/` | 代码提交前 | <1分钟 | Repository层 |
+| **Service测试** | `tests/unit/test_services/` | Mock Repo | `pytest tests/unit/test_services/` | 代码提交前 | <1分钟 | Service层 |
+| **业务流程测试** | `tests/unit/*_standalone.py` | SQLite内存 | `pytest tests/unit/*_standalone.py` | 代码提交前 | <2分钟 | 完整流程 |
 | **烟雾测试** | `tests/smoke/` | SQLite文件 | `pytest tests/smoke/` | 部署后立即 | <30秒 |
 | **集成测试** | `tests/integration/` | MySQL Docker | `pytest tests/integration/` | 提交到主分支前 | <5分钟 |
 | **E2E测试** | `tests/e2e/` | MySQL Docker | `pytest tests/e2e/` | 发布前 | <10分钟 |

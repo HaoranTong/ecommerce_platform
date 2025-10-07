@@ -8,6 +8,7 @@ markers = [
     "e2e: End-to-end tests - 6% coverage (complete user workflow testing)",
     "performance: Performance tests - 2% coverage (load and stress testing)",
     "security: Security tests (authentication, authorization, input validation)",
+    "repositories: Repository layer tests (data access layer, SQLite in-memory database)",
     "services: Service layer tests (business logic and service integration)",
     "workflow: Business workflow tests (complete business process testing)",
     "standalone: Standalone module tests (independent module functionality)",

@@ -4726,6 +4726,15 @@ class Test{module_name.title().replace('_', '')}Service:
                         module_name = filename[5:-7]  # 移除 test_ 和 _models
                     else:
                         module_name = "unknown"
+                elif file_key.startswith("test_repositories/"):
+                    test_type = "unit"
+                    test_category = "repositories"
+                    # 从 test_repositories/test_user_auth_repositories 提取 user_auth
+                    filename = file_key.split("/")[-1]  # test_user_auth_repositories
+                    if filename.startswith("test_") and filename.endswith("_repositories"):
+                        module_name = filename[5:-13]  # 移除 test_ 和 _repositories
+                    else:
+                        module_name = "unknown"
                 elif file_key.startswith("test_services/"):
                     test_type = "unit"
                     test_category = "services"
@@ -4807,6 +4816,8 @@ class Test{module_name.title().replace('_', '')}Service:
         elif test_type == "unit":
             if test_category == "models":
                 return f"tests/unit/test_models/test_{module_name}_models.py"
+            elif test_category == "repositories":
+                return f"tests/unit/test_repositories/test_{module_name}_repositories.py"
             elif test_category == "services":
                 return f"tests/unit/test_services/test_{module_name}_services.py"
             elif test_category and test_category.strip():
