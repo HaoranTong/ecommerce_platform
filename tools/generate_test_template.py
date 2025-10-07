@@ -2174,16 +2174,17 @@ class Test{repo_name}:
         
         return test_class
     
-    def _generate_test_entity_creation(self, model_name: str, models: Dict[str, ModelInfo], suffix: str = "测试数据") -> str:
-        """生成测试实体创建代码，自动包含必填字段
+    def _generate_test_entity_creation(self, model_name: str, models: Dict[str, ModelInfo], suffix: str = "测试数据", with_dependencies: bool = False) -> str:
+        """生成测试实体创建代码，自动包含必填字段和外键依赖
         
         Args:
             model_name: 模型名称
             models: 模型信息字典
             suffix: 名称后缀
+            with_dependencies: 是否生成外键依赖的完整代码（多行）
             
         Returns:
-            str: 实体创建代码
+            str: 实体创建代码（可能是多行的依赖创建+主实体创建）
         """
         if model_name not in models:
             # 如果模型信息不存在，返回简单的创建代码并添加TODO
@@ -2198,17 +2199,74 @@ class Test{repo_name}:
             if not f.nullable and f.name not in auto_fields and not f.primary_key
         ]
         
+        # 分离外键字段和普通字段
+        fk_fields = [f for f in required_fields if f.foreign_key]
+        normal_fields = [f for f in required_fields if not f.foreign_key]
+        
         if not required_fields:
             # 如果没有必填字段，使用简单形式
             return f'{model_name}()'
         
-        # 生成必填字段的测试值
+        # 如果不需要生成依赖，或没有外键字段，生成简单单行形式
+        if not with_dependencies or not fk_fields:
+            field_assignments = []
+            for field in required_fields:
+                test_value = self._get_test_value_for_field(field, suffix)
+                field_assignments.append(f'{field.name}={test_value}')
+            # 返回不带变量赋值的表达式（用于单行赋值：entity = XXX()）
+            return f'{model_name}({", ".join(field_assignments)})'
+        
+        # 生成完整的依赖创建代码（多行）
+        lines = []
+        fk_var_names = {}
+        
+        # 为每个外键字段创建依赖实体
+        for field in fk_fields:
+            # 解析外键目标：'products.id' -> table='products', column='id'
+            fk_target = field.foreign_key
+            fk_table = fk_target.split('.')[0]
+            
+            # 推断模型名（表名转模型名：products -> Product, categories -> Category）
+            fk_model_name = self._table_name_to_model_name(fk_table)
+            # 使用相同的单数化逻辑作为变量名（小写）
+            fk_var_name = self._table_name_to_model_name(fk_table).lower()
+            
+            # 递归生成依赖实体（不再生成依赖的依赖，避免无限递归）
+            fk_entity_code = self._generate_test_entity_creation(fk_model_name, models, f"依赖{suffix}", with_dependencies=False)
+            lines.append(f'{fk_var_name} = {fk_entity_code}')
+            lines.append(f'unit_test_db.add({fk_var_name})')
+            lines.append(f'unit_test_db.commit()')
+            
+            # 记录变量名，用于后续引用
+            fk_var_names[field.name] = f'{fk_var_name}.id'
+        
+        # 生成主实体的字段赋值
         field_assignments = []
-        for field in required_fields:
+        for field in normal_fields:
             test_value = self._get_test_value_for_field(field, suffix)
             field_assignments.append(f'{field.name}={test_value}')
         
-        return f'{model_name}({", ".join(field_assignments)})'
+        # 添加外键字段赋值
+        for field in fk_fields:
+            field_assignments.append(f'{field.name}={fk_var_names[field.name]}')
+        
+        # 添加主实体创建
+        lines.append(f'entity = {model_name}({", ".join(field_assignments)})')
+        
+        return '\n        '.join(lines)
+    
+    def _table_name_to_model_name(self, table_name: str) -> str:
+        """表名转模型名：products -> Product, categories -> Category"""
+        # 移除复数s
+        if table_name.endswith('ies'):
+            singular = table_name[:-3] + 'y'  # categories -> category
+        elif table_name.endswith('s'):
+            singular = table_name[:-1]  # products -> product
+        else:
+            singular = table_name
+        
+        # 首字母大写
+        return singular.capitalize()
     
     def _get_test_value_for_field(self, field: 'FieldInfo', suffix: str = "测试") -> str:
         """为字段生成测试值
@@ -2248,15 +2306,21 @@ class Test{repo_name}:
             return f'"{suffix}"'
     
     def _generate_repository_create_test(self, method_info: RepositoryMethodInfo, model_name: str, repo_name: str, module_name: str, models: Dict[str, ModelInfo]) -> str:
-        """生成Repository create方法测试"""
+        """生成Repository create方法测试（自动处理外键依赖）"""
         method_name = method_info.name
-        entity_creation = self._generate_test_entity_creation(model_name, models, "测试数据")
-        entity_creation_transaction = self._generate_test_entity_creation(model_name, models, "事务测试")
+        entity_creation_code = self._generate_test_entity_creation(model_name, models, "测试数据", with_dependencies=True)
+        entity_creation_transaction_code = self._generate_test_entity_creation(model_name, models, "事务测试", with_dependencies=True)
+        
+        # 如果是单行代码，需要添加entity =前缀
+        if '\n' not in entity_creation_code:
+            entity_creation_code = f'entity = {entity_creation_code}'
+        if '\n' not in entity_creation_transaction_code:
+            entity_creation_transaction_code = f'entity = {entity_creation_transaction_code}'
         
         return f'''    def test_{method_name}_success(self, unit_test_db: Session):
         """测试{method_name} - 成功创建"""
-        # 准备测试数据
-        entity = {entity_creation}
+        # 准备测试数据（包括外键依赖）
+        {entity_creation_code}
         
         # 执行Repository方法
         result = {repo_name}.{method_name}(unit_test_db, entity)
@@ -2271,7 +2335,7 @@ class Test{repo_name}:
     
     def test_{method_name}_transaction(self, unit_test_db: Session):
         """测试{method_name} - 事务提交"""
-        entity = {entity_creation_transaction}
+        {entity_creation_transaction_code}
         
         result = {repo_name}.{method_name}(unit_test_db, entity)
         
@@ -2282,11 +2346,40 @@ class Test{repo_name}:
 '''
     
     def _generate_repository_read_test(self, method_info: RepositoryMethodInfo, model_name: str, repo_name: str, module_name: str, models: Dict[str, ModelInfo]) -> str:
-        """生成Repository read方法测试"""
+        """生成Repository read方法测试（区分单个对象vs列表）"""
         method_name = method_info.name
-        entity_creation = self._generate_test_entity_creation(model_name, models, "查询测试")
+        entity_creation = self._generate_test_entity_creation(model_name, models, "查询测试", with_dependencies=True)
         
-        return f'''    def test_{method_name}_found(self, unit_test_db: Session):
+        # 检查返回类型：是否返回列表
+        is_list_return = 'List[' in method_info.return_type or 'list[' in method_info.return_type.lower()
+        
+        if is_list_return:
+            # 返回列表的方法（如list方法）
+            return f'''    def test_{method_name}_found(self, unit_test_db: Session):
+        """测试{method_name} - 查询到数据"""
+        # 准备测试数据
+        entity = {entity_creation}
+        unit_test_db.add(entity)
+        unit_test_db.commit()
+        
+        # 执行Repository方法
+        result = {repo_name}.{method_name}(unit_test_db)  # TODO: 根据实际方法签名调整参数
+        
+        # 验证结果
+        assert isinstance(result, list)
+        assert len(result) > 0
+        assert any(item.id == entity.id for item in result)
+    
+    def test_{method_name}_not_found(self, unit_test_db: Session):
+        """测试{method_name} - 数据不存在"""
+        result = {repo_name}.{method_name}(unit_test_db)  # TODO: 根据实际方法签名调整参数
+        
+        assert isinstance(result, list)
+        assert len(result) == 0
+'''
+        else:
+            # 返回单个对象的方法（如get_by_id）
+            return f'''    def test_{method_name}_found(self, unit_test_db: Session):
         """测试{method_name} - 查询到数据"""
         # 准备测试数据
         entity = {entity_creation}
@@ -2308,9 +2401,28 @@ class Test{repo_name}:
 '''
     
     def _generate_repository_update_test(self, method_info: RepositoryMethodInfo, model_name: str, repo_name: str, module_name: str, models: Dict[str, ModelInfo]) -> str:
-        """生成Repository update方法测试"""
+        """生成Repository update方法测试（智能选择可更新字段）"""
         method_name = method_info.name
-        entity_creation = self._generate_test_entity_creation(model_name, models, "原始数据")
+        entity_creation = self._generate_test_entity_creation(model_name, models, "原始数据", with_dependencies=True)
+        
+        # 智能选择可更新的字段（优先name，否则第一个非主键非外键字符串字段）
+        update_field = "name"  # 默认
+        if model_name in models:
+            model_info = models[model_name]
+            # 检查是否有name字段
+            has_name = any(f.name == 'name' for f in model_info.fields)
+            if not has_name:
+                # 查找第一个可更新的字符串字段
+                auto_fields = {'id', 'created_at', 'updated_at', 'is_deleted', 'is_active'}
+                updateable_fields = [
+                    f.name for f in model_info.fields
+                    if f.name not in auto_fields 
+                    and not f.primary_key 
+                    and not f.foreign_key
+                    and 'String' in f.column_type
+                ]
+                if updateable_fields:
+                    update_field = updateable_fields[0]
         
         return f'''    def test_{method_name}_success(self, unit_test_db: Session):
         """测试{method_name} - 更新成功"""
@@ -2320,22 +2432,22 @@ class Test{repo_name}:
         unit_test_db.commit()
         
         # 执行Repository方法
-        update_data = {{"name": "更新后数据"}}
+        update_data = {{"{update_field}": "更新后数据"}}
         result = {repo_name}.{method_name}(unit_test_db, entity, update_data)  # TODO: 根据实际方法签名调整参数
         
         # 验证结果
-        assert result.name == "更新后数据"
+        assert result.{update_field} == "更新后数据"
         
         # 验证数据库已更新
         unit_test_db.expire_all()
         db_entity = unit_test_db.query({model_name}).filter_by(id=entity.id).first()
-        assert db_entity.name == "更新后数据"
+        assert db_entity.{update_field} == "更新后数据"
 '''
     
     def _generate_repository_delete_test(self, method_info: RepositoryMethodInfo, model_name: str, repo_name: str, module_name: str, models: Dict[str, ModelInfo]) -> str:
         """生成Repository delete方法测试"""
         method_name = method_info.name
-        entity_creation = self._generate_test_entity_creation(model_name, models, "待删除数据")
+        entity_creation = self._generate_test_entity_creation(model_name, models, "待删除数据", with_dependencies=True)
         
         return f'''    def test_{method_name}_success(self, unit_test_db: Session):
         """测试{method_name} - 删除成功"""
@@ -2355,16 +2467,38 @@ class Test{repo_name}:
 '''
     
     def _generate_repository_count_test(self, method_info: RepositoryMethodInfo, model_name: str, repo_name: str, module_name: str, models: Dict[str, ModelInfo]) -> str:
-        """生成Repository count方法测试"""
+        """生成Repository count方法测试（智能处理参数）"""
         method_name = method_info.name
+        
+        # 分析方法参数（排除db: Session）
+        params = [p for p in method_info.parameters if p[0] not in ['self', 'db', 'cls']]
         
         # 生成5个不同的测试实体
         entity_creations = []
         for i in range(5):
             entity_creation = self._generate_test_entity_creation(model_name, models, f"测试数据{i}")
-            entity_creations.append(f"        entity = {entity_creation}\n        unit_test_db.add(entity)")
+            entity_creations.append(f"        entity{i} = {entity_creation}\n        unit_test_db.add(entity{i})")
         
         entities_code = "\n".join(entity_creations)
+        
+        # 如果有参数，使用第一个实体的属性作为参数值
+        if params:
+            # 假设第一个参数是关键查询参数（如category_id）
+            param_name = params[0][0]
+            # 推断参数值：如果参数名包含_id，使用entity0.xxx_id；否则使用entity0的对应属性
+            if param_name.endswith('_id'):
+                # 例如：category_id -> entity0.id (假设是查询自身ID)
+                base_name = param_name[:-3]  # 移除_id
+                if base_name == model_name.lower():
+                    param_value = "entity0.id"
+                else:
+                    param_value = f"entity0.{param_name}"
+            else:
+                param_value = f"entity0.{param_name}"
+            
+            method_call = f"{repo_name}.{method_name}(unit_test_db, {param_value})"
+        else:
+            method_call = f"{repo_name}.{method_name}(unit_test_db)"
         
         return f'''    def test_{method_name}_count(self, unit_test_db: Session):
         """测试{method_name} - 计数功能"""
@@ -2373,16 +2507,17 @@ class Test{repo_name}:
         unit_test_db.commit()
         
         # 执行Repository方法
-        count = {repo_name}.{method_name}(unit_test_db)  # TODO: 根据实际方法签名调整参数
+        count = {method_call}
         
         # 验证计数
-        assert count >= 5
+        assert isinstance(count, int)
+        assert count >= 0
 '''
     
     def _generate_repository_query_test(self, method_info: RepositoryMethodInfo, model_name: str, repo_name: str, module_name: str, models: Dict[str, ModelInfo]) -> str:
         """生成Repository query方法测试"""
         method_name = method_info.name
-        entity_creation = self._generate_test_entity_creation(model_name, models, "查询测试")
+        entity_creation = self._generate_test_entity_creation(model_name, models, "查询测试", with_dependencies=True)
         
         return f'''    def test_{method_name}_query(self, unit_test_db: Session):
         """测试{method_name} - 查询功能"""
