@@ -2,7 +2,7 @@
 Auto Generated Test - 已生成到正式目录
 
 文件路径: tests/performance/test_user_auth_performance.py
-生成时间: 2025-10-07 03:03:04
+生成时间: 2025-10-07 22:33:31
 生成工具: tools/generate_test_template.py v2.0
 状态: GENERATED - 需要经过代码审查和测试验证
 
@@ -196,11 +196,15 @@ class TestUserAuthConcurrency:
         headers = {"Authorization": f"Bearer {token}"}
         concurrent_writes = 20  # 模拟20个并发写操作
         
+        # 导入Faker用于动态生成测试数据
+        from faker import Faker
+        fake = Faker()
+        
         async def write_request(request_id):
-            # 使用生成的测试数据模板
+            # 使用Faker动态生成测试数据
             test_data = {
-                "real_name": f"perf_test_user_{request_id}",
-                "phone": f"1800000{request_id:04d}"
+                "real_name": fake.name()[:50],
+                "phone": f"1{fake.random_int(min=300000000, max=999999999)}"
             }
             
             start_time = time.time()
@@ -259,6 +263,10 @@ class TestUserAuthConcurrency:
         token, admin_user = await async_api_client.authenticate_as_admin()
         headers = {"Authorization": f"Bearer {token}"}
         
+        # 导入Faker用于动态生成测试数据
+        from faker import Faker
+        fake = Faker()
+        
         # 模拟真实场景：70%读操作，30%写操作
         read_tasks = 35
         write_tasks = 15
@@ -272,11 +280,10 @@ class TestUserAuthConcurrency:
                 return {"type": "read", "success": False, "error": str(e)}
         
         async def write_operation():
-            # 使用生成的测试数据模板（添加时间戳确保唯一性）
-            request_id = int(__import__('time').time() * 1000) % 10000  # 生成唯一ID
+            # 使用Faker动态生成测试数据（确保唯一性）
             test_data = {
-                "real_name": f"perf_test_user_{request_id}",
-                "phone": f"1800000{request_id:04d}"
+                "real_name": fake.name()[:50],
+                "phone": f"1{fake.random_int(min=300000000, max=999999999)}"
             }
             try:
                 # 使用确定的HTTP方法
@@ -392,18 +399,23 @@ class TestUserAuthLoadTest:
         headers = {"Authorization": f"Bearer {token}"}
         peak_concurrent_users = 100  # 峰值并发用户数
         
+        # 导入Faker用于动态生成测试数据
+        from faker import Faker
+        fake = Faker()
+        
         async def user_session():
             """模拟单个用户会话"""
             try:
-                request_id = int(__import__('time').time() * 1000) % 10000  # 生成唯一ID
+                # 使用Faker动态生成测试数据
+                test_data = {
+                    "real_name": fake.name()[:50],
+                "phone": f"1{fake.random_int(min=300000000, max=999999999)}"
+                }
                 # 用户典型操作序列
                 operations = [
                     ("GET", "/api/v1/user-auth/me"),  # 获取当前用户信息
                     ("GET", "/api/v1/user-auth/users"),  # 用户列表
-                    ("PUT", "/api/v1/user-auth/me", {
-                "real_name": f"perf_test_user_{request_id}",
-                "phone": f"1800000{request_id:04d}"
-            }),  # 更新用户信息
+                    ("PUT", "/api/v1/user-auth/me", test_data),  # 更新用户信息
                 ]
                 
                 session_success = True

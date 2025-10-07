@@ -2270,6 +2270,41 @@ class Test{repo_name}:
         # 首字母大写
         return singular.capitalize()
     
+    def _has_composite_primary_key(self, model_name: str, models: Dict[str, ModelInfo]) -> bool:
+        """检查模型是否使用联合主键（多个primary_key字段）"""
+        if model_name not in models:
+            return False
+        model_info = models[model_name]
+        primary_key_count = sum(1 for f in model_info.fields if f.primary_key)
+        return primary_key_count > 1
+    
+    def _get_primary_key_fields(self, model_name: str, models: Dict[str, ModelInfo]) -> List['FieldInfo']:
+        """获取模型的主键字段列表"""
+        if model_name not in models:
+            return []
+        model_info = models[model_name]
+        return [f for f in model_info.fields if f.primary_key]
+    
+    def _infer_query_parameter(self, method_name: str, model_name: str, models: Dict[str, ModelInfo]) -> str:
+        """推断自定义查询方法需要的参数
+        
+        根据方法名推断应该使用哪个字段作为查询参数：
+        - get_by_username -> entity.username
+        - get_by_email -> entity.email
+        - get_by_name -> entity.name
+        - check_exists -> username=entity.username, email=entity.email
+        """
+        # 提取方法名中的字段名
+        if method_name.startswith('get_by_'):
+            field_name = method_name[7:]  # 移除'get_by_'
+            return f'entity.{field_name}'
+        elif method_name == 'check_exists':
+            # check_exists通常接受多个可选参数
+            return 'username=entity.username, email=entity.email'
+        else:
+            # 默认使用id（如果有的话）
+            return 'entity.id'
+    
     def _get_test_value_for_field(self, field: 'FieldInfo', suffix: str = "测试") -> str:
         """为字段生成测试值
         
@@ -2315,7 +2350,7 @@ class Test{repo_name}:
             return f'"{suffix}"'
     
     def _generate_repository_create_test(self, method_info: RepositoryMethodInfo, model_name: str, repo_name: str, module_name: str, models: Dict[str, ModelInfo]) -> str:
-        """生成Repository create方法测试（自动处理外键依赖）"""
+        """生成Repository create方法测试（自动处理外键依赖和联合主键）"""
         method_name = method_info.name
         entity_creation_code = self._generate_test_entity_creation(model_name, models, "测试数据", with_dependencies=True)
         entity_creation_transaction_code = self._generate_test_entity_creation(model_name, models, "事务测试", with_dependencies=True)
@@ -2326,7 +2361,44 @@ class Test{repo_name}:
         if '\n' not in entity_creation_transaction_code:
             entity_creation_transaction_code = f'entity = {entity_creation_transaction_code}'
         
-        return f'''    def test_{method_name}_success(self, unit_test_db: Session):
+        # 🔥 检查是否使用联合主键
+        has_composite_pk = self._has_composite_primary_key(model_name, models)
+        
+        if has_composite_pk:
+            # 联合主键：使用主键字段组合查询
+            pk_fields = self._get_primary_key_fields(model_name, models)
+            pk_filter = ', '.join([f'{f.name}=result.{f.name}' for f in pk_fields])
+            
+            return f'''    def test_{method_name}_success(self, unit_test_db: Session):
+        """测试{method_name} - 成功创建"""
+        # 准备测试数据（包括外键依赖）
+        {entity_creation_code}
+        
+        # 执行Repository方法
+        result = {repo_name}.{method_name}(unit_test_db, entity)
+        
+        # 验证结果
+        assert result is not None
+        # 联合主键模型没有单独的id字段
+        
+        # 验证数据已持久化（使用联合主键查询）
+        db_entity = unit_test_db.query({model_name}).filter_by({pk_filter}).first()
+        assert db_entity is not None
+    
+    def test_{method_name}_transaction(self, unit_test_db: Session):
+        """测试{method_name} - 事务提交"""
+        {entity_creation_transaction_code}
+        
+        result = {repo_name}.{method_name}(unit_test_db, entity)
+        
+        # 验证事务已提交（可以在新会话中查询到）
+        unit_test_db.expire_all()
+        db_entity = unit_test_db.query({model_name}).filter_by({pk_filter}).first()
+        assert db_entity is not None
+'''
+        else:
+            # 标准单主键：使用id查询
+            return f'''    def test_{method_name}_success(self, unit_test_db: Session):
         """测试{method_name} - 成功创建"""
         # 准备测试数据（包括外键依赖）
         {entity_creation_code}
@@ -2355,16 +2427,90 @@ class Test{repo_name}:
 '''
     
     def _generate_repository_read_test(self, method_info: RepositoryMethodInfo, model_name: str, repo_name: str, module_name: str, models: Dict[str, ModelInfo]) -> str:
-        """生成Repository read方法测试（区分单个对象vs列表）"""
+        """生成Repository read方法测试（智能处理返回类型和参数）"""
         method_name = method_info.name
         entity_creation = self._generate_test_entity_creation(model_name, models, "查询测试", with_dependencies=True)
         
-        # 检查返回类型：是否返回列表
+        # 检查返回类型
         is_list_return = 'List[' in method_info.return_type or 'list[' in method_info.return_type.lower()
+        is_bool_return = method_info.return_type == 'bool'
         
-        if is_list_return:
+        # 🔥 智能推断查询参数
+        query_param = self._infer_query_parameter(method_name, model_name, models)
+        has_composite_pk = self._has_composite_primary_key(model_name, models)
+        
+        if is_bool_return:
+            # 返回bool的方法（如check_exists）
+            if method_name == 'check_exists':
+                return f'''    def test_{method_name}_found(self, unit_test_db: Session):
+        """测试{method_name} - 查询到数据"""
+        # 准备测试数据
+        entity = {entity_creation}
+        unit_test_db.add(entity)
+        unit_test_db.commit()
+        
+        # 执行Repository方法
+        result = {repo_name}.{method_name}(unit_test_db, {query_param})
+        
+        # 验证结果
+        assert result is True
+    
+    def test_{method_name}_not_found(self, unit_test_db: Session):
+        """测试{method_name} - 数据不存在"""
+        result = {repo_name}.{method_name}(unit_test_db, username="nonexistent", email="nonexistent@test.com")
+        
+        assert result is False
+'''
+            else:
+                return f'''    def test_{method_name}_found(self, unit_test_db: Session):
+        """测试{method_name} - 查询到数据"""
+        # 准备测试数据
+        entity = {entity_creation}
+        unit_test_db.add(entity)
+        unit_test_db.commit()
+        
+        # 执行Repository方法
+        result = {repo_name}.{method_name}(unit_test_db, {query_param})
+        
+        # 验证结果
+        assert result is True
+    
+    def test_{method_name}_not_found(self, unit_test_db: Session):
+        """测试{method_name} - 数据不存在"""
+        result = {repo_name}.{method_name}(unit_test_db)  # TODO: 根据实际方法签名调整参数
+        
+        assert result is False
+'''
+        elif is_list_return:
             # 返回列表的方法（如list方法）
-            return f'''    def test_{method_name}_found(self, unit_test_db: Session):
+            # 联合主键的验证逻辑
+            if has_composite_pk:
+                pk_fields = self._get_primary_key_fields(model_name, models)
+                pk_check = ' and '.join([f'item.{f.name} == entity.{f.name}' for f in pk_fields])
+                return f'''    def test_{method_name}_found(self, unit_test_db: Session):
+        """测试{method_name} - 查询到数据"""
+        # 准备测试数据
+        entity = {entity_creation}
+        unit_test_db.add(entity)
+        unit_test_db.commit()
+        
+        # 执行Repository方法
+        result = {repo_name}.{method_name}(unit_test_db)  # TODO: 根据实际方法签名调整参数
+        
+        # 验证结果
+        assert isinstance(result, list)
+        assert len(result) > 0
+        assert any({pk_check} for item in result)
+    
+    def test_{method_name}_not_found(self, unit_test_db: Session):
+        """测试{method_name} - 数据不存在"""
+        result = {repo_name}.{method_name}(unit_test_db)  # TODO: 根据实际方法签名调整参数
+        
+        assert isinstance(result, list)
+        assert len(result) == 0
+'''
+            else:
+                return f'''    def test_{method_name}_found(self, unit_test_db: Session):
         """测试{method_name} - 查询到数据"""
         # 准备测试数据
         entity = {entity_creation}
@@ -2387,7 +2533,7 @@ class Test{repo_name}:
         assert len(result) == 0
 '''
         else:
-            # 返回单个对象的方法（如get_by_id）
+            # 返回单个对象的方法（如get_by_id, get_by_username）
             return f'''    def test_{method_name}_found(self, unit_test_db: Session):
         """测试{method_name} - 查询到数据"""
         # 准备测试数据
@@ -2396,21 +2542,21 @@ class Test{repo_name}:
         unit_test_db.commit()
         
         # 执行Repository方法
-        result = {repo_name}.{method_name}(unit_test_db, entity.id)  # TODO: 根据实际方法签名调整参数
+        result = {repo_name}.{method_name}(unit_test_db, {query_param})
         
         # 验证结果
         assert result is not None
-        assert result.id == entity.id
+        assert result.{query_param.split('.')[-1]} == entity.{query_param.split('.')[-1]}
     
     def test_{method_name}_not_found(self, unit_test_db: Session):
         """测试{method_name} - 数据不存在"""
-        result = {repo_name}.{method_name}(unit_test_db, 99999)
+        result = {repo_name}.{method_name}(unit_test_db, "nonexistent_value_12345")
         
         assert result is None
 '''
     
     def _generate_repository_update_test(self, method_info: RepositoryMethodInfo, model_name: str, repo_name: str, module_name: str, models: Dict[str, ModelInfo]) -> str:
-        """生成Repository update方法测试（智能选择可更新字段）"""
+        """生成Repository update方法测试（智能选择可更新字段，处理联合主键）"""
         method_name = method_info.name
         entity_creation = self._generate_test_entity_creation(model_name, models, "原始数据", with_dependencies=True)
         
@@ -2433,7 +2579,36 @@ class Test{repo_name}:
                 if updateable_fields:
                     update_field = updateable_fields[0]
         
-        return f'''    def test_{method_name}_success(self, unit_test_db: Session):
+        # 🔥 检查是否使用联合主键
+        has_composite_pk = self._has_composite_primary_key(model_name, models)
+        
+        if has_composite_pk:
+            # 联合主键：使用主键字段组合查询
+            pk_fields = self._get_primary_key_fields(model_name, models)
+            pk_filter = ', '.join([f'{f.name}=entity.{f.name}' for f in pk_fields])
+            
+            return f'''    def test_{method_name}_success(self, unit_test_db: Session):
+        """测试{method_name} - 更新成功"""
+        # 准备测试数据
+        entity = {entity_creation}
+        unit_test_db.add(entity)
+        unit_test_db.commit()
+        
+        # 执行Repository方法
+        update_data = {{"{update_field}": "更新后数据"}}
+        result = {repo_name}.{method_name}(unit_test_db, entity, update_data)  # TODO: 根据实际方法签名调整参数
+        
+        # 验证结果
+        assert result.{update_field} == "更新后数据"
+        
+        # 验证数据库已更新（使用联合主键查询）
+        unit_test_db.expire_all()
+        db_entity = unit_test_db.query({model_name}).filter_by({pk_filter}).first()
+        assert db_entity.{update_field} == "更新后数据"
+'''
+        else:
+            # 标准单主键
+            return f'''    def test_{method_name}_success(self, unit_test_db: Session):
         """测试{method_name} - 更新成功"""
         # 准备测试数据
         entity = {entity_creation}
@@ -2454,11 +2629,38 @@ class Test{repo_name}:
 '''
     
     def _generate_repository_delete_test(self, method_info: RepositoryMethodInfo, model_name: str, repo_name: str, module_name: str, models: Dict[str, ModelInfo]) -> str:
-        """生成Repository delete方法测试"""
+        """生成Repository delete方法测试（处理联合主键）"""
         method_name = method_info.name
         entity_creation = self._generate_test_entity_creation(model_name, models, "待删除数据", with_dependencies=True)
         
-        return f'''    def test_{method_name}_success(self, unit_test_db: Session):
+        # 🔥 检查是否使用联合主键
+        has_composite_pk = self._has_composite_primary_key(model_name, models)
+        
+        if has_composite_pk:
+            # 联合主键：保存主键值用于后续查询
+            pk_fields = self._get_primary_key_fields(model_name, models)
+            pk_saves = '\n        '.join([f'{f.name}_val = entity.{f.name}' for f in pk_fields])
+            pk_filter = ', '.join([f'{f.name}={f.name}_val' for f in pk_fields])
+            
+            return f'''    def test_{method_name}_success(self, unit_test_db: Session):
+        """测试{method_name} - 删除成功"""
+        # 准备测试数据
+        entity = {entity_creation}
+        unit_test_db.add(entity)
+        unit_test_db.commit()
+        {pk_saves}
+        
+        # 执行Repository方法
+        {repo_name}.{method_name}(unit_test_db, entity)  # TODO: 根据实际方法签名调整参数
+        
+        # 验证软删除（根据实际情况调整）
+        unit_test_db.expire_all()
+        db_entity = unit_test_db.query({model_name}).filter_by({pk_filter}).first()
+        # TODO: 验证 is_deleted 或 is_active 字段
+'''
+        else:
+            # 标准单主键
+            return f'''    def test_{method_name}_success(self, unit_test_db: Session):
         """测试{method_name} - 删除成功"""
         # 准备测试数据
         entity = {entity_creation}
