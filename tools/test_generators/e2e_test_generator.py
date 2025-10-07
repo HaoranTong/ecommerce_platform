@@ -110,7 +110,8 @@ class {class_name}:
         
         assert token is not None
         assert user is not None
-        print(f"✅ 用户认证成功: {{user.get('username', 'unknown')}}")
+        username = user.username if hasattr(user, 'username') else str(user)
+        print(f"✅ 用户认证成功: {{username}}")
         
 {workflow_steps}
         
@@ -220,7 +221,16 @@ class {class_name}:
         # 步骤4: 更新数据（如果有item_id）
         if put_routes and post_routes:
             route = put_routes[0]
-            steps.append(f'''
+            # 提取路径参数名（如 {brand_id}, {product_id}）
+            import re
+            path_params = re.findall(r'\{(\w+)\}', route.path)
+            
+            if path_params:
+                # 如果路径有参数，生成带路径参数替换的代码
+                param_name = path_params[0]
+                # 将路径中的参数占位符替换为Python f-string格式
+                path_with_param = route.path.replace('{' + param_name + '}', '{item_id}')
+                steps.append(f'''
         # 步骤4: 更新数据
         if item_id:
             print("\\n✏️ 步骤4: 更新数据...")
@@ -229,12 +239,29 @@ class {class_name}:
                 "description": fake.text(max_nb_chars=100)
             }}
             
-            update_path = f"/api/v1{route.path}".replace("{{", "{{{{").replace("}}", "}}}}")
-            if "{{" in update_path:
-                update_path = update_path.format(item_id)
+            # 使用item_id替换路径参数
+            response = await async_api_client.put(
+                f"/api/v1{path_with_param}",
+                json=update_data,
+                headers=headers
+            )
+            
+            if response.status_code == 200:
+                print("✅ 数据更新成功")
+''')
+            else:
+                # 如果没有路径参数，直接使用路径
+                steps.append(f'''
+        # 步骤4: 更新数据
+        if item_id:
+            print("\\n✏️ 步骤4: 更新数据...")
+            update_data = {{
+                "name": fake.name()[:50] + "_updated",
+                "description": fake.text(max_nb_chars=100)
+            }}
             
             response = await async_api_client.put(
-                update_path,
+                f"/api/v1{route.path}",
                 json=update_data,
                 headers=headers
             )
@@ -246,16 +273,34 @@ class {class_name}:
         # 步骤5: 删除数据（如果有item_id）
         if delete_routes and post_routes:
             route = delete_routes[0]
-            steps.append(f'''
+            # 提取路径参数名
+            import re
+            path_params = re.findall(r'\{(\w+)\}', route.path)
+            
+            if path_params:
+                param_name = path_params[0]
+                # 将路径中的参数占位符替换为Python f-string格式
+                path_with_param = route.path.replace('{' + param_name + '}', '{item_id}')
+                steps.append(f'''
         # 步骤5: 删除数据
         if item_id:
             print("\\n🗑️ 步骤5: 删除数据...")
-            delete_path = f"/api/v1{route.path}".replace("{{", "{{{{").replace("}}", "}}}}")
-            if "{{" in delete_path:
-                delete_path = delete_path.format(item_id)
-            
+            # 使用item_id替换路径参数
             response = await async_api_client.delete(
-                delete_path,
+                f"/api/v1{path_with_param}",
+                headers=headers
+            )
+            
+            assert response.status_code in [200, 204, 404], f"删除失败: {{response.status_code}}"
+            print("✅ 数据删除成功")
+''')
+            else:
+                steps.append(f'''
+        # 步骤5: 删除数据
+        if item_id:
+            print("\\n🗑️ 步骤5: 删除数据...")
+            response = await async_api_client.delete(
+                f"/api/v1{route.path}",
                 headers=headers
             )
             
@@ -282,12 +327,14 @@ class {class_name}:
         pass
 '''
         
-        return '''
+        # 使用第一个POST端点的路径
+        route = post_routes[0]
+        return f'''
         # 创建测试数据
-        test_data = {"name": fake.name()[:50]}
+        test_data = {{"name": fake.name()[:50]}}
         
         response = await async_api_client.post(
-            f"/api/v1/{api_path}/",
+            f"/api/v1{route.path}",
             json=test_data,
             headers=headers
         )
@@ -296,7 +343,7 @@ class {class_name}:
         if response.status_code in [200, 201]:
             print("✅ 依赖数据创建成功")
         else:
-            print(f"⚠️ 依赖数据创建失败: {response.status_code}")
+            print(f"⚠️ 依赖数据创建失败: {{response.status_code}}")
 '''
     
     def _generate_error_workflow_test(self, module_name: str, routes: List[RouterInfo], api_path: str) -> str:

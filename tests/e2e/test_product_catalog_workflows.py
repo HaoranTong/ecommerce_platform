@@ -2,7 +2,7 @@
 Auto Generated Test - 已生成到正式目录
 
 文件路径: tests/e2e/test_product_catalog_workflows.py
-生成时间: 2025-10-07 21:21:34
+生成时间: 2025-10-07 21:31:34
 生成工具: tools/generate_test_template.py v2.0
 状态: GENERATED - 需要经过代码审查和测试验证
 
@@ -50,7 +50,8 @@ class TestProductCatalogE2EWorkflow:
         
         assert token is not None
         assert user is not None
-        print(f"✅ 用户认证成功: {user.get('username', 'unknown')}")
+        username = user.username if hasattr(user, 'username') else str(user)
+        print(f"✅ 用户认证成功: {username}")
         
 
         # 步骤2: 创建数据
@@ -96,12 +97,9 @@ class TestProductCatalogE2EWorkflow:
                 "description": fake.text(max_nb_chars=100)
             }
             
-            update_path = f"/api/v1/product-catalog/brands/{brand_id}".replace("{", "{{").replace("}", "}}")
-            if "{" in update_path:
-                update_path = update_path.format(item_id)
-            
+            # 使用item_id替换路径参数
             response = await async_api_client.put(
-                update_path,
+                f"/api/v1/product-catalog/brands/{item_id}",
                 json=update_data,
                 headers=headers
             )
@@ -112,12 +110,9 @@ class TestProductCatalogE2EWorkflow:
         # 步骤5: 删除数据
         if item_id:
             print("\n🗑️ 步骤5: 删除数据...")
-            delete_path = f"/api/v1/product-catalog/brands/{brand_id}".replace("{", "{{").replace("}", "}}")
-            if "{" in delete_path:
-                delete_path = delete_path.format(item_id)
-            
+            # 使用item_id替换路径参数
             response = await async_api_client.delete(
-                delete_path,
+                f"/api/v1/product-catalog/brands/{item_id}",
                 headers=headers
             )
             
@@ -169,7 +164,7 @@ class TestProductCatalogE2EWorkflow:
         test_data = {"name": fake.name()[:50]}
         
         response = await async_api_client.post(
-            f"/api/v1/{api_path}/",
+            f"/api/v1/product-catalog/categories",
             json=test_data,
             headers=headers
         )
