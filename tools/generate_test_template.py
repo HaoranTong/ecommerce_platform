@@ -2313,54 +2313,155 @@ class Test{repo_name}:
         model_info = models[model_name]
         return [f for f in model_info.fields if f.primary_key]
     
-    def _infer_query_parameter(self, method_name: str, model_name: str, models: Dict[str, ModelInfo]) -> tuple[str, bool]:
-        """推断自定义查询方法需要的参数
+    def _infer_query_parameter(self, method_info: 'RepositoryMethodInfo', model_name: str, models: Dict[str, ModelInfo]) -> tuple[str, str, bool]:
+        """推断自定义查询方法需要的参数（通用化改进版）
         
-        根据方法名推断应该使用哪个字段作为查询参数：
+        通过分析方法签名自动推断参数：
         - get_by_username -> entity.username
-        - get_by_email -> entity.email
-        - get_by_name -> entity.name
-        - check_exists -> username=entity.username, email=entity.email
+        - get_user_roles(user_id: int) -> 需要创建User，传入user.id
+        - get_role_users(role_id: int) -> 需要创建Role，传入role.id
         - get (联合主键) -> 需要所有主键字段
         
+        Args:
+            method_info: 方法信息（包含参数签名）
+            model_name: 模型名称
+            models: 所有模型信息
+            
         Returns:
-            tuple: (参数字符串, 是否需要TODO注释)
+            tuple: (准备代码, 参数字符串, 是否需要TODO注释)
+                - setup_code: 创建依赖实体的代码（如创建User）
+                - param_str: 调用方法时的参数字符串（如user.id）
+                - needs_todo: 是否需要TODO注释
         """
+        method_name = method_info.name
+        
+        # 🔥 提取方法参数（排除self, db, cls）
+        method_params = [p for p in method_info.parameters if p[0] not in ['self', 'db', 'cls']]
+        
         # 特殊处理联合主键的get方法
         if method_name == 'get' and self._has_composite_primary_key(model_name, models):
             pk_fields = self._get_primary_key_fields(model_name, models)
             param_str = ', '.join([f'entity.{f.name}' for f in pk_fields])
-            return (param_str, False)
+            return ('', param_str, False)
         
         # 特殊处理联合主键的delete方法
         if method_name == 'delete' and self._has_composite_primary_key(model_name, models):
             pk_fields = self._get_primary_key_fields(model_name, models)
             param_str = ', '.join([f'entity.{f.name}' for f in pk_fields])
-            return (param_str, False)
+            return ('', param_str, False)
         
-        # 提取方法名中的字段名
+        # 🔥 智能推断：分析方法参数，自动生成依赖实体
+        if method_params:
+            setup_code_lines = []
+            param_parts = []
+            
+            for param_name, param_type in method_params:
+                # 推断参数对应的实体类型
+                # user_id: int -> User
+                # role_id: int -> Role
+                # permission_id: int -> Permission
+                entity_name = self._infer_entity_from_param(param_name, param_type, models)
+                
+                if entity_name and entity_name in models:
+                    # 生成创建实体的代码
+                    var_name = entity_name.lower()
+                    entity_creation = self._generate_test_entity_creation(entity_name, models, f"{entity_name}数据", with_dependencies=True)
+                    setup_code_lines.append(f"{var_name} = {entity_creation}")
+                    setup_code_lines.append(f"unit_test_db.add({var_name})")
+                    setup_code_lines.append(f"unit_test_db.commit()")
+                    setup_code_lines.append("")
+                    
+                    # 参数使用实体的ID
+                    if param_name.endswith('_id'):
+                        param_parts.append(f"{var_name}.id")
+                    else:
+                        param_parts.append(f"{var_name}")
+                else:
+                    # 无法推断实体，尝试从方法名推断字段
+                    # get_by_username(username: str) -> entity.username
+                    # get_by_email(email: str) -> entity.email
+                    if method_name.startswith('get_by_') and param_type == 'str':
+                        field_name = method_name[7:]  # 移除'get_by_'
+                        if '_or_' in field_name:
+                            field_name = field_name.split('_or_')[0]  # 使用第一个字段
+                        param_parts.append(f'entity.{field_name}')
+                    elif param_type == 'int':
+                        param_parts.append('1')
+                    elif param_type == 'str':
+                        param_parts.append('"test_value"')
+                    elif param_type == 'bool':
+                        param_parts.append('True')
+                    else:
+                        # 复杂类型，需要TODO
+                        return ('', '', True)
+            
+            setup_code = '\n        '.join(setup_code_lines) if setup_code_lines else ''
+            param_str = ', '.join(param_parts)
+            return (setup_code, param_str, False)
+        
+        # 提取方法名中的字段名（兼容老逻辑）
         if method_name.startswith('get_by_'):
             field_part = method_name[7:]  # 移除'get_by_'
             # 特殊处理复合查询（如username_or_email）
             if '_or_' in field_part:
                 # 使用第一个字段
                 field_name = field_part.split('_or_')[0]
-                return (f'entity.{field_name}', False)
+                return ('', f'entity.{field_name}', False)
             else:
-                return (f'entity.{field_part}', False)
+                return ('', f'entity.{field_part}', False)
         elif method_name == 'check_exists':
             # check_exists通常接受多个可选参数
-            return ('username=entity.username, email=entity.email', False)
-        elif method_name in ['get_user_roles', 'get_role_users', 'get_role_permissions', 'get_user_permissions']:
-            # 这些方法需要特定ID参数，需要TODO
-            return ('', True)
+            return ('', 'username=entity.username, email=entity.email', False)
         else:
             # 默认使用id（如果有的话）
             has_composite_pk = self._has_composite_primary_key(model_name, models)
             if has_composite_pk:
                 # 联合主键模型需要TODO
-                return ('', True)
-            return ('entity.id', False)
+                return ('', '', True)
+            return ('', 'entity.id', False)
+    
+    def _infer_entity_from_param(self, param_name: str, param_type: str, models: Dict[str, ModelInfo]) -> Optional[str]:
+        """从参数名推断对应的实体类型（通用化推断）
+        
+        推断规则：
+        - user_id -> User
+        - role_id -> Role
+        - permission_id -> Permission
+        - category_id -> Category
+        - product_id -> Product
+        
+        Args:
+            param_name: 参数名（如user_id）
+            param_type: 参数类型（如int）
+            models: 所有模型信息
+            
+        Returns:
+            str: 实体名称（如User），如果无法推断返回None
+        """
+        # 参数必须是int类型的ID
+        if param_type != 'int':
+            return None
+        
+        # 参数名必须以_id结尾
+        if not param_name.endswith('_id'):
+            return None
+        
+        # 提取实体名：user_id -> user -> User
+        entity_base = param_name[:-3]  # 移除'_id'
+        
+        # 尝试各种命名变体
+        candidates = [
+            entity_base.title(),  # user -> User
+            entity_base.capitalize(),  # user -> User
+            entity_base.upper(),  # user -> USER
+            ''.join(word.capitalize() for word in entity_base.split('_'))  # user_role -> UserRole
+        ]
+        
+        for candidate in candidates:
+            if candidate in models:
+                return candidate
+        
+        return None
     
     def _get_test_value_for_field(self, field: 'FieldInfo', suffix: str = "测试") -> str:
         """为字段生成测试值
@@ -2499,7 +2600,7 @@ class Test{repo_name}:
         is_bool_return = method_info.return_type == 'bool'
         
         # 🔥 智能推断查询参数
-        query_param, needs_todo = self._infer_query_parameter(method_name, model_name, models)
+        setup_code, query_param, needs_todo = self._infer_query_parameter(method_info, model_name, models)
         has_composite_pk = self._has_composite_primary_key(model_name, models)
         
         if is_bool_return:
@@ -2545,9 +2646,43 @@ class Test{repo_name}:
         assert result is False
 '''
         elif is_list_return:
-            # 返回列表的方法（如list方法）
+            # 返回列表的方法（如list方法、get_user_roles等）
+            
+            # 🔥 如果有setup_code，说明需要创建依赖实体
+            if setup_code:
+                # 方法需要额外的参数实体（如user_id需要User）
+                # 对于关联查询（如get_user_roles），需要创建完整的关联链
+                entity_creation_with_deps = self._generate_test_entity_creation(model_name, models, "关联数据", with_dependencies=True)
+                return f'''    def test_{method_name}_found(self, unit_test_db: Session):
+        """测试{method_name} - 查询到数据"""
+        # 准备依赖实体和关联数据
+        {setup_code}
+        # 准备关联数据（如UserRole关联User和Role）
+        entity = {entity_creation_with_deps}
+        unit_test_db.add(entity)
+        unit_test_db.commit()
+        
+        # 执行Repository方法
+        result = {repo_name}.{method_name}(unit_test_db, {query_param})
+        
+        # 验证结果
+        assert isinstance(result, list)
+        assert len(result) > 0
+
+    def test_{method_name}_not_found(self, unit_test_db: Session):
+        """测试{method_name} - 数据不存在"""
+        # 准备依赖实体（但不创建关联数据）
+        {setup_code}
+        # 执行Repository方法
+        result = {repo_name}.{method_name}(unit_test_db, {query_param})
+        
+        # 验证结果
+        assert isinstance(result, list)
+        assert len(result) == 0
+'''
+            
             # 联合主键的验证逻辑
-            if has_composite_pk:
+            elif has_composite_pk:
                 pk_fields = self._get_primary_key_fields(model_name, models)
                 pk_check = ' and '.join([f'item.{f.name} == entity.{f.name}' for f in pk_fields])
                 return f'''    def test_{method_name}_found(self, unit_test_db: Session):
@@ -2597,7 +2732,35 @@ class Test{repo_name}:
 '''
         else:
             # 返回单个对象的方法（如get_by_id, get_by_username）
-            if needs_todo or not query_param:
+            
+            # 🔥 如果有setup_code，说明需要创建依赖实体
+            if setup_code:
+                return f'''    def test_{method_name}_found(self, unit_test_db: Session):
+        """测试{method_name} - 查询到数据"""
+        # 准备依赖实体
+        {setup_code}
+        # 准备测试数据
+        entity = {entity_creation}
+        unit_test_db.add(entity)
+        unit_test_db.commit()
+        
+        # 执行Repository方法
+        result = {repo_name}.{method_name}(unit_test_db, {query_param})
+        
+        # 验证结果
+        assert result is not None
+
+    def test_{method_name}_not_found(self, unit_test_db: Session):
+        """测试{method_name} - 数据不存在"""
+        # 准备依赖实体（但不创建关联数据）
+        {setup_code}
+        # 执行Repository方法（使用不存在的ID）
+        result = {repo_name}.{method_name}(unit_test_db, 99999)
+        
+        # 验证结果
+        assert result is None
+'''
+            elif needs_todo or not query_param:
                 # 需要手动调整参数的方法
                 return f'''    def test_{method_name}_found(self, unit_test_db: Session):
         """测试{method_name} - 查询到数据"""
