@@ -428,18 +428,23 @@ class BaseTestGenerator(ABC):
             return f"{resource.title()}Create"
         return "CreateSchema"
     
-    def _extract_schema_fields(self, schema_class) -> Dict[str, Any]:
-        """提取Pydantic Schema的字段信息"""
+    def _extract_schema_fields(self, schema_class) -> Dict[str, Dict[str, Any]]:
+        """提取Pydantic Schema的字段信息（返回类型元信息而非默认值）"""
         try:
             # 获取模型字段
             model_fields = schema_class.model_fields if hasattr(schema_class, 'model_fields') else {}
             
-            test_data = {}
+            fields_info = {}
             for field_name, field_info in model_fields.items():
-                value = self._generate_field_value(field_name, field_info)
-                test_data[field_name] = value
+                # 提取字段的类型信息而非生成测试值
+                fields_info[field_name] = {
+                    'type': field_info.annotation,  # 类型注解 (如 Optional[int], str, bool)
+                    'default': field_info.default if hasattr(field_info, 'default') else None,
+                    'required': field_info.is_required() if hasattr(field_info, 'is_required') else True,
+                    'field_name': field_name
+                }
             
-            return test_data
+            return fields_info
             
         except Exception as e:
             print(f"⚠️ 字段提取失败: {e}")

@@ -2,7 +2,7 @@
 Auto Generated Test - 已生成到正式目录
 
 文件路径: tests/integration/test_api/test_product_catalog_api.py
-生成时间: 2025-10-07 11:54:33
+生成时间: 2025-10-07 20:58:23
 生成工具: tools/generate_test_template.py v2.0
 状态: GENERATED - 需要经过代码审查和测试验证
 
@@ -41,11 +41,11 @@ class TestProductCatalogPostAPI:
         fake = Faker()
         test_data = {
     "name": fake.name()[:50],
-    "parent_id": fake.text(max_nb_chars=50),
-    "sort_order": fake.random_int(min=1, max=999999),
-    "is_active": fake.random_int(min=1, max=999999),
+    "parent_id": None,
+    "sort_order": fake.random_int(min=0, max=100),
+    "is_active": True,
     "description": fake.text(max_nb_chars=50),
-    "meta_data": fake.text(max_nb_chars=50)
+    "meta_data": None
 }
         
         # 发送请求
@@ -88,7 +88,7 @@ class TestProductCatalogPostAPI:
     "description": fake.text(max_nb_chars=50),
     "logo_url": fake.text(max_nb_chars=50),
     "website_url": fake.text(max_nb_chars=50),
-    "is_active": fake.random_int(min=1, max=999999)
+    "is_active": True
 }
         
         # 发送请求
@@ -128,13 +128,13 @@ class TestProductCatalogPostAPI:
         test_data = {
     "name": fake.name()[:50],
     "description": fake.text(max_nb_chars=50),
-    "brand_id": fake.text(max_nb_chars=50),
-    "category_id": fake.text(max_nb_chars=50),
-    "status": fake.random_int(min=1, max=999999),
+    "brand_id": None,
+    "category_id": None,
+    "status": "published",
     "seo_title": fake.text(max_nb_chars=50),
     "seo_description": fake.text(max_nb_chars=50),
     "seo_keywords": fake.text(max_nb_chars=50),
-    "sort_order": fake.random_int(min=1, max=999999)
+    "sort_order": fake.random_int(min=0, max=100)
 }
         
         # 发送请求
@@ -161,7 +161,7 @@ class TestProductCatalogPostAPI:
 
 
 
-    def test_create_sku(self, api_client):
+    def test_create_sku(self, api_client, mysql_integration_db):
         """测试创建SKU - 使用统一工厂和真实JWT认证"""
         
         # 使用新的JWT认证方式创建用户并获取token
@@ -169,19 +169,23 @@ class TestProductCatalogPostAPI:
         api_client.set_auth_headers(access_token)
         
         
-                # 动态生成测试数据，避免硬编码
+                # 创建product实体用于外键关联
+        from tests.factories.product_catalog_factories import ProductFactory, ProductCatalogFactoryManager
+        ProductCatalogFactoryManager.setup_factories(mysql_integration_db)
+        test_product = ProductFactory.create()
+        # 动态生成测试数据，避免硬编码
         fake = Faker()
         test_data = {
     "sku_code": fake.numerify("######"),
     "name": fake.name()[:50],
-    "price": fake.random_int(min=1, max=999999),
-    "cost_price": fake.text(max_nb_chars=50),
-    "market_price": fake.text(max_nb_chars=50),
-    "weight": fake.text(max_nb_chars=50),
-    "volume": fake.text(max_nb_chars=50),
-    "is_active": fake.random_int(min=1, max=999999),
-    "product_id": fake.random_int(min=1, max=999999),
-    "attributes": fake.text(max_nb_chars=50)
+    "price": round(fake.random.uniform(10.0, 999.99), 2),
+    "cost_price": round(fake.random.uniform(10.0, 999.99), 2),
+    "market_price": round(fake.random.uniform(10.0, 999.99), 2),
+    "weight": round(fake.random.uniform(0.1, 10.0), 2),
+    "volume": round(fake.random.uniform(0.01, 1.0), 3),
+    "is_active": True,
+    "product_id": test_product.id,
+    "attributes": None
 }
         
         # 发送请求
@@ -283,7 +287,7 @@ class TestProductCatalogGetAPI:
 
 
 
-    def test_get_brand(self, api_client):
+    def test_get_brand(self, api_client, mysql_integration_db):
         """测试获取品牌详情 - 使用统一工厂和真实JWT认证"""
         
         # 使用新的JWT认证方式创建用户并获取token
@@ -297,8 +301,13 @@ class TestProductCatalogGetAPI:
 }
         
         # 发送请求
+        
+        # 先创建brand实体用于测试
+        from tests.factories.product_catalog_factories import BrandFactory, ProductCatalogFactoryManager
+        ProductCatalogFactoryManager.setup_factories(mysql_integration_db)
+        test_brand = BrandFactory.create()
         response = api_client.get(
-            "/api/v1/product-catalog/brands/{brand_id}",
+            f"/api/v1/product-catalog/brands/{test_brand.id}",
             params=query_params
         )
         
@@ -355,7 +364,7 @@ class TestProductCatalogGetAPI:
 
 
 
-    def test_get_product(self, api_client):
+    def test_get_product(self, api_client, mysql_integration_db):
         """测试获取商品详情 - 使用统一工厂和真实JWT认证"""
         
         # 使用新的JWT认证方式创建用户并获取token
@@ -369,8 +378,13 @@ class TestProductCatalogGetAPI:
 }
         
         # 发送请求
+        
+        # 先创建product实体用于测试
+        from tests.factories.product_catalog_factories import ProductFactory, ProductCatalogFactoryManager
+        ProductCatalogFactoryManager.setup_factories(mysql_integration_db)
+        test_product = ProductFactory.create()
         response = api_client.get(
-            "/api/v1/product-catalog/products/{product_id}",
+            f"/api/v1/product-catalog/products/{test_product.id}",
             params=query_params
         )
         
@@ -427,7 +441,7 @@ class TestProductCatalogGetAPI:
 
 
 
-    def test_get_sku(self, api_client):
+    def test_get_sku(self, api_client, mysql_integration_db):
         """测试get_sku - 使用统一工厂和真实JWT认证"""
         
         # 使用新的JWT认证方式创建用户并获取token
@@ -441,8 +455,13 @@ class TestProductCatalogGetAPI:
 }
         
         # 发送请求
+        
+        # 先创建sku实体用于测试
+        from tests.factories.product_catalog_factories import SKUFactory, ProductCatalogFactoryManager
+        ProductCatalogFactoryManager.setup_factories(mysql_integration_db)
+        test_sku = SKUFactory.create()
         response = api_client.get(
-            "/api/v1/product-catalog/skus/{sku_id}",
+            f"/api/v1/product-catalog/skus/{test_sku.id}",
             params=query_params
         )
         
@@ -469,7 +488,7 @@ class TestProductCatalogPutAPI:
     """商品管理模块PUT方法API测试"""
     
 
-    def test_update_brand(self, api_client):
+    def test_update_brand(self, api_client, mysql_integration_db):
         """测试更新品牌信息 - 使用统一工厂和真实JWT认证"""
         
         # 使用新的JWT认证方式创建用户并获取token
@@ -478,12 +497,17 @@ class TestProductCatalogPutAPI:
         
         
         test_data = {
-    "data": "establish"
+    "data": "available"
 }
         
         # 发送请求
+        
+        # 先创建brand实体用于测试
+        from tests.factories.product_catalog_factories import BrandFactory, ProductCatalogFactoryManager
+        ProductCatalogFactoryManager.setup_factories(mysql_integration_db)
+        test_brand = BrandFactory.create()
         response = api_client.put(
-            "/api/v1/product-catalog/brands/{brand_id}",
+            f"/api/v1/product-catalog/brands/{test_brand.id}",
             json=test_data
         )
         
@@ -505,7 +529,7 @@ class TestProductCatalogPutAPI:
 
 
 
-    def test_update_product(self, api_client):
+    def test_update_product(self, api_client, mysql_integration_db):
         """测试更新商品信息 - 使用统一工厂和真实JWT认证"""
         
         # 使用新的JWT认证方式创建用户并获取token
@@ -514,12 +538,17 @@ class TestProductCatalogPutAPI:
         
         
         test_data = {
-    "data": "increase"
+    "data": "everybody"
 }
         
         # 发送请求
+        
+        # 先创建product实体用于测试
+        from tests.factories.product_catalog_factories import ProductFactory, ProductCatalogFactoryManager
+        ProductCatalogFactoryManager.setup_factories(mysql_integration_db)
+        test_product = ProductFactory.create()
         response = api_client.put(
-            "/api/v1/product-catalog/products/{product_id}",
+            f"/api/v1/product-catalog/products/{test_product.id}",
             json=test_data
         )
         
@@ -541,7 +570,7 @@ class TestProductCatalogPutAPI:
 
 
 
-    def test_update_sku(self, api_client):
+    def test_update_sku(self, api_client, mysql_integration_db):
         """测试update_sku - 使用统一工厂和真实JWT认证"""
         
         # 使用新的JWT认证方式创建用户并获取token
@@ -550,12 +579,17 @@ class TestProductCatalogPutAPI:
         
         
         test_data = {
-    "data": "another"
+    "data": "sea"
 }
         
         # 发送请求
+        
+        # 先创建sku实体用于测试
+        from tests.factories.product_catalog_factories import SKUFactory, ProductCatalogFactoryManager
+        ProductCatalogFactoryManager.setup_factories(mysql_integration_db)
+        test_sku = SKUFactory.create()
         response = api_client.put(
-            "/api/v1/product-catalog/skus/{sku_id}",
+            f"/api/v1/product-catalog/skus/{test_sku.id}",
             json=test_data
         )
         
@@ -582,7 +616,7 @@ class TestProductCatalogDeleteAPI:
     """商品管理模块DELETE方法API测试"""
     
 
-    def test_delete_brand(self, api_client):
+    def test_delete_brand(self, api_client, mysql_integration_db):
         """测试删除品牌 - 使用统一工厂和真实JWT认证"""
         
         # 使用新的JWT认证方式创建用户并获取token
@@ -596,27 +630,24 @@ class TestProductCatalogDeleteAPI:
 }
         
         # 发送请求
+        
+        # 先创建brand实体用于测试
+        from tests.factories.product_catalog_factories import BrandFactory, ProductCatalogFactoryManager
+        ProductCatalogFactoryManager.setup_factories(mysql_integration_db)
+        test_brand = BrandFactory.create()
         response = api_client.delete(
-            "/api/v1/product-catalog/brands/{brand_id}"
+            f"/api/v1/product-catalog/brands/{test_brand.id}"
         )
         
         # 验证响应
         assert response.status_code == status.HTTP_204_NO_CONTENT
-        
-        # 验证响应数据存在
-        response_data = response.json()
-        assert response_data is not None
-        
-        # 验证关键字段（根据操作类型）
-        # 验证基本响应结构
-        assert response_data is not None
         
         # 验证响应时间 (API标准要求<2s)
         assert response.elapsed.total_seconds() < 2.0
 
 
 
-    def test_delete_product(self, api_client):
+    def test_delete_product(self, api_client, mysql_integration_db):
         """测试删除商品 - 使用统一工厂和真实JWT认证"""
         
         # 使用新的JWT认证方式创建用户并获取token
@@ -630,27 +661,24 @@ class TestProductCatalogDeleteAPI:
 }
         
         # 发送请求
+        
+        # 先创建product实体用于测试
+        from tests.factories.product_catalog_factories import ProductFactory, ProductCatalogFactoryManager
+        ProductCatalogFactoryManager.setup_factories(mysql_integration_db)
+        test_product = ProductFactory.create()
         response = api_client.delete(
-            "/api/v1/product-catalog/products/{product_id}"
+            f"/api/v1/product-catalog/products/{test_product.id}"
         )
         
         # 验证响应
         assert response.status_code == status.HTTP_204_NO_CONTENT
-        
-        # 验证响应数据存在
-        response_data = response.json()
-        assert response_data is not None
-        
-        # 验证关键字段（根据操作类型）
-        # 验证基本响应结构
-        assert response_data is not None
         
         # 验证响应时间 (API标准要求<2s)
         assert response.elapsed.total_seconds() < 2.0
 
 
 
-    def test_delete_sku(self, api_client):
+    def test_delete_sku(self, api_client, mysql_integration_db):
         """测试delete_sku - 使用统一工厂和真实JWT认证"""
         
         # 使用新的JWT认证方式创建用户并获取token
@@ -664,20 +692,17 @@ class TestProductCatalogDeleteAPI:
 }
         
         # 发送请求
+        
+        # 先创建sku实体用于测试
+        from tests.factories.product_catalog_factories import SKUFactory, ProductCatalogFactoryManager
+        ProductCatalogFactoryManager.setup_factories(mysql_integration_db)
+        test_sku = SKUFactory.create()
         response = api_client.delete(
-            "/api/v1/product-catalog/skus/{sku_id}"
+            f"/api/v1/product-catalog/skus/{test_sku.id}"
         )
         
         # 验证响应
         assert response.status_code == status.HTTP_204_NO_CONTENT
-        
-        # 验证响应数据存在
-        response_data = response.json()
-        assert response_data is not None
-        
-        # 验证关键字段（根据操作类型）
-        # 验证基本响应结构
-        assert response_data is not None
         
         # 验证响应时间 (API标准要求<2s)
         assert response.elapsed.total_seconds() < 2.0
@@ -690,7 +715,7 @@ class TestProductCatalogAPIIntegration:
     """商品管理模块API集成测试 - 测试完整业务流程"""
     
     def test_product_catalog_workflow(self, api_client):
-        """测试product_catalog模块完整流程：update -> read -> create"""
+        """测试product_catalog模块完整流程：read -> update -> create"""
         
         # 通过动态schema分析生成测试数据
         # 基于路由分析自动生成工作流测试

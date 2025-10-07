@@ -164,12 +164,14 @@ async def create_product(
     return ProductService.create_product(
         db,
         name=payload.name,
-        sku=payload.sku if hasattr(payload, 'sku') else None,
-        price=payload.price if hasattr(payload, 'price') else None,
-        category_id=payload.category_id,
         description=payload.description,
-        stock_quantity=getattr(payload, 'stock_quantity', 0),
-        image_url=getattr(payload, 'image_url', None)
+        brand_id=payload.brand_id,
+        category_id=payload.category_id,
+        status=payload.status,
+        seo_title=payload.seo_title,
+        seo_description=payload.seo_description,
+        seo_keywords=payload.seo_keywords,
+        sort_order=payload.sort_order,
     )
 
 

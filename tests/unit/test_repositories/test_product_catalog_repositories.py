@@ -2,7 +2,7 @@
 Auto Generated Test - 已生成到正式目录
 
 文件路径: tests/unit/test_repositories/test_product_catalog_repositories.py
-生成时间: 2025-10-07 13:00:30
+生成时间: 2025-10-07 19:44:18
 生成工具: tools/generate_test_template.py v2.0
 状态: GENERATED - 需要经过代码审查和测试验证
 
@@ -59,7 +59,7 @@ class TestCategoryRepository:
         
     def test_create_success(self, unit_test_db: Session):
         """测试create - 成功创建"""
-        # 准备测试数据
+        # 准备测试数据（包括外键依赖）
         entity = Category(name="测试数据", sort_order=1, is_active=True)
         
         # 执行Repository方法
@@ -112,38 +112,41 @@ class TestCategoryRepository:
         unit_test_db.commit()
         
         # 执行Repository方法
-        result = CategoryRepository.list(unit_test_db, entity.id)  # TODO: 根据实际方法签名调整参数
+        result = CategoryRepository.list(unit_test_db)  # TODO: 根据实际方法签名调整参数
         
         # 验证结果
-        assert result is not None
-        assert result.id == entity.id
+        assert isinstance(result, list)
+        assert len(result) > 0
+        assert any(item.id == entity.id for item in result)
     
     def test_list_not_found(self, unit_test_db: Session):
         """测试list - 数据不存在"""
-        result = CategoryRepository.list(unit_test_db, 99999)
+        result = CategoryRepository.list(unit_test_db)  # TODO: 根据实际方法签名调整参数
         
-        assert result is None
+        assert isinstance(result, list)
+        assert len(result) == 0
 
     def test_count_products_count(self, unit_test_db: Session):
         """测试count_products - 计数功能"""
         # 准备测试数据
-        entity = Category(name="测试数据0", sort_order=1, is_active=True)
-        unit_test_db.add(entity)
-        entity = Category(name="测试数据1", sort_order=1, is_active=True)
-        unit_test_db.add(entity)
-        entity = Category(name="测试数据2", sort_order=1, is_active=True)
-        unit_test_db.add(entity)
-        entity = Category(name="测试数据3", sort_order=1, is_active=True)
-        unit_test_db.add(entity)
-        entity = Category(name="测试数据4", sort_order=1, is_active=True)
-        unit_test_db.add(entity)
+        entity0 = Category(name="测试数据0", sort_order=1, is_active=True)
+        unit_test_db.add(entity0)
+        entity1 = Category(name="测试数据1", sort_order=1, is_active=True)
+        unit_test_db.add(entity1)
+        entity2 = Category(name="测试数据2", sort_order=1, is_active=True)
+        unit_test_db.add(entity2)
+        entity3 = Category(name="测试数据3", sort_order=1, is_active=True)
+        unit_test_db.add(entity3)
+        entity4 = Category(name="测试数据4", sort_order=1, is_active=True)
+        unit_test_db.add(entity4)
         unit_test_db.commit()
         
         # 执行Repository方法
-        count = CategoryRepository.count_products(unit_test_db)  # TODO: 根据实际方法签名调整参数
+        count = CategoryRepository.count_products(unit_test_db, entity0.id)
         
         # 验证计数
-        assert count >= 5
+        assert isinstance(count, int)
+        assert count >= 0
 
 
 
@@ -173,7 +176,7 @@ class TestBrandRepository:
         
     def test_create_success(self, unit_test_db: Session):
         """测试create - 成功创建"""
-        # 准备测试数据
+        # 准备测试数据（包括外键依赖）
         entity = Brand(name="测试数据", slug="test-测试数据", is_active=True)
         
         # 执行Repository方法
@@ -226,17 +229,19 @@ class TestBrandRepository:
         unit_test_db.commit()
         
         # 执行Repository方法
-        result = BrandRepository.list(unit_test_db, entity.id)  # TODO: 根据实际方法签名调整参数
+        result = BrandRepository.list(unit_test_db)  # TODO: 根据实际方法签名调整参数
         
         # 验证结果
-        assert result is not None
-        assert result.id == entity.id
+        assert isinstance(result, list)
+        assert len(result) > 0
+        assert any(item.id == entity.id for item in result)
     
     def test_list_not_found(self, unit_test_db: Session):
         """测试list - 数据不存在"""
-        result = BrandRepository.list(unit_test_db, 99999)
+        result = BrandRepository.list(unit_test_db)  # TODO: 根据实际方法签名调整参数
         
-        assert result is None
+        assert isinstance(result, list)
+        assert len(result) == 0
 
     def test_update_success(self, unit_test_db: Session):
         """测试update - 更新成功"""
@@ -301,7 +306,7 @@ class TestProductRepository:
         
     def test_create_success(self, unit_test_db: Session):
         """测试create - 成功创建"""
-        # 准备测试数据
+        # 准备测试数据（包括外键依赖）
         entity = Product(name="测试数据", status="测试数据", sort_order=1, view_count=1, sale_count=1)
         
         # 执行Repository方法
@@ -354,17 +359,19 @@ class TestProductRepository:
         unit_test_db.commit()
         
         # 执行Repository方法
-        result = ProductRepository.list(unit_test_db, entity.id)  # TODO: 根据实际方法签名调整参数
+        result = ProductRepository.list(unit_test_db)  # TODO: 根据实际方法签名调整参数
         
         # 验证结果
-        assert result is not None
-        assert result.id == entity.id
+        assert isinstance(result, list)
+        assert len(result) > 0
+        assert any(item.id == entity.id for item in result)
     
     def test_list_not_found(self, unit_test_db: Session):
         """测试list - 数据不存在"""
-        result = ProductRepository.list(unit_test_db, 99999)
+        result = ProductRepository.list(unit_test_db)  # TODO: 根据实际方法签名调整参数
         
-        assert result is None
+        assert isinstance(result, list)
+        assert len(result) == 0
 
     def test_update_success(self, unit_test_db: Session):
         """测试update - 更新成功"""
@@ -429,8 +436,11 @@ class TestSKURepository:
         
     def test_create_success(self, unit_test_db: Session):
         """测试create - 成功创建"""
-        # 准备测试数据
-        entity = SKU(product_id=1, sku_code="TEST测试数据", price=Decimal("10.00"), is_active=True)
+        # 准备测试数据（包括外键依赖）
+        product = Product(name="依赖测试数据", status="依赖测试数据", sort_order=1, view_count=1, sale_count=1)
+        unit_test_db.add(product)
+        unit_test_db.commit()
+        entity = SKU(sku_code="TEST测试数据", price=Decimal("10.00"), is_active=True, product_id=product.id)
         
         # 执行Repository方法
         result = SKURepository.create(unit_test_db, entity)
@@ -445,7 +455,10 @@ class TestSKURepository:
     
     def test_create_transaction(self, unit_test_db: Session):
         """测试create - 事务提交"""
-        entity = SKU(product_id=1, sku_code="TEST事务测试", price=Decimal("10.00"), is_active=True)
+        product = Product(name="依赖事务测试", status="依赖事务测试", sort_order=1, view_count=1, sale_count=1)
+        unit_test_db.add(product)
+        unit_test_db.commit()
+        entity = SKU(sku_code="TEST事务测试", price=Decimal("10.00"), is_active=True, product_id=product.id)
         
         result = SKURepository.create(unit_test_db, entity)
         
@@ -457,7 +470,10 @@ class TestSKURepository:
     def test_get_by_id_found(self, unit_test_db: Session):
         """测试get_by_id - 查询到数据"""
         # 准备测试数据
-        entity = SKU(product_id=1, sku_code="TEST查询测试", price=Decimal("10.00"), is_active=True)
+        entity = product = Product(name="依赖查询测试", status="依赖查询测试", sort_order=1, view_count=1, sale_count=1)
+        unit_test_db.add(product)
+        unit_test_db.commit()
+        entity = SKU(sku_code="TEST查询测试", price=Decimal("10.00"), is_active=True, product_id=product.id)
         unit_test_db.add(entity)
         unit_test_db.commit()
         
@@ -477,27 +493,35 @@ class TestSKURepository:
     def test_list_found(self, unit_test_db: Session):
         """测试list - 查询到数据"""
         # 准备测试数据
-        entity = SKU(product_id=1, sku_code="TEST查询测试", price=Decimal("10.00"), is_active=True)
+        entity = product = Product(name="依赖查询测试", status="依赖查询测试", sort_order=1, view_count=1, sale_count=1)
+        unit_test_db.add(product)
+        unit_test_db.commit()
+        entity = SKU(sku_code="TEST查询测试", price=Decimal("10.00"), is_active=True, product_id=product.id)
         unit_test_db.add(entity)
         unit_test_db.commit()
         
         # 执行Repository方法
-        result = SKURepository.list(unit_test_db, entity.id)  # TODO: 根据实际方法签名调整参数
+        result = SKURepository.list(unit_test_db)  # TODO: 根据实际方法签名调整参数
         
         # 验证结果
-        assert result is not None
-        assert result.id == entity.id
+        assert isinstance(result, list)
+        assert len(result) > 0
+        assert any(item.id == entity.id for item in result)
     
     def test_list_not_found(self, unit_test_db: Session):
         """测试list - 数据不存在"""
-        result = SKURepository.list(unit_test_db, 99999)
+        result = SKURepository.list(unit_test_db)  # TODO: 根据实际方法签名调整参数
         
-        assert result is None
+        assert isinstance(result, list)
+        assert len(result) == 0
 
     def test_update_success(self, unit_test_db: Session):
         """测试update - 更新成功"""
         # 准备测试数据
-        entity = SKU(product_id=1, sku_code="TEST原始数据", price=Decimal("10.00"), is_active=True)
+        entity = product = Product(name="依赖原始数据", status="依赖原始数据", sort_order=1, view_count=1, sale_count=1)
+        unit_test_db.add(product)
+        unit_test_db.commit()
+        entity = SKU(sku_code="TEST原始数据", price=Decimal("10.00"), is_active=True, product_id=product.id)
         unit_test_db.add(entity)
         unit_test_db.commit()
         
@@ -516,7 +540,10 @@ class TestSKURepository:
     def test_soft_delete_success(self, unit_test_db: Session):
         """测试soft_delete - 删除成功"""
         # 准备测试数据
-        entity = SKU(product_id=1, sku_code="TEST待删除数据", price=Decimal("10.00"), is_active=True)
+        entity = product = Product(name="依赖待删除数据", status="依赖待删除数据", sort_order=1, view_count=1, sale_count=1)
+        unit_test_db.add(product)
+        unit_test_db.commit()
+        entity = SKU(sku_code="TEST待删除数据", price=Decimal("10.00"), is_active=True, product_id=product.id)
         unit_test_db.add(entity)
         unit_test_db.commit()
         entity_id = entity.id

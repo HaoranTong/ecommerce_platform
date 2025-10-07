@@ -2,7 +2,7 @@
 Auto Generated Test - 已生成到正式目录
 
 文件路径: tests/factories/product_catalog_factories.py
-生成时间: 2025-10-07 12:05:52
+生成时间: 2025-10-07 20:58:23
 生成工具: tools/generate_test_template.py v2.0
 状态: GENERATED - 需要经过代码审查和测试验证
 
@@ -152,7 +152,7 @@ class SKUFactory(factory.alchemy.SQLAlchemyModelFactory):
         sqlalchemy_get_or_create = ("name",) if hasattr(SKU, "name") else None
 
     product = factory.SubFactory(ProductFactory)
-    sku_code = factory.Sequence(lambda n: f'SKU_CODE_{{n:06d}}')
+    sku_code = factory.Sequence(lambda n: f'SKU_CODE_{n:06d}')
     name = factory.Sequence(lambda n: f'name_{n}')
     price = factory.LazyAttribute(lambda obj: Decimal('99.99'))
     cost_price = factory.LazyAttribute(lambda obj: Decimal('99.99'))

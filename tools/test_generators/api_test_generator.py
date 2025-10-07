@@ -147,8 +147,14 @@ class {class_name}:
         # 检测是否需要已存在用户数据
         needs_existing_user = self._requires_existing_user_data(route)
         
+        # 检测是否需要创建外键实体（需要数据库session）
+        needs_foreign_key_entities = self._needs_foreign_key_entities(route, models)
+        
+        # 检测路径参数是否需要创建实体（GET/PUT/DELETE操作）
+        needs_path_param_entities = self._needs_path_param_entities(route)
+        
         # 根据数据依赖选择fixture参数
-        fixture_params = "api_client, mysql_integration_db" if needs_existing_user else "api_client"
+        fixture_params = "api_client, mysql_integration_db" if (needs_existing_user or needs_foreign_key_entities or needs_path_param_entities) else "api_client"
         
         # 分析API依赖关系 - 使用工厂模式如果需要已存在用户
         dependency_setup = self._generate_dependency_setup(route, use_factory=needs_existing_user)
@@ -257,49 +263,184 @@ class {class_name}:
             # 传统模式：依赖JWT认证fixture处理认证
             return ""
     
+    def _generate_foreign_key_entities(self, schema_data: Dict[str, Dict[str, Any]], module_name: str, method: str) -> str:
+        """检测外键字段并生成关联实体创建代码"""
+        if method not in ['POST', 'PUT', 'PATCH']:
+            return ""
+        
+        foreign_key_setup = []
+        
+        for field_name, field_info in schema_data.items():
+            # 检测外键字段模式（通常以_id结尾且是整数类型）
+            if field_name.endswith('_id') and field_name not in ['user_id']:
+                # 获取字段类型
+                field_type = field_info.get('type') if isinstance(field_info, dict) else None
+                is_required = field_info.get('required', True) if isinstance(field_info, dict) else True
+                
+                # 只为必填的外键创建实体（可选外键保持None）
+                if is_required:
+                    # 推断关联实体名称（去掉_id后缀）
+                    entity_name = field_name.replace('_id', '')
+                    
+                    # 转换为PascalCase的Factory名称
+                    factory_name = self._to_factory_name(entity_name, module_name)
+                    
+                    if factory_name:
+                        # 生成实体创建代码（通过Manager统一设置session）
+                        entity_var = f"test_{entity_name}"
+                        # 将module_name转换为PascalCase (如 product_catalog -> ProductCatalog)
+                        manager_name = ''.join(word.capitalize() for word in module_name.split('_')) + 'FactoryManager'
+                        foreign_key_setup.append(
+                            f"        # 创建{entity_name}实体用于外键关联\n"
+                            f"        from tests.factories.{module_name}_factories import {factory_name}, {manager_name}\n"
+                            f"        {manager_name}.setup_factories(mysql_integration_db)\n"
+                            f"        {entity_var} = {factory_name}.create()"
+                        )
+        
+        if foreign_key_setup:
+            return '\n'.join(foreign_key_setup)
+        return ""
+    
+    def _to_factory_name(self, entity_name: str, module_name: str) -> str:
+        """将实体名称转换为Factory类名"""
+        # 将snake_case转换为PascalCase
+        parts = entity_name.split('_')
+        pascal_name = ''.join(word.capitalize() for word in parts)
+        
+        # 特殊处理：sku -> SKU (全大写缩写)
+        if pascal_name.lower() == 'sku':
+            pascal_name = 'SKU'
+        
+        return f"{pascal_name}Factory"
+    
     def _convert_to_dynamic_code(self, field: str, value: Any) -> str:
-        """将值转换为动态生成代码，避免硬编码"""
-        # 如果是字符串，检查是否是特定类型
-        if isinstance(value, str):
-            # 电话号码 - 生成中国手机号格式
+        """将字段信息转换为动态生成代码（基于类型注解而非值）"""
+        import typing
+        from typing_extensions import Literal, get_origin, get_args
+        
+        # 获取字段类型信息
+        if isinstance(value, dict) and 'type' in value:
+            field_type = value['type']
+            field_name_lower = field.lower()
+            field_default = value.get('default')
+            
+            # 检查Literal类型
+            if hasattr(field_type, '__origin__'):
+                origin = get_origin(field_type) if hasattr(typing, 'get_origin') else getattr(field_type, '__origin__', None)
+                
+                # 处理Literal类型
+                if origin is Literal or (hasattr(typing, 'Literal') and origin is getattr(typing, 'Literal', None)):
+                    literal_values = get_args(field_type) if hasattr(typing, 'get_args') else getattr(field_type, '__args__', ())
+                    if literal_values:
+                        # 如果有默认值且在Literal选项中，使用默认值
+                        if field_default is not None and field_default in literal_values:
+                            return f'"{field_default}"'
+                        # 否则使用第一个选项
+                        return f'"{literal_values[0]}"'
+            
+            # 解析Optional类型
+            is_optional = False
+            actual_type = field_type
+            if hasattr(field_type, '__origin__'):
+                if field_type.__origin__ is typing.Union:
+                    # Optional[T] 等价于 Union[T, None]
+                    args = field_type.__args__
+                    if type(None) in args:
+                        is_optional = True
+                        # 获取非None的类型
+                        actual_type = next((arg for arg in args if arg is not type(None)), str)
+                elif field_type.__origin__ in (list, typing.List):
+                    actual_type = list
+                elif field_type.__origin__ in (dict, typing.Dict):
+                    actual_type = dict
+            
+            # 根据字段名称和类型生成代码
+            # 字符串类型
+            if actual_type in (str, type(str)):
+                if any(keyword in field_name_lower for keyword in ['phone', 'mobile', 'tel']):
+                    return 'f"1{fake.random_int(min=3, max=9)}{fake.random_int(min=100000000, max=999999999)}"'
+                elif any(keyword in field_name_lower for keyword in ['verification_code', 'code', 'verify']):
+                    return 'fake.numerify("######")'
+                elif any(keyword in field_name_lower for keyword in ['email', 'mail']):
+                    return 'fake.email()'
+                elif any(keyword in field_name_lower for keyword in ['username', 'user_name']):
+                    return 'fake.user_name().replace(".", "_")[:20]'
+                elif any(keyword in field_name_lower for keyword in ['password', 'pwd']):
+                    return 'fake.password(length=12)'
+                elif any(keyword in field_name_lower for keyword in ['name']) and 'username' not in field_name_lower:
+                    return 'fake.name()[:50]'
+                elif any(keyword in field_name_lower for keyword in ['address', 'addr']):
+                    return 'fake.address()'
+                else:
+                    return 'fake.text(max_nb_chars=50)'
+            
+            # 整数类型
+            elif actual_type in (int, type(int)):
+                # 外键ID字段 - 使用创建的实体ID
+                if field_name_lower.endswith('_id') and field_name_lower not in ['user_id']:
+                    if is_optional:
+                        return 'None'
+                    else:
+                        # 推断实体变量名（去掉_id后缀）
+                        entity_name = field.replace('_id', '')
+                        entity_var = f"test_{entity_name}"
+                        return f'{entity_var}.id'
+                # 排序字段
+                elif any(keyword in field_name_lower for keyword in ['sort', 'order', 'sequence']):
+                    return 'fake.random_int(min=0, max=100)'
+                else:
+                    return 'fake.random_int(min=1, max=999999)'
+            
+            # 浮点数类型
+            elif actual_type in (float, type(float)):
+                return 'round(fake.random.uniform(0.0, 999.99), 2)'
+            
+            # Decimal类型（价格、金额等）
+            elif hasattr(actual_type, '__name__') and actual_type.__name__ == 'Decimal':
+                # 根据字段名生成合理的Decimal值
+                if any(keyword in field_name_lower for keyword in ['price', 'cost', 'amount', 'fee']):
+                    return 'round(fake.random.uniform(10.0, 999.99), 2)'
+                elif any(keyword in field_name_lower for keyword in ['weight']):
+                    return 'round(fake.random.uniform(0.1, 10.0), 2)'
+                elif any(keyword in field_name_lower for keyword in ['volume']):
+                    return 'round(fake.random.uniform(0.01, 1.0), 3)'
+                else:
+                    return 'round(fake.random.uniform(0.0, 999.99), 2)'
+            
+            # 布尔类型
+            elif actual_type in (bool, type(bool)):
+                return 'True'
+            
+            # 列表类型
+            elif actual_type is list:
+                return '[]' if is_optional else '["test_item"]'
+            
+            # 字典类型
+            elif actual_type is dict:
+                return 'None' if is_optional else '{}'
+            
+            # 其他类型
+            else:
+                return 'None'
+        
+        # 兼容旧的基于值的调用（向后兼容）
+        elif isinstance(value, str):
             if any(keyword in field.lower() for keyword in ['phone', 'mobile', 'tel']):
                 return 'f"1{fake.random_int(min=3, max=9)}{fake.random_int(min=100000000, max=999999999)}"'
-            # 验证码 - 生成6位数字
-            elif any(keyword in field.lower() for keyword in ['verification_code', 'code', 'verify']):
-                return 'fake.numerify("######")'
-            # Refresh Token - 使用认证系统获取真实token
-            elif any(keyword in field.lower() for keyword in ['refresh_token', 'refresh']):
-                return 'test_user_tokens[1]  # 使用认证系统获取的refresh_token'
-            # 邮箱地址
             elif any(keyword in field.lower() for keyword in ['email', 'mail']):
                 return 'fake.email()'
-            # 用户名 - 生成符合规则的用户名（字母数字组合）
-            elif any(keyword in field.lower() for keyword in ['username', 'user_name']):
-                return 'fake.user_name().replace(".", "_")[:20]'
-            # 真实姓名 - 生成中文姓名或英文姓名
-            elif any(keyword in field.lower() for keyword in ['real_name', 'name']) and 'username' not in field.lower():
+            elif any(keyword in field.lower() for keyword in ['name']):
                 return 'fake.name()[:50]'
-            # 密码
-            elif any(keyword in field.lower() for keyword in ['password', 'pwd']):
-                return 'fake.password(length=12)'
-            # 地址
-            elif any(keyword in field.lower() for keyword in ['address', 'addr']):
-                return 'fake.address()'
-            # 一般字符串
             else:
                 return 'fake.text(max_nb_chars=50)'
-        
-        # 数字类型
         elif isinstance(value, int):
+            if any(keyword in field.lower() for keyword in ['parent_id', 'category_id', 'brand_id']):
+                return 'None'
             return 'fake.random_int(min=1, max=999999)'
-        elif isinstance(value, float):
-            return 'fake.random.uniform(0.0, 999.99)'
-        
-        # 布尔类型
         elif isinstance(value, bool):
-            return 'fake.boolean()'
+            return 'True'
         
-        # 其他类型保持原样
+        # 其他情况保持原样
         else:
             return repr(value)
 
@@ -315,6 +456,9 @@ class {class_name}:
         schema_data = self.analyze_pydantic_schema(module_name, route)
         
         if schema_data and isinstance(schema_data, dict):
+            # 检测外键依赖并生成实体创建代码
+            foreign_key_setup = self._generate_foreign_key_entities(schema_data, module_name, route.method)
+            
             # 将Schema分析结果转换为测试数据代码 - 生成动态代码而不是硬编码值
             data_assignments = []
             for field, value in schema_data.items():
@@ -324,11 +468,16 @@ class {class_name}:
             
             if route.method in ['POST', 'PUT', 'PATCH']:
                 assignments_str = ',\n'.join(data_assignments)
-                return f'''        # 动态生成测试数据，避免硬编码
+                test_data_code = f'''        # 动态生成测试数据，避免硬编码
         fake = Faker()
         test_data = {{
 {assignments_str}
 }}'''
+                # 如果有外键依赖，先创建关联实体
+                if foreign_key_setup:
+                    return f'''{foreign_key_setup}
+{test_data_code}'''
+                return test_data_code
             else:
                 # GET请求使用查询参数
                 return '''query_params = {
@@ -363,6 +512,37 @@ class {class_name}:
         # 这些API需要真实存在的用户凭据或特殊处理
         dependency_apis = ['login', 'refresh', 'change_password', 'update_profile', 'delete_account']
         return any(api in function_name for api in dependency_apis)
+    
+    def _needs_foreign_key_entities(self, route: RouterInfo, models: Dict[str, ModelInfo]) -> bool:
+        """检测API是否需要创建外键实体"""
+        if route.method not in ['POST', 'PUT', 'PATCH']:
+            return False
+        
+        # 使用Schema分析检测外键字段
+        module_name = self._extract_module_from_path(route.path)
+        schema_data = self.analyze_pydantic_schema(module_name, route)
+        
+        if schema_data and isinstance(schema_data, dict):
+            for field_name, field_info in schema_data.items():
+                # 检测必填的外键字段
+                if field_name.endswith('_id') and field_name not in ['user_id']:
+                    is_required = field_info.get('required', True) if isinstance(field_info, dict) else True
+                    if is_required:
+                        return True
+        
+        return False
+    
+    def _needs_path_param_entities(self, route: RouterInfo) -> bool:
+        """检测路径参数是否需要创建实体（GET/PUT/DELETE操作）"""
+        if route.method not in ['GET', 'PUT', 'PATCH', 'DELETE']:
+            return False
+        
+        # 检查路径中是否包含实体ID参数（排除user_id）
+        import re
+        path_params = re.findall(r'\{(\w+)_id\}', route.path)
+        # 过滤掉user_id，检查是否有其他实体ID
+        entity_params = [p for p in path_params if p != 'user']
+        return len(entity_params) > 0
     
     def _generate_existing_user_data_code(self, route: RouterInfo) -> str:
         """生成使用统一工厂创建已存在用户的测试数据代码"""
@@ -439,10 +619,14 @@ class {class_name}:
         return "unknown"
     
     def _generate_request_code(self, route: RouterInfo, test_data: str, auth_required: bool, with_user_context: bool = False) -> str:
-        """生成HTTP请求代码 - 支持用户上下文处理"""
+        """生成HTTP请求代码 - 支持用户上下文处理和实体创建"""
         
         # 添加API前缀，确保路径正确
         full_path = f"/api/v1{route.path}"
+        
+        # 检测路径参数并生成实体创建代码
+        create_entity_code = ""
+        path_str = f'"{full_path}"'
         
         # 处理路径参数
         if '{' in full_path and '}' in full_path:
@@ -455,32 +639,65 @@ class {class_name}:
                 else:
                     full_path = full_path.replace('{user_id}', '1')
                     path_str = f'"{full_path}"'
+            # 处理其他实体的路径参数（brand_id, product_id, category_id, sku_id等）
+            elif any(param in full_path for param in ['{brand_id}', '{product_id}', '{category_id}', '{sku_id}']):
+                # 提取实体类型
+                import re
+                param_match = re.search(r'\{(\w+)_id\}', full_path)
+                if param_match:
+                    entity_type = param_match.group(1)  # 如 'brand', 'product'
+                    entity_var = f"test_{entity_type}"
+                    
+                    # 生成创建实体的代码（GET/PUT/DELETE操作需要先创建）
+                    if route.method in ['GET', 'PUT', 'PATCH', 'DELETE']:
+                        # 使用Factory创建实体 - 处理SKU等特殊大小写
+                        if entity_type.lower() == 'sku':
+                            factory_class = "SKUFactory"
+                        else:
+                            factory_class = f"{entity_type.capitalize()}Factory"
+                        
+                        # 提取模块名并生成Manager名称
+                        module_name = self._extract_module_from_path(route.path)
+                        manager_name = ''.join(word.capitalize() for word in module_name.split('_')) + 'FactoryManager'
+                        
+                        create_entity_code = f'''
+        # 先创建{entity_type}实体用于测试
+        from tests.factories.{module_name}_factories import {factory_class}, {manager_name}
+        {manager_name}.setup_factories(mysql_integration_db)
+        {entity_var} = {factory_class}.create()
+        '''
+                    
+                    # 替换路径参数
+                    full_path = full_path.replace(f'{{{entity_type}_id}}', f'{{{entity_var}.id}}')
+                    path_str = f'f"{full_path}"'
             else:
-                full_path = full_path.replace('{id}', '1')
+                # 其他参数默认替换为1
+                full_path = re.sub(r'\{[^}]+\}', '1', full_path)
                 path_str = f'"{full_path}"'
-        else:
-            path_str = f'"{full_path}"'
+        
+        # 如果需要创建实体，将创建代码添加到请求之前
+        request_prefix = create_entity_code if create_entity_code else ""
         
         if route.method == 'GET':
             params_part = "params=query_params if 'query_params' in locals() else None" if with_user_context else "params=query_params"
-            return f'''response = api_client.get(
+            return f'''{request_prefix}response = api_client.get(
             {path_str},
             {params_part}
         )'''
         elif route.method in ['POST', 'PUT', 'PATCH']:
             # 检查是否需要请求体 - 根据是否有test_data判断
             if 'test_data = {}' in test_data or not test_data.strip():
-                return f'''response = api_client.post(
+                return f'''{request_prefix}response = api_client.post(
             {path_str}
         )'''
             else:
-                return f'''response = api_client.{route.method.lower()}(
+                return f'''{request_prefix}response = api_client.{route.method.lower()}(
             {path_str},
             json=test_data
         )'''
         else:
-            return f'''response = api_client.{route.method.lower()}(
-            "{full_path}"
+            return f'''{request_prefix}response = api_client.{route.method.lower()}(
+            {path_str}
         )'''
     
     def _generate_assertions(self, route: RouterInfo) -> str:
@@ -493,6 +710,13 @@ class {class_name}:
             expected_status = 'status.HTTP_204_NO_CONTENT'
         else:
             expected_status = 'status.HTTP_200_OK'
+        
+        # DELETE请求返回204无内容，不需要验证响应数据
+        if route.method == 'DELETE':
+            return f'''assert response.status_code == {expected_status}
+        
+        # 验证响应时间 (API标准要求<2s)
+        assert response.elapsed.total_seconds() < 2.0'''
         
         return f'''assert response.status_code == {expected_status}
         

@@ -30,38 +30,43 @@ class ProductService:
     def create_product(
         db: Session,
         name: str,
-        sku: str,
-        price: float,
-        category_id: Optional[int] = None,
         description: Optional[str] = None,
-        stock_quantity: int = 0,
-        image_url: Optional[str] = None,
+        brand_id: Optional[int] = None,
+        category_id: Optional[int] = None,
+        status: str = "published",
+        seo_title: Optional[str] = None,
+        seo_description: Optional[str] = None,
+        seo_keywords: Optional[str] = None,
+        sort_order: int = 1,
     ) -> Product:
         """
-        创建新商品
+        创建新商品（SPU）
 
         Args:
             db: 数据库会话
             name: 商品名称
-            sku: 商品SKU
-            price: 商品价格
-            category_id: 分类ID（可选）
             description: 商品描述（可选）
-            stock_quantity: 库存数量
-            image_url: 商品图片URL（可选）
+            brand_id: 品牌ID（可选）
+            category_id: 分类ID（可选）
+            status: 商品状态（draft, published, archived）
+            seo_title: SEO标题（可选）
+            seo_description: SEO描述（可选）
+            seo_keywords: SEO关键词（可选）
+            sort_order: 排序序号
 
         Returns:
             Product: 创建的商品对象
 
         Raises:
-            HTTPException: SKU重复或分类不存在时抛出错误
+            HTTPException: 分类或品牌不存在时抛出错误
         """
-        # 检查SKU唯一性
-        existing_product = db.query(Product).filter(Product.sku == sku).first()
-        if existing_product:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST, detail="商品SKU已存在"
-            )
+        # 验证品牌存在性
+        if brand_id:
+            brand = db.query(Brand).filter(Brand.id == brand_id).first()
+            if not brand:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST, detail="指定的品牌不存在"
+                )
 
         # 验证分类存在性
         if category_id:
@@ -74,13 +79,14 @@ class ProductService:
         # 创建商品
         product = Product(
             name=name,
-            sku=sku,
-            price=price,
-            category_id=category_id,
             description=description,
-            stock_quantity=stock_quantity,
-            image_url=image_url,
-            status="active",
+            brand_id=brand_id,
+            category_id=category_id,
+            status=status,
+            seo_title=seo_title,
+            seo_description=seo_description,
+            seo_keywords=seo_keywords,
+            sort_order=sort_order,
         )
 
         try:
@@ -333,8 +339,25 @@ class SKUService:
 
     @staticmethod
     def create_sku(db: Session, data: Dict[str, Any]) -> SKU:
+        # 提取attributes字段（如果存在），不传递给模型构造函数
+        attributes_data = data.pop('attributes', None)
+        
+        # 创建SKU
         sku = SKU(**data)
-        return SKURepository.create(db, sku)
+        db.add(sku)
+        db.flush()  # 获取SKU的ID
+        
+        # 如果有attributes数据，创建关联的SKUAttribute
+        if attributes_data:
+            from .models import SKUAttribute
+            for attr_data in attributes_data:
+                attr_data['sku_id'] = sku.id
+                sku_attr = SKUAttribute(**attr_data)
+                db.add(sku_attr)
+        
+        db.commit()
+        db.refresh(sku)
+        return sku
 
     @staticmethod
     def get_sku(db: Session, sku_id: int) -> Optional[SKU]:

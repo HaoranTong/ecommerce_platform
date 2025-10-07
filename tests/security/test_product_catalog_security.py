@@ -2,7 +2,7 @@
 Auto Generated Test - 已生成到正式目录
 
 文件路径: tests/security/test_product_catalog_security.py
-生成时间: 2025-10-07 11:54:33
+生成时间: 2025-10-07 19:44:18
 生成工具: tools/generate_test_template.py v2.0
 状态: GENERATED - 需要经过代码审查和测试验证
 
@@ -83,7 +83,7 @@ class TestProductCatalogOWASPTop10:
             "<svg onload=alert('XSS')>"
         ]
         
-        headers = {"Authorization": "Bearer security_test_87c0dc2fa18311cf"}
+        headers = {"Authorization": "Bearer security_test_d8254eae371b1322"}
         
         # 使用真实的POST端点进行XSS测试
         test_endpoint = "/api/v1/product-catalog/categories"
@@ -108,7 +108,7 @@ class TestProductCatalogOWASPTop10:
     async def test_csrf_protection(self, async_api_client):
         """测试CSRF跨站请求伪造防护 - OWASP #8"""
         
-        headers = {"Authorization": "Bearer security_test_87c0dc2fa18311cf"}
+        headers = {"Authorization": "Bearer security_test_d8254eae371b1322"}
         
         # 使用真实的POST端点进行CSRF测试
         sensitive_endpoint = "/api/v1/product-catalog/categories"
@@ -160,7 +160,7 @@ class TestProductCatalogOWASPTop10:
     async def test_sensitive_data_exposure(self, async_api_client):
         """测试敏感数据泄露防护 - OWASP #3"""
         
-        headers = {"Authorization": "Bearer security_test_87c0dc2fa18311cf"}
+        headers = {"Authorization": "Bearer security_test_d8254eae371b1322"}
         
         # 测试API响应是否泄露敏感信息
         response = await async_api_client.get("/api/v1/user-auth/me", headers=headers)
@@ -258,7 +258,7 @@ class TestProductCatalogAuthentication:
         """测试权限提升防护"""
         
         # 使用普通用户token尝试访问管理员端点
-        user_token = "user_level_7c077a60c66aa7ad"
+        user_token = "user_level_18554761d6ea7c73"
         headers = {"Authorization": f"Bearer {user_token}"}
         
         admin_endpoints = [
@@ -277,7 +277,7 @@ class TestProductCatalogAuthentication:
     async def test_session_security(self, async_api_client):
         """测试会话安全性"""
         
-        headers = {"Authorization": "Bearer security_test_87c0dc2fa18311cf"}
+        headers = {"Authorization": "Bearer security_test_d8254eae371b1322"}
         
         # 测试会话固定攻击防护
         # 登录前后的会话ID应该不同
@@ -303,7 +303,7 @@ class TestProductCatalogInputValidation:
     async def test_malicious_input_handling(self, async_api_client):
         """测试恶意输入处理"""
         
-        headers = {"Authorization": "Bearer security_test_87c0dc2fa18311cf"}
+        headers = {"Authorization": "Bearer security_test_d8254eae371b1322"}
         
         # 恶意输入载荷
         malicious_inputs = [
@@ -339,7 +339,7 @@ class TestProductCatalogInputValidation:
     async def test_data_type_validation(self, async_api_client):
         """测试数据类型验证"""
         
-        headers = {"Authorization": "Bearer security_test_87c0dc2fa18311cf"}
+        headers = {"Authorization": "Bearer security_test_d8254eae371b1322"}
         
         # 类型错误测试
         invalid_data_types = [
@@ -367,7 +367,7 @@ class TestProductCatalogInputValidation:
     async def test_file_upload_security(self, async_api_client):
         """测试文件上传安全性"""
         
-        headers = {"Authorization": "Bearer security_test_87c0dc2fa18311cf"}
+        headers = {"Authorization": "Bearer security_test_d8254eae371b1322"}
         
         # 恶意文件测试
         malicious_files = [
@@ -399,7 +399,7 @@ class TestProductCatalogDataProtection:
     async def test_data_encryption(self, async_api_client):
         """测试数据加密保护"""
         
-        headers = {"Authorization": "Bearer security_test_87c0dc2fa18311cf"}
+        headers = {"Authorization": "Bearer security_test_d8254eae371b1322"}
         
         # 测试敏感数据是否加密存储
         from faker import Faker
@@ -435,8 +435,8 @@ class TestProductCatalogDataProtection:
         """测试数据访问控制"""
         
         # 使用用户A的token尝试访问用户B的数据
-        user_a_token_val = "user_a_68c7285fb2b2"
-        user_b_id_val = "test_user_3465"
+        user_a_token_val = "user_a_2aa9c514c092"
+        user_b_id_val = "test_user_9486"
         
         headers = {"Authorization": f"Bearer {user_a_token_val}"}
         
@@ -492,7 +492,7 @@ class TestProductCatalogDataProtection:
     async def test_gdpr_compliance(self, async_api_client):
         """测试GDPR合规性"""
         
-        headers = {"Authorization": "Bearer security_test_87c0dc2fa18311cf"}
+        headers = {"Authorization": "Bearer security_test_d8254eae371b1322"}
         
         # 测试数据删除权（被遗忘权）
         response = await async_api_client.delete(
