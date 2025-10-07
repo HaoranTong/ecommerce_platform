@@ -2055,7 +2055,7 @@ from {module_import_path} import (
         
         # 为每个Repository生成测试类
         for repo_name, repo_info in repositories.items():
-            test_class = self._generate_single_repository_test(repo_info, models)
+            test_class = self._generate_single_repository_test(repo_info, models, module_name)
             test_classes.append(test_class)
         
         # 收集需要导入的模型
@@ -2113,12 +2113,13 @@ from app.modules.{module_name}.models import (
         
         return imports + "\n\n".join(test_classes)
     
-    def _generate_single_repository_test(self, repo_info: RepositoryInfo, models: Dict[str, ModelInfo]) -> str:
+    def _generate_single_repository_test(self, repo_info: RepositoryInfo, models: Dict[str, ModelInfo], module_name: str) -> str:
         """为单个Repository生成测试类
         
         Args:
             repo_info: Repository信息
             models: 模型信息（用于创建测试数据）
+            module_name: 模块名称
             
         Returns:
             str: Repository测试类代码
@@ -2132,17 +2133,17 @@ from app.modules.{module_name}.models import (
         for method_info in repo_info.methods:
             # 根据方法类型生成对应的测试
             if method_info.method_type == "create":
-                test_methods.append(self._generate_repository_create_test(method_info, model_name))
+                test_methods.append(self._generate_repository_create_test(method_info, model_name, repo_name, module_name))
             elif method_info.method_type == "read":
-                test_methods.append(self._generate_repository_read_test(method_info, model_name))
+                test_methods.append(self._generate_repository_read_test(method_info, model_name, repo_name, module_name))
             elif method_info.method_type == "update":
-                test_methods.append(self._generate_repository_update_test(method_info, model_name))
+                test_methods.append(self._generate_repository_update_test(method_info, model_name, repo_name, module_name))
             elif method_info.method_type == "delete":
-                test_methods.append(self._generate_repository_delete_test(method_info, model_name))
+                test_methods.append(self._generate_repository_delete_test(method_info, model_name, repo_name, module_name))
             elif method_info.method_type == "count":
-                test_methods.append(self._generate_repository_count_test(method_info, model_name))
+                test_methods.append(self._generate_repository_count_test(method_info, model_name, repo_name, module_name))
             else:  # query
-                test_methods.append(self._generate_repository_query_test(method_info, model_name))
+                test_methods.append(self._generate_repository_query_test(method_info, model_name, repo_name, module_name))
         
         test_class = f'''
 @pytest.mark.unit
@@ -2173,7 +2174,7 @@ class Test{repo_name}:
         
         return test_class
     
-    def _generate_repository_create_test(self, method_info: RepositoryMethodInfo, model_name: str) -> str:
+    def _generate_repository_create_test(self, method_info: RepositoryMethodInfo, model_name: str, repo_name: str, module_name: str) -> str:
         """生成Repository create方法测试"""
         method_name = method_info.name
         return f'''    def test_{method_name}_success(self, unit_test_db: Session):
@@ -2182,8 +2183,7 @@ class Test{repo_name}:
         entity = {model_name}(name="测试数据")  # TODO: 根据实际字段调整
         
         # 执行Repository方法
-        from app.modules.product_catalog.repository import CategoryRepository
-        result = CategoryRepository.{method_name}(unit_test_db, entity)  # TODO: 使用正确的Repository类
+        result = {repo_name}.{method_name}(unit_test_db, entity)
         
         # 验证结果
         assert result is not None
@@ -2197,7 +2197,7 @@ class Test{repo_name}:
         """测试{method_name} - 事务提交"""
         entity = {model_name}(name="事务测试")
         
-        result = CategoryRepository.{method_name}(unit_test_db, entity)  # TODO: 使用正确的Repository类
+        result = {repo_name}.{method_name}(unit_test_db, entity)
         
         # 验证事务已提交（可以在新会话中查询到）
         unit_test_db.expire_all()
@@ -2205,7 +2205,7 @@ class Test{repo_name}:
         assert db_entity is not None
 '''
     
-    def _generate_repository_read_test(self, method_info: RepositoryMethodInfo, model_name: str) -> str:
+    def _generate_repository_read_test(self, method_info: RepositoryMethodInfo, model_name: str, repo_name: str, module_name: str) -> str:
         """生成Repository read方法测试"""
         method_name = method_info.name
         return f'''    def test_{method_name}_found(self, unit_test_db: Session):
@@ -2216,8 +2216,7 @@ class Test{repo_name}:
         unit_test_db.commit()
         
         # 执行Repository方法
-        from app.modules.product_catalog.repository import CategoryRepository
-        result = CategoryRepository.{method_name}(unit_test_db, entity.id)  # TODO: 使用正确的Repository类和参数
+        result = {repo_name}.{method_name}(unit_test_db, entity.id)  # TODO: 使用正确的参数
         
         # 验证结果
         assert result is not None
@@ -2225,13 +2224,12 @@ class Test{repo_name}:
     
     def test_{method_name}_not_found(self, unit_test_db: Session):
         """测试{method_name} - 数据不存在"""
-        from app.modules.product_catalog.repository import CategoryRepository
-        result = CategoryRepository.{method_name}(unit_test_db, 99999)  # TODO: 使用正确的Repository类
+        result = {repo_name}.{method_name}(unit_test_db, 99999)
         
         assert result is None
 '''
     
-    def _generate_repository_update_test(self, method_info: RepositoryMethodInfo, model_name: str) -> str:
+    def _generate_repository_update_test(self, method_info: RepositoryMethodInfo, model_name: str, repo_name: str, module_name: str) -> str:
         """生成Repository update方法测试"""
         method_name = method_info.name
         return f'''    def test_{method_name}_success(self, unit_test_db: Session):
@@ -2242,9 +2240,8 @@ class Test{repo_name}:
         unit_test_db.commit()
         
         # 执行Repository方法
-        from app.modules.product_catalog.repository import CategoryRepository
         update_data = {{"name": "更新后数据"}}
-        result = CategoryRepository.{method_name}(unit_test_db, entity, update_data)  # TODO: 使用正确的Repository类
+        result = {repo_name}.{method_name}(unit_test_db, entity, update_data)  # TODO: 根据实际方法签名调整参数
         
         # 验证结果
         assert result.name == "更新后数据"
@@ -2255,7 +2252,7 @@ class Test{repo_name}:
         assert db_entity.name == "更新后数据"
 '''
     
-    def _generate_repository_delete_test(self, method_info: RepositoryMethodInfo, model_name: str) -> str:
+    def _generate_repository_delete_test(self, method_info: RepositoryMethodInfo, model_name: str, repo_name: str, module_name: str) -> str:
         """生成Repository delete方法测试"""
         method_name = method_info.name
         return f'''    def test_{method_name}_success(self, unit_test_db: Session):
@@ -2267,8 +2264,7 @@ class Test{repo_name}:
         entity_id = entity.id
         
         # 执行Repository方法
-        from app.modules.product_catalog.repository import CategoryRepository
-        CategoryRepository.{method_name}(unit_test_db, entity)  # TODO: 使用正确的Repository类
+        {repo_name}.{method_name}(unit_test_db, entity)  # TODO: 根据实际方法签名调整参数
         
         # 验证软删除（根据实际情况调整）
         unit_test_db.expire_all()
@@ -2276,7 +2272,7 @@ class Test{repo_name}:
         # TODO: 验证 is_deleted 或 is_active 字段
 '''
     
-    def _generate_repository_count_test(self, method_info: RepositoryMethodInfo, model_name: str) -> str:
+    def _generate_repository_count_test(self, method_info: RepositoryMethodInfo, model_name: str, repo_name: str, module_name: str) -> str:
         """生成Repository count方法测试"""
         method_name = method_info.name
         return f'''    def test_{method_name}_count(self, unit_test_db: Session):
@@ -2288,14 +2284,13 @@ class Test{repo_name}:
         unit_test_db.commit()
         
         # 执行Repository方法
-        from app.modules.product_catalog.repository import CategoryRepository
-        count = CategoryRepository.{method_name}(unit_test_db)  # TODO: 使用正确的Repository类和参数
+        count = {repo_name}.{method_name}(unit_test_db)  # TODO: 根据实际方法签名调整参数
         
         # 验证计数
         assert count >= 5
 '''
     
-    def _generate_repository_query_test(self, method_info: RepositoryMethodInfo, model_name: str) -> str:
+    def _generate_repository_query_test(self, method_info: RepositoryMethodInfo, model_name: str, repo_name: str, module_name: str) -> str:
         """生成Repository query方法测试"""
         method_name = method_info.name
         return f'''    def test_{method_name}_query(self, unit_test_db: Session):
@@ -2306,8 +2301,7 @@ class Test{repo_name}:
         unit_test_db.commit()
         
         # 执行Repository方法
-        from app.modules.product_catalog.repository import CategoryRepository
-        results = CategoryRepository.{method_name}(unit_test_db)  # TODO: 使用正确的Repository类和参数
+        results = {repo_name}.{method_name}(unit_test_db)  # TODO: 根据实际方法签名调整参数
         
         # 验证查询结果
         assert len(results) > 0
