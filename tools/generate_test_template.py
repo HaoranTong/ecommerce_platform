@@ -141,6 +141,44 @@ class ModelInfo:
     unique_constraints: List[List[str]]
 
 
+@dataclass
+class RepositoryMethodInfo:
+    """Repository方法信息"""
+    
+    name: str
+    method_type: str  # "create" | "read" | "update" | "delete" | "query" | "count"
+    parameters: List[Tuple[str, str]]  # [(name, type), ...]
+    return_type: str
+    is_static: bool
+    docstring: Optional[str]
+    has_transaction: bool  # 是否需要事务测试
+
+
+@dataclass
+class RepositoryInfo:
+    """Repository类信息"""
+    
+    name: str  # CategoryRepository
+    model_name: str  # Category
+    methods: List[RepositoryMethodInfo]
+    docstring: Optional[str]
+    
+    
+@dataclass
+class ModuleStructure:
+    """模块完整结构信息（四层架构标准）
+    
+    项目标准要求所有模块必须实现完整的四层架构：
+    - Router层: 处理HTTP请求和响应
+    - Service层: 实现业务逻辑
+    - Repository层: 处理数据访问（必需）
+    - Model层: 定义数据模型
+    """
+    
+    models: Dict[str, ModelInfo]
+    repositories: Dict[str, RepositoryInfo]  # 必需，不可为空
+
+
 class IntelligentTestGenerator:
     """智能测试生成器 - 集成模型分析和测试生成 [CHECK:DEV-009] [CHECK:TEST-001]"""
 
@@ -727,6 +765,220 @@ class IntelligentTestGenerator:
                 continue
 
         return merged
+
+    def analyze_module_repositories(self, module_name: str) -> Dict[str, RepositoryInfo]:
+        """分析模块的Repository层（四层架构强制要求）
+        
+        项目标准要求所有模块必须实现四层架构（Router→Service→Repository→Model）
+        如果模块缺失Repository层，将抛出错误提示开发者补充。
+        
+        Args:
+            module_name: 模块名称，如 'product_catalog'
+            
+        Returns:
+            Dict[str, RepositoryInfo]: Repository名称到Repository信息的映射
+            
+        Raises:
+            FileNotFoundError: 当模块缺失repository.py时（违反四层架构标准）
+        """
+        repo_path = self.project_root / f"app/modules/{module_name}/repository.py"
+        
+        if not repo_path.exists():
+            error_msg = f"❌ 模块 '{module_name}' 缺失 repository.py 文件！\n"
+            error_msg += f"📋 项目标准要求: 所有模块必须实现四层架构\n"
+            error_msg += f"🔧 修复方法:\n"
+            error_msg += f"   1. 创建文件: app/modules/{module_name}/repository.py\n"
+            error_msg += f"   2. 实现Repository类处理数据访问逻辑\n"
+            error_msg += f"   3. 重构Service层使用Repository而不是直接访问数据库\n"
+            error_msg += f"📖 参考示例: app/modules/product_catalog/repository.py\n"
+            error_msg += f"📚 架构文档: docs/architecture/overview.md - 四层架构标准"
+            raise FileNotFoundError(error_msg)
+        
+        print(f"🔍 分析Repository层: {repo_path}")
+        
+        try:
+            with open(repo_path, "r", encoding="utf-8") as f:
+                content = f.read()
+            
+            tree = ast.parse(content)
+            repositories = {}
+            
+            for node in ast.walk(tree):
+                if isinstance(node, ast.ClassDef):
+                    # 只分析以Repository结尾的类
+                    if node.name.endswith('Repository'):
+                        repo_info = self._analyze_repository_class(node)
+                        repositories[repo_info.name] = repo_info
+                        print(f"  ✅ 发现Repository: {repo_info.name} ({len(repo_info.methods)}个方法)")
+            
+            print(f"✅ Repository分析完成，共 {len(repositories)} 个Repository类")
+            return repositories
+            
+        except Exception as e:
+            print(f"⚠️ Repository分析失败: {e}")
+            return {}
+    
+    def _analyze_repository_class(self, class_node: ast.ClassDef) -> RepositoryInfo:
+        """分析单个Repository类
+        
+        Args:
+            class_node: AST类定义节点
+            
+        Returns:
+            RepositoryInfo: Repository信息
+        """
+        # 提取模型名：CategoryRepository -> Category
+        repo_name = class_node.name
+        model_name = repo_name.replace('Repository', '')
+        
+        # 提取文档字符串
+        docstring = ast.get_docstring(class_node)
+        
+        # 分析所有方法
+        methods = []
+        for item in class_node.body:
+            if isinstance(item, ast.FunctionDef):
+                method_info = self._analyze_repository_method(item)
+                if method_info:
+                    methods.append(method_info)
+        
+        return RepositoryInfo(
+            name=repo_name,
+            model_name=model_name,
+            methods=methods,
+            docstring=docstring
+        )
+    
+    def _analyze_repository_method(self, func_node: ast.FunctionDef) -> Optional[RepositoryMethodInfo]:
+        """分析Repository方法
+        
+        Args:
+            func_node: AST函数定义节点
+            
+        Returns:
+            RepositoryMethodInfo: 方法信息，如果不是有效方法则返回None
+        """
+        # 跳过特殊方法
+        if func_node.name.startswith('_') and func_node.name != '__init__':
+            return None
+        
+        # 提取参数
+        parameters = []
+        for arg in func_node.args.args:
+            arg_name = arg.arg
+            # 提取类型注解
+            arg_type = "Any"
+            if arg.annotation:
+                arg_type = ast.unparse(arg.annotation) if hasattr(ast, 'unparse') else "Any"
+            parameters.append((arg_name, arg_type))
+        
+        # 提取返回类型
+        return_type = "Any"
+        if func_node.returns:
+            return_type = ast.unparse(func_node.returns) if hasattr(ast, 'unparse') else "Any"
+        
+        # 判断是否是静态方法
+        is_static = any(
+            isinstance(decorator, ast.Name) and decorator.id == 'staticmethod'
+            for decorator in func_node.decorator_list
+        )
+        
+        # 判断方法类型（基于AST分析函数体）
+        method_name = func_node.name
+        method_type = self._classify_repository_method(method_name, func_node)
+        
+        # 判断是否需要事务测试（create/update/delete方法需要）
+        has_transaction = method_type in ["create", "update", "delete"]
+        
+        # 提取文档字符串
+        docstring = ast.get_docstring(func_node)
+        
+        return RepositoryMethodInfo(
+            name=method_name,
+            method_type=method_type,
+            parameters=parameters,
+            return_type=return_type,
+            is_static=is_static,
+            docstring=docstring,
+            has_transaction=has_transaction
+        )
+    
+    def _classify_repository_method(self, method_name: str, func_node: ast.FunctionDef) -> str:
+        """分类Repository方法类型（基于AST分析函数体）
+        
+        通过分析函数体的实际操作来判断方法类型，而不是依赖方法名：
+        - 包含 db.add() -> create
+        - 包含 db.query().filter() -> read
+        - 包含 setattr() + db.commit() -> update
+        - 包含 is_deleted = True 或 is_active = False -> delete
+        - 包含 .count() -> count
+        
+        Args:
+            method_name: 方法名（作为fallback）
+            func_node: AST函数定义节点
+            
+        Returns:
+            str: 方法类型 (create/read/update/delete/query/count)
+        """
+        # 分析函数体中的关键操作
+        has_db_add = False
+        has_db_query = False
+        has_setattr = False
+        has_soft_delete = False
+        has_count = False
+        has_filter = False
+        
+        for node in ast.walk(func_node):
+            # 检测 db.add()
+            if isinstance(node, ast.Call):
+                if isinstance(node.func, ast.Attribute):
+                    if node.func.attr == 'add':
+                        has_db_add = True
+                    elif node.func.attr == 'query':
+                        has_db_query = True
+                    elif node.func.attr == 'filter':
+                        has_filter = True
+                    elif node.func.attr == 'count':
+                        has_count = True
+            
+            # 检测 setattr()
+            if isinstance(node, ast.Call):
+                if isinstance(node.func, ast.Name) and node.func.id == 'setattr':
+                    has_setattr = True
+            
+            # 检测软删除: entity.is_deleted = True 或 entity.is_active = False
+            if isinstance(node, ast.Assign):
+                for target in node.targets:
+                    if isinstance(target, ast.Attribute):
+                        if target.attr in ['is_deleted', 'is_active']:
+                            has_soft_delete = True
+        
+        # 根据分析结果判断方法类型
+        if has_db_add:
+            return "create"
+        elif has_soft_delete:
+            return "delete"
+        elif has_setattr and not has_db_add:
+            return "update"
+        elif has_count:
+            return "count"
+        elif has_db_query or has_filter:
+            return "read"
+        else:
+            # Fallback: 基于方法名判断（只作为最后手段）
+            method_name_lower = method_name.lower()
+            if 'create' in method_name_lower or 'add' in method_name_lower:
+                return "create"
+            elif 'update' in method_name_lower or 'modify' in method_name_lower:
+                return "update"
+            elif 'delete' in method_name_lower or 'remove' in method_name_lower:
+                return "delete"
+            elif 'count' in method_name_lower:
+                return "count"
+            elif 'get' in method_name_lower or 'find' in method_name_lower or 'list' in method_name_lower:
+                return "read"
+            else:
+                return "query"
 
     def generate_intelligent_factories(
         self, module_name: str, models: Dict[str, ModelInfo]
@@ -1668,8 +1920,14 @@ from {module_import_path} import (
         else:
             print("✅ 环境兼容性验证通过")
         
-        # 1. 分析模型
+        # 1. 分析模块结构（四层架构）
+        print(f"\n🏗️ 分析模块结构: {module_name}")
         models = self.analyze_module_models(module_name)
+        repositories = self.analyze_module_repositories(module_name)  # 强制要求Repository层
+        
+        print(f"\n📊 结构分析完成:")
+        print(f"   Models: {len(models)} 个")
+        print(f"   Repositories: {len(repositories)} 个")
 
         # 2. 生成智能数据工厂 [CHECK:TEST-002]
         factory_code = self.generate_intelligent_factories(module_name, models)
@@ -1682,7 +1940,7 @@ from {module_import_path} import (
         generated_files[factory_file_path] = factory_code
 
         if test_type in ["all", "unit"]:
-            unit_files = self._generate_unit_tests(module_name, models)
+            unit_files = self._generate_unit_tests(module_name, models, repositories)
             generated_files.update(unit_files)
 
         if test_type in ["all", "integration"]:
@@ -1730,21 +1988,23 @@ from {module_import_path} import (
         return generated_files, validation_report
 
     def _generate_unit_tests(
-        self, module_name: str, models: Dict[str, ModelInfo]
+        self, module_name: str, models: Dict[str, ModelInfo], repositories: Dict[str, RepositoryInfo]
     ) -> Dict[str, str]:
-        """生成单元测试 (70%) - 三种独立脚本 [CHECK:TEST-001]
+        """生成单元测试 (70%) - 四种独立脚本（四层架构）[CHECK:TEST-001]
 
-        根据testing-standards.md标准生成三个独立的单元测试脚本：
+        根据testing-standards.md标准和四层架构要求生成四个独立的单元测试脚本：
         1. test_models/ - 100% Mock测试，无数据库依赖
-        2. test_services/ - SQLite内存数据库测试
-        3. *_standalone.py - SQLite内存数据库业务流程测试
+        2. test_repositories/ - SQLite内存数据库测试数据访问层（新增）
+        3. test_services/ - SQLite内存数据库测试，Mock Repository依赖
+        4. *_standalone.py - SQLite内存数据库业务流程测试
 
         Args:
             module_name: 模块名称
             models: 模型信息字典
+            repositories: Repository信息字典（四层架构必需）
 
         Returns:
-            Dict[str, str]: 三个测试脚本的文件路径到内容映射
+            Dict[str, str]: 四个测试脚本的文件路径到内容映射
         """
         files = {}
 
@@ -1752,11 +2012,15 @@ from {module_import_path} import (
         model_tests = self._generate_model_tests(module_name, models)
         files[f"test_models/test_{module_name}_models"] = model_tests
 
-        # 2. 生成服务测试 (test_services目录)
-        service_tests = self._generate_service_tests(module_name, models)
+        # 2. 生成Repository测试 (test_repositories目录) - 四层架构新增
+        repository_tests = self._generate_repository_tests(module_name, repositories, models)
+        files[f"test_repositories/test_{module_name}_repositories"] = repository_tests
+
+        # 3. 生成服务测试 (test_services目录) - 更新为Mock Repository
+        service_tests = self._generate_service_tests(module_name, models, repositories)
         files[f"test_services/test_{module_name}_services"] = service_tests
 
-        # 3. 生成业务流程测试 (standalone文件)
+        # 4. 生成业务流程测试 (standalone文件)
         workflow_tests = self._generate_workflow_tests(module_name, models)
         files[f"tests/unit/test_{module_name}_standalone.py"] = workflow_tests
 
