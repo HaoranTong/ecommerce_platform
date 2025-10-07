@@ -2,7 +2,7 @@
 Auto Generated Test - 已生成到正式目录
 
 文件路径: tests/unit/test_repositories/test_user_auth_repositories.py
-生成时间: 2025-10-07 23:17:19
+生成时间: 2025-10-07 23:58:06
 生成工具: tools/generate_test_template.py v2.0
 状态: GENERATED - 需要经过代码审查和测试验证
 
@@ -60,7 +60,7 @@ class TestUserRepository:
     def test_create_success(self, unit_test_db: Session):
         """测试create - 成功创建"""
         # 准备测试数据（包括外键依赖）
-        entity = User(username="测试数据", email="test_测试数据@example.com", password_hash="测试数据", is_active=True, status="测试数据", email_verified=True, phone_verified=True, two_factor_enabled=True, failed_login_attempts=1, role="测试数据")
+        entity = User(username="测试数据", email="test_测试数据@example.com", password_hash="测试数据", is_active=True, status="active", email_verified=True, phone_verified=True, two_factor_enabled=True, failed_login_attempts=1, role="user")
         
         # 执行Repository方法
         result = UserRepository.create(unit_test_db, entity)
@@ -75,7 +75,7 @@ class TestUserRepository:
     
     def test_create_transaction(self, unit_test_db: Session):
         """测试create - 事务提交"""
-        entity = User(username="事务测试", email="test_事务测试@example.com", password_hash="事务测试", is_active=True, status="事务测试", email_verified=True, phone_verified=True, two_factor_enabled=True, failed_login_attempts=1, role="事务测试")
+        entity = User(username="事务测试", email="test_事务测试@example.com", password_hash="事务测试", is_active=True, status="active", email_verified=True, phone_verified=True, two_factor_enabled=True, failed_login_attempts=1, role="user")
         
         result = UserRepository.create(unit_test_db, entity)
         
@@ -87,7 +87,7 @@ class TestUserRepository:
     def test_get_by_id_found(self, unit_test_db: Session):
         """测试get_by_id - 查询到数据"""
         # 准备测试数据
-        entity = User(username="查询测试", email="test_查询测试@example.com", password_hash="查询测试", is_active=True, status="查询测试", email_verified=True, phone_verified=True, two_factor_enabled=True, failed_login_attempts=1, role="查询测试")
+        entity = User(username="查询测试", email="test_查询测试@example.com", password_hash="查询测试", is_active=True, status="active", email_verified=True, phone_verified=True, two_factor_enabled=True, failed_login_attempts=1, role="user")
         unit_test_db.add(entity)
         unit_test_db.commit()
         
@@ -107,7 +107,7 @@ class TestUserRepository:
     def test_get_by_username_found(self, unit_test_db: Session):
         """测试get_by_username - 查询到数据"""
         # 准备测试数据
-        entity = User(username="查询测试", email="test_查询测试@example.com", password_hash="查询测试", is_active=True, status="查询测试", email_verified=True, phone_verified=True, two_factor_enabled=True, failed_login_attempts=1, role="查询测试")
+        entity = User(username="查询测试", email="test_查询测试@example.com", password_hash="查询测试", is_active=True, status="active", email_verified=True, phone_verified=True, two_factor_enabled=True, failed_login_attempts=1, role="user")
         unit_test_db.add(entity)
         unit_test_db.commit()
         
@@ -127,7 +127,7 @@ class TestUserRepository:
     def test_get_by_email_found(self, unit_test_db: Session):
         """测试get_by_email - 查询到数据"""
         # 准备测试数据
-        entity = User(username="查询测试", email="test_查询测试@example.com", password_hash="查询测试", is_active=True, status="查询测试", email_verified=True, phone_verified=True, two_factor_enabled=True, failed_login_attempts=1, role="查询测试")
+        entity = User(username="查询测试", email="test_查询测试@example.com", password_hash="查询测试", is_active=True, status="active", email_verified=True, phone_verified=True, two_factor_enabled=True, failed_login_attempts=1, role="user")
         unit_test_db.add(entity)
         unit_test_db.commit()
         
@@ -147,7 +147,7 @@ class TestUserRepository:
     def test_get_by_username_or_email_found(self, unit_test_db: Session):
         """测试get_by_username_or_email - 查询到数据"""
         # 准备测试数据
-        entity = User(username="查询测试", email="test_查询测试@example.com", password_hash="查询测试", is_active=True, status="查询测试", email_verified=True, phone_verified=True, two_factor_enabled=True, failed_login_attempts=1, role="查询测试")
+        entity = User(username="查询测试", email="test_查询测试@example.com", password_hash="查询测试", is_active=True, status="active", email_verified=True, phone_verified=True, two_factor_enabled=True, failed_login_attempts=1, role="user")
         unit_test_db.add(entity)
         unit_test_db.commit()
         
@@ -167,7 +167,7 @@ class TestUserRepository:
     def test_get_by_wx_openid_found(self, unit_test_db: Session):
         """测试get_by_wx_openid - 查询到数据"""
         # 准备测试数据
-        entity = User(username="查询测试", email="test_查询测试@example.com", password_hash="查询测试", is_active=True, status="查询测试", email_verified=True, phone_verified=True, two_factor_enabled=True, failed_login_attempts=1, role="查询测试")
+        entity = User(username="查询测试", email="test_查询测试@example.com", password_hash="查询测试", is_active=True, status="active", email_verified=True, phone_verified=True, two_factor_enabled=True, failed_login_attempts=1, role="user")
         unit_test_db.add(entity)
         unit_test_db.commit()
         
@@ -187,7 +187,7 @@ class TestUserRepository:
     def test_check_exists_found(self, unit_test_db: Session):
         """测试check_exists - 查询到数据"""
         # 准备测试数据
-        entity = User(username="查询测试", email="test_查询测试@example.com", password_hash="查询测试", is_active=True, status="查询测试", email_verified=True, phone_verified=True, two_factor_enabled=True, failed_login_attempts=1, role="查询测试")
+        entity = User(username="查询测试", email="test_查询测试@example.com", password_hash="查询测试", is_active=True, status="active", email_verified=True, phone_verified=True, two_factor_enabled=True, failed_login_attempts=1, role="user")
         unit_test_db.add(entity)
         unit_test_db.commit()
         
@@ -206,7 +206,7 @@ class TestUserRepository:
     def test_list_found(self, unit_test_db: Session):
         """测试list - 查询到数据"""
         # 准备测试数据
-        entity = User(username="查询测试", email="test_查询测试@example.com", password_hash="查询测试", is_active=True, status="查询测试", email_verified=True, phone_verified=True, two_factor_enabled=True, failed_login_attempts=1, role="查询测试")
+        entity = User(username="查询测试", email="test_查询测试@example.com", password_hash="查询测试", is_active=True, status="active", email_verified=True, phone_verified=True, two_factor_enabled=True, failed_login_attempts=1, role="user")
         unit_test_db.add(entity)
         unit_test_db.commit()
         
@@ -228,15 +228,15 @@ class TestUserRepository:
     def test_count_count(self, unit_test_db: Session):
         """测试count - 计数功能"""
         # 准备测试数据
-        entity0 = User(username="测试数据0", email="test_测试数据0@example.com", password_hash="测试数据0", is_active=True, status="测试数据0", email_verified=True, phone_verified=True, two_factor_enabled=True, failed_login_attempts=1, role="测试数据0")
+        entity0 = User(username="测试数据0", email="test_测试数据0@example.com", password_hash="测试数据0", is_active=True, status="active", email_verified=True, phone_verified=True, two_factor_enabled=True, failed_login_attempts=1, role="user")
         unit_test_db.add(entity0)
-        entity1 = User(username="测试数据1", email="test_测试数据1@example.com", password_hash="测试数据1", is_active=True, status="测试数据1", email_verified=True, phone_verified=True, two_factor_enabled=True, failed_login_attempts=1, role="测试数据1")
+        entity1 = User(username="测试数据1", email="test_测试数据1@example.com", password_hash="测试数据1", is_active=True, status="active", email_verified=True, phone_verified=True, two_factor_enabled=True, failed_login_attempts=1, role="user")
         unit_test_db.add(entity1)
-        entity2 = User(username="测试数据2", email="test_测试数据2@example.com", password_hash="测试数据2", is_active=True, status="测试数据2", email_verified=True, phone_verified=True, two_factor_enabled=True, failed_login_attempts=1, role="测试数据2")
+        entity2 = User(username="测试数据2", email="test_测试数据2@example.com", password_hash="测试数据2", is_active=True, status="active", email_verified=True, phone_verified=True, two_factor_enabled=True, failed_login_attempts=1, role="user")
         unit_test_db.add(entity2)
-        entity3 = User(username="测试数据3", email="test_测试数据3@example.com", password_hash="测试数据3", is_active=True, status="测试数据3", email_verified=True, phone_verified=True, two_factor_enabled=True, failed_login_attempts=1, role="测试数据3")
+        entity3 = User(username="测试数据3", email="test_测试数据3@example.com", password_hash="测试数据3", is_active=True, status="active", email_verified=True, phone_verified=True, two_factor_enabled=True, failed_login_attempts=1, role="user")
         unit_test_db.add(entity3)
-        entity4 = User(username="测试数据4", email="test_测试数据4@example.com", password_hash="测试数据4", is_active=True, status="测试数据4", email_verified=True, phone_verified=True, two_factor_enabled=True, failed_login_attempts=1, role="测试数据4")
+        entity4 = User(username="测试数据4", email="test_测试数据4@example.com", password_hash="测试数据4", is_active=True, status="active", email_verified=True, phone_verified=True, two_factor_enabled=True, failed_login_attempts=1, role="user")
         unit_test_db.add(entity4)
         unit_test_db.commit()
         
@@ -250,45 +250,32 @@ class TestUserRepository:
     def test_update_success(self, unit_test_db: Session):
         """测试update - 更新成功"""
         # 准备测试数据
-        entity = User(username="原始数据", email="test_原始数据@example.com", password_hash="原始数据", is_active=True, status="原始数据", email_verified=True, phone_verified=True, two_factor_enabled=True, failed_login_attempts=1, role="原始数据")
+        entity = User(username="原始数据", email="test_原始数据@example.com", password_hash="原始数据", is_active=True, status="active", email_verified=True, phone_verified=True, two_factor_enabled=True, failed_login_attempts=1, role="user")
         unit_test_db.add(entity)
         unit_test_db.commit()
         
         # 执行Repository方法
-        update_data = {"name": "更新后数据"}
+        update_data = {"real_name": "更新后数据"}
         result = UserRepository.update(unit_test_db, entity, update_data)  # TODO: 根据实际方法签名调整参数
         
         # 验证结果
-        assert result.name == "更新后数据"
+        assert result.real_name == "更新后数据"
         
         # 验证数据库已更新
         unit_test_db.expire_all()
         db_entity = unit_test_db.query(User).filter_by(id=entity.id).first()
-        assert db_entity.name == "更新后数据"
+        assert db_entity.real_name == "更新后数据"
 
-    def test_update_login_info_success(self, unit_test_db: Session):
-        """测试update_login_info - 更新成功"""
-        # 准备测试数据
-        entity = User(username="原始数据", email="test_原始数据@example.com", password_hash="原始数据", is_active=True, status="原始数据", email_verified=True, phone_verified=True, two_factor_enabled=True, failed_login_attempts=1, role="原始数据")
-        unit_test_db.add(entity)
-        unit_test_db.commit()
-        
-        # 执行Repository方法
-        update_data = {"name": "更新后数据"}
-        result = UserRepository.update_login_info(unit_test_db, entity, update_data)  # TODO: 根据实际方法签名调整参数
-        
-        # 验证结果
-        assert result.name == "更新后数据"
-        
-        # 验证数据库已更新
-        unit_test_db.expire_all()
-        db_entity = unit_test_db.query(User).filter_by(id=entity.id).first()
-        assert db_entity.name == "更新后数据"
+    # TODO: 测试专用更新方法 update_login_info
+    # 这是一个专用更新方法，只修改特定字段，需要根据业务逻辑手动编写测试
+    # 方法签名: [('db', 'Session'), ('user', 'User'), ('ip_address', 'Optional[str]')]
+    # 返回类型: User
+    
 
     def test_increment_failed_login_query(self, unit_test_db: Session):
         """测试increment_failed_login - 查询功能"""
         # 准备测试数据
-        entity = User(username="查询测试", email="test_查询测试@example.com", password_hash="查询测试", is_active=True, status="查询测试", email_verified=True, phone_verified=True, two_factor_enabled=True, failed_login_attempts=1, role="查询测试")
+        entity = User(username="查询测试", email="test_查询测试@example.com", password_hash="查询测试", is_active=True, status="active", email_verified=True, phone_verified=True, two_factor_enabled=True, failed_login_attempts=1, role="user")
         unit_test_db.add(entity)
         unit_test_db.commit()
         
@@ -301,34 +288,39 @@ class TestUserRepository:
     def test_soft_delete_success(self, unit_test_db: Session):
         """测试soft_delete - 删除成功"""
         # 准备测试数据
-        entity = User(username="待删除数据", email="test_待删除数据@example.com", password_hash="待删除数据", is_active=True, status="待删除数据", email_verified=True, phone_verified=True, two_factor_enabled=True, failed_login_attempts=1, role="待删除数据")
+        entity = User(username="待删除数据", email="test_待删除数据@example.com", password_hash="待删除数据", is_active=True, status="active", email_verified=True, phone_verified=True, two_factor_enabled=True, failed_login_attempts=1, role="user")
         unit_test_db.add(entity)
         unit_test_db.commit()
         entity_id = entity.id
         
-        # 执行Repository方法
-        UserRepository.soft_delete(unit_test_db, entity)  # TODO: 根据实际方法签名调整参数
+        # 执行Repository方法（传递对象）
+        UserRepository.soft_delete(unit_test_db, entity)
         
-        # 验证软删除（根据实际情况调整）
+        # 验证软删除
         unit_test_db.expire_all()
         db_entity = unit_test_db.query(User).filter_by(id=entity_id).first()
-        # TODO: 验证 is_deleted 或 is_active 字段
+        assert db_entity is not None  # 记录仍存在
+        # 验证软删除标记（根据模型字段选择）
+        if hasattr(db_entity, 'is_deleted'):
+            assert db_entity.is_deleted == True
+        if hasattr(db_entity, 'is_active'):
+            assert db_entity.is_active == False
 
     def test_hard_delete_success(self, unit_test_db: Session):
         """测试hard_delete - 删除成功"""
         # 准备测试数据
-        entity = User(username="待删除数据", email="test_待删除数据@example.com", password_hash="待删除数据", is_active=True, status="待删除数据", email_verified=True, phone_verified=True, two_factor_enabled=True, failed_login_attempts=1, role="待删除数据")
+        entity = User(username="待删除数据", email="test_待删除数据@example.com", password_hash="待删除数据", is_active=True, status="active", email_verified=True, phone_verified=True, two_factor_enabled=True, failed_login_attempts=1, role="user")
         unit_test_db.add(entity)
         unit_test_db.commit()
         entity_id = entity.id
         
-        # 执行Repository方法
-        UserRepository.hard_delete(unit_test_db, entity)  # TODO: 根据实际方法签名调整参数
+        # 执行Repository方法（传递对象）
+        UserRepository.hard_delete(unit_test_db, entity)
         
-        # 验证软删除（根据实际情况调整）
+        # 验证硬删除
         unit_test_db.expire_all()
         db_entity = unit_test_db.query(User).filter_by(id=entity_id).first()
-        # TODO: 验证 is_deleted 或 is_active 字段
+        assert db_entity is None  # 记录已物理删除
 
 
 
@@ -472,13 +464,13 @@ class TestRoleRepository:
         unit_test_db.commit()
         entity_id = entity.id
         
-        # 执行Repository方法
-        RoleRepository.delete(unit_test_db, entity)  # TODO: 根据实际方法签名调整参数
+        # 执行Repository方法（传递对象）
+        RoleRepository.delete(unit_test_db, entity)
         
-        # 验证软删除（根据实际情况调整）
+        # 验证硬删除
         unit_test_db.expire_all()
         db_entity = unit_test_db.query(Role).filter_by(id=entity_id).first()
-        # TODO: 验证 is_deleted 或 is_active 字段
+        assert db_entity is None  # 记录已物理删除
 
     def test_get_user_count_count(self, unit_test_db: Session):
         """测试get_user_count - 计数功能"""
@@ -644,13 +636,13 @@ class TestPermissionRepository:
         unit_test_db.commit()
         entity_id = entity.id
         
-        # 执行Repository方法
-        PermissionRepository.delete(unit_test_db, entity)  # TODO: 根据实际方法签名调整参数
+        # 执行Repository方法（传递对象）
+        PermissionRepository.delete(unit_test_db, entity)
         
-        # 验证软删除（根据实际情况调整）
+        # 验证硬删除
         unit_test_db.expire_all()
         db_entity = unit_test_db.query(Permission).filter_by(id=entity_id).first()
-        # TODO: 验证 is_deleted 或 is_active 字段
+        assert db_entity is None  # 记录已物理删除
 
 
 
@@ -681,7 +673,7 @@ class TestUserRoleRepository:
     def test_create_success(self, unit_test_db: Session):
         """测试create - 成功创建"""
         # 准备测试数据（包括外键依赖）
-        user = User(username="依赖测试数据", email="test_依赖测试数据@example.com", password_hash="依赖测试数据", is_active=True, status="依赖测试数据", email_verified=True, phone_verified=True, two_factor_enabled=True, failed_login_attempts=1, role="依赖测试数据")
+        user = User(username="依赖测试数据", email="test_依赖测试数据@example.com", password_hash="依赖测试数据", is_active=True, status="active", email_verified=True, phone_verified=True, two_factor_enabled=True, failed_login_attempts=1, role="user")
         unit_test_db.add(user)
         unit_test_db.commit()
         role = Role(name="依赖测试数据", level=1)
@@ -702,7 +694,7 @@ class TestUserRoleRepository:
     
     def test_create_transaction(self, unit_test_db: Session):
         """测试create - 事务提交"""
-        user = User(username="依赖事务测试", email="test_依赖事务测试@example.com", password_hash="依赖事务测试", is_active=True, status="依赖事务测试", email_verified=True, phone_verified=True, two_factor_enabled=True, failed_login_attempts=1, role="依赖事务测试")
+        user = User(username="依赖事务测试", email="test_依赖事务测试@example.com", password_hash="依赖事务测试", is_active=True, status="active", email_verified=True, phone_verified=True, two_factor_enabled=True, failed_login_attempts=1, role="user")
         unit_test_db.add(user)
         unit_test_db.commit()
         role = Role(name="依赖事务测试", level=1)
@@ -720,7 +712,7 @@ class TestUserRoleRepository:
     def test_get_found(self, unit_test_db: Session):
         """测试get - 查询到数据"""
         # 准备测试数据
-        entity = user = User(username="依赖查询测试", email="test_依赖查询测试@example.com", password_hash="依赖查询测试", is_active=True, status="依赖查询测试", email_verified=True, phone_verified=True, two_factor_enabled=True, failed_login_attempts=1, role="依赖查询测试")
+        entity = user = User(username="依赖查询测试", email="test_依赖查询测试@example.com", password_hash="依赖查询测试", is_active=True, status="active", email_verified=True, phone_verified=True, two_factor_enabled=True, failed_login_attempts=1, role="user")
         unit_test_db.add(user)
         unit_test_db.commit()
         role = Role(name="依赖查询测试", level=1)
@@ -746,7 +738,7 @@ class TestUserRoleRepository:
     def test_get_user_roles_found(self, unit_test_db: Session):
         """测试get_user_roles - 查询到数据"""
         # 准备测试数据
-        entity = user = User(username="依赖查询测试", email="test_依赖查询测试@example.com", password_hash="依赖查询测试", is_active=True, status="依赖查询测试", email_verified=True, phone_verified=True, two_factor_enabled=True, failed_login_attempts=1, role="依赖查询测试")
+        entity = user = User(username="依赖查询测试", email="test_依赖查询测试@example.com", password_hash="依赖查询测试", is_active=True, status="active", email_verified=True, phone_verified=True, two_factor_enabled=True, failed_login_attempts=1, role="user")
         unit_test_db.add(user)
         unit_test_db.commit()
         role = Role(name="依赖查询测试", level=1)
@@ -774,7 +766,7 @@ class TestUserRoleRepository:
     def test_get_role_users_found(self, unit_test_db: Session):
         """测试get_role_users - 查询到数据"""
         # 准备测试数据
-        entity = user = User(username="依赖查询测试", email="test_依赖查询测试@example.com", password_hash="依赖查询测试", is_active=True, status="依赖查询测试", email_verified=True, phone_verified=True, two_factor_enabled=True, failed_login_attempts=1, role="依赖查询测试")
+        entity = user = User(username="依赖查询测试", email="test_依赖查询测试@example.com", password_hash="依赖查询测试", is_active=True, status="active", email_verified=True, phone_verified=True, two_factor_enabled=True, failed_login_attempts=1, role="user")
         unit_test_db.add(user)
         unit_test_db.commit()
         role = Role(name="依赖查询测试", level=1)
@@ -802,7 +794,7 @@ class TestUserRoleRepository:
     def test_delete_found(self, unit_test_db: Session):
         """测试delete - 查询到数据"""
         # 准备测试数据
-        entity = user = User(username="依赖查询测试", email="test_依赖查询测试@example.com", password_hash="依赖查询测试", is_active=True, status="依赖查询测试", email_verified=True, phone_verified=True, two_factor_enabled=True, failed_login_attempts=1, role="依赖查询测试")
+        entity = user = User(username="依赖查询测试", email="test_依赖查询测试@example.com", password_hash="依赖查询测试", is_active=True, status="active", email_verified=True, phone_verified=True, two_factor_enabled=True, failed_login_attempts=1, role="user")
         unit_test_db.add(user)
         unit_test_db.commit()
         role = Role(name="依赖查询测试", level=1)
@@ -828,7 +820,7 @@ class TestUserRoleRepository:
     def test_delete_all_user_roles_found(self, unit_test_db: Session):
         """测试delete_all_user_roles - 查询到数据"""
         # 准备测试数据
-        entity = user = User(username="依赖查询测试", email="test_依赖查询测试@example.com", password_hash="依赖查询测试", is_active=True, status="依赖查询测试", email_verified=True, phone_verified=True, two_factor_enabled=True, failed_login_attempts=1, role="依赖查询测试")
+        entity = user = User(username="依赖查询测试", email="test_依赖查询测试@example.com", password_hash="依赖查询测试", is_active=True, status="active", email_verified=True, phone_verified=True, two_factor_enabled=True, failed_login_attempts=1, role="user")
         unit_test_db.add(user)
         unit_test_db.commit()
         role = Role(name="依赖查询测试", level=1)
@@ -1079,7 +1071,7 @@ class TestSessionRepository:
     def test_create_success(self, unit_test_db: Session):
         """测试create - 成功创建"""
         # 准备测试数据（包括外键依赖）
-        user = User(username="依赖测试数据", email="test_依赖测试数据@example.com", password_hash="依赖测试数据", is_active=True, status="依赖测试数据", email_verified=True, phone_verified=True, two_factor_enabled=True, failed_login_attempts=1, role="依赖测试数据")
+        user = User(username="依赖测试数据", email="test_依赖测试数据@example.com", password_hash="依赖测试数据", is_active=True, status="active", email_verified=True, phone_verified=True, two_factor_enabled=True, failed_login_attempts=1, role="user")
         unit_test_db.add(user)
         unit_test_db.commit()
         entity = Session(token_hash="测试数据", expires_at=datetime.now(), last_accessed_at=datetime.now(), is_active=True, user_id=user.id)
@@ -1097,7 +1089,7 @@ class TestSessionRepository:
     
     def test_create_transaction(self, unit_test_db: Session):
         """测试create - 事务提交"""
-        user = User(username="依赖事务测试", email="test_依赖事务测试@example.com", password_hash="依赖事务测试", is_active=True, status="依赖事务测试", email_verified=True, phone_verified=True, two_factor_enabled=True, failed_login_attempts=1, role="依赖事务测试")
+        user = User(username="依赖事务测试", email="test_依赖事务测试@example.com", password_hash="依赖事务测试", is_active=True, status="active", email_verified=True, phone_verified=True, two_factor_enabled=True, failed_login_attempts=1, role="user")
         unit_test_db.add(user)
         unit_test_db.commit()
         entity = Session(token_hash="事务测试", expires_at=datetime.now(), last_accessed_at=datetime.now(), is_active=True, user_id=user.id)
@@ -1112,7 +1104,7 @@ class TestSessionRepository:
     def test_get_by_id_found(self, unit_test_db: Session):
         """测试get_by_id - 查询到数据"""
         # 准备测试数据
-        entity = user = User(username="依赖查询测试", email="test_依赖查询测试@example.com", password_hash="依赖查询测试", is_active=True, status="依赖查询测试", email_verified=True, phone_verified=True, two_factor_enabled=True, failed_login_attempts=1, role="依赖查询测试")
+        entity = user = User(username="依赖查询测试", email="test_依赖查询测试@example.com", password_hash="依赖查询测试", is_active=True, status="active", email_verified=True, phone_verified=True, two_factor_enabled=True, failed_login_attempts=1, role="user")
         unit_test_db.add(user)
         unit_test_db.commit()
         entity = Session(token_hash="查询测试", expires_at=datetime.now(), last_accessed_at=datetime.now(), is_active=True, user_id=user.id)
@@ -1135,7 +1127,7 @@ class TestSessionRepository:
     def test_get_by_token_hash_found(self, unit_test_db: Session):
         """测试get_by_token_hash - 查询到数据"""
         # 准备测试数据
-        entity = user = User(username="依赖查询测试", email="test_依赖查询测试@example.com", password_hash="依赖查询测试", is_active=True, status="依赖查询测试", email_verified=True, phone_verified=True, two_factor_enabled=True, failed_login_attempts=1, role="依赖查询测试")
+        entity = user = User(username="依赖查询测试", email="test_依赖查询测试@example.com", password_hash="依赖查询测试", is_active=True, status="active", email_verified=True, phone_verified=True, two_factor_enabled=True, failed_login_attempts=1, role="user")
         unit_test_db.add(user)
         unit_test_db.commit()
         entity = Session(token_hash="查询测试", expires_at=datetime.now(), last_accessed_at=datetime.now(), is_active=True, user_id=user.id)
@@ -1158,7 +1150,7 @@ class TestSessionRepository:
     def test_get_user_active_sessions_found(self, unit_test_db: Session):
         """测试get_user_active_sessions - 查询到数据"""
         # 准备测试数据
-        entity = user = User(username="依赖查询测试", email="test_依赖查询测试@example.com", password_hash="依赖查询测试", is_active=True, status="依赖查询测试", email_verified=True, phone_verified=True, two_factor_enabled=True, failed_login_attempts=1, role="依赖查询测试")
+        entity = user = User(username="依赖查询测试", email="test_依赖查询测试@example.com", password_hash="依赖查询测试", is_active=True, status="active", email_verified=True, phone_verified=True, two_factor_enabled=True, failed_login_attempts=1, role="user")
         unit_test_db.add(user)
         unit_test_db.commit()
         entity = Session(token_hash="查询测试", expires_at=datetime.now(), last_accessed_at=datetime.now(), is_active=True, user_id=user.id)
@@ -1180,32 +1172,16 @@ class TestSessionRepository:
         assert isinstance(result, list)
         assert len(result) == 0
 
-    def test_update_last_accessed_success(self, unit_test_db: Session):
-        """测试update_last_accessed - 更新成功"""
-        # 准备测试数据
-        entity = user = User(username="依赖原始数据", email="test_依赖原始数据@example.com", password_hash="依赖原始数据", is_active=True, status="依赖原始数据", email_verified=True, phone_verified=True, two_factor_enabled=True, failed_login_attempts=1, role="依赖原始数据")
-        unit_test_db.add(user)
-        unit_test_db.commit()
-        entity = Session(token_hash="原始数据", expires_at=datetime.now(), last_accessed_at=datetime.now(), is_active=True, user_id=user.id)
-        unit_test_db.add(entity)
-        unit_test_db.commit()
-        
-        # 执行Repository方法
-        update_data = {"name": "更新后数据"}
-        result = SessionRepository.update_last_accessed(unit_test_db, entity, update_data)  # TODO: 根据实际方法签名调整参数
-        
-        # 验证结果
-        assert result.name == "更新后数据"
-        
-        # 验证数据库已更新
-        unit_test_db.expire_all()
-        db_entity = unit_test_db.query(Session).filter_by(id=entity.id).first()
-        assert db_entity.name == "更新后数据"
+    # TODO: 测试专用更新方法 update_last_accessed
+    # 这是一个专用更新方法，只修改特定字段，需要根据业务逻辑手动编写测试
+    # 方法签名: [('db', 'Session'), ('session', 'UserSession')]
+    # 返回类型: UserSession
+    
 
     def test_deactivate_success(self, unit_test_db: Session):
         """测试deactivate - 删除成功"""
         # 准备测试数据
-        entity = user = User(username="依赖待删除数据", email="test_依赖待删除数据@example.com", password_hash="依赖待删除数据", is_active=True, status="依赖待删除数据", email_verified=True, phone_verified=True, two_factor_enabled=True, failed_login_attempts=1, role="依赖待删除数据")
+        entity = user = User(username="依赖待删除数据", email="test_依赖待删除数据@example.com", password_hash="依赖待删除数据", is_active=True, status="active", email_verified=True, phone_verified=True, two_factor_enabled=True, failed_login_attempts=1, role="user")
         unit_test_db.add(user)
         unit_test_db.commit()
         entity = Session(token_hash="待删除数据", expires_at=datetime.now(), last_accessed_at=datetime.now(), is_active=True, user_id=user.id)
@@ -1213,18 +1189,26 @@ class TestSessionRepository:
         unit_test_db.commit()
         entity_id = entity.id
         
-        # 执行Repository方法
-        SessionRepository.deactivate(unit_test_db, entity)  # TODO: 根据实际方法签名调整参数
+        # 执行Repository方法（传递对象）
+        result = SessionRepository.deactivate(unit_test_db, entity)
         
-        # 验证软删除（根据实际情况调整）
+        # 验证结果
+        assert result is not None
+        
+        # 验证软删除
         unit_test_db.expire_all()
         db_entity = unit_test_db.query(Session).filter_by(id=entity_id).first()
-        # TODO: 验证 is_deleted 或 is_active 字段
+        assert db_entity is not None  # 记录仍存在
+        # 验证软删除标记（根据模型字段选择）
+        if hasattr(db_entity, 'is_deleted'):
+            assert db_entity.is_deleted == True
+        if hasattr(db_entity, 'is_active'):
+            assert db_entity.is_active == False
 
     def test_deactivate_user_sessions_found(self, unit_test_db: Session):
         """测试deactivate_user_sessions - 查询到数据"""
         # 准备测试数据
-        entity = user = User(username="依赖查询测试", email="test_依赖查询测试@example.com", password_hash="依赖查询测试", is_active=True, status="依赖查询测试", email_verified=True, phone_verified=True, two_factor_enabled=True, failed_login_attempts=1, role="依赖查询测试")
+        entity = user = User(username="依赖查询测试", email="test_依赖查询测试@example.com", password_hash="依赖查询测试", is_active=True, status="active", email_verified=True, phone_verified=True, two_factor_enabled=True, failed_login_attempts=1, role="user")
         unit_test_db.add(user)
         unit_test_db.commit()
         entity = Session(token_hash="查询测试", expires_at=datetime.now(), last_accessed_at=datetime.now(), is_active=True, user_id=user.id)
@@ -1247,7 +1231,7 @@ class TestSessionRepository:
     def test_delete_expired_sessions_found(self, unit_test_db: Session):
         """测试delete_expired_sessions - 查询到数据"""
         # 准备测试数据
-        entity = user = User(username="依赖查询测试", email="test_依赖查询测试@example.com", password_hash="依赖查询测试", is_active=True, status="依赖查询测试", email_verified=True, phone_verified=True, two_factor_enabled=True, failed_login_attempts=1, role="依赖查询测试")
+        entity = user = User(username="依赖查询测试", email="test_依赖查询测试@example.com", password_hash="依赖查询测试", is_active=True, status="active", email_verified=True, phone_verified=True, two_factor_enabled=True, failed_login_attempts=1, role="user")
         unit_test_db.add(user)
         unit_test_db.commit()
         entity = Session(token_hash="查询测试", expires_at=datetime.now(), last_accessed_at=datetime.now(), is_active=True, user_id=user.id)
@@ -1270,7 +1254,7 @@ class TestSessionRepository:
     def test_delete_success(self, unit_test_db: Session):
         """测试delete - 删除成功"""
         # 准备测试数据
-        entity = user = User(username="依赖待删除数据", email="test_依赖待删除数据@example.com", password_hash="依赖待删除数据", is_active=True, status="依赖待删除数据", email_verified=True, phone_verified=True, two_factor_enabled=True, failed_login_attempts=1, role="依赖待删除数据")
+        entity = user = User(username="依赖待删除数据", email="test_依赖待删除数据@example.com", password_hash="依赖待删除数据", is_active=True, status="active", email_verified=True, phone_verified=True, two_factor_enabled=True, failed_login_attempts=1, role="user")
         unit_test_db.add(user)
         unit_test_db.commit()
         entity = Session(token_hash="待删除数据", expires_at=datetime.now(), last_accessed_at=datetime.now(), is_active=True, user_id=user.id)
@@ -1278,11 +1262,11 @@ class TestSessionRepository:
         unit_test_db.commit()
         entity_id = entity.id
         
-        # 执行Repository方法
-        SessionRepository.delete(unit_test_db, entity)  # TODO: 根据实际方法签名调整参数
+        # 执行Repository方法（传递对象）
+        SessionRepository.delete(unit_test_db, entity)
         
-        # 验证软删除（根据实际情况调整）
+        # 验证硬删除
         unit_test_db.expire_all()
         db_entity = unit_test_db.query(Session).filter_by(id=entity_id).first()
-        # TODO: 验证 is_deleted 或 is_active 字段
+        assert db_entity is None  # 记录已物理删除
 

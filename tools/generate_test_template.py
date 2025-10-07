@@ -152,6 +152,8 @@ class RepositoryMethodInfo:
     is_static: bool
     docstring: Optional[str]
     has_transaction: bool  # 是否需要事务测试
+    is_soft_delete: bool = False  # 是否是软删除方法（设置is_deleted/is_active）
+    is_specialized_update: bool = False  # 是否是专用更新方法（如update_login_info）
 
 
 @dataclass
@@ -885,7 +887,7 @@ class IntelligentTestGenerator:
         
         # 判断方法类型（基于AST分析函数体）
         method_name = func_node.name
-        method_type = self._classify_repository_method(method_name, func_node)
+        method_type, is_soft_delete, is_specialized_update = self._classify_repository_method(method_name, func_node)
         
         # 判断是否需要事务测试（create/update/delete方法需要）
         has_transaction = method_type in ["create", "update", "delete"]
@@ -900,17 +902,19 @@ class IntelligentTestGenerator:
             return_type=return_type,
             is_static=is_static,
             docstring=docstring,
-            has_transaction=has_transaction
+            has_transaction=has_transaction,
+            is_soft_delete=is_soft_delete,
+            is_specialized_update=is_specialized_update
         )
     
-    def _classify_repository_method(self, method_name: str, func_node: ast.FunctionDef) -> str:
+    def _classify_repository_method(self, method_name: str, func_node: ast.FunctionDef) -> tuple[str, bool, bool]:
         """分类Repository方法类型（基于AST分析函数体）
         
         通过分析函数体的实际操作来判断方法类型，而不是依赖方法名：
         - 包含 db.add() -> create
         - 包含 db.query().filter() -> read
         - 包含 setattr() + db.commit() -> update
-        - 包含 is_deleted = True 或 is_active = False -> delete
+        - 包含 is_deleted = True 或 is_active = False -> delete (soft_delete)
         - 包含 .count() -> count
         
         Args:
@@ -918,7 +922,10 @@ class IntelligentTestGenerator:
             func_node: AST函数定义节点
             
         Returns:
-            str: 方法类型 (create/read/update/delete/query/count)
+            tuple: (方法类型, 是否软删除, 是否专用更新)
+                - method_type: str (create/read/update/delete/query/count)
+                - is_soft_delete: bool (True if 设置is_deleted/is_active)
+                - is_specialized_update: bool (True if update_xxx专用方法)
         """
         # 分析函数体中的关键操作
         has_db_add = False
@@ -953,32 +960,42 @@ class IntelligentTestGenerator:
                         if target.attr in ['is_deleted', 'is_active']:
                             has_soft_delete = True
         
+        # 检测是否是专用更新方法（如update_login_info, update_last_accessed）
+        # 特征：方法名以update_开头 + 只修改特定字段（不是通用的setattr所有字段）
+        is_specialized_update = False
+        if method_name.startswith('update_') and has_setattr and method_name != 'update':
+            # 如果有赋值操作但不是通用update，是专用更新
+            is_specialized_update = True
+        
         # 根据分析结果判断方法类型
         if has_db_add:
-            return "create"
+            return ("create", False, False)
         elif has_soft_delete:
-            return "delete"
+            return ("delete", True, False)  # 软删除
         elif has_setattr and not has_db_add:
-            return "update"
+            return ("update", False, is_specialized_update)
         elif has_count:
-            return "count"
+            return ("count", False, False)
         elif has_db_query or has_filter:
-            return "read"
+            return ("read", False, False)
         else:
             # Fallback: 基于方法名判断（只作为最后手段）
             method_name_lower = method_name.lower()
             if 'create' in method_name_lower or 'add' in method_name_lower:
-                return "create"
+                return ("create", False, False)
             elif 'update' in method_name_lower or 'modify' in method_name_lower:
-                return "update"
+                is_specialized = method_name.startswith('update_') and method_name != 'update'
+                return ("update", False, is_specialized)
             elif 'delete' in method_name_lower or 'remove' in method_name_lower:
-                return "delete"
+                # 根据方法名判断是否是软删除
+                is_soft = 'soft' in method_name_lower
+                return ("delete", is_soft, False)
             elif 'count' in method_name_lower:
-                return "count"
+                return ("count", False, False)
             elif 'get' in method_name_lower or 'find' in method_name_lower or 'list' in method_name_lower:
-                return "read"
+                return ("read", False, False)
             else:
-                return "query"
+                return ("query", False, False)
 
     def generate_intelligent_factories(
         self, module_name: str, models: Dict[str, ModelInfo]
@@ -2131,6 +2148,17 @@ from app.modules.{module_name}.models import (
         test_methods = []
         
         for method_info in repo_info.methods:
+            # 🔥 跳过专用更新方法（如update_login_info），生成TODO提示
+            if method_info.is_specialized_update:
+                todo_comment = f'''    # TODO: 测试专用更新方法 {method_info.name}
+    # 这是一个专用更新方法，只修改特定字段，需要根据业务逻辑手动编写测试
+    # 方法签名: {method_info.parameters}
+    # 返回类型: {method_info.return_type}
+    
+'''
+                test_methods.append(todo_comment)
+                continue
+            
             # 根据方法类型生成对应的测试
             if method_info.method_type == "create":
                 test_methods.append(self._generate_repository_create_test(method_info, model_name, repo_name, module_name, models))
@@ -2369,6 +2397,12 @@ class Test{repo_name}:
                 return f'"TEST{suffix.upper()}"'
             elif 'url' in field_name:
                 return f'"https://example.com/{suffix.lower()}"'
+            elif field_name == 'status':
+                # 🔥 status字段使用合理的默认值
+                return '"active"'
+            elif field_name == 'role':
+                # 🔥 role字段使用合理的默认值
+                return '"user"'
             elif 'name' in field_name:
                 return f'"{suffix}"'
             else:
@@ -2621,24 +2655,49 @@ class Test{repo_name}:
         method_name = method_info.name
         entity_creation = self._generate_test_entity_creation(model_name, models, "原始数据", with_dependencies=True)
         
-        # 智能选择可更新的字段（优先name，否则第一个非主键非外键字符串字段）
+        # 🔥 智能选择可更新的字段（优先name，然后业务字段，最后才是其他字段）
         update_field = "name"  # 默认
         if model_name in models:
             model_info = models[model_name]
             # 检查是否有name字段
             has_name = any(f.name == 'name' for f in model_info.fields)
             if not has_name:
-                # 查找第一个可更新的字符串字段
-                auto_fields = {'id', 'created_at', 'updated_at', 'is_deleted', 'is_active'}
-                updateable_fields = [
-                    f.name for f in model_info.fields
-                    if f.name not in auto_fields 
-                    and not f.primary_key 
-                    and not f.foreign_key
-                    and 'String' in f.column_type
-                ]
-                if updateable_fields:
-                    update_field = updateable_fields[0]
+                # 📝 排除规则：只排除真正不能修改的字段
+                # 1. 系统字段：id, timestamps, 软删除标记
+                # 2. 唯一约束字段：username, email（这些需要唯一性验证）
+                # 3. 经过验证的敏感字段：password_hash, token等
+                # 4. 已验证的真实信息：如果有verified标记的字段
+                excluded_fields = {
+                    # 系统字段
+                    'id', 'created_at', 'updated_at', 'is_deleted', 'deleted_at',
+                    # 唯一约束字段（需要特殊处理）
+                    'username', 'email', 'wx_openid', 'wx_unionid',
+                    # 认证和令牌字段
+                    'password_hash', 'token', 'token_hash', 'refresh_token',
+                    # 唯一标识码
+                    'code', 'sku', 'slug'
+                }
+                
+                # 🎯 优先级排序：业务字段 > 描述字段 > 其他字段
+                priority_fields = ['real_name', 'phone', 'status', 'role', 'description', 'remark', 'note', 'address']
+                
+                # 先检查优先级字段
+                for field in priority_fields:
+                    field_info = next((f for f in model_info.fields if f.name == field), None)
+                    if field_info and not field_info.primary_key and not field_info.foreign_key:
+                        update_field = field
+                        break
+                else:
+                    # 如果没有优先级字段，查找第一个可更新的字符串字段
+                    updateable_fields = [
+                        f.name for f in model_info.fields
+                        if f.name not in excluded_fields
+                        and not f.primary_key 
+                        and not f.foreign_key
+                        and 'String' in f.column_type
+                    ]
+                    if updateable_fields:
+                        update_field = updateable_fields[0]
         
         # 🔥 检查是否使用联合主键
         has_composite_pk = self._has_composite_primary_key(model_name, models)
@@ -2689,21 +2748,68 @@ class Test{repo_name}:
         assert db_entity.{update_field} == "更新后数据"
 '''
     
+    def _generate_delete_verification(self, is_soft_delete: bool, model_name: str, filter_condition: str) -> str:
+        """生成删除验证逻辑（通用方法）
+        
+        Args:
+            is_soft_delete: 是否是软删除
+            model_name: 模型名称
+            filter_condition: 过滤条件（如"id=entity_id" 或 "user_id=user_id_val, role_id=role_id_val"）
+            
+        Returns:
+            str: 验证代码
+        """
+        if is_soft_delete:
+            # 软删除：记录仍存在，但is_deleted=True或is_active=False
+            return f'''# 验证软删除
+        unit_test_db.expire_all()
+        db_entity = unit_test_db.query({model_name}).filter_by({filter_condition}).first()
+        assert db_entity is not None  # 记录仍存在
+        # 验证软删除标记（根据模型字段选择）
+        if hasattr(db_entity, 'is_deleted'):
+            assert db_entity.is_deleted == True
+        if hasattr(db_entity, 'is_active'):
+            assert db_entity.is_active == False'''
+        else:
+            # 硬删除：记录被物理删除
+            return f'''# 验证硬删除
+        unit_test_db.expire_all()
+        db_entity = unit_test_db.query({model_name}).filter_by({filter_condition}).first()
+        assert db_entity is None  # 记录已物理删除'''
+    
     def _generate_repository_delete_test(self, method_info: RepositoryMethodInfo, model_name: str, repo_name: str, module_name: str, models: Dict[str, ModelInfo]) -> str:
-        """生成Repository delete方法测试（处理联合主键）"""
+        """生成Repository delete方法测试（处理软删除/硬删除、联合主键和返回类型）"""
         method_name = method_info.name
         entity_creation = self._generate_test_entity_creation(model_name, models, "待删除数据", with_dependencies=True)
         
+        # 🔥 检查是否是软删除（通过AST分析得到）
+        is_soft_delete = method_info.is_soft_delete
+        
         # 🔥 检查是否使用联合主键
         has_composite_pk = self._has_composite_primary_key(model_name, models)
+        # 检查返回类型
+        returns_none = method_info.return_type == 'None'
+        
+        # 🔥 检查delete方法的参数类型（接收对象还是ID）
+        # parameters: [(name, type), ...], 跳过'self', 'db', 'cls'
+        delete_params = [p for p in method_info.parameters if p[0] not in ['self', 'db', 'cls']]
+        # 如果第一个参数类型包含模型名（如Role），说明接收对象；否则接收ID
+        accepts_entity = False
+        if delete_params and model_name.lower() in delete_params[0][1].lower():
+            accepts_entity = True
         
         if has_composite_pk:
-            # 联合主键：保存主键值用于后续查询
+            # 联合主键：保存主键值用于后续查询和删除参数
             pk_fields = self._get_primary_key_fields(model_name, models)
             pk_saves = '\n        '.join([f'{f.name}_val = entity.{f.name}' for f in pk_fields])
+            pk_params = ', '.join([f'{f.name}_val' for f in pk_fields])
             pk_filter = ', '.join([f'{f.name}={f.name}_val' for f in pk_fields])
             
-            return f'''    def test_{method_name}_success(self, unit_test_db: Session):
+            verification = self._generate_delete_verification(is_soft_delete, model_name, pk_filter)
+            
+            if returns_none:
+                # delete返回None
+                return f'''    def test_{method_name}_success(self, unit_test_db: Session):
         """测试{method_name} - 删除成功"""
         # 准备测试数据
         entity = {entity_creation}
@@ -2711,17 +2817,37 @@ class Test{repo_name}:
         unit_test_db.commit()
         {pk_saves}
         
-        # 执行Repository方法
-        {repo_name}.{method_name}(unit_test_db, entity)  # TODO: 根据实际方法签名调整参数
+        # 执行Repository方法（使用主键参数）
+        {repo_name}.{method_name}(unit_test_db, {pk_params})
         
-        # 验证软删除（根据实际情况调整）
-        unit_test_db.expire_all()
-        db_entity = unit_test_db.query({model_name}).filter_by({pk_filter}).first()
-        # TODO: 验证 is_deleted 或 is_active 字段
+        {verification}
+'''
+            else:
+                # delete返回对象
+                return f'''    def test_{method_name}_success(self, unit_test_db: Session):
+        """测试{method_name} - 删除成功"""
+        # 准备测试数据
+        entity = {entity_creation}
+        unit_test_db.add(entity)
+        unit_test_db.commit()
+        {pk_saves}
+        
+        # 执行Repository方法（使用主键参数）
+        result = {repo_name}.{method_name}(unit_test_db, {pk_params})
+        
+        # 验证结果
+        assert result is not None
+        
+        {verification}
 '''
         else:
             # 标准单主键
-            return f'''    def test_{method_name}_success(self, unit_test_db: Session):
+            verification = self._generate_delete_verification(is_soft_delete, model_name, "id=entity_id")
+            
+            if accepts_entity:
+                # delete方法接收对象
+                if returns_none:
+                    return f'''    def test_{method_name}_success(self, unit_test_db: Session):
         """测试{method_name} - 删除成功"""
         # 准备测试数据
         entity = {entity_creation}
@@ -2729,13 +2855,60 @@ class Test{repo_name}:
         unit_test_db.commit()
         entity_id = entity.id
         
-        # 执行Repository方法
-        {repo_name}.{method_name}(unit_test_db, entity)  # TODO: 根据实际方法签名调整参数
+        # 执行Repository方法（传递对象）
+        {repo_name}.{method_name}(unit_test_db, entity)
         
-        # 验证软删除（根据实际情况调整）
-        unit_test_db.expire_all()
-        db_entity = unit_test_db.query({model_name}).filter_by(id=entity_id).first()
-        # TODO: 验证 is_deleted 或 is_active 字段
+        {verification}
+'''
+                else:
+                    return f'''    def test_{method_name}_success(self, unit_test_db: Session):
+        """测试{method_name} - 删除成功"""
+        # 准备测试数据
+        entity = {entity_creation}
+        unit_test_db.add(entity)
+        unit_test_db.commit()
+        entity_id = entity.id
+        
+        # 执行Repository方法（传递对象）
+        result = {repo_name}.{method_name}(unit_test_db, entity)
+        
+        # 验证结果
+        assert result is not None
+        
+        {verification}
+'''
+            else:
+                # delete方法接收ID
+                if returns_none:
+                    return f'''    def test_{method_name}_success(self, unit_test_db: Session):
+        """测试{method_name} - 删除成功"""
+        # 准备测试数据
+        entity = {entity_creation}
+        unit_test_db.add(entity)
+        unit_test_db.commit()
+        entity_id = entity.id
+        
+        # 执行Repository方法（传递ID）
+        {repo_name}.{method_name}(unit_test_db, entity_id)
+        
+        {verification}
+'''
+                else:
+                    return f'''    def test_{method_name}_success(self, unit_test_db: Session):
+        """测试{method_name} - 删除成功"""
+        # 准备测试数据
+        entity = {entity_creation}
+        unit_test_db.add(entity)
+        unit_test_db.commit()
+        entity_id = entity.id
+        
+        # 执行Repository方法（传递ID）
+        result = {repo_name}.{method_name}(unit_test_db, entity_id)
+        
+        # 验证结果
+        assert result is not None
+        
+        {verification}
 '''
     
     def _generate_repository_count_test(self, method_info: RepositoryMethodInfo, model_name: str, repo_name: str, module_name: str, models: Dict[str, ModelInfo]) -> str:
