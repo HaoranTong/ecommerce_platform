@@ -212,6 +212,37 @@ app/
 
 ### 架构层次说明
 
+#### 🏛️ 模块化单体架构总体说明
+
+项目采用**模块化单体架构**（Modular Monolith），结合**四层分层架构**：
+
+```
+┌─────────────────────────────────────────────┐
+│   第1层: Router (路由层/表现层)            │  ← API接口定义、请求响应处理
+├─────────────────────────────────────────────┤
+│   第2层: Service (业务逻辑层)                │  ← 业务规则、流程控制、事务管理
+├─────────────────────────────────────────────┤
+│   第3层: Repository (数据访问层)            │  ← 数据库操作封装、查询构建
+├─────────────────────────────────────────────┤
+│   第4层: Model (数据模型层)                  │  ← ORM模型定义、实体关系
+└─────────────────────────────────────────────┘
+```
+
+**层次详细说明**：
+
+| 层次 | 文件 | 职责 | 依赖方向 |
+|------|------|------|----------|
+| **Router层** | `router.py` | • API路由定义<br>• 请求验证<br>• 响应格式化<br>• 异常处理 | → Service层 |
+| **Service层** | `service.py`<br>`{domain}_service.py` | • 业务逻辑实现<br>• 事务管理<br>• 业务规则验证<br>• 流程编排 | → Repository层 |
+| **Repository层** | `repository.py` | • 数据库操作封装<br>• 复杂查询构建<br>• 数据访问抽象<br>• ORM操作 | → Model层 |
+| **Model层** | `models.py` | • ORM模型定义<br>• 实体关系映射<br>• 数据库表结构 | 无依赖 |
+
+**分层原则**：
+1. ✅ **单向依赖**：上层可以依赖下层，禁止反向依赖
+2. ✅ **职责分离**：Router处理HTTP，Service处理业务，Repository处理数据
+3. ✅ **易于测试**：每层可独立测试，上层可Mock下层
+4. ✅ **便于维护**：修改数据访问不影响业务逻辑
+
 #### 🔧 核心基础设施层 (core/)
 负责应用程序的基础服务：数据库连接、缓存管理、认证中间件等跨模块的核心功能。
 
@@ -221,13 +252,214 @@ app/
 #### 🔌 适配器层 (adapters/)
 封装第三方服务集成，提供统一的接口，支持可替换的实现策略。
 
-#### 🏢 业务模块层 (modules/)
-采用垂直切片架构，每个模块包含完整的业务功能：
-- **router.py** - API路由定义
-- **service.py** - 业务逻辑处理  
-- **models.py** - 数据模型定义
-- **schemas.py** - 请求/响应模型
-- **dependencies.py** - 模块依赖注入
+#### 🏢 业务模块层 (modules/) - 四层分层架构
+
+采用**垂直切片架构**，每个模块内部实现**四层分层架构**：
+
+```
+app/modules/{module_name}/
+├── router.py           # 第1层: API路由定义
+├── service.py          # 第2层: 业务逻辑处理
+├── repository.py       # 第3层: 数据访问层 (推荐)
+├── models.py           # 第4层: 数据模型定义
+├── schemas.py          # Pydantic请求/响应模型
+├── dependencies.py     # 模块依赖注入
+└── __init__.py         # 模块初始化
+```
+
+**文件职责详细说明**：
+
+1. **router.py** (第1层 - 表现层)
+   - 定义FastAPI路由和端点
+   - 处理HTTP请求和响应
+   - 调用Service层处理业务
+   - 处理异常和错误响应
+
+2. **service.py** (第2层 - 业务逻辑层)
+   - 实现核心业务逻辑
+   - 管理事务边界
+   - 执行业务规则验证
+   - 编排多个Repository调用
+
+3. **repository.py** (第3层 - 数据访问层) ⭐ **新增推荐**
+   - 封装所有数据库操作
+   - 提供标准CRUD接口
+   - 实现复杂查询逻辑
+   - 隔离ORM具体实现
+
+4. **models.py** (第4层 - 数据模型层)
+   - 定义SQLAlchemy ORM模型
+   - 映射数据库表结构
+   - 定义实体关系
+
+5. **schemas.py** (数据传输对象)
+   - 定义API请求/响应模型
+   - Pydantic数据验证
+   - 文档自动生成
+
+6. **dependencies.py** (依赖注入)
+   - 定义权限检查
+   - 公共依赖抽取
+   - 数据库会话管理
+
+### Repository模式推广计划 🎯
+
+#### 为什么引入Repository模式？
+
+**当前问题**：
+- ❌ Service层直接操作ORM，职责混乱
+- ❌ 数据访问逻辑分散在多个Service中
+- ❌ 难以Mock数据层进行单元测试
+- ❌ 更换ORM或数据源成本高
+
+**Repository模式优势**：
+- ✅ **职责清晰**：Service专注业务，Repository专注数据
+- ✅ **可测试性**：Repository可轻松Mock
+- ✅ **可维护性**：数据访问逻辑集中管理
+- ✅ **可扩展性**：便于切换数据源或ORM
+- ✅ **代码复用**：通用查询方法集中定义
+
+#### Repository模式实施标准
+
+**标准Repository接口**：
+
+```python
+class BaseRepository:
+    """Repository基类，定义标准CRUD接口"""
+    
+    @staticmethod
+    def create(db: Session, entity: Model) -> Model:
+        """创建实体"""
+        db.add(entity)
+        db.commit()
+        db.refresh(entity)
+        return entity
+    
+    @staticmethod
+    def get_by_id(db: Session, entity_id: int) -> Optional[Model]:
+        """根据ID查询"""
+        return db.query(Model).filter(Model.id == entity_id).first()
+    
+    @staticmethod
+    def list(db: Session, skip: int = 0, limit: int = 100, **filters) -> List[Model]:
+        """列表查询（带过滤）"""
+        query = db.query(Model)
+        # 应用过滤条件
+        return query.offset(skip).limit(limit).all()
+    
+    @staticmethod
+    def update(db: Session, entity: Model, data: Dict[str, Any]) -> Model:
+        """更新实体"""
+        for key, value in data.items():
+            setattr(entity, key, value)
+        db.commit()
+        db.refresh(entity)
+        return entity
+    
+    @staticmethod
+    def soft_delete(db: Session, entity: Model) -> None:
+        """软删除"""
+        entity.is_deleted = True
+        db.commit()
+```
+
+#### 推广实施计划
+
+**已完成模块** (✅ 2个)：
+- ✅ `product_catalog` - 已实现完整Repository模式（CategoryRepository, ProductRepository, BrandRepository, SKURepository）
+- ✅ `user_auth` - 简单模块，暂不需要Repository层
+
+**计划推广模块** (🎯 17个)：
+
+| 优先级 | 模块名 | 复杂度 | 预计工作量 | 推荐引入Repository | 实施状态 |
+|--------|--------|--------|-----------|-------------------|----------|
+| **P0** | `order_management` | 高 | 2天 | ✅ 强烈推荐 | 🔜 待实施 |
+| **P0** | `inventory_management` | 高 | 2天 | ✅ 强烈推荐 | 🔜 待实施 |
+| **P0** | `payment_service` | 高 | 2天 | ✅ 强烈推荐 | 🔜 待实施 |
+| **P1** | `member_system` | 中 | 1.5天 | ✅ 推荐 | 📋 计划中 |
+| **P1** | `batch_traceability` | 中 | 1.5天 | ✅ 推荐 | 📋 计划中 |
+| **P1** | `distributor_management` | 中 | 1.5天 | ✅ 推荐 | 📋 计划中 |
+| **P1** | `marketing_campaigns` | 中 | 1.5天 | ✅ 推荐 | 📋 计划中 |
+| **P2** | `shopping_cart` | 低 | 0.5天 | 🤔 可选 | ⏸️ 暂缓 |
+| **P2** | `quality_control` | 低 | 1天 | 🤔 可选 | ⏸️ 暂缓 |
+| **P2** | `logistics_management` | 中 | 1天 | ✅ 推荐 | 📋 计划中 |
+| **P2** | `notification_service` | 低 | 0.5天 | ❌ 不必要 | ⏸️ 暂缓 |
+| **P2** | `social_features` | 中 | 1天 | 🤔 可选 | 📋 计划中 |
+| **P2** | `supplier_management` | 中 | 1天 | ✅ 推荐 | 📋 计划中 |
+| **P2** | `recommendation_system` | 中 | 1天 | 🤔 可选 | 📋 计划中 |
+| **P2** | `customer_service_system` | 中 | 1天 | 🤔 可选 | 📋 计划中 |
+| **P2** | `risk_control_system` | 中 | 1天 | ✅ 推荐 | 📋 计划中 |
+| **P2** | `data_analytics_platform` | 高 | 2天 | ✅ 推荐 | 📋 计划中 |
+
+**复杂度评估标准**：
+- **高复杂度**：4+个实体，复杂关联关系，多表联合查询 → **强烈推荐Repository**
+- **中复杂度**：2-3个实体，中等查询复杂度 → **推荐Repository**
+- **低复杂度**：1-2个实体，简单CRUD → **可选Repository**
+
+#### 实施步骤（以order_management为例）
+
+**第1步：创建repository.py文件**
+```python
+# app/modules/order_management/repository.py
+from typing import List, Optional
+from sqlalchemy.orm import Session
+from .models import Order, OrderItem
+
+class OrderRepository:
+    @staticmethod
+    def create(db: Session, order: Order) -> Order:
+        db.add(order)
+        db.commit()
+        db.refresh(order)
+        return order
+    
+    @staticmethod
+    def get_by_id(db: Session, order_id: int) -> Optional[Order]:
+        return db.query(Order).filter(Order.id == order_id).first()
+    
+    # ... 其他方法
+```
+
+**第2步：重构service.py，使用Repository**
+```python
+# app/modules/order_management/service.py
+from .repository import OrderRepository
+
+class OrderService:
+    @staticmethod
+    def create_order(db: Session, data: dict) -> Order:
+        # 业务逻辑验证
+        validate_order_data(data)
+        
+        # 使用Repository创建
+        order = Order(**data)
+        return OrderRepository.create(db, order)
+```
+
+**第3步：更新单元测试，Mock Repository**
+```python
+# tests/unit/test_order_service.py
+from unittest.mock import Mock
+from app.modules.order_management.service import OrderService
+
+def test_create_order():
+    # Mock Repository
+    mock_repo = Mock()
+    mock_repo.create.return_value = expected_order
+    
+    # 测试Service逻辑
+    result = OrderService.create_order(db, order_data)
+    assert result == expected_order
+```
+
+#### 推广时间表
+
+| 阶段 | 时间 | 目标 | 成果 |
+|------|------|------|------|
+| **阶段1** | Week 1-2 | P0模块实施 | 3个核心模块完成Repository重构 |
+| **阶段2** | Week 3-4 | P1模块实施 | 5个重要模块完成Repository重构 |
+| **阶段3** | Week 5-6 | P2模块评估 | 评估并选择性实施 |
+| **阶段4** | Week 7-8 | 验收和文档 | 更新测试、文档、培训 |
 
 ### 模块化单体架构优势
 
@@ -236,13 +468,15 @@ app/
 3. **扩展性好** - 模块可独立开发和测试
 4. **维护成本低** - 避免微服务的分布式复杂性
 5. **性能优越** - 模块间直接调用，无网络开销
+6. **分层清晰** - 四层架构，职责明确，易于维护
 
 ### 演进路径
 
 模块化单体架构为后续演进提供清晰路径：
-- **阶段1**: 当前模块化单体架构
-- **阶段2**: 按需提取高频模块为独立服务
-- **阶段3**: 完整微服务架构（如需要）
+- **阶段1**: 当前模块化单体架构 + 四层分层架构
+- **阶段2**: Repository模式全面推广（进行中）
+- **阶段3**: 按需提取高频模块为独立服务
+- **阶段4**: 完整微服务架构（如需要）
 ```
 
 ### DDD微服务边界映射

@@ -163,28 +163,60 @@ POST /auth/change-password  # 修改密码
 
 ### 代码文件命名规范
 
-### Python文件命名
-| 文件类型 | 命名规则 | 示例 |
-|----------|----------|------|
-| 路由文件 | `{module_name}_routes.py` | `user_routes.py` |
-| 模型文件 | `models.py` (统一) | `models.py` |
-| Schema文件 | `schemas.py` (统一) | `schemas.py` |
-| 服务文件 | `{module_name}_service.py` | `user_service.py` |
-| 工具文件 | `{module_name}_utils.py` | `cart_utils.py` |
+#### 模块化单体架构说明
+项目采用**模块化单体架构**（Modular Monolith），每个业务模块位于独立目录下 (`app/modules/{module_name}/`)。
+由于目录结构已明确表达业务域，因此模块内部文件采用**简化命名**，避免冗余。
+
+#### Python文件命名（模块化单体架构）
+| 文件类型 | 命名规则 | 示例 | 说明 |
+|----------|----------|------|------|
+| 路由文件 | `router.py` | `router.py` | 统一命名，避免 `product_catalog_router.py` 冗余 |
+| 数据模型文件 | `models.py` | `models.py` | ORM模型定义 |
+| 数据访问层文件 | `repository.py` | `repository.py` | Repository模式数据访问层（推荐） |
+| 业务逻辑文件 | `service.py` | `service.py` | 主业务逻辑层 |
+| 子服务文件 | `{domain}_service.py` | `category_service.py` | 当需要拆分多个Service时使用 |
+| Schema文件 | `schemas.py` | `schemas.py` | Pydantic请求/响应模型 |
+| 依赖注入文件 | `dependencies.py` | `dependencies.py` | 模块级依赖注入 |
+| 工具函数文件 | `utils.py` | `utils.py` | 模块内工具函数 |
+
+#### 文件命名对比表
+| 架构模式 | 文件命名方式 | 优缺点 |
+|----------|------------|--------|
+| **扁平化架构** | `user_service.py`, `product_service.py` | ✅ 全局唯一<br>❌ 文件名冗长 |
+| **模块化架构** (当前) | `service.py`, `router.py` | ✅ 简洁明了<br>✅ 目录已表达业务域<br>✅ 符合主流框架实践 |
+
+#### 特殊情况：多Service拆分
+当一个模块业务复杂，需要拆分多个Service类时：
+```
+product_catalog/
+├── service.py              # 主Service（ProductService, BrandService等）
+├── category_service.py     # 独立子域Service
+├── inventory_service.py    # 独立子域Service
+└── ...
+```
 
 ### 函数命名规则
 ```python
-# API路由函数命名: {动作}_{模块名}[_{资源}]
+# API路由函数命名: {动作}_{资源}  （模块上下文已在router.py中）
 async def create_product(...)      # 创建商品
 async def get_products(...)        # 获取商品列表
 async def get_product(...)         # 获取单个商品
 async def update_product(...)      # 更新商品
 async def delete_product(...)      # 删除商品
 
-# 业务逻辑函数命名: {动作}_{对象}[_{条件}]
-def calculate_cart_total(...)      # 计算购物车总价
-def validate_product_stock(...)    # 验证商品库存
-def send_order_notification(...)   # 发送订单通知
+# Service层函数命名: {动作}_{对象}[_{条件}]
+def create_product(...)            # 创建商品
+def get_product_by_id(...)         # 根据ID获取商品
+def update_product_stock(...)      # 更新商品库存
+def validate_stock(...)            # 验证库存
+
+# Repository层函数命名: 标准CRUD + 业务查询
+def create(db, entity)             # 创建实体
+def get_by_id(db, id)              # 根据ID查询
+def list(db, filters)              # 列表查询
+def update(db, entity, data)      # 更新实体
+def soft_delete(db, entity)        # 软删除
+def find_by_status(db, status)    # 业务查询方法
 ```
 
 ### 类命名规则
@@ -198,6 +230,16 @@ class ProductUpdate(BaseModel):    # 更新商品Schema
 class User(Base):                  # 用户模型
 class Product(Base):               # 商品模型
 class Order(Base):                 # 订单模型
+
+# Service层类命名: {领域名}Service
+class ProductService:              # 商品业务逻辑服务
+class CategoryService:             # 分类业务逻辑服务
+class OrderService:                # 订单业务逻辑服务
+
+# Repository层类命名: {实体名}Repository
+class ProductRepository:           # 商品数据访问层
+class CategoryRepository:          # 分类数据访问层
+class OrderRepository:             # 订单数据访问层
 ```
 
 ## 📝 变量和参数命名
