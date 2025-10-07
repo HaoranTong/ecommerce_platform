@@ -1529,7 +1529,7 @@ from {module_import_path} import (
         elif "username" in field_name or "name" in field_name:
             return f"{field.name} = factory.Sequence(lambda n: f'{field_name}_{{n}}')"
         elif "code" in field_name:
-            return f"{field.name} = factory.Sequence(lambda n: f'{field.name.upper()}_{{{{n:06d}}}}')"
+            return f"{field.name} = factory.Sequence(lambda n: f'{field.name.upper()}_{{n:06d}}')"
         elif "description" in field_name:
             return f"{field.name} = factory.Faker('text', max_nb_chars=200)"
         elif "title" in field_name:
