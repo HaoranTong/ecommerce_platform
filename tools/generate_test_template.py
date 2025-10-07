@@ -2031,6 +2031,288 @@ from {module_import_path} import (
 
         return files
 
+    def _generate_repository_tests(
+        self, module_name: str, repositories: Dict[str, RepositoryInfo], models: Dict[str, ModelInfo]
+    ) -> str:
+        """生成Repository层测试代码（四层架构新增）
+        
+        测试策略:
+        - 使用 SQLite 内存数据库 (unit_test_db fixture)
+        - 测试每个 Repository 方法的数据访问逻辑
+        - 验证查询条件、过滤、排序、分页等
+        - 测试事务处理（create/update/delete）
+        - 测试边界情况和错误处理
+        
+        Args:
+            module_name: 模块名称
+            repositories: Repository信息字典
+            models: 模型信息字典（用于创建测试数据）
+            
+        Returns:
+            str: Repository测试代码
+        """
+        test_classes = []
+        
+        # 为每个Repository生成测试类
+        for repo_name, repo_info in repositories.items():
+            test_class = self._generate_single_repository_test(repo_info, models)
+            test_classes.append(test_class)
+        
+        # 收集需要导入的模型
+        model_imports = set()
+        for repo_info in repositories.values():
+            model_imports.add(repo_info.model_name)
+        
+        # 收集需要导入的Repository
+        repo_imports = [repo_info.name for repo_info in repositories.values()]
+        
+        imports = f'''"""
+Auto Generated Test - Repository Layer
+
+文件路径: tests/unit/test_repositories/test_{module_name}_repositories.py
+生成时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+生成工具: tools/generate_test_template.py v3.0
+模块: {module_name}
+
+测试类型: 单元测试 - Repository数据访问层
+测试策略: SQLite内存数据库
+测试重点: 
+- CRUD操作正确性
+- 查询条件和过滤逻辑
+- 事务提交和回滚
+- 边界情况和错误处理
+
+符合标准: 
+- testing-standards.md - 四层架构测试策略
+- architecture/overview.md - Repository模式标准
+
+[CHECK:TEST-001] [CHECK:DEV-009]
+"""
+
+import pytest
+from typing import List, Optional
+from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
+from datetime import datetime, timedelta
+from decimal import Decimal
+
+# 导入测试基础设施
+from tests.conftest import unit_test_db
+
+# 导入Repository类
+from app.modules.{module_name}.repository import (
+    {', '.join(repo_imports)}
+)
+
+# 导入模型类
+from app.modules.{module_name}.models import (
+    {', '.join(sorted(model_imports))}
+)
+
+'''
+        
+        return imports + "\n\n".join(test_classes)
+    
+    def _generate_single_repository_test(self, repo_info: RepositoryInfo, models: Dict[str, ModelInfo]) -> str:
+        """为单个Repository生成测试类
+        
+        Args:
+            repo_info: Repository信息
+            models: 模型信息（用于创建测试数据）
+            
+        Returns:
+            str: Repository测试类代码
+        """
+        repo_name = repo_info.name
+        model_name = repo_info.model_name
+        
+        # 生成各类测试方法
+        test_methods = []
+        
+        for method_info in repo_info.methods:
+            # 根据方法类型生成对应的测试
+            if method_info.method_type == "create":
+                test_methods.append(self._generate_repository_create_test(method_info, model_name))
+            elif method_info.method_type == "read":
+                test_methods.append(self._generate_repository_read_test(method_info, model_name))
+            elif method_info.method_type == "update":
+                test_methods.append(self._generate_repository_update_test(method_info, model_name))
+            elif method_info.method_type == "delete":
+                test_methods.append(self._generate_repository_delete_test(method_info, model_name))
+            elif method_info.method_type == "count":
+                test_methods.append(self._generate_repository_count_test(method_info, model_name))
+            else:  # query
+                test_methods.append(self._generate_repository_query_test(method_info, model_name))
+        
+        test_class = f'''
+@pytest.mark.unit
+@pytest.mark.repositories
+class Test{repo_name}:
+    """
+    {repo_name} 数据访问层测试
+    
+    测试范围:
+    - {len(repo_info.methods)} 个Repository方法
+    - CRUD操作完整性
+    - 查询逻辑正确性
+    - 事务处理和数据一致性
+    
+    测试策略: SQLite内存数据库，无Mock依赖
+    """
+    
+    def setup_method(self):
+        """测试准备 - 每个测试方法执行前调用"""
+        pass
+        
+    def teardown_method(self):
+        """测试清理 - 每个测试方法执行后调用"""
+        pass
+        
+{chr(10).join(test_methods)}
+'''
+        
+        return test_class
+    
+    def _generate_repository_create_test(self, method_info: RepositoryMethodInfo, model_name: str) -> str:
+        """生成Repository create方法测试"""
+        method_name = method_info.name
+        return f'''    def test_{method_name}_success(self, unit_test_db: Session):
+        """测试{method_name} - 成功创建"""
+        # 准备测试数据
+        entity = {model_name}(name="测试数据")  # TODO: 根据实际字段调整
+        
+        # 执行Repository方法
+        from app.modules.product_catalog.repository import CategoryRepository
+        result = CategoryRepository.{method_name}(unit_test_db, entity)  # TODO: 使用正确的Repository类
+        
+        # 验证结果
+        assert result is not None
+        assert result.id is not None  # 验证ID已生成
+        
+        # 验证数据已持久化
+        db_entity = unit_test_db.query({model_name}).filter_by(id=result.id).first()
+        assert db_entity is not None
+    
+    def test_{method_name}_transaction(self, unit_test_db: Session):
+        """测试{method_name} - 事务提交"""
+        entity = {model_name}(name="事务测试")
+        
+        result = CategoryRepository.{method_name}(unit_test_db, entity)  # TODO: 使用正确的Repository类
+        
+        # 验证事务已提交（可以在新会话中查询到）
+        unit_test_db.expire_all()
+        db_entity = unit_test_db.query({model_name}).filter_by(id=result.id).first()
+        assert db_entity is not None
+'''
+    
+    def _generate_repository_read_test(self, method_info: RepositoryMethodInfo, model_name: str) -> str:
+        """生成Repository read方法测试"""
+        method_name = method_info.name
+        return f'''    def test_{method_name}_found(self, unit_test_db: Session):
+        """测试{method_name} - 查询到数据"""
+        # 准备测试数据
+        entity = {model_name}(name="查询测试")
+        unit_test_db.add(entity)
+        unit_test_db.commit()
+        
+        # 执行Repository方法
+        from app.modules.product_catalog.repository import CategoryRepository
+        result = CategoryRepository.{method_name}(unit_test_db, entity.id)  # TODO: 使用正确的Repository类和参数
+        
+        # 验证结果
+        assert result is not None
+        assert result.id == entity.id
+    
+    def test_{method_name}_not_found(self, unit_test_db: Session):
+        """测试{method_name} - 数据不存在"""
+        from app.modules.product_catalog.repository import CategoryRepository
+        result = CategoryRepository.{method_name}(unit_test_db, 99999)  # TODO: 使用正确的Repository类
+        
+        assert result is None
+'''
+    
+    def _generate_repository_update_test(self, method_info: RepositoryMethodInfo, model_name: str) -> str:
+        """生成Repository update方法测试"""
+        method_name = method_info.name
+        return f'''    def test_{method_name}_success(self, unit_test_db: Session):
+        """测试{method_name} - 更新成功"""
+        # 准备测试数据
+        entity = {model_name}(name="原始数据")
+        unit_test_db.add(entity)
+        unit_test_db.commit()
+        
+        # 执行Repository方法
+        from app.modules.product_catalog.repository import CategoryRepository
+        update_data = {{"name": "更新后数据"}}
+        result = CategoryRepository.{method_name}(unit_test_db, entity, update_data)  # TODO: 使用正确的Repository类
+        
+        # 验证结果
+        assert result.name == "更新后数据"
+        
+        # 验证数据库已更新
+        unit_test_db.expire_all()
+        db_entity = unit_test_db.query({model_name}).filter_by(id=entity.id).first()
+        assert db_entity.name == "更新后数据"
+'''
+    
+    def _generate_repository_delete_test(self, method_info: RepositoryMethodInfo, model_name: str) -> str:
+        """生成Repository delete方法测试"""
+        method_name = method_info.name
+        return f'''    def test_{method_name}_success(self, unit_test_db: Session):
+        """测试{method_name} - 删除成功"""
+        # 准备测试数据
+        entity = {model_name}(name="待删除数据")
+        unit_test_db.add(entity)
+        unit_test_db.commit()
+        entity_id = entity.id
+        
+        # 执行Repository方法
+        from app.modules.product_catalog.repository import CategoryRepository
+        CategoryRepository.{method_name}(unit_test_db, entity)  # TODO: 使用正确的Repository类
+        
+        # 验证软删除（根据实际情况调整）
+        unit_test_db.expire_all()
+        db_entity = unit_test_db.query({model_name}).filter_by(id=entity_id).first()
+        # TODO: 验证 is_deleted 或 is_active 字段
+'''
+    
+    def _generate_repository_count_test(self, method_info: RepositoryMethodInfo, model_name: str) -> str:
+        """生成Repository count方法测试"""
+        method_name = method_info.name
+        return f'''    def test_{method_name}_count(self, unit_test_db: Session):
+        """测试{method_name} - 计数功能"""
+        # 准备测试数据
+        for i in range(5):
+            entity = {model_name}(name=f"测试数据{{i}}")
+            unit_test_db.add(entity)
+        unit_test_db.commit()
+        
+        # 执行Repository方法
+        from app.modules.product_catalog.repository import CategoryRepository
+        count = CategoryRepository.{method_name}(unit_test_db)  # TODO: 使用正确的Repository类和参数
+        
+        # 验证计数
+        assert count >= 5
+'''
+    
+    def _generate_repository_query_test(self, method_info: RepositoryMethodInfo, model_name: str) -> str:
+        """生成Repository query方法测试"""
+        method_name = method_info.name
+        return f'''    def test_{method_name}_query(self, unit_test_db: Session):
+        """测试{method_name} - 查询功能"""
+        # 准备测试数据
+        entity = {model_name}(name="查询测试")
+        unit_test_db.add(entity)
+        unit_test_db.commit()
+        
+        # 执行Repository方法
+        from app.modules.product_catalog.repository import CategoryRepository
+        results = CategoryRepository.{method_name}(unit_test_db)  # TODO: 使用正确的Repository类和参数
+        
+        # 验证查询结果
+        assert len(results) > 0
+'''
+
     def _generate_model_tests(
         self, module_name: str, models: Dict[str, ModelInfo]
     ) -> str:
@@ -2957,9 +3239,9 @@ class Test{model_name}Model:
         return base_test + "".join(business_tests) + update_delete_test
 
     def _generate_service_tests(
-        self, module_name: str, models: Dict[str, ModelInfo]
+        self, module_name: str, models: Dict[str, ModelInfo], repositories: Dict[str, RepositoryInfo]
     ) -> str:
-        """生成服务层测试 - SQLite内存数据库 [CHECK:TEST-001]
+        """生成服务层测试 - Mock Repository [CHECK:TEST-001]
         
         🚨 **关键f-string嵌套错误警告** 🚨
         此函数曾因第2725行注释中的{model_name}引起 "name 'model_name' is not defined" 错误！
