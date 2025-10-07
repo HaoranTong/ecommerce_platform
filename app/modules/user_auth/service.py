@@ -1,17 +1,27 @@
 """
 文件名：service.py
 文件路径：app/modules/user_auth/service.py
-功能描述：用户管理相关的业务逻辑服务
+功能描述：用户管理相关的业务逻辑服务（四层架构 - Service层）
+
+按照四层架构设计，Service层负责：
+1. 业务逻辑处理
+2. 数据验证和业务规则
+3. 调用Repository层进行数据操作
+4. 业务流程编排
+
 主要功能：
 - 用户注册、登录业务逻辑
 - 用户信息管理和验证
 - 用户权限控制逻辑
+- 业务规则验证
+
 使用说明：
 - 导入：from app.modules.user_auth.service import UserService
 - 在路由中调用：UserService.create_user(db, user_data)
 """
 
 from typing import List, Optional
+from datetime import datetime
 
 from fastapi import HTTPException, status
 from passlib.context import CryptContext
@@ -21,6 +31,10 @@ from sqlalchemy.orm import Session
 from app.core.auth import (create_access_token, create_refresh_token,
                            get_password_hash, verify_password)
 from app.modules.user_auth.models import User
+from app.modules.user_auth.repository import (
+    UserRepository, RoleRepository, PermissionRepository,
+    UserRoleRepository, RolePermissionRepository, SessionRepository
+)
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -49,6 +63,8 @@ class UserService:
             password: 明文密码
             phone: 手机号（可选）
             real_name: 真实姓名（可选）
+            role: 角色（默认user）
+            is_active: 是否激活（默认True）
 
         Returns:
             User: 创建的用户对象
@@ -56,19 +72,13 @@ class UserService:
         Raises:
             HTTPException: 用户名或邮箱已存在时抛出400错误
         """
-        # 检查用户名和邮箱唯一性
-        existing_user = (
-            db.query(User)
-            .filter((User.username == username) | (User.email == email))
-            .first()
-        )
-
-        if existing_user:
+        # 使用Repository检查用户名和邮箱唯一性
+        if UserRepository.check_exists(db, username=username, email=email):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST, detail="用户名或邮箱已存在"
             )
 
-        # 创建用户
+        # 创建用户实体
         password_hash = get_password_hash(password)
         user = User(
             username=username,
@@ -81,10 +91,8 @@ class UserService:
         )
 
         try:
-            db.add(user)
-            db.commit()
-            db.refresh(user)
-            return user
+            # 使用Repository创建用户
+            return UserRepository.create(db, user)
         except IntegrityError:
             db.rollback()
             raise HTTPException(
@@ -104,15 +112,24 @@ class UserService:
         Returns:
             User: 认证成功返回用户对象，失败返回None
         """
-        user = (
-            db.query(User)
-            .filter((User.username == username) | (User.email == username))
-            .first()
-        )
+        # 使用Repository查询用户（支持用户名或邮箱登录）
+        user = UserRepository.get_by_username_or_email(db, username)
 
-        if not user or not verify_password(password, user.password_hash):
+        if not user:
             return None
 
+        # 检查账户是否被锁定
+        if user.locked_until and user.locked_until > datetime.now():
+            return None
+
+        # 验证密码
+        if not verify_password(password, user.password_hash):
+            # 增加失败次数
+            UserRepository.increment_failed_login(db, user)
+            return None
+
+        # 认证成功，更新登录信息
+        UserRepository.update_login_info(db, user)
         return user
 
     @staticmethod
@@ -127,10 +144,11 @@ class UserService:
         Returns:
             User: 用户对象或None
         """
-        return db.query(User).filter(User.id == user_id).first()
+        # 使用Repository获取用户
+        return UserRepository.get_by_id(db, user_id)
 
     @staticmethod
-    def get_users(db: Session, skip: int = 0, limit: int = 100) -> List[User]:
+    def get_users(db: Session, skip: int = 0, limit: int = 100, **filters) -> List[User]:
         """
         获取用户列表
 
@@ -138,11 +156,13 @@ class UserService:
             db: 数据库会话
             skip: 跳过数量
             limit: 限制数量
+            **filters: 过滤条件（is_active, status, role, search）
 
         Returns:
             List[User]: 用户列表
         """
-        return db.query(User).offset(skip).limit(limit).all()
+        # 使用Repository获取用户列表，支持更多过滤条件
+        return UserRepository.list(db, skip=skip, limit=limit, **filters)
 
     @staticmethod
     def update_user(db: Session, user_id: int, **kwargs) -> Optional[User]:
@@ -157,18 +177,14 @@ class UserService:
         Returns:
             User: 更新后的用户对象或None
         """
-        user = db.query(User).filter(User.id == user_id).first()
+        # 使用Repository获取用户
+        user = UserRepository.get_by_id(db, user_id)
         if not user:
             return None
 
-        for key, value in kwargs.items():
-            if hasattr(user, key) and value is not None:
-                setattr(user, key, value)
-
         try:
-            db.commit()
-            db.refresh(user)
-            return user
+            # 使用Repository更新用户
+            return UserRepository.update(db, user, kwargs)
         except IntegrityError:
             db.rollback()
             raise HTTPException(
@@ -191,12 +207,14 @@ class UserService:
         Returns:
             bool: 修改成功返回True，失败返回False
         """
-        user = db.query(User).filter(User.id == user_id).first()
+        # 使用Repository获取用户
+        user = UserRepository.get_by_id(db, user_id)
         if not user or not verify_password(old_password, user.password_hash):
             return False
 
-        user.password_hash = get_password_hash(new_password)
-        db.commit()
+        # 使用Repository更新密码
+        password_hash = get_password_hash(new_password)
+        UserRepository.update(db, user, {"password_hash": password_hash})
         return True
 
     @staticmethod
