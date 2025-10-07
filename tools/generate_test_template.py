@@ -2196,7 +2196,9 @@ class Test{repo_name}:
         auto_fields = {'id', 'created_at', 'updated_at', 'is_deleted'}
         required_fields = [
             f for f in model_info.fields 
-            if not f.nullable and f.name not in auto_fields and not f.primary_key
+            # 🔥 修复：不排除作为外键的主键字段（如UserRole的联合主键）
+            # 只排除自增主键（field.name == 'id'）
+            if not f.nullable and f.name not in auto_fields and not (f.primary_key and f.name == 'id')
         ]
         
         # 分离外键字段和普通字段
@@ -2280,28 +2282,35 @@ class Test{repo_name}:
         """
         field_name = field.name.lower()
         
-        # 根据字段名和类型生成合适的测试值
-        if 'name' in field_name:
-            return f'"{suffix}"'
-        elif 'slug' in field_name:
-            # slug通常是URL友好的字符串
-            return f'"test-{suffix.lower()}"'
-        elif 'email' in field_name:
-            return f'"test_{suffix.lower()}@example.com"'
-        elif 'code' in field_name or 'sku' in field_name:
-            return f'"TEST{suffix.upper()}"'
-        elif 'url' in field_name:
-            return f'"https://example.com/{suffix.lower()}"'
-        elif field.python_type == 'str':
-            return f'"{suffix}"'
+        # 🔥 修复：先按字段类型判断（类型优先），再按字段名模式匹配（语义推断）
+        # 这样可以避免 email_verified 等 Boolean 字段被错误地当作 email 类型处理
+        
+        # 1. 明确的类型判断（优先级最高）
+        if field.python_type == 'bool':
+            return 'True'
         elif field.python_type == 'int':
             return '1'
-        elif field.python_type == 'bool':
-            return 'True'
         elif field.python_type == 'Decimal':
             return 'Decimal("10.00")'
         elif field.python_type == 'datetime':
             return 'datetime.now()'
+        
+        # 2. 字符串类型的语义推断（通过字段名）
+        elif field.python_type == 'str':
+            if 'email' in field_name:
+                return f'"test_{suffix.lower()}@example.com"'
+            elif 'slug' in field_name:
+                return f'"test-{suffix.lower()}"'
+            elif 'code' in field_name or 'sku' in field_name:
+                return f'"TEST{suffix.upper()}"'
+            elif 'url' in field_name:
+                return f'"https://example.com/{suffix.lower()}"'
+            elif 'name' in field_name:
+                return f'"{suffix}"'
+            else:
+                return f'"{suffix}"'
+        
+        # 3. 兜底默认值
         else:
             return f'"{suffix}"'
     
