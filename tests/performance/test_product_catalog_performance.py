@@ -2,7 +2,7 @@
 Auto Generated Test - 已生成到正式目录
 
 文件路径: tests/performance/test_product_catalog_performance.py
-生成时间: 2025-10-07 19:44:18
+生成时间: 2025-10-07 21:53:31
 生成工具: tools/generate_test_template.py v2.0
 状态: GENERATED - 需要经过代码审查和测试验证
 
@@ -196,12 +196,17 @@ class TestProductCatalogConcurrency:
         headers = {"Authorization": f"Bearer {token}"}
         concurrent_writes = 20  # 模拟20个并发写操作
         
+        # 导入Faker用于动态生成测试数据
+        from faker import Faker
+        fake = Faker()
+        
         async def write_request(request_id):
-            # 使用生成的测试数据模板
+            # 使用Faker动态生成测试数据
             test_data = {
-                "name": f"perf_test_product_{request_id}",
-                "description": f"Performance test product {request_id}",
-                "price": "99.99"
+                "name": fake.name()[:50],
+                "description": fake.text(max_nb_chars=100),
+                "sort_order": fake.random_int(min=0, max=100),
+                "is_active": True
             }
             
             start_time = time.time()
@@ -260,6 +265,10 @@ class TestProductCatalogConcurrency:
         token, admin_user = await async_api_client.authenticate_as_admin()
         headers = {"Authorization": f"Bearer {token}"}
         
+        # 导入Faker用于动态生成测试数据
+        from faker import Faker
+        fake = Faker()
+        
         # 模拟真实场景：70%读操作，30%写操作
         read_tasks = 35
         write_tasks = 15
@@ -273,12 +282,12 @@ class TestProductCatalogConcurrency:
                 return {"type": "read", "success": False, "error": str(e)}
         
         async def write_operation():
-            # 使用生成的测试数据模板（添加时间戳确保唯一性）
-            request_id = int(__import__('time').time() * 1000) % 10000  # 生成唯一ID
+            # 使用Faker动态生成测试数据（确保唯一性）
             test_data = {
-                "name": f"perf_test_product_{request_id}",
-                "description": f"Performance test product {request_id}",
-                "price": "99.99"
+                "name": fake.name()[:50],
+                "description": fake.text(max_nb_chars=100),
+                "sort_order": fake.random_int(min=0, max=100),
+                "is_active": True
             }
             try:
                 # 使用确定的HTTP方法
@@ -394,19 +403,25 @@ class TestProductCatalogLoadTest:
         headers = {"Authorization": f"Bearer {token}"}
         peak_concurrent_users = 100  # 峰值并发用户数
         
+        # 导入Faker用于动态生成测试数据
+        from faker import Faker
+        fake = Faker()
+        
         async def user_session():
             """模拟单个用户会话"""
             try:
-                request_id = int(__import__('time').time() * 1000) % 10000  # 生成唯一ID
+                # 使用Faker动态生成测试数据
+                test_data = {
+                    "name": fake.name()[:50],
+                "description": fake.text(max_nb_chars=100),
+                "sort_order": fake.random_int(min=0, max=100),
+                "is_active": True
+                }
                 # 用户典型操作序列
                 operations = [
                     ("GET", "/api/v1/product-catalog/categories"),  # 获取当前用户信息
                     ("GET", "/api/v1/product-catalog/users"),  # 用户列表
-                    ("POST", "/api/v1/product-catalog/categories", {
-                "name": f"perf_test_product_{request_id}",
-                "description": f"Performance test product {request_id}",
-                "price": "99.99"
-            }),  # 更新用户信息
+                    ("POST", "/api/v1/product-catalog/categories", test_data),  # 更新用户信息
                 ]
                 
                 session_success = True

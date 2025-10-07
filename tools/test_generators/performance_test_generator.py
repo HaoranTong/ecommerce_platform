@@ -65,34 +65,42 @@ class PerformanceTestGenerator(BaseTestGenerator):
         # 查找PUT端点来推断更新字段
         put_routes = [r for r in routes if r.method == 'PUT' and r.auth_required]
         
-        # 基于常见的更新字段模式生成数据
+        # 基于实际POST端点的Schema使用Faker动态生成数据
+        # 查找第一个POST端点来推断需要的字段
+        post_routes = [r for r in routes if r.method == 'POST' and not any(keyword in r.path.lower() for keyword in ['login', 'register', 'refresh'])]
+        
+        if post_routes:
+            # 尝试从路由分析Schema
+            first_post_route = post_routes[0]
+            # 基于路由路径推断数据结构，使用Faker动态生成
+            if 'categories' in first_post_route.path.lower() or 'category' in first_post_route.path.lower():
+                return '''"name": fake.name()[:50],
+                "description": fake.text(max_nb_chars=100),
+                "sort_order": fake.random_int(min=0, max=100),
+                "is_active": True'''
+            elif 'brand' in first_post_route.path.lower():
+                return '''"name": fake.company()[:50],
+                "slug": fake.slug(),
+                "description": fake.text(max_nb_chars=100),
+                "is_active": True'''
+            elif 'product' in first_post_route.path.lower() and 'sku' not in first_post_route.path.lower():
+                return '''"name": fake.catch_phrase()[:50],
+                "description": fake.text(max_nb_chars=100),
+                "status": "published"'''
+        
+        # 回退到基于模块名的推断
         if put_routes and any('me' in route.path or 'profile' in route.path for route in put_routes):
             # 用户资料更新类端点
-            # ✅ 正确格式：使用单层花括号，确保变量能正确替换到生成的代码中
-            return '''{
-                "real_name": f"perf_test_user_{request_id}",
-                "phone": f"1800000{request_id:04d}"
-            }'''
-        elif any(keyword in module_name for keyword in ['product', 'catalog', 'inventory']):
-            # 商品/库存类模块
-            return '''{
-                "name": f"perf_test_product_{request_id}",
-                "description": f"Performance test product {request_id}",
-                "price": "99.99"
-            }'''
+            return '''"real_name": fake.name()[:50],
+                "phone": f"1{fake.random_int(min=300000000, max=999999999)}"'''
         elif any(keyword in module_name for keyword in ['order', 'cart']):
             # 订单/购物车类模块
-            return '''{
-                "quantity": "1",
-                "notes": f"Performance test order {request_id}"
-            }'''
+            return '''"quantity": fake.random_int(min=1, max=10),
+                "notes": fake.text(max_nb_chars=50)'''
         else:
             # 通用测试数据
-            return '''{
-                "name": f"perf_test_{request_id}",
-                "value": f"test_value_{request_id}",
-                "timestamp": datetime.now().isoformat()
-            }'''
+            return '''"name": fake.name()[:50],
+                "description": fake.text(max_nb_chars=100)'''
 
     def _select_auth_endpoint(self, routes: List[RouterInfo], module_name: str) -> str:
         """选择认证相关的端点"""
@@ -394,9 +402,15 @@ class {class_name}:
         headers = {{"Authorization": f"Bearer {{token}}"}}
         concurrent_writes = 20  # 模拟20个并发写操作
         
+        # 导入Faker用于动态生成测试数据
+        from faker import Faker
+        fake = Faker()
+        
         async def write_request(request_id):
-            # 使用生成的测试数据模板
-            test_data = {test_data_template}
+            # 使用Faker动态生成测试数据
+            test_data = {{
+                {test_data_template}
+            }}
             
             start_time = time.time()
             try:
@@ -454,6 +468,10 @@ class {class_name}:
         token, admin_user = await async_api_client.authenticate_as_admin()
         headers = {{"Authorization": f"Bearer {{token}}"}}
         
+        # 导入Faker用于动态生成测试数据
+        from faker import Faker
+        fake = Faker()
+        
         # 模拟真实场景：70%读操作，30%写操作
         read_tasks = 35
         write_tasks = 15
@@ -467,9 +485,10 @@ class {class_name}:
                 return {{"type": "read", "success": False, "error": str(e)}}
         
         async def write_operation():
-            # 使用生成的测试数据模板（添加时间戳确保唯一性）
-            request_id = int(__import__('time').time() * 1000) % 10000  # 生成唯一ID
-            test_data = {test_data_template}
+            # 使用Faker动态生成测试数据（确保唯一性）
+            test_data = {{
+                {test_data_template}
+            }}
             try:
                 # 使用确定的HTTP方法
                 response = await async_api_client.{write_method.lower()}("{write_endpoint}", json=test_data, headers=headers)
@@ -594,15 +613,22 @@ class {class_name}:
         headers = {{"Authorization": f"Bearer {{token}}"}}
         peak_concurrent_users = 100  # 峰值并发用户数
         
+        # 导入Faker用于动态生成测试数据
+        from faker import Faker
+        fake = Faker()
+        
         async def user_session():
             """模拟单个用户会话"""
             try:
-                request_id = int(__import__('time').time() * 1000) % 10000  # 生成唯一ID
+                # 使用Faker动态生成测试数据
+                test_data = {{
+                    {test_data_template}
+                }}
                 # 用户典型操作序列
                 operations = [
                     ("GET", "{auth_endpoint}"),  # 获取当前用户信息
                     ("GET", "/api/v1/{module_path}/users"),  # 用户列表
-                    ("{write_method}", "{write_endpoint}", {test_data_template}),  # 更新用户信息
+                    ("{write_method}", "{write_endpoint}", test_data),  # 更新用户信息
                 ]
                 
                 session_success = True
