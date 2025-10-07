@@ -2133,17 +2133,17 @@ from app.modules.{module_name}.models import (
         for method_info in repo_info.methods:
             # 根据方法类型生成对应的测试
             if method_info.method_type == "create":
-                test_methods.append(self._generate_repository_create_test(method_info, model_name, repo_name, module_name))
+                test_methods.append(self._generate_repository_create_test(method_info, model_name, repo_name, module_name, models))
             elif method_info.method_type == "read":
-                test_methods.append(self._generate_repository_read_test(method_info, model_name, repo_name, module_name))
+                test_methods.append(self._generate_repository_read_test(method_info, model_name, repo_name, module_name, models))
             elif method_info.method_type == "update":
-                test_methods.append(self._generate_repository_update_test(method_info, model_name, repo_name, module_name))
+                test_methods.append(self._generate_repository_update_test(method_info, model_name, repo_name, module_name, models))
             elif method_info.method_type == "delete":
-                test_methods.append(self._generate_repository_delete_test(method_info, model_name, repo_name, module_name))
+                test_methods.append(self._generate_repository_delete_test(method_info, model_name, repo_name, module_name, models))
             elif method_info.method_type == "count":
-                test_methods.append(self._generate_repository_count_test(method_info, model_name, repo_name, module_name))
+                test_methods.append(self._generate_repository_count_test(method_info, model_name, repo_name, module_name, models))
             else:  # query
-                test_methods.append(self._generate_repository_query_test(method_info, model_name, repo_name, module_name))
+                test_methods.append(self._generate_repository_query_test(method_info, model_name, repo_name, module_name, models))
         
         test_class = f'''
 @pytest.mark.unit
@@ -2174,13 +2174,89 @@ class Test{repo_name}:
         
         return test_class
     
-    def _generate_repository_create_test(self, method_info: RepositoryMethodInfo, model_name: str, repo_name: str, module_name: str) -> str:
+    def _generate_test_entity_creation(self, model_name: str, models: Dict[str, ModelInfo], suffix: str = "测试数据") -> str:
+        """生成测试实体创建代码，自动包含必填字段
+        
+        Args:
+            model_name: 模型名称
+            models: 模型信息字典
+            suffix: 名称后缀
+            
+        Returns:
+            str: 实体创建代码
+        """
+        if model_name not in models:
+            # 如果模型信息不存在，返回简单的创建代码并添加TODO
+            return f'{model_name}(name="{suffix}")  # TODO: 根据实际字段调整'
+        
+        model_info = models[model_name]
+        
+        # 提取所有非nullable的字段（排除id和自动字段）
+        auto_fields = {'id', 'created_at', 'updated_at', 'is_deleted'}
+        required_fields = [
+            f for f in model_info.fields 
+            if not f.nullable and f.name not in auto_fields and not f.primary_key
+        ]
+        
+        if not required_fields:
+            # 如果没有必填字段，使用简单形式
+            return f'{model_name}()'
+        
+        # 生成必填字段的测试值
+        field_assignments = []
+        for field in required_fields:
+            test_value = self._get_test_value_for_field(field, suffix)
+            field_assignments.append(f'{field.name}={test_value}')
+        
+        return f'{model_name}({", ".join(field_assignments)})'
+    
+    def _get_test_value_for_field(self, field: 'FieldInfo', suffix: str = "测试") -> str:
+        """为字段生成测试值
+        
+        Args:
+            field: 字段信息
+            suffix: 值的后缀
+            
+        Returns:
+            str: 测试值的字符串表示
+        """
+        field_name = field.name.lower()
+        
+        # 根据字段名和类型生成合适的测试值
+        if 'name' in field_name:
+            return f'"{suffix}"'
+        elif 'slug' in field_name:
+            # slug通常是URL友好的字符串
+            return f'"test-{suffix.lower()}"'
+        elif 'email' in field_name:
+            return f'"test_{suffix.lower()}@example.com"'
+        elif 'code' in field_name or 'sku' in field_name:
+            return f'"TEST{suffix.upper()}"'
+        elif 'url' in field_name:
+            return f'"https://example.com/{suffix.lower()}"'
+        elif field.python_type == 'str':
+            return f'"{suffix}"'
+        elif field.python_type == 'int':
+            return '1'
+        elif field.python_type == 'bool':
+            return 'True'
+        elif field.python_type == 'Decimal':
+            return 'Decimal("10.00")'
+        elif field.python_type == 'datetime':
+            return 'datetime.now()'
+        else:
+            return f'"{suffix}"'
+    
+    def _generate_repository_create_test(self, method_info: RepositoryMethodInfo, model_name: str, repo_name: str, module_name: str, models: Dict[str, ModelInfo]) -> str:
         """生成Repository create方法测试"""
         method_name = method_info.name
+        entity_creation = self._generate_test_entity_creation(model_name, models, "测试数据")
+        entity_creation_transaction = self._generate_test_entity_creation(model_name, models, "事务测试")
+        
         return f'''    def test_{method_name}_success(self, unit_test_db: Session):
         """测试{method_name} - 成功创建"""
         # 准备测试数据
-        entity = {model_name}(name="测试数据")  # TODO: 根据实际字段调整
+        entity = {entity_creation}
         
         # 执行Repository方法
         result = {repo_name}.{method_name}(unit_test_db, entity)
@@ -2195,7 +2271,7 @@ class Test{repo_name}:
     
     def test_{method_name}_transaction(self, unit_test_db: Session):
         """测试{method_name} - 事务提交"""
-        entity = {model_name}(name="事务测试")
+        entity = {entity_creation_transaction}
         
         result = {repo_name}.{method_name}(unit_test_db, entity)
         
@@ -2205,18 +2281,20 @@ class Test{repo_name}:
         assert db_entity is not None
 '''
     
-    def _generate_repository_read_test(self, method_info: RepositoryMethodInfo, model_name: str, repo_name: str, module_name: str) -> str:
+    def _generate_repository_read_test(self, method_info: RepositoryMethodInfo, model_name: str, repo_name: str, module_name: str, models: Dict[str, ModelInfo]) -> str:
         """生成Repository read方法测试"""
         method_name = method_info.name
+        entity_creation = self._generate_test_entity_creation(model_name, models, "查询测试")
+        
         return f'''    def test_{method_name}_found(self, unit_test_db: Session):
         """测试{method_name} - 查询到数据"""
         # 准备测试数据
-        entity = {model_name}(name="查询测试")
+        entity = {entity_creation}
         unit_test_db.add(entity)
         unit_test_db.commit()
         
         # 执行Repository方法
-        result = {repo_name}.{method_name}(unit_test_db, entity.id)  # TODO: 使用正确的参数
+        result = {repo_name}.{method_name}(unit_test_db, entity.id)  # TODO: 根据实际方法签名调整参数
         
         # 验证结果
         assert result is not None
@@ -2229,13 +2307,15 @@ class Test{repo_name}:
         assert result is None
 '''
     
-    def _generate_repository_update_test(self, method_info: RepositoryMethodInfo, model_name: str, repo_name: str, module_name: str) -> str:
+    def _generate_repository_update_test(self, method_info: RepositoryMethodInfo, model_name: str, repo_name: str, module_name: str, models: Dict[str, ModelInfo]) -> str:
         """生成Repository update方法测试"""
         method_name = method_info.name
+        entity_creation = self._generate_test_entity_creation(model_name, models, "原始数据")
+        
         return f'''    def test_{method_name}_success(self, unit_test_db: Session):
         """测试{method_name} - 更新成功"""
         # 准备测试数据
-        entity = {model_name}(name="原始数据")
+        entity = {entity_creation}
         unit_test_db.add(entity)
         unit_test_db.commit()
         
@@ -2252,13 +2332,15 @@ class Test{repo_name}:
         assert db_entity.name == "更新后数据"
 '''
     
-    def _generate_repository_delete_test(self, method_info: RepositoryMethodInfo, model_name: str, repo_name: str, module_name: str) -> str:
+    def _generate_repository_delete_test(self, method_info: RepositoryMethodInfo, model_name: str, repo_name: str, module_name: str, models: Dict[str, ModelInfo]) -> str:
         """生成Repository delete方法测试"""
         method_name = method_info.name
+        entity_creation = self._generate_test_entity_creation(model_name, models, "待删除数据")
+        
         return f'''    def test_{method_name}_success(self, unit_test_db: Session):
         """测试{method_name} - 删除成功"""
         # 准备测试数据
-        entity = {model_name}(name="待删除数据")
+        entity = {entity_creation}
         unit_test_db.add(entity)
         unit_test_db.commit()
         entity_id = entity.id
@@ -2272,15 +2354,22 @@ class Test{repo_name}:
         # TODO: 验证 is_deleted 或 is_active 字段
 '''
     
-    def _generate_repository_count_test(self, method_info: RepositoryMethodInfo, model_name: str, repo_name: str, module_name: str) -> str:
+    def _generate_repository_count_test(self, method_info: RepositoryMethodInfo, model_name: str, repo_name: str, module_name: str, models: Dict[str, ModelInfo]) -> str:
         """生成Repository count方法测试"""
         method_name = method_info.name
+        
+        # 生成5个不同的测试实体
+        entity_creations = []
+        for i in range(5):
+            entity_creation = self._generate_test_entity_creation(model_name, models, f"测试数据{i}")
+            entity_creations.append(f"        entity = {entity_creation}\n        unit_test_db.add(entity)")
+        
+        entities_code = "\n".join(entity_creations)
+        
         return f'''    def test_{method_name}_count(self, unit_test_db: Session):
         """测试{method_name} - 计数功能"""
         # 准备测试数据
-        for i in range(5):
-            entity = {model_name}(name=f"测试数据{{i}}")
-            unit_test_db.add(entity)
+{entities_code}
         unit_test_db.commit()
         
         # 执行Repository方法
@@ -2290,13 +2379,15 @@ class Test{repo_name}:
         assert count >= 5
 '''
     
-    def _generate_repository_query_test(self, method_info: RepositoryMethodInfo, model_name: str, repo_name: str, module_name: str) -> str:
+    def _generate_repository_query_test(self, method_info: RepositoryMethodInfo, model_name: str, repo_name: str, module_name: str, models: Dict[str, ModelInfo]) -> str:
         """生成Repository query方法测试"""
         method_name = method_info.name
+        entity_creation = self._generate_test_entity_creation(model_name, models, "查询测试")
+        
         return f'''    def test_{method_name}_query(self, unit_test_db: Session):
         """测试{method_name} - 查询功能"""
         # 准备测试数据
-        entity = {model_name}(name="查询测试")
+        entity = {entity_creation}
         unit_test_db.add(entity)
         unit_test_db.commit()
         
