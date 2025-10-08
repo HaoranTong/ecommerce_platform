@@ -381,46 +381,6 @@ class IntelligentTestGenerator:
 
         return files
     
-    # 注意：以下方法已迁移到TestUtils，保留包装器用于向后兼容
-    def _get_minimal_test_value(self, field: 'FieldInfo') -> str:
-        """获取字段的最小测试值（用于最小实体创建）
-        
-        策略:
-        - 字符串: 最小长度 (如果有MinLength约束)
-        - 数字: 最小值 (如果有Min约束)
-        - 布尔: False
-        - 枚举: 第一个值
-        """
-        field_type = field.column_type.lower()
-        
-        # 字符串类型
-        if 'str' in field_type or 'varchar' in field_type or 'text' in field_type:
-            # 检查是否有长度约束
-            if hasattr(field, 'length') and field.length:
-                return f'"{field.name[:1]}"'  # 单字符
-            return f'"{field.name}"'  # 使用字段名作为值
-        
-        # 整数类型
-        if 'int' in field_type:
-            return '1'
-        
-        # 浮点数类型
-        if 'float' in field_type or 'decimal' in field_type:
-            return '0.01'
-        
-        # 布尔类型
-        if 'bool' in field_type:
-            return 'False'
-        
-        # 日期时间类型
-        if 'datetime' in field_type:
-            return 'datetime.now()'
-        if 'date' in field_type:
-            return 'date.today()'
-        
-        # 默认值
-        return f'"{field.name}"'
-    
     def _generate_test_entity_creation(self, model_name: str, models: Dict[str, ModelInfo], suffix: str = "测试数据", with_dependencies: bool = False) -> str:
         """生成测试实体创建代码，自动包含必填字段和外键依赖
         
@@ -645,39 +605,6 @@ class IntelligentTestGenerator:
                 return ('', '', True)
             return ('', 'entity.id', False)
     
-    def _generate_not_found_param(self, query_param: str) -> str:
-        """生成not_found测试的参数（将entity.xxx替换为不存在的值）
-        
-        Args:
-            query_param: 原始查询参数（如"entity.user_id, entity.role_id"或"user.id"）
-            
-        Returns:
-            str: 替换后的参数（如"99999, 99999"或"99999"）
-        """
-        if not query_param:
-            return '"nonexistent_value"'
-        
-        # 分割多个参数
-        params = [p.strip() for p in query_param.split(',')]
-        not_found_params = []
-        
-        for param in params:
-            # entity.xxx或user.id这种形式
-            if '.id' in param:
-                # ID字段，使用不存在的数字
-                not_found_params.append('99999')
-            elif '.' in param and not param.endswith('.id'):
-                # 非ID字段，使用不存在的字符串
-                not_found_params.append('"nonexistent_value"')
-            elif param.isdigit():
-                # 数字，使用99999
-                not_found_params.append('99999')
-            else:
-                # 其他情况，保持原值或使用不存在的字符串
-                not_found_params.append('"nonexistent_value"')
-        
-        return ', '.join(not_found_params)
-    
     def _infer_entity_from_param(self, param_name: str, param_type: str, models: Dict[str, ModelInfo]) -> Optional[str]:
         """从参数名和类型推断对应的实体类型（通用化推断）
         
@@ -731,28 +658,6 @@ class IntelligentTestGenerator:
         
         return None
     
-    # 注意：以下重复和未使用的业务逻辑方法已删除：
-    # - _get_test_value_for_field (重复，使用上面537行的版本)
-    # - _analyze_model_business_features (未使用)
-    
-    def _detect_service_info(self, module_name: str) -> dict:
-        """检测服务类的完整信息（使用ServiceAnalyzer）
-        
-        ⚠️ Deprecated: 使用ServiceAnalyzer替代
-        保留此方法用于向后兼容
-        """
-        return self.service_analyzer.detect_service_info(module_name)
-
-    # 🔄 Service测试相关方法已100%迁移到 service_test_generator.py
-    # - generate_service_tests() (~215行) - 主入口，Mock Repository策略
-        
-        # 生成性能测试
-        performance_tests = performance_generator.generate_tests(module_name, models)
-        files.update(performance_tests)
-        
-        print(f"✅ 生成专项测试: 安全测试 + 性能测试")
-        return files
-
     def _validate_generated_tests(self, files: Dict[str, str]) -> Dict[str, Any]:
         """实现自动化测试质量验证机制 [CHECK:TEST-008] [CHECK:DEV-009]
 
@@ -795,16 +700,12 @@ class IntelligentTestGenerator:
         checker = PytestChecker(self.project_root)
         validation_results["pytest_collection"] = checker.check_pytest_collection(files)
 
-        # 3. 导入验证 [CHECK:TEST-008]
-        print("\n🔍 步骤3: 导入依赖验证")
-        validation_results["import_validation"] = self._validate_imports(files)
-
-        # 4. 依赖完整性检查 [CHECK:TEST-008]
-        print("\n🔍 步骤4: 依赖完整性检查")
+        # 3. 依赖完整性检查 [CHECK:TEST-008]
+        print("\n🔍 步骤3: 依赖完整性检查")
         validation_results["dependency_check"] = checker.check_dependencies(files)
 
-        # 5. 执行成功率测试 [CHECK:TEST-008]
-        print("\n🔍 步骤5: 基础执行成功率测试")
+        # 4. 执行成功率测试 [CHECK:TEST-008]
+        print("\n🔍 步骤4: 基础执行成功率测试")
         validation_results["execution_test"] = checker.test_basic_execution(files)
 
         # 汇总验证结果
