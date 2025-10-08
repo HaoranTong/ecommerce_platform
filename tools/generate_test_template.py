@@ -381,80 +381,7 @@ class IntelligentTestGenerator:
 
         return files
     
-    def _generate_minimal_entity_creation(self, model_name: str, models: Dict[str, ModelInfo], module_name: str) -> str:
-        """生成最小实体创建代码（仅必填字段，符合testing-standards.md 2.1节）
-        
-        Args:
-            model_name: 模型名称
-            models: 模型信息字典
-            module_name: 模块名称
-            
-        Returns:
-            str: 最小实体创建代码（多行，含缩进）
-        """
-        if model_name not in models:
-            return f'        entity = {model_name}()  # TODO: 补充必填字段'
-        
-        model_info = models[model_name]
-        
-        # 提取必填字段（nullable=False 且无default）
-        auto_fields = {'id', 'created_at', 'updated_at', 'is_deleted'}
-        required_fields = [
-            f for f in model_info.fields 
-            if not f.nullable 
-            and f.name not in auto_fields 
-            and not (f.primary_key and f.name == 'id')
-            and not f.server_default  # 排除有数据库默认值的字段
-            # 注意: 如果field有default参数，仍然包括（用于测试默认值）
-        ]
-        
-        if not required_fields:
-            return f'        entity = {model_name}()\n        # 注意: 该模型所有字段均为可选或有默认值'
-        
-        # 分离外键和普通字段
-        fk_fields = [f for f in required_fields if f.foreign_key]
-        normal_fields = [f for f in required_fields if not f.foreign_key]
-        
-        lines = []
-        
-        # 先创建外键依赖
-        fk_var_names = {}
-        for field in fk_fields:
-            fk_target = field.foreign_key
-            fk_table = fk_target.split('.')[0]
-            fk_model_name = self._table_name_to_model_name(fk_table)
-            fk_var_name = fk_model_name.lower()
-            
-            # 使用Factory Boy创建依赖实体（简化）
-            lines.append(f'from tests.factories.{module_name}_factories import {fk_model_name}Factory')
-            lines.append(f'{fk_var_name} = {fk_model_name}Factory.create()')
-            fk_var_names[field.name] = f'{fk_var_name}.id'
-        
-        if fk_fields:
-            lines.append('')  # 空行分隔
-        
-        # 构造最小实体
-        field_assignments = []
-        for field in normal_fields:
-            test_value = self._get_minimal_test_value(field)
-            field_assignments.append(f'{field.name}={test_value}')
-        
-        # 添加外键字段
-        for field in fk_fields:
-            field_assignments.append(f'{field.name}={fk_var_names[field.name]}')
-        
-        if field_assignments:
-            lines.append(f'entity = {model_name}(')
-            for i, assignment in enumerate(field_assignments):
-                comma = ',' if i < len(field_assignments) - 1 else ''
-                lines.append(f'    {assignment}{comma}')
-            lines.append(')')
-        else:
-            lines.append(f'entity = {model_name}()')
-        
-        # 添加缩进
-        return '\n        '.join(lines)
-    
+    # 注意：以下方法已迁移到TestUtils，保留包装器用于向后兼容
     def _get_minimal_test_value(self, field: 'FieldInfo') -> str:
         """获取字段的最小测试值（用于最小实体创建）
         
@@ -605,7 +532,9 @@ class IntelligentTestGenerator:
         model_info = models[model_name]
         return [f for f in model_info.fields if f.primary_key]
     
-    def _infer_query_parameter(self, method_info: 'RepositoryMethodInfo', model_name: str, models: Dict[str, ModelInfo]) -> tuple[str, str, bool]:
+    # 注意：_infer_query_parameter等方法已废弃，RepositoryTestGenerator有自己的实现
+    
+    def _get_test_value_for_field(self, field: 'FieldInfo', suffix: str = "测试") -> str:
         """推断自定义查询方法需要的参数（通用化改进版）
         
         通过分析方法签名自动推断参数：
@@ -802,118 +731,10 @@ class IntelligentTestGenerator:
         
         return None
     
-    def _get_test_value_for_field(self, field: 'FieldInfo', suffix: str = "测试") -> str:
-        """为字段生成测试值
-        
-        Args:
-            field: 字段信息
-            suffix: 值的后缀
-            
-        Returns:
-            str: 测试值的字符串表示
-        """
-        field_name = field.name.lower()
-        
-        # 🔥 修复：先按字段类型判断（类型优先），再按字段名模式匹配（语义推断）
-        # 这样可以避免 email_verified 等 Boolean 字段被错误地当作 email 类型处理
-        
-        # 1. 明确的类型判断（优先级最高）
-        if field.python_type == 'bool':
-            return 'True'
-        elif field.python_type == 'int':
-            return '1'
-        elif field.python_type == 'Decimal':
-            return 'Decimal("10.00")'
-        elif field.python_type == 'datetime':
-            return 'datetime.now()'
-        
-        # 2. 字符串类型的语义推断（通过字段名）
-        elif field.python_type == 'str':
-            if 'email' in field_name:
-                return f'"test_{suffix.lower()}@example.com"'
-            elif 'slug' in field_name:
-                return f'"test-{suffix.lower()}"'
-            elif 'code' in field_name or 'sku' in field_name:
-                return f'"TEST{suffix.upper()}"'
-            elif 'url' in field_name:
-                return f'"https://example.com/{suffix.lower()}"'
-            elif field_name == 'status':
-                # 🔥 status字段使用合理的默认值
-                return '"active"'
-            elif field_name == 'role':
-                # 🔥 role字段使用合理的默认值
-                return '"user"'
-            elif 'name' in field_name:
-                return f'"{suffix}"'
-            else:
-                return f'"{suffix}"'
-        
-        # 3. 兜底默认值
-        else:
-            return f'"{suffix}"'
-    # - _generate_mock_relationship_tests (~17行)
-    # - _get_mock_test_value (~25行)
-    # - _get_python_type_for_test (~12行)
-    # Model测试生成器核心方法已100%迁移（~266行）
+    # 注意：以下重复和未使用的业务逻辑方法已删除：
+    # - _get_test_value_for_field (重复，使用上面537行的版本)
+    # - _analyze_model_business_features (未使用)
     
-    def _analyze_model_business_features(self, model_info: ModelInfo) -> Dict[str, Any]:
-        """分析模型的业务特征"""
-        features = {
-            "has_user_fields": False,
-            "has_audit_fields": False,
-            "has_status_fields": False,
-            "has_financial_fields": False,
-            "has_inventory_fields": False,
-            "business_domain": "general",
-            "relationships_count": len(model_info.relationships),
-            "complexity_level": "simple"
-        }
-        
-        # 从配置获取业务模式
-        patterns = self.config.get("business_logic_patterns", {})
-        
-        # 分析字段类型
-        for field_info in model_info.fields:
-            field_lower = field_info.name.lower()
-            
-            if any(pattern in field_lower for pattern in patterns.get("user_fields", [])):
-                features["has_user_fields"] = True
-            
-            if any(pattern in field_lower for pattern in patterns.get("audit_fields", [])):
-                features["has_audit_fields"] = True
-                
-            if any(pattern in field_lower for pattern in patterns.get("status_fields", [])):
-                features["has_status_fields"] = True
-                
-            if any(pattern in field_lower for pattern in patterns.get("financial_fields", [])):
-                features["has_financial_fields"] = True
-                
-            if any(pattern in field_lower for pattern in patterns.get("inventory_fields", [])):
-                features["has_inventory_fields"] = True
-        
-        # 推断业务域
-        if features["has_user_fields"]:
-            features["business_domain"] = "user_management"
-        elif features["has_financial_fields"]:
-            features["business_domain"] = "financial"
-        elif features["has_inventory_fields"]:
-            features["business_domain"] = "inventory"
-        
-        # 评估复杂度
-        complexity_score = (
-            len(model_info.fields) * 0.3 +
-            len(model_info.relationships) * 0.7 +
-            (5 if features["has_financial_fields"] else 0) +
-            (3 if features["has_status_fields"] else 0)
-        )
-        
-        if complexity_score > 15:
-            features["complexity_level"] = "complex"
-        elif complexity_score > 8:
-            features["complexity_level"] = "moderate"
-        
-        return features
-
     def _detect_service_info(self, module_name: str) -> dict:
         """检测服务类的完整信息（使用ServiceAnalyzer）
         
