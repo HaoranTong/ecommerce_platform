@@ -605,15 +605,7 @@ class Test{repo_name}:
         
         return '\n        '.join(lines)
     
-    def _get_minimal_test_value(self, field: FieldInfo) -> str:
-        """获取字段的最小测试值"""
-        # TODO: 从主程序迁移实现
-        return '""'
-    
-    def _get_test_value_for_field(self, field: FieldInfo, suffix: str) -> str:
-        """获取字段的测试值"""
-        # TODO: 从主程序迁移实现
-        return '""'
+    # 注意：_get_minimal_test_value 和 _get_test_value_for_field 已在上方实现（第350-430行）
     
     def _has_composite_primary_key(
         self,
