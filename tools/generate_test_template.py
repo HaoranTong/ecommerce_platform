@@ -910,18 +910,6 @@ class IntelligentTestGenerator:
         
         return features
 
-    def _detect_service_class_name(self, module_name: str) -> str:
-        """检测服务类的真实名称
-        
-        Args:
-            module_name: 模块名称
-            
-        Returns:
-            str: 检测到的服务类名称
-        """
-        service_info = self._detect_service_info(module_name)
-        return service_info['class_name']
-    
     def _detect_service_info(self, module_name: str) -> dict:
         """检测服务类的完整信息，解决导入和实例化问题
         
