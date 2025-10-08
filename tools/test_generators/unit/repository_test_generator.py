@@ -1146,16 +1146,17 @@ from app.modules.{module_name}.models import (
                     else:
                         # 方法不需要ID参数（如 delete_expired_sessions(db)）
                         # 只验证方法执行和返回值
+                        # 🎯 使用手动实体创建而不是Factory，避免SubFactory session传递问题
+                        entity_creation = self._generate_test_entity_creation(model_name, models, "批量删除测试", with_dependencies=True)
+                        
                         return f'''    def test_{method_name}_physical_delete(self, unit_test_db: Session):
         """测试{method_name} - 批量删除功能
         
         符合标准: testing-standards.md 第2.4节 - 验证批量删除功能
         """
-        from tests.factories.{module_name}_factories import {model_name}Factory
-        
-        {model_name}Factory._meta.sqlalchemy_session = unit_test_db
-        # 创建测试数据
-        entity = {model_name}Factory.create()
+        # 创建测试数据（使用手动创建避免Factory SubFactory session问题）
+        entity = {entity_creation}
+        unit_test_db.add(entity)
         unit_test_db.commit()
         
         # 执行批量删除（方法根据内部条件删除数据）
