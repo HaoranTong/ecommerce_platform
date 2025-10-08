@@ -594,97 +594,9 @@ class IntelligentTestGenerator:
             return ('', 'entity.id', False)
     
     def _validate_generated_tests(self, files: Dict[str, str]) -> Dict[str, Any]:
-        """实现自动化测试质量验证机制 [CHECK:TEST-008] [CHECK:DEV-009]
-
-        验证内容:
-        1. 语法检查 - Python语法正确性
-        2. pytest收集检查 - 测试发现和收集
-        3. 导入验证 - 所有依赖可正确导入
-        4. 依赖完整性检查 - 工厂类和测试数据依赖
-        5. 执行成功率测试 - 基础测试方法执行验证
-
-        Args:
-            files: 生成的文件字典 {路径: 内容}
-
-        Returns:
-            Dict[str, Any]: 验证结果报告
-        """
-        print("🔍 开始测试文件自动验证机制...")
-
-        validation_results = {
-            "syntax_check": {},
-            "pytest_collection": {},
-            "import_validation": {},
-            "dependency_check": {},
-            "execution_test": {},
-            "overall_success": True,
-            "summary": {
-                "total_files": len(files),
-                "passed": 0,
-                "failed": 0,
-                "errors": [],
-            },
-        }
-
-        # 1. 语法检查 [CHECK:TEST-008]
-        print("\n🔍 步骤1: Python语法检查")
-        validation_results["syntax_check"] = self._check_syntax(files)
-
-        # 2. pytest收集检查 [CHECK:TEST-008]
-        print("\n🔍 步骤2: pytest测试收集检查")
-        checker = PytestChecker(self.project_root)
-        validation_results["pytest_collection"] = checker.check_pytest_collection(files)
-
-        # 3. 依赖完整性检查 [CHECK:TEST-008]
-        print("\n🔍 步骤3: 依赖完整性检查")
-        validation_results["dependency_check"] = checker.check_dependencies(files)
-
-        # 4. 执行成功率测试 [CHECK:TEST-008]
-        print("\n🔍 步骤4: 基础执行成功率测试")
-        validation_results["execution_test"] = checker.test_basic_execution(files)
-
-        # 汇总验证结果
+        """委托给ValidationReporter进行测试验证"""
         reporter = ValidationReporter()
-        reporter.summarize_validation_results(validation_results)
-
-        return validation_results
-
-    def _check_syntax(self, files: Dict[str, str]) -> Dict[str, Any]:
-        """Python语法检查"""
-        syntax_results = {"passed": [], "failed": [], "details": {}}
-
-        for file_path, content in files.items():
-            try:
-                # 编译检查语法
-                compile(content, file_path, "exec")
-                syntax_results["passed"].append(file_path)
-                syntax_results["details"][file_path] = {
-                    "status": "pass",
-                    "message": "语法检查通过",
-                }
-                print(f"  ✅ 语法检查通过: {file_path}")
-
-            except SyntaxError as e:
-                syntax_results["failed"].append(file_path)
-                error_msg = f"第{e.lineno}行: {e.msg}"
-                syntax_results["details"][file_path] = {
-                    "status": "fail",
-                    "error": str(e),
-                    "line": e.lineno,
-                    "message": error_msg,
-                }
-                print(f"  ❌ 语法错误 {file_path}: {error_msg}")
-
-            except Exception as e:
-                syntax_results["failed"].append(file_path)
-                syntax_results["details"][file_path] = {
-                    "status": "error",
-                    "error": str(e),
-                    "message": f"编译异常: {e}",
-                }
-                print(f"  ⚠️ 编译异常 {file_path}: {e}")
-
-        return syntax_results
+        return reporter.validate_generated_tests(files, self.project_root)
 
 def main():
     """主程序入口 [CHECK:DEV-009]"""
