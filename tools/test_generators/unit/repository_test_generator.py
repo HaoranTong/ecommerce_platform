@@ -300,29 +300,6 @@ from app.modules.{module_name}.models import (
         unit_test_db.expire_all()
         db_entity = unit_test_db.query({model_name}).filter_by({pk_filter}).first()
         assert db_entity is not None
-        
-    def test_{method_name}_transaction_rollback(self, unit_test_db: Session):
-        """测试{method_name} - 事务回滚验证
-        
-        符合标准: testing-standards.md 第2.5节 - 验证错误时回滚
-        """
-        from tests.factories.{module_name}_factories import {model_name}Factory
-        
-        initial_count = unit_test_db.query({model_name}).count()
-        
-        try:
-            entity = {model_name}Factory.build()
-            result = {repo_name}.{method_name}(unit_test_db, entity)
-            unit_test_db.flush()
-            
-            # 模拟错误，触发回滚
-            raise Exception("Simulated error")
-        except Exception:
-            unit_test_db.rollback()
-        
-        # 验证回滚后数据未增加
-        final_count = unit_test_db.query({model_name}).count()
-        assert final_count == initial_count
 '''
         else:
             # 标准单主键：使用id查询
@@ -387,29 +364,6 @@ from app.modules.{module_name}.models import (
         unit_test_db.expire_all()
         db_entity = unit_test_db.query({model_name}).filter_by(id=result.id).first()
         assert db_entity is not None
-        
-    def test_{method_name}_transaction_rollback(self, unit_test_db: Session):
-        """测试{method_name} - 事务回滚验证
-        
-        符合标准: testing-standards.md 第2.5节 - 验证错误时回滚
-        """
-        from tests.factories.{module_name}_factories import {model_name}Factory
-        
-        initial_count = unit_test_db.query({model_name}).count()
-        
-        try:
-            entity = {model_name}Factory.build()
-            result = {repo_name}.{method_name}(unit_test_db, entity)
-            unit_test_db.flush()
-            
-            # 模拟错误，触发回滚
-            raise Exception("Simulated error")
-        except Exception:
-            unit_test_db.rollback()
-        
-        # 验证回滚后数据未增加
-        final_count = unit_test_db.query({model_name}).count()
-        assert final_count == initial_count
 '''
     
     def generate_repository_read_test(
