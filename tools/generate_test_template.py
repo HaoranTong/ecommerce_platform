@@ -931,6 +931,7 @@ class IntelligentTestGenerator:
         has_db_add = False
         has_db_query = False
         has_setattr = False
+        has_attribute_update = False  # 检测entity.field = value这种赋值
         has_soft_delete = False
         has_count = False
         has_filter = False
@@ -953,26 +954,31 @@ class IntelligentTestGenerator:
                 if isinstance(node.func, ast.Name) and node.func.id == 'setattr':
                     has_setattr = True
             
-            # 检测软删除: entity.is_deleted = True 或 entity.is_active = False
-            if isinstance(node, ast.Assign):
-                for target in node.targets:
-                    if isinstance(target, ast.Attribute):
-                        if target.attr in ['is_deleted', 'is_active']:
-                            has_soft_delete = True
+            # 检测属性赋值: entity.field = value 或 entity.field += 1
+            if isinstance(node, (ast.Assign, ast.AugAssign)):
+                target = node.targets[0] if isinstance(node, ast.Assign) else node.target
+                if isinstance(target, ast.Attribute):
+                    # 排除is_deleted/is_active（这些是软删除标记）
+                    if target.attr not in ['is_deleted', 'is_active']:
+                        has_attribute_update = True
+                    # 检测软删除: entity.is_deleted = True 或 entity.is_active = False
+                    if target.attr in ['is_deleted', 'is_active']:
+                        has_soft_delete = True
         
-        # 检测是否是专用更新方法（如update_login_info, update_last_accessed）
-        # 特征：方法名以update_开头 + 只修改特定字段（不是通用的setattr所有字段）
+        # 检测是否是专用更新方法（如update_login_info, increment_failed_login）
+        # 特征：方法名以update_或increment_开头 + 有赋值操作
         is_specialized_update = False
-        if method_name.startswith('update_') and has_setattr and method_name != 'update':
-            # 如果有赋值操作但不是通用update，是专用更新
-            is_specialized_update = True
+        if (has_setattr or has_attribute_update) and method_name != 'update':
+            if method_name.startswith(('update_', 'increment_', 'decrement_')):
+                is_specialized_update = True
         
         # 根据分析结果判断方法类型
         if has_db_add:
             return ("create", False, False)
         elif has_soft_delete:
             return ("delete", True, False)  # 软删除
-        elif has_setattr and not has_db_add:
+        elif has_setattr or has_attribute_update:
+            # 有赋值操作，是update类型
             return ("update", False, is_specialized_update)
         elif has_count:
             return ("count", False, False)
@@ -2338,6 +2344,10 @@ class Test{repo_name}:
         # 🔥 提取方法参数（排除self, db, cls）
         method_params = [p for p in method_info.parameters if p[0] not in ['self', 'db', 'cls']]
         
+        # 特殊处理check_exists方法（可选参数组合）
+        if method_name == 'check_exists':
+            return ('', 'username=entity.username, email=entity.email', False)
+        
         # 特殊处理联合主键的get方法
         if method_name == 'get' and self._has_composite_primary_key(model_name, models):
             pk_fields = self._get_primary_key_fields(model_name, models)
@@ -2420,41 +2430,84 @@ class Test{repo_name}:
                 return ('', '', True)
             return ('', 'entity.id', False)
     
-    def _infer_entity_from_param(self, param_name: str, param_type: str, models: Dict[str, ModelInfo]) -> Optional[str]:
-        """从参数名推断对应的实体类型（通用化推断）
-        
-        推断规则：
-        - user_id -> User
-        - role_id -> Role
-        - permission_id -> Permission
-        - category_id -> Category
-        - product_id -> Product
+    def _generate_not_found_param(self, query_param: str) -> str:
+        """生成not_found测试的参数（将entity.xxx替换为不存在的值）
         
         Args:
-            param_name: 参数名（如user_id）
-            param_type: 参数类型（如int）
+            query_param: 原始查询参数（如"entity.user_id, entity.role_id"或"user.id"）
+            
+        Returns:
+            str: 替换后的参数（如"99999, 99999"或"99999"）
+        """
+        if not query_param:
+            return '"nonexistent_value"'
+        
+        # 分割多个参数
+        params = [p.strip() for p in query_param.split(',')]
+        not_found_params = []
+        
+        for param in params:
+            # entity.xxx或user.id这种形式
+            if '.id' in param:
+                # ID字段，使用不存在的数字
+                not_found_params.append('99999')
+            elif '.' in param and not param.endswith('.id'):
+                # 非ID字段，使用不存在的字符串
+                not_found_params.append('"nonexistent_value"')
+            elif param.isdigit():
+                # 数字，使用99999
+                not_found_params.append('99999')
+            else:
+                # 其他情况，保持原值或使用不存在的字符串
+                not_found_params.append('"nonexistent_value"')
+        
+        return ', '.join(not_found_params)
+    
+    def _infer_entity_from_param(self, param_name: str, param_type: str, models: Dict[str, ModelInfo]) -> Optional[str]:
+        """从参数名和类型推断对应的实体类型（通用化推断）
+        
+        推断规则：
+        1. user_id: int -> User (ID参数)
+        2. user: User -> User (对象参数)
+        3. role_id: int -> Role (ID参数)
+        4. role: Role -> Role (对象参数)
+        
+        Args:
+            param_name: 参数名（如user_id或user）
+            param_type: 参数类型（如int或User）
             models: 所有模型信息
             
         Returns:
             str: 实体名称（如User），如果无法推断返回None
         """
-        # 参数必须是int类型的ID
-        if param_type != 'int':
-            return None
+        # 🔥 情况1：对象类型参数（如user: User）
+        # 检查参数类型是否直接是模型名
+        if param_type in models:
+            return param_type
         
-        # 参数名必须以_id结尾
-        if not param_name.endswith('_id'):
-            return None
+        # 🔥 情况2：ID参数（如user_id: int）
+        if param_type == 'int' and param_name.endswith('_id'):
+            # 提取实体名：user_id -> user -> User
+            entity_base = param_name[:-3]  # 移除'_id'
+            
+            # 尝试各种命名变体
+            candidates = [
+                entity_base.title(),  # user -> User
+                entity_base.capitalize(),  # user -> User
+                entity_base.upper(),  # user -> USER
+                ''.join(word.capitalize() for word in entity_base.split('_'))  # user_role -> UserRole
+            ]
+            
+            for candidate in candidates:
+                if candidate in models:
+                    return candidate
         
-        # 提取实体名：user_id -> user -> User
-        entity_base = param_name[:-3]  # 移除'_id'
-        
-        # 尝试各种命名变体
+        # 🔥 情况3：对象参数但类型名不标准（如user: 'User'带引号）
+        # 尝试从参数名推断
         candidates = [
-            entity_base.title(),  # user -> User
-            entity_base.capitalize(),  # user -> User
-            entity_base.upper(),  # user -> USER
-            ''.join(word.capitalize() for word in entity_base.split('_'))  # user_role -> UserRole
+            param_name.title(),  # user -> User
+            param_name.capitalize(),  # user -> User
+            ''.join(word.capitalize() for word in param_name.split('_'))  # user_role -> UserRole
         ]
         
         for candidate in candidates:
@@ -2735,6 +2788,9 @@ class Test{repo_name}:
             
             # 🔥 如果有setup_code，说明需要创建依赖实体
             if setup_code:
+                # 生成not_found测试的参数（使用不存在的值替代）
+                not_found_param = self._generate_not_found_param(query_param)
+                
                 return f'''    def test_{method_name}_found(self, unit_test_db: Session):
         """测试{method_name} - 查询到数据"""
         # 准备依赖实体
@@ -2752,10 +2808,7 @@ class Test{repo_name}:
 
     def test_{method_name}_not_found(self, unit_test_db: Session):
         """测试{method_name} - 数据不存在"""
-        # 准备依赖实体（但不创建关联数据）
-        {setup_code}
-        # 执行Repository方法（使用不存在的ID）
-        result = {repo_name}.{method_name}(unit_test_db, 99999)
+        result = {repo_name}.{method_name}(unit_test_db, {not_found_param})
         
         # 验证结果
         assert result is None

@@ -2,7 +2,7 @@
 Auto Generated Test - 已生成到正式目录
 
 文件路径: tests/unit/test_repositories/test_user_auth_repositories.py
-生成时间: 2025-10-08 00:46:07
+生成时间: 2025-10-08 08:00:23
 生成工具: tools/generate_test_template.py v2.0
 状态: GENERATED - 需要经过代码审查和测试验证
 
@@ -104,12 +104,6 @@ class TestUserRepository:
 
     def test_get_by_id_not_found(self, unit_test_db: Session):
         """测试get_by_id - 数据不存在"""
-        # 准备依赖实体（但不创建关联数据）
-        user = User(username="User数据", email="test_user数据@example.com", password_hash="User数据", is_active=True, status="active", email_verified=True, phone_verified=True, two_factor_enabled=True, failed_login_attempts=1, role="user")
-        unit_test_db.add(user)
-        unit_test_db.commit()
-        
-        # 执行Repository方法（使用不存在的ID）
         result = UserRepository.get_by_id(unit_test_db, 99999)
         
         # 验证结果
@@ -203,7 +197,7 @@ class TestUserRepository:
         unit_test_db.commit()
         
         # 执行Repository方法
-        result = UserRepository.check_exists(unit_test_db, )
+        result = UserRepository.check_exists(unit_test_db, username=entity.username, email=entity.email)
         
         # 验证结果
         assert result is True
@@ -283,18 +277,11 @@ class TestUserRepository:
     # 返回类型: User
     
 
-    def test_increment_failed_login_query(self, unit_test_db: Session):
-        """测试increment_failed_login - 查询功能"""
-        # 准备测试数据
-        entity = User(username="查询测试", email="test_查询测试@example.com", password_hash="查询测试", is_active=True, status="active", email_verified=True, phone_verified=True, two_factor_enabled=True, failed_login_attempts=1, role="user")
-        unit_test_db.add(entity)
-        unit_test_db.commit()
-        
-        # 执行Repository方法
-        results = UserRepository.increment_failed_login(unit_test_db)  # TODO: 根据实际方法签名调整参数
-        
-        # 验证查询结果
-        assert len(results) > 0
+    # TODO: 测试专用更新方法 increment_failed_login
+    # 这是一个专用更新方法，只修改特定字段，需要根据业务逻辑手动编写测试
+    # 方法签名: [('db', 'Session'), ('user', 'User')]
+    # 返回类型: User
+    
 
     def test_soft_delete_success(self, unit_test_db: Session):
         """测试soft_delete - 删除成功"""
@@ -406,12 +393,6 @@ class TestRoleRepository:
 
     def test_get_by_id_not_found(self, unit_test_db: Session):
         """测试get_by_id - 数据不存在"""
-        # 准备依赖实体（但不创建关联数据）
-        role = Role(name="Role数据", level=1)
-        unit_test_db.add(role)
-        unit_test_db.commit()
-        
-        # 执行Repository方法（使用不存在的ID）
         result = RoleRepository.get_by_id(unit_test_db, 99999)
         
         # 验证结果
@@ -589,12 +570,6 @@ class TestPermissionRepository:
 
     def test_get_by_id_not_found(self, unit_test_db: Session):
         """测试get_by_id - 数据不存在"""
-        # 准备依赖实体（但不创建关联数据）
-        permission = Permission(name="Permission数据", resource="Permission数据", action="Permission数据")
-        unit_test_db.add(permission)
-        unit_test_db.commit()
-        
-        # 执行Repository方法（使用不存在的ID）
         result = PermissionRepository.get_by_id(unit_test_db, 99999)
         
         # 验证结果
@@ -898,12 +873,6 @@ class TestUserRoleRepository:
 
     def test_delete_all_user_roles_not_found(self, unit_test_db: Session):
         """测试delete_all_user_roles - 数据不存在"""
-        # 准备依赖实体（但不创建关联数据）
-        user = User(username="User数据", email="test_user数据@example.com", password_hash="User数据", is_active=True, status="active", email_verified=True, phone_verified=True, two_factor_enabled=True, failed_login_attempts=1, role="user")
-        unit_test_db.add(user)
-        unit_test_db.commit()
-        
-        # 执行Repository方法（使用不存在的ID）
         result = UserRoleRepository.delete_all_user_roles(unit_test_db, 99999)
         
         # 验证结果
@@ -1130,12 +1099,6 @@ class TestRolePermissionRepository:
 
     def test_delete_all_role_permissions_not_found(self, unit_test_db: Session):
         """测试delete_all_role_permissions - 数据不存在"""
-        # 准备依赖实体（但不创建关联数据）
-        role = Role(name="Role数据", level=1)
-        unit_test_db.add(role)
-        unit_test_db.commit()
-        
-        # 执行Repository方法（使用不存在的ID）
         result = RolePermissionRepository.delete_all_role_permissions(unit_test_db, 99999)
         
         # 验证结果
@@ -1226,15 +1189,6 @@ class TestSessionRepository:
 
     def test_get_by_id_not_found(self, unit_test_db: Session):
         """测试get_by_id - 数据不存在"""
-        # 准备依赖实体（但不创建关联数据）
-        session = user = User(username="依赖Session数据", email="test_依赖session数据@example.com", password_hash="依赖Session数据", is_active=True, status="active", email_verified=True, phone_verified=True, two_factor_enabled=True, failed_login_attempts=1, role="user")
-        unit_test_db.add(user)
-        unit_test_db.commit()
-        entity = Session(token_hash="Session数据", expires_at=datetime.now(), last_accessed_at=datetime.now(), is_active=True, user_id=user.id)
-        unit_test_db.add(session)
-        unit_test_db.commit()
-        
-        # 执行Repository方法（使用不存在的ID）
         result = SessionRepository.get_by_id(unit_test_db, 99999)
         
         # 验证结果
@@ -1355,12 +1309,6 @@ class TestSessionRepository:
 
     def test_deactivate_user_sessions_not_found(self, unit_test_db: Session):
         """测试deactivate_user_sessions - 数据不存在"""
-        # 准备依赖实体（但不创建关联数据）
-        user = User(username="User数据", email="test_user数据@example.com", password_hash="User数据", is_active=True, status="active", email_verified=True, phone_verified=True, two_factor_enabled=True, failed_login_attempts=1, role="user")
-        unit_test_db.add(user)
-        unit_test_db.commit()
-        
-        # 执行Repository方法（使用不存在的ID）
         result = SessionRepository.deactivate_user_sessions(unit_test_db, 99999)
         
         # 验证结果
