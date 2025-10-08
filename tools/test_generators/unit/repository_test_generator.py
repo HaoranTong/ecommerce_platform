@@ -1803,30 +1803,35 @@ class Test{repo_name}:
                 continue
             
             # 🎯 智能参数推断策略
-            # 1. 如果参数名匹配实体类型（如user: User），传入实体对象
-            if param_type and param_type == method_info.return_type.replace('Optional[', '').replace(']', ''):
-                params.append(entity_var)
-            # 2. 如果参数名是ID类型（user_id, role_id等）
-            elif param_name.endswith('_id'):
+            # 1. 如果参数是ID类型（user_id, role_id等）- 优先处理
+            if param_name.endswith('_id'):
                 # 尝试从entity获取对应ID
                 params.append(f"{entity_var}.id")
-            # 3. 如果参数是实体对象（根据类型注解判断）
-            elif param_type and param_type[0].isupper():  # 类型注解首字母大写（如User, Role）
-                params.append(entity_var)
-            # 4. 如果参数是字典类型（data, update_data等）- 使用{} 占位
+            # 2. 如果参数是字典类型（data, update_data等）- 使用{} 占位
             elif 'dict' in param_type.lower() or param_name in ['data', 'update_data', 'filters']:
                 params.append("{}")
-            # 5. 如果context中有对应的值
+            # 3. 如果context中有对应的值
             elif param_name in context:
                 params.append(context[param_name])
-            # 6. 根据参数类型生成默认值
+            # 4. 根据参数类型生成默认值（优先匹配基础类型）
             elif param_type:
-                if 'int' in param_type.lower():
+                # 去除Optional等包装
+                clean_type = param_type.replace('Optional[', '').replace(']', '').replace('List[', '').strip()
+                
+                if 'int' in clean_type.lower():
                     params.append("0")
-                elif 'str' in param_type.lower():
+                elif 'str' in clean_type.lower():
                     params.append('""')
-                elif 'bool' in param_type.lower():
-                    params.append("False")
+                elif 'bool' in clean_type.lower():
+                    params.append("None")  # Optional[bool]用None
+                elif 'dict' in clean_type.lower():
+                    params.append("{}")
+                # 5. 如果参数名匹配实体类型（如user: User），传入实体对象
+                elif clean_type == method_info.return_type.replace('Optional[', '').replace(']', '').replace('List[', ''):
+                    params.append(entity_var)
+                # 6. 如果是自定义实体类型（首字母大写且不是常见类型）
+                elif clean_type and clean_type[0].isupper() and clean_type not in ['Session', 'Any', 'Type', 'Union']:
+                    params.append(entity_var)
                 else:
                     params.append("None")  # 其他类型用None
             else:
