@@ -599,19 +599,185 @@ from app.modules.{module_name}.models import (
         module_name: str,
         models: Dict[str, ModelInfo]
     ) -> str:
-        """生成Update测试（4种测试）
+        """生成Repository update方法测试（符合testing-standards.md 2.3节要求）
         
-        1. test_update_single_field - 单字段更新
-        2. test_update_multiple_fields - 多字段更新
-        3. test_update_transaction_commit - 事务提交
-        4. test_update_specialized_method - 专用方法
+        测试类型（符合标准第2.3节）:
+        1. 单字段更新测试 - 只更新一个字段，验证其他字段不变
+        2. 多字段更新测试 - 同时更新多个字段
+        3. 专用方法测试 - 如update_status, update_password等
+        4. 批量更新测试 - 如update_many, bulk_update等
         """
-        # 使用主程序实现(阶段A)
-        if self.main_generator:
-            return self.main_generator._generate_repository_update_test(
-                method_info, model_name, repo_name, module_name, models
-            )
-        return ""
+        method_name = method_info.name
+        entity_creation = self._generate_test_entity_creation(model_name, models, "原始数据", with_dependencies=True)
+        
+        # 🔥 智能选择可更新的字段（优先name，然后业务字段，最后才是其他字段）
+        update_field = "name"  # 默认
+        if model_name in models:
+            model_info = models[model_name]
+            # 检查是否有name字段
+            has_name = any(f.name == 'name' for f in model_info.fields)
+            if not has_name:
+                # 📝 排除规则：只排除真正不能修改的字段
+                # 1. 系统字段：id, timestamps, 软删除标记
+                # 2. 唯一约束字段：username, email（这些需要唯一性验证）
+                # 3. 经过验证的敏感字段：password_hash, token等
+                # 4. 已验证的真实信息：如果有verified标记的字段
+                excluded_fields = {
+                    # 系统字段
+                    'id', 'created_at', 'updated_at', 'is_deleted', 'deleted_at',
+                    # 唯一约束字段（需要特殊处理）
+                    'username', 'email', 'wx_openid', 'wx_unionid',
+                    # 认证和令牌字段
+                    'password_hash', 'token', 'token_hash', 'refresh_token',
+                    # 唯一标识码
+                    'code', 'sku', 'slug'
+                }
+                
+                # 🎯 优先级排序：业务字段 > 描述字段 > 其他字段
+                priority_fields = ['real_name', 'phone', 'status', 'role', 'description', 'remark', 'note', 'address']
+                
+                # 先检查优先级字段
+                for field in priority_fields:
+                    field_info = next((f for f in model_info.fields if f.name == field), None)
+                    if field_info and not field_info.primary_key and not field_info.foreign_key:
+                        update_field = field
+                        break
+                else:
+                    # 如果没有优先级字段，查找第一个可更新的字符串字段
+                    updateable_fields = [
+                        f.name for f in model_info.fields
+                        if f.name not in excluded_fields
+                        and not f.primary_key 
+                        and not f.foreign_key
+                        and 'String' in f.column_type
+                    ]
+                    if updateable_fields:
+                        update_field = updateable_fields[0]
+        
+        # 🔥 检查是否使用联合主键
+        has_composite_pk = self._has_composite_primary_key(model_name, models)
+        
+        if has_composite_pk:
+            # 联合主键：使用主键字段组合查询
+            pk_fields = self._get_primary_key_fields(model_name, models)
+            pk_filter = ', '.join([f'{f.name}=entity.{f.name}' for f in pk_fields])
+            
+            return f'''    def test_{method_name}_success(self, unit_test_db: Session):
+        """测试{method_name} - 更新成功"""
+        # 准备测试数据
+        entity = {entity_creation}
+        unit_test_db.add(entity)
+        unit_test_db.commit()
+        
+        # 执行Repository方法
+        update_data = {{"{update_field}": "更新后数据"}}
+        result = {repo_name}.{method_name}(unit_test_db, entity, update_data)  # TODO: 根据实际方法签名调整参数
+        
+        # 验证结果
+        assert result.{update_field} == "更新后数据"
+        
+        # 验证数据库已更新（使用联合主键查询）
+        unit_test_db.expire_all()
+        db_entity = unit_test_db.query({model_name}).filter_by({pk_filter}).first()
+        assert db_entity.{update_field} == "更新后数据"
+'''
+        else:
+            # 标准单主键 - 生成4种更新测试
+            # 找第二个可更新字段（用于多字段测试）
+            second_update_field = "description"
+            if model_name in models:
+                model_info = models[model_name]
+                excluded_fields = {'id', 'created_at', 'updated_at', 'is_deleted', 
+                                 'username', 'email', update_field}
+                updateable_fields = [
+                    f.name for f in model_info.fields
+                    if f.name not in excluded_fields
+                    and not f.primary_key and not f.foreign_key
+                    and 'String' in f.column_type
+                ]
+                if updateable_fields:
+                    second_update_field = updateable_fields[0]
+            
+            return f'''    def test_{method_name}_single_field(self, unit_test_db: Session):
+        """测试{method_name} - 单字段更新
+        
+        符合标准: testing-standards.md 第2.3节 - 只更新一个字段，验证其他字段不变
+        """
+        # 准备测试数据
+        from tests.factories.{module_name}_factories import {model_name}Factory
+        entity = {model_name}Factory.create()
+        original_{second_update_field} = entity.{second_update_field}
+        
+        # 执行Repository方法（只更新{update_field}）
+        update_data = {{"{update_field}": "更新后数据"}}
+        result = {repo_name}.{method_name}(unit_test_db, entity, update_data)  # TODO: 根据实际方法签名调整
+        
+        # 验证目标字段已更新
+        assert result.{update_field} == "更新后数据"
+        
+        # ✅ 验证其他字段未变化
+        assert result.{second_update_field} == original_{second_update_field}
+        
+        # 验证数据库已更新
+        unit_test_db.expire_all()
+        db_entity = unit_test_db.query({model_name}).filter_by(id=entity.id).first()
+        assert db_entity.{update_field} == "更新后数据"
+        assert db_entity.{second_update_field} == original_{second_update_field}
+    
+    def test_{method_name}_multiple_fields(self, unit_test_db: Session):
+        """测试{method_name} - 多字段更新
+        
+        符合标准: testing-standards.md 第2.3节 - 同时更新多个字段
+        """
+        from tests.factories.{module_name}_factories import {model_name}Factory
+        entity = {model_name}Factory.create()
+        
+        # 执行Repository方法（同时更新多个字段）
+        update_data = {{
+            "{update_field}": "更新后数据1",
+            "{second_update_field}": "更新后数据2"
+        }}
+        result = {repo_name}.{method_name}(unit_test_db, entity, update_data)
+        
+        # 验证所有字段已更新
+        assert result.{update_field} == "更新后数据1"
+        assert result.{second_update_field} == "更新后数据2"
+        
+        # 验证持久化
+        unit_test_db.expire_all()
+        db_entity = unit_test_db.query({model_name}).filter_by(id=entity.id).first()
+        assert db_entity.{update_field} == "更新后数据1"
+        assert db_entity.{second_update_field} == "更新后数据2"
+    
+    def test_{method_name}_transaction_commit(self, unit_test_db: Session):
+        """测试{method_name} - 事务提交验证
+        
+        符合标准: testing-standards.md 第2.5节 - 验证更新真正写入数据库
+        """
+        from tests.factories.{module_name}_factories import {model_name}Factory
+        entity = {model_name}Factory.create()
+        
+        update_data = {{"{update_field}": "事务测试数据"}}
+        result = {repo_name}.{method_name}(unit_test_db, entity, update_data)
+        
+        # 验证事务已提交
+        unit_test_db.expire_all()
+        db_entity = unit_test_db.query({model_name}).filter_by(id=entity.id).first()
+        assert db_entity.{update_field} == "事务测试数据"
+    
+    def test_{method_name}_specialized_method(self, unit_test_db: Session):
+        """测试{method_name} - 专用方法测试（如有）
+        
+        符合标准: testing-standards.md 第2.3节 - 测试特殊更新方法
+        示例: update_status, update_password, activate, deactivate等
+        """
+        # TODO: 如果有专用更新方法，在这里测试
+        # 例如:
+        # entity = {model_name}Factory.create(status='active')
+        # result = {repo_name}.update_status(unit_test_db, entity.id, 'inactive')
+        # assert result.status == 'inactive'
+        pass
+'''
     
     def generate_repository_delete_test(
         self,
