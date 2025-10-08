@@ -963,8 +963,12 @@ from app.modules.{module_name}.models import (
             # 联合主键：保存主键值用于后续查询和删除参数
             pk_fields = self._get_primary_key_fields(model_name, models)
             pk_saves = '\n        '.join([f'{f.name}_val = entity.{f.name}' for f in pk_fields])
-            pk_params = ', '.join([f'{f.name}_val' for f in pk_fields])
             pk_filter = ', '.join([f'{f.name}={f.name}_val' for f in pk_fields])
+            
+            # 🎯 根据实际方法签名生成参数（而不是固定使用所有主键）
+            # 构建context包含所有主键值
+            pk_context = {f'{f.name}': f'{f.name}_val' for f in pk_fields}
+            pk_params = self._generate_method_call_params(method_info, "unit_test_db", **pk_context)
             
             verification = self._generate_delete_verification(is_soft_delete, model_name, pk_filter)
             
