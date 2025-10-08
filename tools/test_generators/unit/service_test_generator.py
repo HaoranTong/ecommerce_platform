@@ -21,6 +21,7 @@ Service测试生成器 - Service层Mock测试
 from pathlib import Path
 from typing import Dict
 from ..core import ModelInfo, RepositoryInfo
+from ..utils.service_analyzer import ServiceAnalyzer
 
 
 class ServiceTestGenerator:
@@ -37,6 +38,7 @@ class ServiceTestGenerator:
         self.project_root = project_root
         self.config = config
         self.main_generator = main_generator
+        self.service_analyzer = ServiceAnalyzer(project_root)
     
     def generate_service_tests(
         self,
@@ -349,7 +351,7 @@ class {test_class_name}:
         return '\n'.join(tests)
     
     def _detect_service_info(self, module_name: str) -> dict:
-        """检测Service类信息
+        """检测Service类信息（使用ServiceAnalyzer）
         
         Args:
             module_name: 模块名称
@@ -357,21 +359,7 @@ class {test_class_name}:
         Returns:
             dict: Service信息字典
         """
-        # 尝试导入Service模块并检测
-        service_class_name = f"{module_name.title().replace('_', '')}Service"
-        
-        # 检查是否存在service.py文件
-        service_file = self.project_root / "app" / "modules" / module_name / "service.py"
-        
-        service_info = {
-            'class_name': service_class_name,
-            'is_static': True,  # 默认假设是静态方法类
-            'exists': service_file.exists()
-        }
-        
-        # TODO: 如果需要更精确的检测，可以在这里添加AST分析
-        
-        return service_info
+        return self.service_analyzer.detect_service_info(module_name)
     
     def _generate_service_instantiation(self, service_info: dict, db_var: str = "unit_test_db") -> str:
         """生成服务实例化代码，解决静态方法vs实例方法的实例化问题

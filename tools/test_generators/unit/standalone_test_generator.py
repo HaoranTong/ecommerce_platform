@@ -20,6 +20,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict
 from ..core import ModelInfo
+from ..utils.service_analyzer import ServiceAnalyzer
 
 
 class StandaloneTestGenerator:
@@ -34,6 +35,7 @@ class StandaloneTestGenerator:
         """
         self.project_root = project_root
         self.config = config
+        self.service_analyzer = ServiceAnalyzer(project_root)
     
     def generate_workflow_tests(
         self,
@@ -186,7 +188,7 @@ class Test{module_name.title().replace('_', '')}Workflow:
 '''
     
     def _detect_service_info(self, module_name: str) -> Dict[str, Any]:
-        """检测服务类信息
+        """检测服务类信息（使用ServiceAnalyzer）
         
         Args:
             module_name: 模块名称
@@ -194,68 +196,7 @@ class Test{module_name.title().replace('_', '')}Workflow:
         Returns:
             服务类信息字典
         """
-        # 尝试导入service模块
-        try:
-            service_module_path = self.project_root / "app" / "modules" / module_name / "service.py"
-            
-            if not service_module_path.exists():
-                return {
-                    'class_name': f"{module_name.title().replace('_', '')}Service",
-                    'is_static': False,
-                    'instance_method_names': [],
-                    'static_method_names': []
-                }
-            
-            # 解析service文件获取类名和方法
-            import ast
-            with open(service_module_path, 'r', encoding='utf-8') as f:
-                tree = ast.parse(f.read())
-            
-            service_class_name = None
-            is_static = False
-            instance_methods = []
-            static_methods = []
-            
-            for node in ast.walk(tree):
-                if isinstance(node, ast.ClassDef) and 'service' in node.name.lower():
-                    service_class_name = node.name
-                    
-                    # 分析方法
-                    for item in node.body:
-                        if isinstance(item, ast.FunctionDef):
-                            # 检查是否是静态方法
-                            is_static_method = any(
-                                isinstance(dec, ast.Name) and dec.id == 'staticmethod'
-                                for dec in item.decorator_list
-                            )
-                            
-                            if is_static_method:
-                                static_methods.append(item.name)
-                            elif item.name != '__init__':
-                                instance_methods.append(item.name)
-                    
-                    # 判断是否主要是静态方法
-                    is_static = len(static_methods) > len(instance_methods)
-                    break
-            
-            if not service_class_name:
-                service_class_name = f"{module_name.title().replace('_', '')}Service"
-            
-            return {
-                'class_name': service_class_name,
-                'is_static': is_static,
-                'instance_method_names': instance_methods,
-                'static_method_names': static_methods
-            }
-            
-        except Exception as e:
-            print(f"⚠️ 服务类检测失败: {e}")
-            return {
-                'class_name': f"{module_name.title().replace('_', '')}Service",
-                'is_static': False,
-                'instance_method_names': [],
-                'static_method_names': []
-            }
+        return self.service_analyzer.detect_service_info(module_name)
     
     def _generate_workflow_scenarios(
         self, module_name: str, models: Dict[str, ModelInfo], service_class_name: str, 
