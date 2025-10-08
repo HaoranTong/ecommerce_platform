@@ -52,14 +52,26 @@
 ```python
 # app/modules/user_auth/service.py
 class UserService:
+    """用户业务逻辑层
+    
+    ✅ 职责：
+    1. 业务逻辑处理和验证
+    2. 事务边界管理（commit/rollback）
+    3. 编排Repository或ORM调用
+    """
+    
     @staticmethod
     def create_user(db: Session, user_data: UserCreate) -> User:
-        """创建用户 - 直接使用ORM"""
-        db_user = User(**user_data.model_dump())
-        db.add(db_user)
-        db.commit()
-        db.refresh(db_user)
-        return db_user
+        """创建用户 - 直接使用ORM（简单场景）"""
+        try:
+            db_user = User(**user_data.model_dump())
+            db.add(db_user)
+            db.commit()  # Service层负责提交事务
+            db.refresh(db_user)
+            return db_user
+        except Exception:
+            db.rollback()  # Service层负责回滚
+            raise
     
     @staticmethod
     def get_user_by_id(db: Session, user_id: int) -> Optional[User]:
@@ -107,11 +119,16 @@ class UserRepositoryInterface(ABC):
         pass
 
 class UserRepository(UserRepositoryInterface):
-    """用户数据访问实现"""
+    """用户数据访问实现
+    
+    ⚠️ 注意：Repository层不负责事务提交
+    所有方法只执行数据访问操作，事务由Service层控制
+    """
     
     def create(self, db: Session, user: User) -> User:
+        """创建用户（不提交事务）"""
         db.add(user)
-        db.commit()
+        db.flush()  # 刷新以获取ID，但不提交
         db.refresh(user)
         return user
     

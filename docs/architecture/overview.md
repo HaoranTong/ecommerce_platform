@@ -20,6 +20,7 @@
 6. **移动优先 (Mobile-First)** - 优先优化移动端性能和用户体验
 7. **社交驱动 (Social-Driven)** - 支持社交分享、拼团等社交电商功能
 8. **数据驱动 (Data-Driven)** - 基于用户行为和业务数据优化决策
+9. **事务在Service (Transaction in Service)** - Service层负责事务边界管理，Repository层不控制事务
 
 ### 架构演进原则
 - **前瞻性设计** - 从 Mini-MVP 开始考虑最终产品需求
@@ -243,6 +244,18 @@ app/
 3. ✅ **易于测试**：每层可独立测试，上层可Mock下层
 4. ✅ **便于维护**：修改数据访问不影响业务逻辑
 
+**事务管理原则** ⚠️ 重要：
+
+| 层次 | 事务职责 | 操作 | 原因 |
+|------|---------|------|------|
+| **Service层** | ✅ 负责事务管理 | `db.commit()`<br>`db.rollback()` | • 业务逻辑决定原子性边界<br>• 编排多个Repository调用<br>• 控制跨表事务一致性 |
+| **Repository层** | ❌ 不负责事务 | `db.add()`<br>`db.flush()`<br>`db.refresh()` | • 保持方法无状态可复用<br>• 避免过早提交<br>• 便于Service编排 |
+
+**为什么Service管理事务？**
+- 业务原子性由业务层决定（如：创建订单+扣库存必须在同一事务）
+- Repository方法需要在不同事务上下文中复用
+- 测试隔离性要求Service可控制事务提交时机
+
 #### 🔧 核心基础设施层 (core/)
 负责应用程序的基础服务：数据库连接、缓存管理、认证中间件等跨模块的核心功能。
 
@@ -325,13 +338,19 @@ app/modules/{module_name}/
 
 ```python
 class BaseRepository:
-    """Repository基类，定义标准CRUD接口"""
+    """Repository基类，定义标准CRUD接口
+    
+    ⚠️ 重要原则：Repository层不负责事务管理
+    - Repository只负责数据访问操作（add/flush/refresh）
+    - 事务的提交/回滚由Service层控制
+    - Repository方法保持无状态，可在不同事务上下文中复用
+    """
     
     @staticmethod
     def create(db: Session, entity: Model) -> Model:
-        """创建实体"""
+        """创建实体（不提交事务）"""
         db.add(entity)
-        db.commit()
+        db.flush()  # 刷新以获取自动生成的ID
         db.refresh(entity)
         return entity
     
@@ -349,18 +368,18 @@ class BaseRepository:
     
     @staticmethod
     def update(db: Session, entity: Model, data: Dict[str, Any]) -> Model:
-        """更新实体"""
+        """更新实体（不提交事务）"""
         for key, value in data.items():
             setattr(entity, key, value)
-        db.commit()
+        db.flush()
         db.refresh(entity)
         return entity
     
     @staticmethod
     def soft_delete(db: Session, entity: Model) -> None:
-        """软删除"""
+        """软删除（不提交事务）"""
         entity.is_deleted = True
-        db.commit()
+        db.flush()
 ```
 
 #### 推广实施计划
@@ -398,7 +417,7 @@ class BaseRepository:
 
 #### 实施步骤（以order_management为例）
 
-**第1步：创建repository.py文件**
+**第1步：创建repository.py文件（数据访问层）**
 ```python
 # app/modules/order_management/repository.py
 from typing import List, Optional
@@ -406,34 +425,100 @@ from sqlalchemy.orm import Session
 from .models import Order, OrderItem
 
 class OrderRepository:
+    """订单数据访问层
+    
+    ⚠️ 注意：Repository方法不负责事务提交
+    所有方法只执行数据访问操作，由Service层控制事务边界
+    """
+    
     @staticmethod
     def create(db: Session, order: Order) -> Order:
+        """创建订单（不提交事务）"""
         db.add(order)
-        db.commit()
+        db.flush()  # 刷新获取ID，但不提交
         db.refresh(order)
         return order
     
     @staticmethod
     def get_by_id(db: Session, order_id: int) -> Optional[Order]:
+        """根据ID查询订单"""
         return db.query(Order).filter(Order.id == order_id).first()
     
     # ... 其他方法
+
+class OrderItemRepository:
+    @staticmethod
+    def create(db: Session, order_item: OrderItem) -> OrderItem:
+        """创建订单项（不提交事务）"""
+        db.add(order_item)
+        db.flush()
+        db.refresh(order_item)
+        return order_item
 ```
 
-**第2步：重构service.py，使用Repository**
+**第2步：创建service.py，管理事务边界**
 ```python
 # app/modules/order_management/service.py
-from .repository import OrderRepository
+from .repository import OrderRepository, OrderItemRepository
+from ..inventory_management.repository import InventoryRepository
 
 class OrderService:
+    """订单业务逻辑层
+    
+    ✅ 核心职责：
+    1. 业务逻辑处理和验证
+    2. 事务边界管理（commit/rollback）
+    3. 编排多个Repository调用
+    4. 异常处理和业务流程控制
+    """
+    
     @staticmethod
-    def create_order(db: Session, data: dict) -> Order:
-        # 业务逻辑验证
-        validate_order_data(data)
+    def create_order(db: Session, order_data: dict, items: List[dict]) -> Order:
+        """创建订单（完整业务流程）
         
-        # 使用Repository创建
-        order = Order(**data)
-        return OrderRepository.create(db, order)
+        事务范围：
+        - 创建订单主表
+        - 创建订单明细
+        - 扣减库存
+        以上操作必须在同一事务中，保证原子性
+        """
+        try:
+            # 1. 业务验证
+            validate_order_data(order_data)
+            
+            # 2. 创建订单（调用Repository，不提交）
+            order = Order(**order_data)
+            order = OrderRepository.create(db, order)
+            
+            # 3. 创建订单项（调用Repository，不提交）
+            for item_data in items:
+                item = OrderItem(order_id=order.id, **item_data)
+                OrderItemRepository.create(db, item)
+                
+                # 4. 扣减库存（调用Repository，不提交）
+                InventoryRepository.deduct_stock(
+                    db, 
+                    product_id=item.product_id,
+                    quantity=item.quantity
+                )
+            
+            # 5. Service层统一提交事务
+            db.commit()
+            db.refresh(order)
+            return order
+            
+        except Exception as e:
+            # 6. 发生异常时回滚整个事务
+            db.rollback()
+            raise HTTPException(
+                status_code=400,
+                detail=f"订单创建失败: {str(e)}"
+            )
+    
+    @staticmethod
+    def get_order(db: Session, order_id: int) -> Optional[Order]:
+        """查询订单（只读操作，无需事务控制）"""
+        return OrderRepository.get_by_id(db, order_id)
 ```
 
 **第3步：更新单元测试，Mock Repository**

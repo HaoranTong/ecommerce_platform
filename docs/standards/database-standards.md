@@ -270,14 +270,18 @@ async def create_user_endpoint(
     user_data: UserCreateSchema,
     db: Session = Depends(get_db)
 ):
-    """标准的API端点数据库操作模式"""
+    """标准的API端点数据库操作模式
+    
+    ⚠️ 注意：此示例为简单CRUD场景（无业务逻辑）
+    如有业务逻辑或跨表操作，应该调用Service层，由Service管理事务
+    """
     try:
         # 创建模型实例
         user = User(**user_data.dict())
         
         # 数据库操作
         db.add(user)
-        db.commit()
+        db.commit()  # 简单场景：Router直接commit
         db.refresh(user)  # 获取数据库生成的字段（如id, created_at）
         
         return user

@@ -192,9 +192,23 @@ def test_user_model_validation(mocker):
 - **批量删除**：delete_all等
 
 #### 2.5 事务和持久化测试
-- **事务提交验证**：验证数据真正写入数据库
-- **事务回滚验证**：验证错误时回滚
-- **并发测试**：验证并发操作的正确性
+
+⚠️ **重要原则：Repository层不测试事务回滚**
+
+根据分层架构设计原则：
+- **Repository层**：只负责数据访问操作（add/flush/refresh），不负责事务管理
+- **Service层**：负责事务边界控制（commit/rollback）
+
+因此：
+- **Repository层测试**：
+  - ✅ 验证数据持久化（flush后能查询到）
+  - ✅ 验证SQL逻辑正确性
+  - ❌ 不测试事务回滚（Repository不控制事务）
+  
+- **Service层测试**：
+  - ✅ Mock Repository，测试业务逻辑
+  - ✅ 验证事务回滚场景（通过集成测试）
+  - ✅ 验证多Repository调用的原子性
 
 **数据准备原则**：
 ```python
@@ -303,6 +317,35 @@ def test_user_service_authenticate_locked_account(mocker):
     # 测试业务规则：被锁定账户不能登录
     with pytest.raises(AccountLockedException):
         UserService.authenticate(db, "locked_user", "password")
+```
+
+**事务管理测试**（Service层职责）：
+
+Service层负责事务管理，因此事务回滚测试应在Service层或集成测试中进行：
+
+```python
+# 集成测试：验证Service层事务回滚
+def test_order_service_rollback_on_insufficient_inventory(integration_db):
+    """测试库存不足时订单创建回滚
+    
+    场景：
+    1. 创建订单（成功）
+    2. 创建订单项（成功）
+    3. 扣减库存（失败 - 库存不足）
+    4. 整个事务回滚，订单和订单项都不应该保存
+    """
+    initial_order_count = integration_db.query(Order).count()
+    
+    with pytest.raises(InsufficientInventoryException):
+        OrderService.create_order(
+            integration_db,
+            order_data={"user_id": 1, "total": 100},
+            items=[{"product_id": 1, "quantity": 999999}]  # 超出库存
+        )
+    
+    # 验证事务回滚：订单数量未增加
+    final_order_count = integration_db.query(Order).count()
+    assert final_order_count == initial_order_count
 ```
 
 ### 4. Standalone层测试 (*_standalone.py)
