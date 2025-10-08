@@ -227,7 +227,14 @@ from app.modules.{module_name}.models import (
         method_name = method_info.name
         
         # 生成最小字段创建代码（只填必填字段）
-        minimal_entity_code = self._generate_minimal_entity_creation(model_name, models, module_name)
+        minimal_imports, minimal_entity_code = self._generate_minimal_entity_creation(model_name, models, module_name)
+        
+        # 组装import语句（放在方法开始）
+        import_block = ''
+        if minimal_imports:
+            unique_imports = list(dict.fromkeys(minimal_imports))  # 去重
+            import_lines = ['        ' + imp for imp in unique_imports]
+            import_block = '\n'.join(import_lines) + '\n        '
         
         # 检查是否使用联合主键
         has_composite_pk = self._has_composite_primary_key(model_name, models)
@@ -241,8 +248,9 @@ from app.modules.{module_name}.models import (
         """测试{method_name} - 最小必填字段创建
         
         符合标准: testing-standards.md 第2.1节 - 只填写必填字段，验证默认值
+        数据准备策略: 最小实体构造，不使用Factory Boy
         """
-        # 创建最小实体（只填必填字段）
+{import_block}# 创建最小实体（只填必填字段）
 {minimal_entity_code}
         
         # 执行Repository方法
@@ -324,7 +332,7 @@ from app.modules.{module_name}.models import (
         符合标准: testing-standards.md 第2.1节 - 只填写必填字段，验证默认值
         数据准备策略: 最小实体构造，不使用Factory Boy
         """
-        # 创建最小实体（只填必填字段）
+{import_block}# 创建最小实体（只填必填字段）
 {minimal_entity_code}
         
         # 执行Repository方法
@@ -1370,7 +1378,7 @@ class Test{repo_name}:
         model_name: str,
         models: Dict[str, ModelInfo],
         module_name: str
-    ) -> str:
+    ) -> Tuple[List[str], str]:
         """生成最小实体创建代码(仅必填字段,符合testing-standards.md 2.1节)
         
         Args:
@@ -1379,10 +1387,12 @@ class Test{repo_name}:
             module_name: 模块名称
             
         Returns:
-            str: 最小实体创建代码(多行,含缩进)
+            Tuple[List[str], str]: (import语句列表, 实体创建代码)
         """
+        imports = []
+        
         if model_name not in models:
-            return f'        entity = {model_name}()  # TODO: 补充必填字段'
+            return ([], f'        entity = {model_name}()  # TODO: 补充必填字段')
         
         model_info = models[model_name]
         
@@ -1392,13 +1402,14 @@ class Test{repo_name}:
             f for f in model_info.fields 
             if not f.nullable 
             and f.name not in auto_fields 
-            and not (f.primary_key and f.name == 'id')
+            and not (f.primary_key and f.name == 'id' and not f.foreign_key)  # 只排除非外键的自增主键
             and not f.server_default  # 排除有数据库默认值的字段
+            # 注意: 主键外键字段（如role_id作为主键且是外键）需要包括
             # 注意: 如果field有default参数,仍然包括(用于测试默认值)
         ]
         
         if not required_fields:
-            return f'        entity = {model_name}()\n        # 注意: 该模型所有字段均为可选或有默认值'
+            return ([], f'        entity = {model_name}()\n        # 注意: 该模型所有字段均为可选或有默认值')
         
         # 分离外键和普通字段
         fk_fields = [f for f in required_fields if f.foreign_key]
@@ -1406,7 +1417,7 @@ class Test{repo_name}:
         
         lines = []
         
-        # 先创建外键依赖
+        # 处理外键字段：创建真实的依赖实体（符合真实场景）
         fk_var_names = {}
         for field in fk_fields:
             fk_target = field.foreign_key
@@ -1414,13 +1425,15 @@ class Test{repo_name}:
             fk_model_name = self._table_name_to_model_name(fk_table)
             fk_var_name = fk_model_name.lower()
             
-            # 使用Factory Boy创建依赖实体(简化)
-            lines.append(f'from tests.factories.{module_name}_factories import {fk_model_name}Factory')
+            # 添加Factory import（后续在方法开始处理）
+            imports.append(f'from tests.factories.{module_name}_factories import {fk_model_name}Factory')
+            
+            # 创建外键依赖实体
             lines.append(f'{fk_var_name} = {fk_model_name}Factory.create()')
             fk_var_names[field.name] = f'{fk_var_name}.id'
         
         if fk_fields:
-            lines.append('')  # 空行分隔
+            lines.append('')  # 空行分隔外键创建和实体创建
         
         # 构造最小实体
         field_assignments = []
@@ -1441,9 +1454,12 @@ class Test{repo_name}:
         else:
             lines.append(f'entity = {model_name}()')
         
-        # 添加缩进（第一行也需要缩进）
+        # 添加缩进（函数体内代码需要8个空格缩进）
         indented_lines = ['        ' + line for line in lines]
-        return '\n'.join(indented_lines)
+        code = '\n'.join(indented_lines)
+        
+        # 返回imports和code（分开处理）
+        return (imports, code)
     
     def _generate_test_entity_creation(
         self,

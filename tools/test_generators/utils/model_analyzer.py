@@ -223,6 +223,14 @@ class ModelAnalyzer:
             elif isinstance(type_node, ast.Name):
                 field_info['column_type'] = type_node.id
         
+        # 检查是否有ForeignKey（可能在第二个参数或后续参数中）
+        for arg in node.args[1:]:  # 跳过第一个参数（类型）
+            if isinstance(arg, ast.Call) and isinstance(arg.func, ast.Name):
+                if arg.func.id == 'ForeignKey':
+                    # 提取ForeignKey的目标（第一个参数）
+                    if arg.args and isinstance(arg.args[0], ast.Constant):
+                        field_info['foreign_key'] = arg.args[0].value
+        
         # 提取关键字参数
         for keyword in node.keywords:
             if keyword.arg == 'nullable' and isinstance(keyword.value, ast.Constant):
@@ -364,13 +372,22 @@ class ModelAnalyzer:
         if hasattr(model_class, '__mapper__'):
             mapper = model_class.__mapper__
             for rel in mapper.relationships:
+                # 提取foreign_keys（local_columns是Column对象，不是ForeignKey对象）
+                fk_column_names = []
+                if hasattr(rel, 'local_columns'):
+                    try:
+                        fk_column_names = [col.name for col in rel.local_columns]
+                    except AttributeError:
+                        # 如果local_columns访问失败，尝试其他方式
+                        pass
+                
                 rel_info = {
                     'name': rel.key,
                     'related_model': rel.mapper.class_.__name__,
                     'relationship_type': 'one-to-many' if rel.uselist else 'many-to-one',
                     'back_populates': rel.back_populates,
                     'cascade': str(rel.cascade) if rel.cascade else None,
-                    'foreign_keys': [str(fk.parent) for fk in rel.local_columns] if hasattr(rel, 'local_columns') else []
+                    'foreign_keys': fk_column_names
                 }
                 model_data['relationships'].append(rel_info)
         
