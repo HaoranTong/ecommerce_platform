@@ -1367,8 +1367,9 @@ class Test{repo_name}:
         else:
             lines.append(f'entity = {model_name}()')
         
-        # 添加缩进
-        return '\n        '.join(lines)
+        # 添加缩进（第一行也需要缩进）
+        indented_lines = ['        ' + line for line in lines]
+        return '\n'.join(indented_lines)
     
     def _generate_test_entity_creation(
         self,

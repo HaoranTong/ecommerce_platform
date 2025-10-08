@@ -251,8 +251,13 @@ class PytestChecker:
                     # 如果AST解析失败，回退到正则表达式
                     pass
                 
-                # 补充检测：在代码中使用的Factory
+                # 补充检测：在代码中使用的Factory（排除注释行）
                 for line in test_content.split("\n"):
+                    # 跳过注释行（以#开头的行，包括缩进后的#）
+                    stripped_line = line.strip()
+                    if stripped_line.startswith('#'):
+                        continue
+                    
                     if "Factory(" in line or "Factory." in line or "FactoryManager(" in line:
                         factory_matches = re.findall(r"(\w+Factory(?:Manager)?)", line)
                         used_factories.extend(factory_matches)
