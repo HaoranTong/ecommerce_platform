@@ -520,6 +520,12 @@ from app.modules.{module_name}.models import (
                 # 生成not_found测试的参数（使用不存在的值替代）
                 not_found_param = self._generate_not_found_param(query_param)
                 
+                # 🎯 根据返回类型选择not_found断言
+                if method_info.return_type == "int" or "count" in method_name:
+                    not_found_assertion = "assert result == 0  # count方法返回0"
+                else:
+                    not_found_assertion = "assert result is None"
+                
                 return f'''    def test_{method_name}_found(self, unit_test_db: Session):
         """测试{method_name} - 查询到数据"""
         # 准备依赖实体
@@ -540,7 +546,7 @@ from app.modules.{module_name}.models import (
         result = {repo_name}.{method_name}(unit_test_db, {not_found_param})
         
         # 验证结果
-        assert result is None
+        {not_found_assertion}
 '''
             elif needs_todo or not query_param:
                 # 需要手动调整参数的方法
