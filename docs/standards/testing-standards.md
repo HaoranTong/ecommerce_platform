@@ -1,10 +1,58 @@
-<!--version info: v1.0.0, created: 2025-09-23, level: L2, dependencies: naming-conventions-standards.md,../../PROJECT-FOUNDATION.md-->
+<!--version info: v2.0.0, created: 2025-09-23, updated: 2025-10-08, level: L2, dependencies: naming-conventions-standards.md,../../PROJECT-FOUNDATION.md,../architecture/overview.md-->
 
 # 测试标准
 
 ## 概述
 
-本文档定义了电商平台项目的完整测试标准和规范，包括五层测试架构、测试类型分布、环境配置、编写规范等。确保代码质量和系统稳定性。
+本文档定义了电商平台项目的完整测试标准和规范，包括五层测试架构、四层架构测试策略、测试类型分布、环境配置、编写规范等。**确保代码质量和系统稳定性**。
+
+## 🎯 核心测试原则（基于架构设计）
+
+本测试标准严格遵循 [architecture/overview.md](../architecture/overview.md) 的四层架构设计意图：
+
+### 四层架构测试原则
+
+**架构设计意图**：
+1. ✅ **单向依赖**：上层可以依赖下层，禁止反向依赖
+2. ✅ **职责分离**：每层单一职责，便于独立测试
+3. ✅ **易于测试**：每层可独立测试，**上层可Mock下层**
+4. ✅ **Repository可轻松Mock**：引入Repository模式的核心目的之一
+
+**测试实施原则**：
+1. ✅ **每层独立测试**：只关注本层职责，不测试下层职责
+2. ✅ **Service层Mock Repository**：专注业务逻辑测试，SQL正确性由Repository测试保证
+3. ✅ **Repository层验证数据访问**：完整测试所有CRUD和查询操作
+4. ✅ **Standalone层验证集成**：验证各层集成和完整业务流程
+
+### 关键测试策略
+
+| 测试层 | 测试职责 | Mock策略 | 数据准备 | 为什么这样设计 |
+|--------|---------|---------|---------|---------------|
+| **Model** | ORM定义 | 100% Mock | Mock对象 | 纯逻辑，无需数据库 |
+| **Repository** | 数据访问 | 0% Mock | 最小实体/Factory Boy | 验证SQL和持久化 |
+| **Service** | 业务逻辑 | Mock Repo | Mock返回值 | 隔离业务逻辑，SQL由Repo测试 |
+| **Standalone** | 完整流程 | 0% Mock | Factory Boy | 验证各层集成 |
+
+### 为什么Service要Mock Repository？
+
+**架构文档明确说明**（architecture/overview.md第310行）：
+- 引入Repository的目的：**"Repository可轻松Mock"**
+- 分层原则：**"上层可Mock下层"**
+- 职责分离：**"Service专注业务，Repository专注数据"**
+
+**测试策略原因**：
+1. ✅ 符合架构设计意图
+2. ✅ 测试速度快（不依赖数据库）
+3. ✅ 职责清晰（只测试业务逻辑）
+4. ✅ SQL错误由Repository测试发现，Service不重复测试
+
+### 标准维护原则
+
+⚠️ **重要提醒**：
+- 本标准是**统一权威标准**，所有代码必须遵循
+- 如需调整测试策略，**必须先修改本标准文档**
+- 代码编写过程中，**实时参考本标准**，避免偏离
+- 禁止为了适应错误代码而修改标准
 
 ## 依赖标准
 
@@ -53,17 +101,269 @@
 
 ## 数据库策略（四层架构）
 
-| 测试位置 | Mock | 数据库 | Fixture | 架构层级 |
-|---------|------|--------|---------|----------|
-| tests/unit/test_models/ | 100% | 无 | pytest-mock | Model层 |
-| tests/unit/test_repositories/ | 0% | SQLite内存 | unit_test_db | Repository层 |
-| tests/unit/test_services/ | Mock Repo | 无 | pytest-mock | Service层 |
-| tests/unit/*_standalone.py | 0% | SQLite内存 | unit_test_db | 完整流程 |
-| tests/smoke/ | 0% | SQLite文件 | smoke_test_db | 系统级 |
-| tests/integration/ | 0% | MySQL Docker | mysql_integration_db | 系统级 |
-| tests/e2e/ | 0% | MySQL Docker | mysql_e2e_db | 系统级 |
+| 测试位置 | Mock | 数据库 | Fixture | 架构层级 | 测试重点 |
+|---------|------|--------|---------|----------|----------|
+| tests/unit/test_models/ | 100% | 无 | pytest-mock | Model层 | ORM定义、字段验证 |
+| tests/unit/test_repositories/ | 0% | SQLite内存 | unit_test_db | Repository层 | SQL正确性、数据持久化 |
+| tests/unit/test_services/ | Mock Repo | 无 | pytest-mock | Service层 | 业务逻辑、流程编排 |
+| tests/unit/*_standalone.py | 0% | SQLite内存 | unit_test_db | 完整流程 | 各层集成、业务场景 |
+| tests/smoke/ | 0% | SQLite文件 | smoke_test_db | 系统级 | 基本功能验证 |
+| tests/integration/ | 0% | MySQL Docker | mysql_integration_db | 系统级 | 跨模块集成 |
+| tests/e2e/ | 0% | MySQL Docker | mysql_e2e_db | 系统级 | 完整用户流程 |
 
-## 测试实现示例
+## 四层架构测试详细说明
+
+### 测试分层原则
+
+**架构意图**（来自 architecture/overview.md）：
+1. ✅ **单向依赖**：上层可以依赖下层，禁止反向依赖
+2. ✅ **职责分离**：每层单一职责，便于独立测试
+3. ✅ **易于测试**：每层可独立测试，**上层可Mock下层**
+4. ✅ **Repository可轻松Mock**：这是引入Repository模式的核心目的之一
+
+**测试策略**：
+- ✅ 每层独立测试，只关注本层职责
+- ✅ Service层Mock Repository，专注业务逻辑测试
+- ✅ Repository层验证所有数据访问操作
+- ✅ Standalone层验证完整流程集成
+
+### 1. Model层测试 (test_models/)
+
+**测试目标**：验证ORM模型定义正确性
+
+**测试策略**：100% Mock，无数据库依赖
+
+**测试范围**：
+- 字段类型和约束定义
+- 关系映射（relationships）
+- 模型方法和属性
+- 验证器和默认值
+
+**示例**：
+```python
+def test_user_model_validation(mocker):
+    """测试User模型字段验证"""
+    mock_user = mocker.Mock()
+    mock_user.username = "test"
+    mock_user.email = "invalid-email"
+    
+    # 测试邮箱验证逻辑
+    validator = EmailValidator(mock_user)
+    assert not validator.is_valid()
+```
+
+### 2. Repository层测试 (test_repositories/)
+
+**测试目标**：验证所有数据访问操作的正确性
+
+**测试策略**：SQLite内存数据库，0% Mock
+
+**测试重点**：
+- ✅ SQL查询是否正确
+- ✅ 事务是否提交
+- ✅ 数据是否持久化
+- ✅ 字段值是否正确保存
+- ✅ 关联关系是否正确处理
+
+**测试范围**：
+
+#### 2.1 创建操作测试
+- **最小必填字段创建**：只填写nullable=False且无default的字段，验证默认值
+- **完整字段创建**：填写所有字段（包括可选字段），验证保存正确
+- **字段验证测试**：验证字段长度、格式等约束
+- **关联创建测试**：验证外键关联创建
+
+#### 2.2 读取操作测试
+- **按主键查询**：get_by_id
+- **按唯一字段查询**：get_by_username, get_by_email等
+- **按普通字段查询**：get_by_phone, get_by_status等
+- **复杂条件查询**：多条件组合查询
+- **关联查询测试**：get_user_roles, get_role_users等
+
+#### 2.3 更新操作测试
+- **单字段更新**：update_status, update_email等
+- **多字段更新**：update方法
+- **专用更新方法**：update_login_info, increment_failed_login等
+- **批量更新**：批量修改状态等
+
+#### 2.4 删除操作测试
+- **物理删除**：delete
+- **软删除**：soft_delete（如果使用SoftDeleteMixin）
+- **批量删除**：delete_all等
+
+#### 2.5 事务和持久化测试
+- **事务提交验证**：验证数据真正写入数据库
+- **事务回滚验证**：验证错误时回滚
+- **并发测试**：验证并发操作的正确性
+
+**数据准备原则**：
+```python
+# 创建测试：只填必填字段
+def test_create_user_minimal(unit_test_db):
+    """测试创建用户 - 最小必填字段"""
+    user = User(
+        username="test_user",
+        email="test@example.com",
+        password_hash="hashed_password"
+        # 不填写有默认值的字段
+    )
+    result = UserRepository.create(unit_test_db, user)
+    
+    # 验证必填字段
+    assert result.id is not None
+    assert result.username == "test_user"
+    
+    # 验证默认值
+    assert result.is_active == True  # Column(Boolean, default=True)
+    assert result.status == "active"  # Column(String, default="active")
+    assert result.email_verified == False  # Column(Boolean, default=False)
+    assert result.failed_login_attempts == 0  # Column(Integer, default=0)
+
+# 其他测试：使用Factory Boy
+def test_get_by_username(unit_test_db):
+    """测试按用户名查询"""
+    # 使用Factory Boy创建完整测试数据
+    user = UserFactory(username="test_user", phone="12345678900")
+    
+    # 测试查询
+    result = UserRepository.get_by_username(unit_test_db, "test_user")
+    assert result is not None
+    assert result.username == "test_user"
+
+def test_update_user_phone(unit_test_db):
+    """测试更新用户手机号"""
+    user = UserFactory()
+    
+    # 测试更新
+    UserRepository.update(unit_test_db, user, {"phone": "13800138000"})
+    
+    # 验证更新
+    assert user.phone == "13800138000"
+```
+
+### 3. Service层测试 (test_services/)
+
+**测试目标**：验证业务逻辑正确性
+
+**测试策略**：Mock Repository，无数据库依赖
+
+**测试重点**：
+- ✅ 业务规则是否正确
+- ✅ 流程编排是否合理
+- ✅ 异常处理是否完善
+- ✅ 调用Repository的参数和顺序
+
+**为什么Mock Repository？**
+1. ✅ 符合架构设计意图（"Repository可轻松Mock"）
+2. ✅ 测试速度快，不依赖数据库
+3. ✅ 职责清晰，只测试业务逻辑
+4. ✅ SQL错误由Repository测试发现，Service不重复测试
+
+**示例**：
+```python
+def test_user_service_authenticate(mocker):
+    """测试用户认证业务逻辑"""
+    # Mock Repository
+    mock_user_repo = mocker.patch('app.modules.user_auth.repository.UserRepository')
+    
+    # 设置Mock返回值
+    mock_user = User(
+        id=1,
+        username="test_user",
+        password_hash="$2b$12$hashed_password",
+        is_active=True,
+        failed_login_attempts=0
+    )
+    mock_user_repo.get_by_username.return_value = mock_user
+    
+    # 测试Service业务逻辑
+    result = UserService.authenticate(db, "test_user", "correct_password")
+    
+    # 验证业务逻辑
+    assert result is not None
+    assert result['user'] == mock_user
+    assert 'access_token' in result
+    
+    # 验证Repository调用
+    mock_user_repo.get_by_username.assert_called_once_with(db, "test_user")
+
+def test_user_service_authenticate_locked_account(mocker):
+    """测试认证被锁定的账户 - 业务规则"""
+    mock_user_repo = mocker.patch('app.modules.user_auth.repository.UserRepository')
+    
+    # Mock被锁定的用户
+    locked_user = User(
+        id=1,
+        username="locked_user",
+        is_active=False,  # 账户被禁用
+        failed_login_attempts=5
+    )
+    mock_user_repo.get_by_username.return_value = locked_user
+    
+    # 测试业务规则：被锁定账户不能登录
+    with pytest.raises(AccountLockedException):
+        UserService.authenticate(db, "locked_user", "password")
+```
+
+### 4. Standalone层测试 (*_standalone.py)
+
+**测试目标**：验证单模块完整业务流程
+
+**测试策略**：SQLite内存数据库，0% Mock
+
+**测试重点**：
+- ✅ 各层集成是否正确（Router → Service → Repository → Model）
+- ✅ 完整业务场景是否通过
+- ✅ 发现Mock测试可能遗漏的问题
+
+**为什么需要Standalone测试？**
+1. ✅ Service测试Mock了Repository，需要验证集成
+2. ✅ 验证完整的数据流动
+3. ✅ 模拟真实业务场景
+
+**与集成测试的区别**：
+- Standalone：单模块内的完整流程（如user_auth模块）
+- Integration：跨模块的业务流程（如order + payment + inventory）
+
+**示例**：
+```python
+def test_complete_user_registration_workflow(unit_test_db):
+    """测试完整用户注册流程"""
+    # 使用Factory Boy准备测试数据
+    factory_manager = UserAuthFactoryManager()
+    factory_manager.setup_factories(unit_test_db)
+    
+    # 1. 注册用户
+    user_data = {
+        "username": "new_user",
+        "email": "new@example.com",
+        "password": "StrongPassword123!"
+    }
+    created_user = UserService.create_user(unit_test_db, **user_data)
+    assert created_user.id is not None
+    
+    # 2. 验证邮箱
+    UserService.verify_email(unit_test_db, created_user.id, "verification_code")
+    assert created_user.email_verified == True
+    
+    # 3. 登录
+    login_result = UserService.authenticate(unit_test_db, "new_user", "StrongPassword123!")
+    assert login_result is not None
+    assert 'access_token' in login_result
+    
+    # 4. 更新用户信息
+    UserService.update_profile(unit_test_db, created_user.id, {
+        "real_name": "张三",
+        "phone": "13800138000"
+    })
+    
+    # 验证完整流程
+    updated_user = UserRepository.get_by_id(unit_test_db, created_user.id)
+    assert updated_user.real_name == "张三"
+    assert updated_user.phone == "13800138000"
+```
+
+## 测试实现示例（旧版本，待更新）
 
 ### Mock测试 (test_models/)
 ```python
@@ -74,10 +374,43 @@ def test_user_password_validation(mocker):
     assert not validator.is_strong()
 ```
 
-### 数据库测试 (test_services/)
+### Repository测试 (test_repositories/)
 ```python
-def test_user_service_create(unit_test_db):
-    service = UserService(unit_test_db)
+def test_user_repository_create(unit_test_db):
+    """测试Repository创建用户"""
+    user = User(
+        username="test_user",
+        email="test@example.com",
+        password_hash="hashed"
+    )
+    result = UserRepository.create(unit_test_db, user)
+    assert result.id is not None
+    assert result.is_active == True  # 验证默认值
+
+def test_user_repository_get_by_username(unit_test_db):
+    """测试Repository查询用户"""
+    # 使用Factory Boy准备数据
+    user = UserFactory(username="test_user")
+    
+    result = UserRepository.get_by_username(unit_test_db, "test_user")
+    assert result is not None
+    assert result.username == "test_user"
+```
+
+### Service测试 (test_services/)
+```python
+def test_user_service_authenticate(mocker, unit_test_db):
+    """测试Service业务逻辑 - Mock Repository"""
+    # Mock Repository
+    mock_repo = mocker.patch('app.modules.user_auth.repository.UserRepository')
+    mock_repo.get_by_username.return_value = User(
+        id=1, 
+        username="test",
+        password_hash="hashed"
+    )
+    
+    # 测试业务逻辑
+    result = UserService.authenticate(unit_test_db, "test", "password")
     user_data = {"email": "test@example.com"}
     created_user = service.create_user(user_data)
     assert created_user.email == user_data["email"]
@@ -350,15 +683,15 @@ tests/
 
 ### 测试文件分类执行规范
 
-| 测试分类 | 存放位置 | 数据库 | 执行命令 | 执行时机 | 时间要求 | 架构层级 |
-|---------|---------|--------|---------|---------|----------|----------|
-| **Mock单元测试** | `tests/unit/test_models/` | 无 | `pytest tests/unit/test_models/` | 代码提交前 | <30秒 | Model层 |
-| **Repository测试** | `tests/unit/test_repositories/` | SQLite内存 | `pytest tests/unit/test_repositories/` | 代码提交前 | <1分钟 | Repository层 |
-| **Service测试** | `tests/unit/test_services/` | Mock Repo | `pytest tests/unit/test_services/` | 代码提交前 | <1分钟 | Service层 |
-| **业务流程测试** | `tests/unit/*_standalone.py` | SQLite内存 | `pytest tests/unit/*_standalone.py` | 代码提交前 | <2分钟 | 完整流程 |
-| **烟雾测试** | `tests/smoke/` | SQLite文件 | `pytest tests/smoke/` | 部署后立即 | <30秒 |
-| **集成测试** | `tests/integration/` | MySQL Docker | `pytest tests/integration/` | 提交到主分支前 | <5分钟 |
-| **E2E测试** | `tests/e2e/` | MySQL Docker | `pytest tests/e2e/` | 发布前 | <10分钟 |
+| 测试分类 | 存放位置 | Mock策略 | 数据库 | 执行命令 | 执行时机 | 时间要求 | 测试重点 |
+|---------|---------|---------|--------|---------|---------|----------|----------|
+| **Model测试** | `tests/unit/test_models/` | 100% Mock | 无 | `pytest tests/unit/test_models/` | 代码提交前 | <30秒 | ORM定义 |
+| **Repository测试** | `tests/unit/test_repositories/` | 0% Mock | SQLite内存 | `pytest tests/unit/test_repositories/` | 代码提交前 | <1分钟 | 数据访问 |
+| **Service测试** | `tests/unit/test_services/` | Mock Repo | 无数据库 | `pytest tests/unit/test_services/` | 代码提交前 | <30秒 | 业务逻辑 |
+| **Standalone测试** | `tests/unit/*_standalone.py` | 0% Mock | SQLite内存 | `pytest tests/unit/*_standalone.py` | 代码提交前 | <2分钟 | 完整流程 |
+| **烟雾测试** | `tests/smoke/` | 0% Mock | SQLite文件 | `pytest tests/smoke/` | 部署后立即 | <30秒 | 基本功能 |
+| **集成测试** | `tests/integration/` | 0% Mock | MySQL Docker | `pytest tests/integration/` | 提交到主分支前 | <5分钟 | 跨模块集成 |
+| **E2E测试** | `tests/e2e/` | 0% Mock | MySQL Docker | `pytest tests/e2e/` | 发布前 | <10分钟 | 用户流程 |
 
 ### 根目录测试脚本管理
 
@@ -498,10 +831,118 @@ Faker>=18.0.0
 
 本项目采用**双工厂架构**，根据测试类型和场景选择不同的数据工厂：
 
-| 工厂类型 | 文件位置 | 适用测试 | 主要特点 |
-|---------|---------|---------|---------|
-| **Factory Boy工厂** | `tests/factories/user_auth_factories.py` | 单元测试<br/>Mock测试 | 内存创建<br/>复杂关系<br/>智能推断 |
-| **统一工厂** | `tests/factories/data_factory.py` | 集成测试<br/>E2E测试 | 真实数据库<br/>跨模块链<br/>类型安全 |
+| 工厂类型 | 文件位置 | 适用测试 | 主要特点 | 何时使用 |
+|---------|---------|---------|---------|---------|
+| **Factory Boy工厂** | `tests/factories/{module}_factories.py` | Repository测试<br/>Standalone测试 | 内存创建<br/>复杂关系<br/>智能推断 | Repository非创建测试<br/>Standalone完整流程 |
+| **最小实体构造** | 测试代码内直接构造 | Repository创建测试 | 只填必填字段<br/>验证默认值 | Repository的create测试 |
+| **Mock对象** | Service测试 | Service测试 | Mock Repository返回 | Service业务逻辑测试 |
+| **统一工厂** | `tests/factories/data_factory.py` | 集成测试<br/>E2E测试 | 真实数据库<br/>跨模块链<br/>类型安全 | 集成测试和E2E测试 |
+
+### 测试数据准备策略详解
+
+#### 策略1：最小实体构造（Repository创建测试）
+
+**适用场景**：Repository的create方法测试
+
+**目的**：验证必填字段和默认值
+
+```python
+def test_create_user_minimal(unit_test_db):
+    """测试创建用户 - 最小必填字段"""
+    # 只填写 nullable=False 且无 default 的字段
+    user = User(
+        username="test_user",
+        email="test@example.com",
+        password_hash="hashed_password"
+        # 不填写有默认值的字段
+    )
+    
+    result = UserRepository.create(unit_test_db, user)
+    
+    # 验证必填字段
+    assert result.id is not None
+    assert result.username == "test_user"
+    
+    # 验证默认值是否正确应用
+    assert result.is_active == True  # default=True
+    assert result.status == "active"  # default="active"
+    assert result.email_verified == False  # default=False
+    assert result.failed_login_attempts == 0  # default=0
+```
+
+#### 策略2：Factory Boy（Repository其他测试、Standalone测试）
+
+**适用场景**：
+- Repository的查询、更新、删除测试
+- Standalone完整业务流程测试
+
+**目的**：快速创建完整、真实的测试数据
+
+```python
+def test_get_by_username(unit_test_db):
+    """测试按用户名查询 - 使用Factory Boy"""
+    # 使用Factory Boy创建完整测试数据
+    user = UserFactory(
+        username="test_user",
+        phone="13800138000",
+        real_name="张三"
+    )
+    
+    result = UserRepository.get_by_username(unit_test_db, "test_user")
+    assert result is not None
+    assert result.phone == "13800138000"
+
+def test_complete_user_workflow(unit_test_db):
+    """测试完整用户流程 - 使用Factory Boy"""
+    factory_manager = UserAuthFactoryManager()
+    factory_manager.setup_factories(unit_test_db)
+    
+    # 创建测试数据
+    user = UserFactory()
+    role = RoleFactory(name="admin")
+    
+    # 测试完整流程
+    UserService.assign_role(unit_test_db, user.id, role.id)
+    # ...
+```
+
+#### 策略3：Mock对象（Service测试）
+
+**适用场景**：Service层测试
+
+**目的**：Mock Repository，专注测试业务逻辑
+
+```python
+def test_user_service_authenticate(mocker):
+    """测试Service业务逻辑 - Mock Repository"""
+    # Mock Repository
+    mock_user_repo = mocker.patch('app.modules.user_auth.repository.UserRepository')
+    
+    # 设置Mock返回值
+    mock_user = User(
+        id=1,
+        username="test_user",
+        password_hash="$2b$12$hashed",
+        is_active=True
+    )
+    mock_user_repo.get_by_username.return_value = mock_user
+    
+    # 测试业务逻辑
+    result = UserService.authenticate(db, "test_user", "password")
+    
+    # 验证调用
+    mock_user_repo.get_by_username.assert_called_once_with(db, "test_user")
+```
+
+### 数据准备策略总结表
+
+| 测试层 | 数据准备方式 | 原因 | 示例 |
+|--------|------------|------|------|
+| **Repository创建测试** | 最小实体构造 | 验证必填字段和默认值 | `User(username="test", email="test@example.com", password_hash="hash")` |
+| **Repository其他测试** | Factory Boy | 快速创建完整测试数据 | `UserFactory(username="test", phone="13800138000")` |
+| **Service测试** | Mock对象 | Mock Repository返回值 | `mock_repo.get_by_username.return_value = User(...)` |
+| **Standalone测试** | Factory Boy | 创建完整业务场景数据 | `factory_manager.create_sample_data()` |
+| **集成测试** | 统一工厂 | 真实数据库跨模块数据 | `StandardTestDataFactory.create_complete_chain()` |
 
 ### 📋 Factory Boy工厂标准 (单元测试专用)
 
@@ -2281,7 +2722,52 @@ pytest tests/ --cov=app --cov-fail-under=85
 
 ---
 
+## 文档更新记录
+
+### v2.0.0 (2025-10-08) - 四层架构测试标准重构
+
+**重大更新**：
+1. ✅ **明确四层架构测试策略**
+   - 基于 architecture/overview.md 的架构设计意图
+   - 明确"上层可Mock下层"的测试原则
+   - Service层Mock Repository，专注业务逻辑测试
+
+2. ✅ **详细的测试分层说明**
+   - Model测试：100% Mock，ORM定义验证
+   - Repository测试：SQLite内存，完整数据访问测试
+   - Service测试：Mock Repository，业务逻辑测试
+   - Standalone测试：验证各层集成和完整流程
+
+3. ✅ **数据准备策略明确化**
+   - Repository创建测试：最小实体构造（只填必填字段）
+   - Repository其他测试：使用Factory Boy
+   - Service测试：Mock对象
+   - Standalone测试：Factory Boy
+
+4. ✅ **Repository测试范围明确**
+   - 创建测试：最小字段 + 完整字段
+   - 读取测试：主键、唯一字段、普通字段、复杂查询
+   - 更新测试：单字段、多字段、专用方法
+   - 删除测试：物理删除、软删除
+   - 事务测试：提交、回滚
+
+5. ✅ **标准维护原则**
+   - 强调标准的权威性
+   - 要求先修改标准，再修改代码
+   - 禁止为适应错误代码而修改标准
+
+**依赖更新**：
+- 新增依赖：`../architecture/overview.md`（四层架构设计）
+
+**影响范围**：
+- 所有Repository测试生成工具
+- 所有Service测试生成工具
+- 所有Standalone测试生成工具
+
+---
+
 ## 相关文档
+- [系统架构总览](../architecture/overview.md) - 四层架构设计和Repository模式
 - [测试环境配置指南](../development/testing-setup.md) - 环境配置和故障排除
 - [项目基础定义](../../PROJECT-FOUNDATION.md) - 测试目录组织
 - [MASTER工作流程](../../MASTER.md) - 强制检查点
