@@ -55,6 +55,13 @@ class RepositoryTestGenerator:
     ) -> str:
         """生成Repository测试代码（主入口）
         
+        测试策略:
+        - 使用 SQLite 内存数据库 (unit_test_db fixture)
+        - 测试每个 Repository 方法的数据访问逻辑
+        - 验证查询条件、过滤、排序、分页等
+        - 测试事务处理（create/update/delete）
+        - 测试边界情况和错误处理
+        
         Args:
             module_name: 模块名称
             models: 模型信息字典
@@ -63,17 +70,69 @@ class RepositoryTestGenerator:
         Returns:
             生成的测试代码字符串
         """
-        # 使用主程序的实现（阶段A）
-        if self.main_generator:
-            return self.main_generator._generate_repository_tests(module_name, repositories, models)
+        from datetime import datetime
         
-        # 如果没有主程序引用，返回占位符
-        return f"""
-# Repository测试生成器占位符
-# 待从generate_test_template.py迁移实现
-# 模块: {module_name}
-# Repositories: {len(repositories)}
+        test_classes = []
+        
+        # 为每个Repository生成测试类
+        for repo_name, repo_info in repositories.items():
+            test_class = self._generate_single_repository_test(repo_info, models, module_name)
+            test_classes.append(test_class)
+        
+        # 收集需要导入的模型
+        model_imports = set()
+        for repo_info in repositories.values():
+            model_imports.add(repo_info.model_name)
+        
+        # 收集需要导入的Repository
+        repo_imports = [repo_info.name for repo_info in repositories.values()]
+        
+        imports = f'''"""
+Auto Generated Test - Repository Layer
+
+文件路径: tests/unit/test_repositories/test_{module_name}_repositories.py
+生成时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+生成工具: tools/generate_test_template.py v3.0
+模块: {module_name}
+
+测试类型: 单元测试 - Repository数据访问层
+测试策略: SQLite内存数据库
+测试重点: 
+- CRUD操作正确性
+- 查询条件和过滤逻辑
+- 事务提交和回滚
+- 边界情况和错误处理
+
+符合标准: 
+- testing-standards.md - 四层架构测试策略
+- architecture/overview.md - Repository模式标准
+
+[CHECK:TEST-001] [CHECK:DEV-009]
 """
+
+import pytest
+from typing import List, Optional
+from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
+from datetime import datetime, timedelta
+from decimal import Decimal
+
+# 导入测试基础设施
+from tests.conftest import unit_test_db
+
+# 导入Repository类
+from app.modules.{module_name}.repository import (
+    {', '.join(repo_imports)}
+)
+
+# 导入模型类
+from app.modules.{module_name}.models import (
+    {', '.join(sorted(model_imports))}
+)
+
+'''
+        
+        return imports + "\n\n".join(test_classes)
     
     def generate_repository_create_test(
         self,
@@ -207,6 +266,87 @@ class RepositoryTestGenerator:
                 method_info, model_name, repo_name, module_name, models
             )
         return ""
+    
+    # ========== 核心生成方法 ==========
+    
+    def _generate_single_repository_test(
+        self,
+        repo_info: RepositoryInfo,
+        models: Dict[str, ModelInfo],
+        module_name: str
+    ) -> str:
+        """为单个Repository生成测试类
+        
+        Args:
+            repo_info: Repository信息
+            models: 模型信息（用于创建测试数据）
+            module_name: 模块名称
+            
+        Returns:
+            str: Repository测试类代码
+        """
+        repo_name = repo_info.name
+        model_name = repo_info.model_name
+        
+        # 生成各类测试方法
+        test_methods = []
+        
+        for method_info in repo_info.methods:
+            # 🔥 跳过专用更新方法（如update_login_info），生成TODO提示
+            if method_info.is_specialized_update:
+                todo_comment = f'''    # TODO: 测试专用更新方法 {method_info.name}
+    # 这是一个专用更新方法，只修改特定字段，需要根据业务逻辑手动编写测试
+    # 方法签名: {method_info.parameters}
+    # 返回类型: {method_info.return_type}
+    
+'''
+                test_methods.append(todo_comment)
+                continue
+            
+            # 根据方法类型生成对应的测试
+            if method_info.method_type == "create":
+                test_methods.append(self.generate_repository_create_test(method_info, model_name, repo_name, module_name, models))
+            elif method_info.method_type == "read":
+                test_methods.append(self.generate_repository_read_test(method_info, model_name, repo_name, module_name, models))
+            elif method_info.method_type == "update":
+                test_methods.append(self.generate_repository_update_test(method_info, model_name, repo_name, module_name, models))
+            elif method_info.method_type == "delete":
+                test_methods.append(self.generate_repository_delete_test(method_info, model_name, repo_name, module_name, models))
+            elif method_info.method_type == "count":
+                test_methods.append(self.generate_repository_count_test(method_info, model_name, repo_name, module_name, models))
+            else:  # query
+                test_methods.append(self.generate_repository_query_test(method_info, model_name, repo_name, module_name, models))
+        
+        test_class = f'''
+@pytest.mark.unit
+@pytest.mark.repositories
+class Test{repo_name}:
+    """
+    {repo_name} 数据访问层测试
+    
+    测试范围:
+    - {len(repo_info.methods)} 个Repository方法
+    - CRUD操作完整性
+    - 查询逻辑正确性
+    - 事务处理和数据一致性
+    
+    测试策略: SQLite内存数据库 + Factory Boy
+    """
+    
+    def setup_method(self, unit_test_db: Session):
+        """测试准备 - 初始化Factory Manager"""
+        from tests.factories.{module_name}_factories import {module_name.title().replace('_', '')}FactoryManager
+        self.factory_manager = {module_name.title().replace('_', '')}FactoryManager()
+        self.factory_manager.setup_factories(unit_test_db)
+        
+    def teardown_method(self):
+        """测试清理"""
+        pass
+        
+{chr(10).join(test_methods)}
+'''
+        
+        return test_class
     
     # ========== 辅助方法 ==========
     
