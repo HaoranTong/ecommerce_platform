@@ -45,37 +45,37 @@ class User(Base, TimestampMixin, SoftDeleteMixin):
     __tablename__ = "users"
 
     # 主键 - 严格遵循docs/standards/database-standards.md规定
-    id = Column(Integer, primary_key=True, autoincrement=True, index=True)
+    id = Column(Integer, primary_key=True, autoincrement=True, index=True, comment="用户ID")
 
     # 核心认证字段 - 唯一约束
-    username = Column(String(50), unique=True, nullable=False, index=True)
-    email = Column(String(255), unique=True, nullable=False, index=True)
-    password_hash = Column(String(255), nullable=False)
+    username = Column(String(50), unique=True, nullable=False, index=True, comment="用户名")
+    email = Column(String(255), unique=True, nullable=False, index=True, comment="邮箱地址")
+    password_hash = Column(String(255), nullable=False, comment="密码哈希值")
 
     # 用户状态
-    is_active = Column(Boolean, default=True, nullable=False)
+    is_active = Column(Boolean, default=True, nullable=False, comment="是否激活")
     status = Column(
-        String(20), default="active", nullable=False
-    )  # active, inactive, suspended
+        String(20), default="active", nullable=False, comment="用户状态: active/inactive/suspended"
+    )
 
     # 验证状态
-    email_verified = Column(Boolean, default=False, nullable=False)
-    phone_verified = Column(Boolean, default=False, nullable=False)
-    two_factor_enabled = Column(Boolean, default=False, nullable=False)
+    email_verified = Column(Boolean, default=False, nullable=False, comment="邮箱是否已验证")
+    phone_verified = Column(Boolean, default=False, nullable=False, comment="手机号是否已验证")
+    two_factor_enabled = Column(Boolean, default=False, nullable=False, comment="是否启用双因素认证")
 
     # 安全字段
-    failed_login_attempts = Column(Integer, default=0, nullable=False)
-    locked_until = Column(DateTime, nullable=True)
-    last_login_at = Column(DateTime, nullable=True)
+    failed_login_attempts = Column(Integer, default=0, nullable=False, comment="登录失败次数")
+    locked_until = Column(DateTime, nullable=True, comment="账户锁定到期时间")
+    last_login_at = Column(DateTime, nullable=True, comment="最后登录时间")
 
     # 基础信息
-    phone = Column(String(20), nullable=True)
-    real_name = Column(String(100), nullable=True)
-    role = Column(String(20), default="user", nullable=False)  # 基础角色
+    phone = Column(String(20), nullable=True, comment="手机号")
+    real_name = Column(String(100), nullable=True, comment="真实姓名")
+    role = Column(String(50), default="user", nullable=False, comment="基础角色")
 
     # 微信相关字段（业务扩展）
-    wx_openid = Column(String(100), unique=True, nullable=True)
-    wx_unionid = Column(String(100), unique=True, nullable=True)
+    wx_openid = Column(String(100), unique=True, nullable=True, comment="微信OpenID")
+    wx_unionid = Column(String(100), unique=True, nullable=True, comment="微信UnionID")
 
     # 软删除字段由SoftDeleteMixin提供：
     # - is_deleted: Boolean, default=False, nullable=False
@@ -107,12 +107,12 @@ class Role(Base, TimestampMixin):
     __tablename__ = "roles"
 
     # 主键 - 严格遵循docs/standards/database-standards.md规定
-    id = Column(Integer, primary_key=True, autoincrement=True, index=True)
+    id = Column(Integer, primary_key=True, autoincrement=True, index=True, comment="角色ID")
 
     # 角色信息
-    name = Column(String(100), unique=True, nullable=False, index=True)
-    description = Column(Text, nullable=True)
-    level = Column(Integer, nullable=False)  # 角色层级，数字越大权限越高
+    name = Column(String(100), unique=True, nullable=False, index=True, comment="角色名称")
+    description = Column(Text, nullable=True, comment="角色描述")
+    level = Column(Integer, nullable=False, comment="角色层级，数字越大权限越高")
 
     # 关系定义
     role_permissions = relationship(
@@ -133,13 +133,13 @@ class Permission(Base, TimestampMixin):
     __tablename__ = "permissions"
 
     # 主键 - 严格遵循docs/standards/database-standards.md规定
-    id = Column(Integer, primary_key=True, autoincrement=True, index=True)
+    id = Column(Integer, primary_key=True, autoincrement=True, index=True, comment="权限ID")
 
     # 权限信息
-    name = Column(String(100), unique=True, nullable=False, index=True)
-    resource = Column(String(100), nullable=False)  # 资源类型
-    action = Column(String(50), nullable=False)  # 操作类型
-    description = Column(Text, nullable=True)
+    name = Column(String(100), unique=True, nullable=False, index=True, comment="权限名称")
+    resource = Column(String(100), nullable=False, comment="资源类型")
+    action = Column(String(50), nullable=False, comment="操作类型")
+    description = Column(Text, nullable=True, comment="权限描述")
 
     # 关系定义
     role_permissions = relationship(
@@ -157,12 +157,12 @@ class UserRole(Base, TimestampMixin):
     __tablename__ = "user_roles"
 
     # 联合主键 - 遵循docs/standards/database-standards.md规定使用Integer外键
-    user_id = Column(Integer, ForeignKey("users.id"), primary_key=True)
-    role_id = Column(Integer, ForeignKey("roles.id"), primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"), primary_key=True, comment="用户ID")
+    role_id = Column(Integer, ForeignKey("roles.id"), primary_key=True, comment="角色ID")
 
     # 分配信息
-    assigned_by = Column(Integer, ForeignKey("users.id"), nullable=True)
-    assigned_at = Column(DateTime, server_default=func.now(), nullable=False)
+    assigned_by = Column(Integer, ForeignKey("users.id"), nullable=True, comment="分配人ID")
+    assigned_at = Column(DateTime, server_default=func.now(), nullable=False, comment="分配时间")
 
     # 关系定义
     user = relationship("User", back_populates="user_roles", foreign_keys=[user_id])
@@ -180,12 +180,12 @@ class RolePermission(Base, TimestampMixin):
     __tablename__ = "role_permissions"
 
     # 联合主键 - 遵循docs/standards/database-standards.md规定使用Integer外键
-    role_id = Column(Integer, ForeignKey("roles.id"), primary_key=True)
-    permission_id = Column(Integer, ForeignKey("permissions.id"), primary_key=True)
+    role_id = Column(Integer, ForeignKey("roles.id"), primary_key=True, comment="角色ID")
+    permission_id = Column(Integer, ForeignKey("permissions.id"), primary_key=True, comment="权限ID")
 
     # 授权信息
-    granted_by = Column(Integer, ForeignKey("users.id"), nullable=True)
-    granted_at = Column(DateTime, server_default=func.now(), nullable=False)
+    granted_by = Column(Integer, ForeignKey("users.id"), nullable=True, comment="授权人ID")
+    granted_at = Column(DateTime, server_default=func.now(), nullable=False, comment="授权时间")
 
     # 关系定义
     role = relationship("Role", back_populates="role_permissions")
@@ -203,20 +203,20 @@ class Session(Base, TimestampMixin):
     __tablename__ = "sessions"
 
     # 主键 - 严格遵循docs/standards/database-standards.md规定
-    id = Column(Integer, primary_key=True, autoincrement=True, index=True)
+    id = Column(Integer, primary_key=True, autoincrement=True, index=True, comment="会话ID")
 
     # 关联用户
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True, comment="用户ID")
 
     # 会话信息
-    token_hash = Column(String(255), nullable=False, unique=True, index=True)
-    expires_at = Column(DateTime, nullable=False)
-    last_accessed_at = Column(DateTime, server_default=func.now(), nullable=False)
-    is_active = Column(Boolean, default=True, nullable=False)
+    token_hash = Column(String(255), nullable=False, unique=True, index=True, comment="令牌哈希值")
+    expires_at = Column(DateTime, nullable=False, comment="过期时间")
+    last_accessed_at = Column(DateTime, server_default=func.now(), nullable=False, comment="最后访问时间")
+    is_active = Column(Boolean, default=True, nullable=False, comment="是否激活")
 
     # 客户端信息
-    ip_address = Column(String(45), nullable=True)  # 支持IPv6
-    user_agent = Column(Text, nullable=True)
+    ip_address = Column(String(45), nullable=True, comment="IP地址(支持IPv6)")
+    user_agent = Column(Text, nullable=True, comment="用户代理信息")
 
     # 关系定义
     user = relationship("User", back_populates="sessions")

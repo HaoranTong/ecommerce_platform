@@ -9,282 +9,317 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.core.auth import (ACCESS_TOKEN_EXPIRE_MINUTES, AuthenticationError,
-                           authenticate_user, create_access_token,
-                           create_refresh_token, decode_token,
-                           get_current_active_user, get_current_user,
-                           get_password_hash)
+from app.core.auth import get_current_active_user
 from app.core.database import get_db
 from app.modules.user_auth.models import User
-from app.modules.user_auth.schemas import (Token, TokenRefresh,
-                                           UserChangePassword, UserLogin,
-                                           UserRead, UserRegister, UserUpdate)
+from app.modules.user_auth.schemas import (
+    StandardResponse,
+    Token,
+    TokenRefresh,
+    UserChangePassword,
+    UserLogin,
+    PhoneLogin,
+    PasswordResetRequest,
+    PasswordResetConfirm,
+    UserRead,
+    UserRegister,
+    UserRegisterResponse,
+    UserUpdate,
+    SendVerificationCode,
+)
+from app.modules.user_auth.service import UserService
 
 router = APIRouter()
 
 
 @router.post(
-    "/user-auth/register", response_model=UserRead, status_code=status.HTTP_201_CREATED
+    "/user-auth/verification-code",
+    response_model=StandardResponse[dict],
+    summary="发送验证码",
+    description="发送邮箱或短信验证码，用于注册、登录、重置密码或手机号登录"
+)
+async def send_verification_code(
+    request: SendVerificationCode,
+    db: Session = Depends(get_db)
+):
+    """发送验证码"""
+    result = await UserService.send_verification_code(
+        db=db,
+        email=request.email,
+        phone=request.phone,
+        code_type=request.code_type
+    )
+    return StandardResponse(
+        success=True,
+        code=200,
+        message="验证码发送成功",
+        data=result
+    )
+
+
+@router.post(
+    "/user-auth/register",
+    response_model=StandardResponse[UserRegisterResponse],
+    status_code=status.HTTP_201_CREATED,
+    summary="用户注册",
+    description="用户注册，需要先调用发送验证码接口获取验证码"
 )
 async def register_user(user_data: UserRegister, db: Session = Depends(get_db)):
     """用户注册"""
-    # 检查用户名是否已存在
-    existing_user = (
-        db.query(User)
-        .filter((User.username == user_data.username) | (User.email == user_data.email))
-        .first()
+    result = await UserService.register_user(
+        db=db,
+        username=user_data.username,
+        email=user_data.email,
+        password=user_data.password,
+        verification_code=user_data.verification_code,
+        phone=user_data.phone,
+        real_name=user_data.real_name,
+    )
+    return StandardResponse(
+        success=True,
+        code=201,
+        message="注册成功",
+        data=result
     )
 
-    if existing_user:
-        if existing_user.username == user_data.username:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Username already registered",
-            )
-        else:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Email already registered",
-            )
 
-    # 创建新用户
-    try:
-        hashed_password = get_password_hash(user_data.password)
-
-        db_user = User(
-            username=user_data.username,
-            email=user_data.email,
-            password_hash=hashed_password,
-            phone=user_data.phone,
-            real_name=user_data.real_name,
-            role="user",  # V1.0 Mini-MVP: 默认普通用户角色
-            is_active=True,
-        )
-
-        db.add(db_user)
-        db.commit()
-        db.refresh(db_user)
-
-        return db_user
-
-    except IntegrityError:
-        db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="User registration failed due to data conflict",
-        )
-
-
-@router.post("/user-auth/login", response_model=Token)
+@router.post(
+    "/user-auth/login",
+    response_model=StandardResponse[Token],
+    summary="用户登录",
+    description="用户登录，使用用户名/邮箱和密码。登录失败3次后需要提供验证码"
+)
 async def login_user(user_credentials: UserLogin, db: Session = Depends(get_db)):
-    """用户登录"""
-    try:
-        user = authenticate_user(
-            db, user_credentials.username, user_credentials.password
-        )
-
-        if not user:
-            # 记录登录失败事件（用户名不存在或密码错误）
-            from app.core.security_logger import log_security_event
-
-            log_security_event(
-                event_type="login_failed",
-                message="Login failed - invalid credentials",
-                user_data={
-                    "username": user_credentials.username,
-                    "reason": "invalid_credentials",
-                },
-            )
-
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Incorrect username or password",
-                headers={"WWW-Authenticate": "Bearer"},
-            )
-
-        # 创建访问令牌和刷新令牌
-        access_token = create_access_token(data={"sub": str(user.id)})
-        refresh_token = create_refresh_token(data={"sub": str(user.id)})
-
-        return {
-            "access_token": access_token,
-            "refresh_token": refresh_token,
-            "token_type": "bearer",
-            "expires_in": ACCESS_TOKEN_EXPIRE_MINUTES * 60,
-        }
-
-    except AuthenticationError as e:
-        # 处理账户锁定等认证错误
-        from app.core.security_logger import log_security_event
-
-        log_security_event(
-            event_type="login_failed",
-            message=f"Login failed - {str(e)}",
-            user_data={
-                "username": user_credentials.username,
-                "reason": "authentication_error",
-            },
-        )
-
-        if "locked" in str(e).lower():
-            raise HTTPException(status_code=status.HTTP_423_LOCKED, detail=str(e))
-        else:
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(e))
-
-    # 创建访问令牌和刷新令牌
-    access_token = create_access_token(data={"sub": str(user.id)})
-    refresh_token = create_refresh_token(data={"sub": str(user.id)})
-
-    return {
-        "access_token": access_token,
-        "refresh_token": refresh_token,
-        "token_type": "bearer",
-        "expires_in": ACCESS_TOKEN_EXPIRE_MINUTES * 60,
-    }
+    """用户登录（密码登录）"""
+    result = await UserService.login_user(
+        db=db,
+        username=user_credentials.username,
+        password=user_credentials.password,
+        verification_code=user_credentials.verification_code,
+    )
+    return StandardResponse(
+        success=True,
+        code=200,
+        message="登录成功",
+        data=result
+    )
 
 
-@router.post("/user-auth/refresh", response_model=Token)
+@router.post(
+    "/user-auth/phone-login",
+    response_model=StandardResponse[Token],
+    summary="手机号验证码登录",
+    description="使用手机号和短信验证码登录"
+)
+async def phone_login(credentials: PhoneLogin, db: Session = Depends(get_db)):
+    """手机号验证码登录"""
+    result = await UserService.phone_login(
+        db=db,
+        phone=credentials.phone,
+        verification_code=credentials.verification_code,
+    )
+    return StandardResponse(
+        success=True,
+        code=200,
+        message="登录成功",
+        data=result
+    )
+
+
+@router.post(
+    "/user-auth/refresh",
+    response_model=StandardResponse[Token],
+    summary="刷新访问令牌",
+    description="使用刷新令牌获取新的访问令牌"
+)
 async def refresh_token(token_data: TokenRefresh, db: Session = Depends(get_db)):
     """刷新访问令牌"""
-    try:
-        payload = decode_token(token_data.refresh_token)
-
-        # 检查令牌类型
-        if payload.get("type") != "refresh":
-            raise AuthenticationError("Invalid token type")
-
-        user_id: int = payload.get("sub")
-        if user_id is None:
-            raise AuthenticationError("Invalid token payload")
-
-        # 验证用户是否存在且激活
-        user = db.query(User).filter(User.id == user_id).first()
-        if not user or not user.is_active:
-            raise AuthenticationError("User not found or inactive")
-
-        # 创建新的访问令牌
-        access_token = create_access_token(data={"sub": str(user.id)})
-        new_refresh_token = create_refresh_token(data={"sub": user.id})
-
-        return {
-            "access_token": access_token,
-            "refresh_token": new_refresh_token,
-            "token_type": "bearer",
-            "expires_in": ACCESS_TOKEN_EXPIRE_MINUTES * 60,
-        }
-
-    except AuthenticationError as e:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=str(e),
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+    result = UserService.refresh_access_token(
+        db=db,
+        refresh_token=token_data.refresh_token,
+    )
+    return StandardResponse(
+        success=True,
+        code=200,
+        message="令牌刷新成功",
+        data=result
+    )
 
 
-@router.get("/user-auth/me", response_model=UserRead)
+@router.get(
+    "/user-auth/me",
+    response_model=StandardResponse[UserRead],
+    summary="获取当前用户信息",
+    description="获取当前登录用户的详细信息。需要有效的JWT Token认证。返回用户的基本信息、角色、权限状态等。"
+)
 async def get_current_user_info(current_user: User = Depends(get_current_active_user)):
-    """获取当前用户信息"""
-    return current_user
+    """获取当前用户信息（需要JWT Token认证）"""
+    return StandardResponse(
+        success=True,
+        code=200,
+        message="获取用户信息成功",
+        data=current_user
+    )
 
 
-@router.put("/user-auth/me", response_model=UserRead)
+@router.put(
+    "/user-auth/me",
+    response_model=StandardResponse[UserRead],
+    summary="更新当前用户信息",
+    description="更新当前登录用户的个人信息"
+)
 async def update_current_user(
     user_update: UserUpdate,
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db),
 ):
     """更新当前用户信息"""
-    # 检查邮箱是否已被其他用户使用
-    if user_update.email:
-        existing_user = (
-            db.query(User)
-            .filter(User.email == user_update.email, User.id != current_user.id)
-            .first()
-        )
-
-        if existing_user:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Email already in use by another user",
-            )
-
-    # 更新用户信息
-    update_data = user_update.dict(exclude_unset=True)
-    for field, value in update_data.items():
-        setattr(current_user, field, value)
-
-    try:
-        db.commit()
-        db.refresh(current_user)
-        return current_user
-    except IntegrityError:
-        db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Update failed due to data conflict",
-        )
+    result = UserService.update_user_info(
+        db=db,
+        user_id=current_user.id,
+        email=user_update.email,
+        phone=user_update.phone,
+        real_name=user_update.real_name,
+    )
+    return StandardResponse(
+        success=True,
+        code=200,
+        message="用户信息更新成功",
+        data=result
+    )
 
 
-@router.put("/user-auth/password")
+@router.put(
+    "/user-auth/password",
+    response_model=StandardResponse[dict],
+    summary="修改密码",
+    description="修改当前用户的登录密码（需要登录）"
+)
 async def change_password(
     password_data: UserChangePassword,
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db),
 ):
     """修改密码"""
-    # 验证旧密码
-    from app.core.auth import verify_password
-
-    if not verify_password(password_data.old_password, current_user.password_hash):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="Incorrect current password"
-        )
-
-    # 更新密码
-    current_user.password_hash = get_password_hash(password_data.new_password)
-
-    try:
-        db.commit()
-        return {"message": "Password changed successfully"}
-    except Exception:
-        db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to change password",
-        )
+    result = UserService.change_user_password(
+        db=db,
+        user_id=current_user.id,
+        old_password=password_data.old_password,
+        new_password=password_data.new_password,
+    )
+    return StandardResponse(
+        success=True,
+        code=200,
+        message="密码修改成功",
+        data=result
+    )
 
 
-@router.post("/user-auth/logout")
+@router.post(
+    "/user-auth/password/reset-request",
+    response_model=StandardResponse[dict],
+    summary="请求重置密码",
+    description="忘记密码时，请求发送重置密码的验证码到邮箱"
+)
+async def reset_password_request(
+    request: PasswordResetRequest,
+    db: Session = Depends(get_db)
+):
+    """请求重置密码"""
+    result = await UserService.reset_password_request(
+        db=db,
+        email=request.email
+    )
+    return StandardResponse(
+        success=True,
+        code=200,
+        message="重置密码验证码已发送",
+        data=result
+    )
+
+
+@router.post(
+    "/user-auth/password/reset-confirm",
+    response_model=StandardResponse[dict],
+    summary="确认重置密码",
+    description="使用验证码重置密码"
+)
+async def reset_password_confirm(
+    request: PasswordResetConfirm,
+    db: Session = Depends(get_db)
+):
+    """确认重置密码"""
+    result = await UserService.reset_password_confirm(
+        db=db,
+        email=request.email,
+        verification_code=request.verification_code,
+        new_password=request.new_password
+    )
+    return StandardResponse(
+        success=True,
+        code=200,
+        message="密码重置成功",
+        data=result
+    )
+
+
+@router.post(
+    "/user-auth/logout",
+    response_model=StandardResponse[dict],
+    summary="用户登出",
+    description="用户登出（客户端需删除token）"
+)
 async def logout_user(current_user: User = Depends(get_current_active_user)):
     """用户登出"""
     # 注意：由于JWT是无状态的，真正的登出需要在客户端删除token
     # 或者实现token黑名单机制（需要Redis等外部存储）
-    return {"message": "Logged out successfully"}
+    return StandardResponse(
+        success=True,
+        code=200,
+        message="登出成功",
+        data={"message": "Logged out successfully"}
+    )
 
 
 # 管理员相关路由（可选）
-@router.get("/user-auth/users", response_model=list[UserRead])
+@router.get(
+    "/user-auth/users",
+    response_model=StandardResponse[list[UserRead]],
+    summary="获取用户列表",
+    description="获取系统用户列表，支持分页查询。需要管理员权限（V1.0暂时允许所有认证用户访问，V2.0将增加权限控制）。返回用户的基本信息列表，不包含敏感信息如密码哈希。"
+)
 async def list_users(
     skip: int = 0,
     limit: int = 100,
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db),
 ):
-    """获取用户列表（仅限管理员）"""
+    """获取用户列表（需要JWT Token认证，V2.0将限制为管理员权限）"""
     # 这里可以添加管理员权限检查
     # 暂时允许所有认证用户查看
-    users = db.query(User).offset(skip).limit(limit).all()
-    return users
+    result = UserService.get_user_list(db=db, skip=skip, limit=limit)
+    return StandardResponse(
+        success=True,
+        code=200,
+        message="获取用户列表成功",
+        data=result,
+        metadata={"skip": skip, "limit": limit, "total": len(result)}
+    )
 
 
-@router.get("/user-auth/users/{user_id}", response_model=UserRead)
+@router.get(
+    "/user-auth/users/{user_id}",
+    response_model=StandardResponse[UserRead],
+    summary="通过ID获取用户信息",
+    description="通过用户ID获取指定用户的详细信息。需要管理员权限（V1.0暂时允许所有认证用户访问，V2.0将增加权限控制）。如果用户不存在返回404错误。"
+)
 async def get_user_by_id(
     user_id: int,
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db),
 ):
     """通过ID获取用户信息"""
-    user = db.query(User).filter(User.id == user_id).first()
+    user = UserService.get_user_by_id(db=db, user_id=user_id)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
@@ -295,4 +330,9 @@ async def get_user_by_id(
         # 这里可以添加管理员权限检查
         pass
 
-    return user
+    return StandardResponse(
+        success=True,
+        code=200,
+        message="获取用户信息成功",
+        data=user
+    )

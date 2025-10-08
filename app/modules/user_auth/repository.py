@@ -61,6 +61,14 @@ class UserRepository:
         ).first()
 
     @staticmethod
+    def get_by_phone(db: Session, phone: str) -> Optional[User]:
+        """根据手机号获取用户"""
+        return db.query(User).filter(
+            User.phone == phone,
+            User.is_deleted == False
+        ).first()
+
+    @staticmethod
     def get_by_wx_openid(db: Session, openid: str) -> Optional[User]:
         """根据微信openid获取用户"""
         return db.query(User).filter(
