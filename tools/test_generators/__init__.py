@@ -44,7 +44,18 @@ from .core import (
 )
 
 # 单元测试生成器
-from .unit import RepositoryTestGenerator
+from .unit import (
+    RepositoryTestGenerator,
+    ModelTestGenerator,
+    ServiceTestGenerator,
+    StandaloneTestGenerator
+)
+
+# Factory生成器
+from .factories import FactoryGenerator
+
+# 集成测试生成器
+from .integration import IntegrationTestGenerator
 
 # 已有的专项测试生成器
 from .base_generator import BaseTestGenerator
@@ -65,6 +76,15 @@ __all__ = [
     
     # 单元测试生成器
     'RepositoryTestGenerator',
+    'ModelTestGenerator',
+    'ServiceTestGenerator',
+    'StandaloneTestGenerator',
+    
+    # Factory生成器
+    'FactoryGenerator',
+    
+    # 集成测试生成器
+    'IntegrationTestGenerator',
     
     # 专项测试生成器
     'BaseTestGenerator',

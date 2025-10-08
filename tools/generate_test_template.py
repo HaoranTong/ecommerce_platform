@@ -1983,6 +1983,12 @@ from {module_import_path} import (
     ) -> str:
         """生成Repository层测试代码（四层架构新增）
         
+        🔄 重构标记：此方法将迁移到 unit/repository_test_generator.py
+        当前阶段：阶段A（保留在主程序，待迁移）
+        目标位置：RepositoryTestGenerator.generate_repository_tests()
+        依赖方法：_generate_single_repository_test, _generate_repository_*_test等
+        预计代码量：~1200行（含所有依赖方法）
+        
         测试策略:
         - 使用 SQLite 内存数据库 (unit_test_db fixture)
         - 测试每个 Repository 方法的数据访问逻辑

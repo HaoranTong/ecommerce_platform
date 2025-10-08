@@ -25,17 +25,27 @@ from ..core import FieldInfo, ModelInfo, RepositoryMethodInfo, RepositoryInfo
 
 
 class RepositoryTestGenerator:
-    """Repository测试生成器"""
+    """Repository测试生成器
     
-    def __init__(self, project_root: Path, config: Dict):
+    重构策略：
+    - 阶段A: 创建框架，保持对主程序方法的引用
+    - 阶段B: 逐步迁移方法实现到此类
+    - 阶段C: 移除对主程序的依赖
+    
+    当前阶段：A（框架完成，使用主程序方法）
+    """
+    
+    def __init__(self, project_root: Path, config: Dict, main_generator=None):
         """初始化生成器
         
         Args:
             project_root: 项目根目录
             config: 配置字典
+            main_generator: 主生成器实例（用于调用现有方法）
         """
         self.project_root = project_root
         self.config = config
+        self.main_generator = main_generator  # 临时：引用主程序的方法
     
     def generate_repository_tests(
         self,

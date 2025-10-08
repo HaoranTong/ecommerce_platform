@@ -3,5 +3,6 @@
 
 导出集成测试生成器
 """
-# 暂时为空，待后续填充
-__all__ = []
+from .integration_test_generator import IntegrationTestGenerator
+
+__all__ = ['IntegrationTestGenerator']
