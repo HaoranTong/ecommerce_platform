@@ -90,7 +90,11 @@ class RepositoryTestGenerator:
         3. test_create_transaction_commit - 事务提交
         4. test_create_transaction_rollback - 事务回滚
         """
-        # TODO: 从主程序迁移实现
+        # 使用主程序实现(阶段A)
+        if self.main_generator:
+            return self.main_generator._generate_repository_create_test(
+                method_info, model_name, repo_name, module_name, models
+            )
         return ""
     
     def generate_repository_read_test(
@@ -106,7 +110,11 @@ class RepositoryTestGenerator:
         1. test_read_found - 查询到数据
         2. test_read_not_found - 数据不存在
         """
-        # TODO: 从主程序迁移实现
+        # 使用主程序实现(阶段A)
+        if self.main_generator:
+            return self.main_generator._generate_repository_read_test(
+                method_info, model_name, repo_name, module_name, models
+            )
         return ""
     
     def generate_repository_update_test(
@@ -124,7 +132,11 @@ class RepositoryTestGenerator:
         3. test_update_transaction_commit - 事务提交
         4. test_update_specialized_method - 专用方法
         """
-        # TODO: 从主程序迁移实现
+        # 使用主程序实现(阶段A)
+        if self.main_generator:
+            return self.main_generator._generate_repository_update_test(
+                method_info, model_name, repo_name, module_name, models
+            )
         return ""
     
     def generate_repository_delete_test(
@@ -147,7 +159,11 @@ class RepositoryTestGenerator:
         2. test_delete_cascade_delete - 级联物理删除
         3. test_delete_batch_delete - 批量物理删除
         """
-        # TODO: 从主程序迁移实现
+        # 使用主程序实现(阶段A)
+        if self.main_generator:
+            return self.main_generator._generate_repository_delete_test(
+                method_info, model_name, repo_name, module_name, models
+            )
         return ""
     
     def generate_repository_count_test(
@@ -158,8 +174,16 @@ class RepositoryTestGenerator:
         module_name: str,
         models: Dict[str, ModelInfo]
     ) -> str:
-        """生成Count测试"""
-        # TODO: 从主程序迁移实现
+        """生成Count测试（2种测试）
+        
+        1. test_count_all - 统计全部记录
+        2. test_count_with_filter - 带条件统计
+        """
+        # 使用主程序实现(阶段A)
+        if self.main_generator:
+            return self.main_generator._generate_repository_count_test(
+                method_info, model_name, repo_name, module_name, models
+            )
         return ""
     
     def generate_repository_query_test(
@@ -170,8 +194,18 @@ class RepositoryTestGenerator:
         module_name: str,
         models: Dict[str, ModelInfo]
     ) -> str:
-        """生成Query测试"""
-        # TODO: 从主程序迁移实现
+        """生成Query测试（4种测试）
+        
+        1. test_query_basic - 基础查询
+        2. test_query_with_filter - 条件查询
+        3. test_query_with_pagination - 分页查询
+        4. test_query_with_ordering - 排序查询
+        """
+        # 使用主程序实现(阶段A)
+        if self.main_generator:
+            return self.main_generator._generate_repository_query_test(
+                method_info, model_name, repo_name, module_name, models
+            )
         return ""
     
     # ========== 辅助方法 ==========

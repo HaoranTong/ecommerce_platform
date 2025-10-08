@@ -119,6 +119,10 @@ class BaseTestGenerator(ABC):
     def __init__(self, project_root: Path, config: Dict[str, Any]):
         self.project_root = project_root
         self.config = config
+        # Schema分析缓存 - 避免重复打印
+        self._schema_cache: Dict[str, Dict[str, Any]] = {}
+        # 路由分析缓存 - 避免重复分析和打印
+        self._router_cache: Dict[str, List[RouterInfo]] = {}
         
     @abstractmethod
     def generate_tests(self, module_name: str, models: Dict[str, ModelInfo]) -> Dict[str, str]:
@@ -126,11 +130,16 @@ class BaseTestGenerator(ABC):
         pass
     
     def analyze_router_file(self, module_name: str) -> List[RouterInfo]:
-        """分析模块的router.py文件，提取API端点信息"""
+        """分析模块的router.py文件，提取API端点信息（带缓存机制避免重复分析）"""
+        # 检查缓存
+        if module_name in self._router_cache:
+            return self._router_cache[module_name]
+        
         router_path = self.project_root / f"app/modules/{module_name}/router.py"
         
         if not router_path.exists():
             print(f"⚠️ 路由文件不存在: {router_path}")
+            self._router_cache[module_name] = []
             return []
         
         try:
@@ -155,6 +164,8 @@ class BaseTestGenerator(ABC):
                         continue
             
             print(f"📡 分析到 {len(routes)} 个API端点")
+            # 缓存结果
+            self._router_cache[module_name] = routes
             return routes
             
         except Exception as e:
@@ -313,7 +324,14 @@ class BaseTestGenerator(ABC):
 '''
     
     def analyze_pydantic_schema(self, module_name: str, route: RouterInfo) -> Dict[str, Any]:
-        """分析路由的Pydantic Schema，生成正确的测试数据"""
+        """分析路由的Pydantic Schema，生成正确的测试数据（带缓存机制避免重复打印）"""
+        # 生成缓存key
+        cache_key = f"{module_name}:{route.function_name}:{route.method}"
+        
+        # 检查缓存
+        if cache_key in self._schema_cache:
+            return self._schema_cache[cache_key]
+        
         try:
             # 添加警告过滤器，避免SQLAlchemy表重定义警告
             import warnings
@@ -327,13 +345,17 @@ class BaseTestGenerator(ABC):
             schema_file_path = self.project_root / f"app/modules/{module_name}/schemas.py"
             if not schema_file_path.exists():
                 print(f"⚠️ Schema文件不存在: {schema_file_path}")
-                return self._generate_fallback_data(route)
+                result = self._generate_fallback_data(route)
+                self._schema_cache[cache_key] = result
+                return result
             
             # 使用spec加载，避免导入__init__.py
             spec = importlib.util.spec_from_file_location(f"{module_name}_schemas", schema_file_path)
             if spec is None or spec.loader is None:
                 print(f"⚠️ 无法创建Schema模块spec")
-                return self._generate_fallback_data(route)
+                result = self._generate_fallback_data(route)
+                self._schema_cache[cache_key] = result
+                return result
             
             schema_module = importlib.util.module_from_spec(spec)
             
@@ -352,17 +374,24 @@ class BaseTestGenerator(ABC):
                         print(f"⚠️ 无法推断Schema类名，使用fallback数据")
                     else:
                         print(f"📋 {route.function_name} 无需Schema (GET请求或无参数POST)")
-                    return self._generate_fallback_data(route)
+                    result = self._generate_fallback_data(route)
+                    self._schema_cache[cache_key] = result
+                    return result
                 
                 # 获取Schema类
                 schema_class = getattr(schema_module, schema_class_name, None)
                 if not schema_class:
                     print(f"⚠️ Schema类 {schema_class_name} 不存在，使用fallback数据")
-                    return self._generate_fallback_data(route)
+                    result = self._generate_fallback_data(route)
+                    self._schema_cache[cache_key] = result
+                    return result
                 
                 # 分析Schema字段
                 schema_data = self._extract_schema_fields(schema_class)
                 print(f"✅ Schema分析成功: {schema_class_name} -> {len(schema_data)} 个字段")
+                
+                # 缓存结果
+                self._schema_cache[cache_key] = schema_data
                 return schema_data
                 
             finally:
@@ -373,7 +402,9 @@ class BaseTestGenerator(ABC):
         except Exception as e:
             print(f"⚠️ Schema分析失败: {e}, 使用fallback数据")
             print(f"📋 详细错误: {traceback.format_exc()}")
-            return self._generate_fallback_data(route)
+            result = self._generate_fallback_data(route)
+            self._schema_cache[cache_key] = result
+            return result
     
     def _should_have_schema(self, route: RouterInfo) -> bool:
         """判断路由是否应该有Schema"""
@@ -394,27 +425,46 @@ class BaseTestGenerator(ABC):
         """根据路由功能推断Schema类名"""
         function_name = route.function_name.lower()
         
+        # 注册相关
         if 'register' in function_name:
             return 'UserRegister'
+        
+        # 登录相关
+        elif 'phone_login' in function_name:
+            return 'PhoneLogin'
         elif 'login' in function_name:
             return 'UserLogin'
-        elif 'update' in function_name:
-            return 'UserUpdate'
+        
+        # Token相关
         elif 'refresh' in function_name and 'token' in function_name:
             return 'TokenRefresh'
+        
+        # 密码相关
+        elif 'reset_password_confirm' in function_name or 'reset' in function_name and 'confirm' in function_name:
+            return 'PasswordResetConfirm'
+        elif 'reset_password_request' in function_name or 'reset' in function_name and 'request' in function_name:
+            return 'PasswordResetRequest'
         elif 'change' in function_name and 'password' in function_name:
             return 'UserChangePassword'
+        
+        # 验证码相关
+        elif 'verification_code' in function_name or 'send_verification' in function_name:
+            return 'SendVerificationCode'
+        
+        # 用户信息更新
+        elif 'update' in function_name:
+            return 'UserUpdate'
+        
+        # 无需Schema的端点
         elif 'logout' in function_name:
-            # logout API 通常不需要请求体Schema
             return None
         elif 'get_current_user' in function_name or 'get_user' in function_name:
-            # GET API 通常不需要请求体Schema
             return None
         elif 'list_users' in function_name or 'list' in function_name:
-            # 列表API 通常不需要请求体Schema  
             return None
+        
+        # 创建操作
         elif 'create' in function_name:
-            # 根据模块推断创建Schema
             return self._infer_create_schema(route)
         
         return None
