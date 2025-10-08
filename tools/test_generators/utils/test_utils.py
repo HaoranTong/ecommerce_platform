@@ -271,3 +271,61 @@ class TestUtils:
         
         # 默认使用简单值
         return TestUtils._get_test_value_for_field(field)
+    
+    @staticmethod
+    def table_name_to_model_name(table_name: str) -> str:
+        """表名转模型名：products -> Product, categories -> Category"""
+        if table_name.endswith('ies'):
+            singular = table_name[:-3] + 'y'
+        elif table_name.endswith('s'):
+            singular = table_name[:-1]
+        else:
+            singular = table_name
+        return singular.capitalize()
+    
+    @staticmethod
+    def has_composite_primary_key(model_info: ModelInfo) -> bool:
+        """检查模型是否使用联合主键"""
+        return sum(1 for f in model_info.fields if f.primary_key) > 1
+    
+    @staticmethod
+    def get_primary_key_fields(model_info: ModelInfo) -> List[FieldInfo]:
+        """获取模型的主键字段列表"""
+        return [f for f in model_info.fields if f.primary_key]
+    
+    @staticmethod
+    def infer_entity_from_param(param_name: str, param_type: str, models: Dict[str, ModelInfo]) -> Optional[str]:
+        """从参数名和类型推断对应的实体类型
+        
+        推断规则：
+        1. user_id: int -> User (ID参数)
+        2. user: User -> User (对象参数)
+        3. role_id: int -> Role (ID参数)
+        """
+        # 情况1：对象类型参数（如user: User）
+        if param_type in models:
+            return param_type
+        
+        # 情况2：ID参数（如user_id: int）
+        if param_type == 'int' and param_name.endswith('_id'):
+            entity_base = param_name[:-3]
+            candidates = [
+                entity_base.title(),
+                entity_base.capitalize(),
+                ''.join(word.capitalize() for word in entity_base.split('_'))
+            ]
+            for candidate in candidates:
+                if candidate in models:
+                    return candidate
+        
+        # 情况3：从参数名推断
+        candidates = [
+            param_name.title(),
+            param_name.capitalize(),
+            ''.join(word.capitalize() for word in param_name.split('_'))
+        ]
+        for candidate in candidates:
+            if candidate in models:
+                return candidate
+        
+        return None

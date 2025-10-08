@@ -148,6 +148,10 @@ class IntelligentTestGenerator:
         from tools.test_generators.utils.service_analyzer import ServiceAnalyzer
         self.service_analyzer = ServiceAnalyzer(self.project_root)
         
+        # 初始化TestUtils
+        from tools.test_generators.utils.test_utils import TestUtils
+        self.test_utils = TestUtils
+        
         self.models_cache = {}
 
     def analyze_module_models(self, module_name: str) -> Dict[str, ModelInfo]:
@@ -436,9 +440,9 @@ class IntelligentTestGenerator:
             fk_table = fk_target.split('.')[0]
             
             # 推断模型名（表名转模型名：products -> Product, categories -> Category）
-            fk_model_name = self._table_name_to_model_name(fk_table)
+            fk_model_name = self.test_utils.table_name_to_model_name(fk_table)
             # 使用相同的单数化逻辑作为变量名（小写）
-            fk_var_name = self._table_name_to_model_name(fk_table).lower()
+            fk_var_name = self.test_utils.table_name_to_model_name(fk_table).lower()
             
             # 递归生成依赖实体（不再生成依赖的依赖，避免无限递归）
             fk_entity_code = self._generate_test_entity_creation(fk_model_name, models, f"依赖{suffix}", with_dependencies=False)
@@ -464,33 +468,17 @@ class IntelligentTestGenerator:
         
         return '\n        '.join(lines)
     
-    def _table_name_to_model_name(self, table_name: str) -> str:
-        """表名转模型名：products -> Product, categories -> Category"""
-        # 移除复数s
-        if table_name.endswith('ies'):
-            singular = table_name[:-3] + 'y'  # categories -> category
-        elif table_name.endswith('s'):
-            singular = table_name[:-1]  # products -> product
-        else:
-            singular = table_name
-        
-        # 首字母大写
-        return singular.capitalize()
-    
     def _has_composite_primary_key(self, model_name: str, models: Dict[str, ModelInfo]) -> bool:
         """检查模型是否使用联合主键（多个primary_key字段）"""
         if model_name not in models:
             return False
-        model_info = models[model_name]
-        primary_key_count = sum(1 for f in model_info.fields if f.primary_key)
-        return primary_key_count > 1
+        return self.test_utils.has_composite_primary_key(models[model_name])
     
     def _get_primary_key_fields(self, model_name: str, models: Dict[str, ModelInfo]) -> List['FieldInfo']:
         """获取模型的主键字段列表"""
         if model_name not in models:
             return []
-        model_info = models[model_name]
-        return [f for f in model_info.fields if f.primary_key]
+        return self.test_utils.get_primary_key_fields(models[model_name])
     
     # 注意：_infer_query_parameter等方法已废弃，RepositoryTestGenerator有自己的实现
     
@@ -545,7 +533,7 @@ class IntelligentTestGenerator:
                 # user_id: int -> User
                 # role_id: int -> Role
                 # permission_id: int -> Permission
-                entity_name = self._infer_entity_from_param(param_name, param_type, models)
+                entity_name = self.test_utils.infer_entity_from_param(param_name, param_type, models)
                 
                 if entity_name and entity_name in models:
                     # 生成创建实体的代码
@@ -604,59 +592,6 @@ class IntelligentTestGenerator:
                 # 联合主键模型需要TODO
                 return ('', '', True)
             return ('', 'entity.id', False)
-    
-    def _infer_entity_from_param(self, param_name: str, param_type: str, models: Dict[str, ModelInfo]) -> Optional[str]:
-        """从参数名和类型推断对应的实体类型（通用化推断）
-        
-        推断规则：
-        1. user_id: int -> User (ID参数)
-        2. user: User -> User (对象参数)
-        3. role_id: int -> Role (ID参数)
-        4. role: Role -> Role (对象参数)
-        
-        Args:
-            param_name: 参数名（如user_id或user）
-            param_type: 参数类型（如int或User）
-            models: 所有模型信息
-            
-        Returns:
-            str: 实体名称（如User），如果无法推断返回None
-        """
-        # 🔥 情况1：对象类型参数（如user: User）
-        # 检查参数类型是否直接是模型名
-        if param_type in models:
-            return param_type
-        
-        # 🔥 情况2：ID参数（如user_id: int）
-        if param_type == 'int' and param_name.endswith('_id'):
-            # 提取实体名：user_id -> user -> User
-            entity_base = param_name[:-3]  # 移除'_id'
-            
-            # 尝试各种命名变体
-            candidates = [
-                entity_base.title(),  # user -> User
-                entity_base.capitalize(),  # user -> User
-                entity_base.upper(),  # user -> USER
-                ''.join(word.capitalize() for word in entity_base.split('_'))  # user_role -> UserRole
-            ]
-            
-            for candidate in candidates:
-                if candidate in models:
-                    return candidate
-        
-        # 🔥 情况3：对象参数但类型名不标准（如user: 'User'带引号）
-        # 尝试从参数名推断
-        candidates = [
-            param_name.title(),  # user -> User
-            param_name.capitalize(),  # user -> User
-            ''.join(word.capitalize() for word in param_name.split('_'))  # user_role -> UserRole
-        ]
-        
-        for candidate in candidates:
-            if candidate in models:
-                return candidate
-        
-        return None
     
     def _validate_generated_tests(self, files: Dict[str, str]) -> Dict[str, Any]:
         """实现自动化测试质量验证机制 [CHECK:TEST-008] [CHECK:DEV-009]
