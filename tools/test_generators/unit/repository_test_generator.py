@@ -966,9 +966,18 @@ from app.modules.{module_name}.models import (
             pk_filter = ', '.join([f'{f.name}={f.name}_val' for f in pk_fields])
             
             # 🎯 根据实际方法签名生成参数（而不是固定使用所有主键）
-            # 构建context包含所有主键值
-            pk_context = {f'{f.name}': f'{f.name}_val' for f in pk_fields}
-            pk_params = self._generate_method_call_params(method_info, "unit_test_db", **pk_context)
+            # 对于delete方法，直接用方法参数匹配主键值变量
+            method_params = [p[0] for p in method_info.parameters if p[0] not in ['db', 'self', 'cls']]
+            pk_param_list = []
+            for param_name in method_params:
+                # 检查是否匹配主键字段名
+                matching_pk = next((f for f in pk_fields if f.name == param_name), None)
+                if matching_pk:
+                    pk_param_list.append(f'{matching_pk.name}_val')
+                else:
+                    # 不是主键字段，可能是entity参数等
+                    pk_param_list.append(param_name)
+            pk_params = ', '.join(pk_param_list) if pk_param_list else ', '.join([f'{f.name}_val' for f in pk_fields])
             
             verification = self._generate_delete_verification(is_soft_delete, model_name, pk_filter)
             
