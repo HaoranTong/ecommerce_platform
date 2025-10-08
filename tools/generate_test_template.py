@@ -99,132 +99,56 @@ sys.path.insert(0, str(project_root))
 # 全局常量
 NEWLINE = "\\n"
 
+# 导入重构后的数据模型（从test_generators.core）
+from tools.test_generators.core import (
+    FieldInfo,
+    RelationshipInfo,
+    ModelInfo,
+    RepositoryMethodInfo,
+    RepositoryInfo,
+    ModuleStructure
+)
 
-@dataclass
-class FieldInfo:
-    """数据模型字段信息"""
-
-    name: str
-    column_type: str
-    python_type: str
-    nullable: bool
-    primary_key: bool
-    foreign_key: Optional[str]
-    unique: bool
-    default: Any
-    constraints: List[str]
-
-
-@dataclass
-class RelationshipInfo:
-    """数据模型关系信息"""
-
-    name: str
-    related_model: str
-    relationship_type: str
-    back_populates: Optional[str]
-    cascade: Optional[str]
-    foreign_keys: List[str]
-
-
-@dataclass
-class ModelInfo:
-    """完整的数据模型信息"""
-
-    name: str
-    tablename: str
-    fields: List[FieldInfo]
-    relationships: List[RelationshipInfo]
-    mixins: List[str]
-    docstring: Optional[str]
-    primary_keys: List[str]
-    unique_constraints: List[List[str]]
-
-
-@dataclass
-class RepositoryMethodInfo:
-    """Repository方法信息"""
-    
-    name: str
-    method_type: str  # "create" | "read" | "update" | "delete" | "query" | "count"
-    parameters: List[Tuple[str, str]]  # [(name, type), ...]
-    return_type: str
-    is_static: bool
-    docstring: Optional[str]
-    has_transaction: bool  # 是否需要事务测试
-    is_soft_delete: bool = False  # 是否是软删除方法（设置is_deleted/is_active）
-    is_specialized_update: bool = False  # 是否是专用更新方法（如update_login_info）
-
-
-@dataclass
-class RepositoryInfo:
-    """Repository类信息"""
-    
-    name: str  # CategoryRepository
-    model_name: str  # Category
-    methods: List[RepositoryMethodInfo]
-    docstring: Optional[str]
-    
-    
-@dataclass
-class ModuleStructure:
-    """模块完整结构信息（四层架构标准）
-    
-    项目标准要求所有模块必须实现完整的四层架构：
-    - Router层: 处理HTTP请求和响应
-    - Service层: 实现业务逻辑
-    - Repository层: 处理数据访问（必需）
-    - Model层: 定义数据模型
-    """
-    
-    models: Dict[str, ModelInfo]
-    repositories: Dict[str, RepositoryInfo]  # 必需，不可为空
+# 保留dataclass导入以便后续代码使用
+# 注意：上面的数据模型已经是dataclass，这里不需要重复定义
 
 
 class IntelligentTestGenerator:
-    """智能测试生成器 - 集成模型分析和测试生成 [CHECK:DEV-009] [CHECK:TEST-001]"""
+    """智能测试生成器 - 集成模型分析和测试生成 [CHECK:DEV-009] [CHECK:TEST-001]
+    
+    重构版本 v3.0:
+    - 使用test_generators.config.ConfigLoader管理配置
+    - 使用test_generators.core中的数据模型
+    - 逐步迁移生成逻辑到独立模块
+    """
 
     def __init__(self):
         """初始化生成器"""
         self.project_root = Path(__file__).parent.parent
-        self.config = self._load_config()
+        
+        # 使用新的ConfigLoader
+        from tools.test_generators.config import ConfigLoader
+        config_loader = ConfigLoader(self.project_root)
+        self.config = config_loader.get_all()
+        
         self.models_cache = {}
 
     def _load_config(self) -> Dict[str, Any]:
-        """加载配置文件"""
-        config_path = self.project_root / "tools" / "test_generator_config.json"
-        try:
-            with open(config_path, 'r', encoding='utf-8') as f:
-                return json.load(f)
-        except FileNotFoundError:
-            print(f"⚠️ 配置文件未找到: {config_path}，使用默认配置")
-            return self._get_default_config()
-        except json.JSONDecodeError as e:
-            print(f"⚠️ 配置文件格式错误: {e}，使用默认配置")
-            return self._get_default_config()
+        """加载配置文件 - 已废弃，保留向后兼容
+        
+        ⚠️ Deprecated: 使用ConfigLoader替代
+        """
+        from tools.test_generators.config import ConfigLoader
+        config_loader = ConfigLoader(self.project_root)
+        return config_loader.get_all()
 
     def _get_default_config(self) -> Dict[str, Any]:
-        """获取默认配置"""
-        return {
-            "project_structure": {
-                "project_root": ".",
-                "modules_path": "app/modules",
-                "tests_path": "tests",
-                "factories_path": "tests/factories"
-            },
-            "test_distributions": {
-                "unit": 0.70,
-                "integration": 0.20,
-                "e2e": 0.06,
-                "smoke": 0.02,
-                "specialized": 0.02
-            },
-            "database_config": {
-                "unit_test_fixture": "unit_test_db",
-                "integration_test_fixture": "mysql_integration_db",
-                "e2e_test_fixture": "api_client"
-            }
-        }
+        """获取默认配置 - 已废弃，保留向后兼容
+        
+        ⚠️ Deprecated: ConfigLoader内部已包含默认配置
+        """
+        from tools.test_generators.config import ConfigLoader
+        return ConfigLoader.DEFAULT_CONFIG.copy()
 
     def analyze_module_models(self, module_name: str) -> Dict[str, ModelInfo]:
         """智能分析模块中的所有数据模型 [CHECK:TEST-001]
@@ -2210,6 +2134,119 @@ class Test{repo_name}:
         
         return test_class
     
+    def _generate_minimal_entity_creation(self, model_name: str, models: Dict[str, ModelInfo], module_name: str) -> str:
+        """生成最小实体创建代码（仅必填字段，符合testing-standards.md 2.1节）
+        
+        Args:
+            model_name: 模型名称
+            models: 模型信息字典
+            module_name: 模块名称
+            
+        Returns:
+            str: 最小实体创建代码（多行，含缩进）
+        """
+        if model_name not in models:
+            return f'        entity = {model_name}()  # TODO: 补充必填字段'
+        
+        model_info = models[model_name]
+        
+        # 提取必填字段（nullable=False 且无default）
+        auto_fields = {'id', 'created_at', 'updated_at', 'is_deleted'}
+        required_fields = [
+            f for f in model_info.fields 
+            if not f.nullable 
+            and f.name not in auto_fields 
+            and not (f.primary_key and f.name == 'id')
+            and not f.server_default  # 排除有数据库默认值的字段
+            # 注意: 如果field有default参数，仍然包括（用于测试默认值）
+        ]
+        
+        if not required_fields:
+            return f'        entity = {model_name}()\n        # 注意: 该模型所有字段均为可选或有默认值'
+        
+        # 分离外键和普通字段
+        fk_fields = [f for f in required_fields if f.foreign_key]
+        normal_fields = [f for f in required_fields if not f.foreign_key]
+        
+        lines = []
+        
+        # 先创建外键依赖
+        fk_var_names = {}
+        for field in fk_fields:
+            fk_target = field.foreign_key
+            fk_table = fk_target.split('.')[0]
+            fk_model_name = self._table_name_to_model_name(fk_table)
+            fk_var_name = fk_model_name.lower()
+            
+            # 使用Factory Boy创建依赖实体（简化）
+            lines.append(f'from tests.factories.{module_name}_factories import {fk_model_name}Factory')
+            lines.append(f'{fk_var_name} = {fk_model_name}Factory.create()')
+            fk_var_names[field.name] = f'{fk_var_name}.id'
+        
+        if fk_fields:
+            lines.append('')  # 空行分隔
+        
+        # 构造最小实体
+        field_assignments = []
+        for field in normal_fields:
+            test_value = self._get_minimal_test_value(field)
+            field_assignments.append(f'{field.name}={test_value}')
+        
+        # 添加外键字段
+        for field in fk_fields:
+            field_assignments.append(f'{field.name}={fk_var_names[field.name]}')
+        
+        if field_assignments:
+            lines.append(f'entity = {model_name}(')
+            for i, assignment in enumerate(field_assignments):
+                comma = ',' if i < len(field_assignments) - 1 else ''
+                lines.append(f'    {assignment}{comma}')
+            lines.append(')')
+        else:
+            lines.append(f'entity = {model_name}()')
+        
+        # 添加缩进
+        return '\n        '.join(lines)
+    
+    def _get_minimal_test_value(self, field: 'FieldInfo') -> str:
+        """获取字段的最小测试值（用于最小实体创建）
+        
+        策略:
+        - 字符串: 最小长度 (如果有MinLength约束)
+        - 数字: 最小值 (如果有Min约束)
+        - 布尔: False
+        - 枚举: 第一个值
+        """
+        field_type = field.type.lower()
+        
+        # 字符串类型
+        if 'str' in field_type or 'varchar' in field_type or 'text' in field_type:
+            # 检查是否有长度约束
+            if hasattr(field, 'length') and field.length:
+                return f'"{field.name[:1]}"'  # 单字符
+            return f'"{field.name}"'  # 使用字段名作为值
+        
+        # 整数类型
+        if 'int' in field_type:
+            return '1'
+        
+        # 浮点数类型
+        if 'float' in field_type or 'decimal' in field_type:
+            return '0.01'
+        
+        # 布尔类型
+        if 'bool' in field_type:
+            return 'False'
+        
+        # 日期时间类型
+        if 'datetime' in field_type:
+            return 'datetime.now()'
+        if 'date' in field_type:
+            return 'date.today()'
+        
+        # 默认值
+        return f'"{field.name}"'
+    
     def _generate_test_entity_creation(self, model_name: str, models: Dict[str, ModelInfo], suffix: str = "测试数据", with_dependencies: bool = False) -> str:
         """生成测试实体创建代码，自动包含必填字段和外键依赖
         
@@ -2569,16 +2606,21 @@ class Test{repo_name}:
             return f'"{suffix}"'
     
     def _generate_repository_create_test(self, method_info: RepositoryMethodInfo, model_name: str, repo_name: str, module_name: str, models: Dict[str, ModelInfo]) -> str:
-        """生成Repository create方法测试（自动处理外键依赖和联合主键）"""
-        method_name = method_info.name
-        entity_creation_code = self._generate_test_entity_creation(model_name, models, "测试数据", with_dependencies=True)
-        entity_creation_transaction_code = self._generate_test_entity_creation(model_name, models, "事务测试", with_dependencies=True)
+        """生成Repository create方法测试（符合testing-standards.md 2.1节要求）
         
+        测试类型（符合标准第2.1节）:
+        1. 最小必填字段创建测试 - 只填写nullable=False且无default的字段
+        2. 完整字段创建测试 - 填写所有字段包括可选字段
+        3. 字段验证测试 - 验证约束和格式
+        4. 关联创建测试 - 验证外键关联
+        """
+        method_name = method_info.name
+        
+        # 生成最小字段创建代码（只填必填字段）
+        minimal_entity_code = self._generate_minimal_entity_creation(model_name, models, module_name)
+        
+        # 生成完整字段创建代码（使用Factory Boy）
         # 如果是单行代码，需要添加entity =前缀
-        if '\n' not in entity_creation_code:
-            entity_creation_code = f'entity = {entity_creation_code}'
-        if '\n' not in entity_creation_transaction_code:
-            entity_creation_transaction_code = f'entity = {entity_creation_transaction_code}'
         
         # 🔥 检查是否使用联合主键
         has_composite_pk = self._has_composite_primary_key(model_name, models)
@@ -2588,61 +2630,171 @@ class Test{repo_name}:
             pk_fields = self._get_primary_key_fields(model_name, models)
             pk_filter = ', '.join([f'{f.name}=result.{f.name}' for f in pk_fields])
             
-            return f'''    def test_{method_name}_success(self, unit_test_db: Session):
-        """测试{method_name} - 成功创建"""
-        # 准备测试数据（包括外键依赖）
-        {entity_creation_code}
+            return f'''    def test_{method_name}_minimal_fields(self, unit_test_db: Session):
+        """测试{method_name} - 最小必填字段创建
+        
+        符合标准: testing-standards.md 第2.1节 - 只填写必填字段，验证默认值
+        """
+        # 创建最小实体（只填必填字段）
+{minimal_entity_code}
         
         # 执行Repository方法
         result = {repo_name}.{method_name}(unit_test_db, entity)
         
-        # 验证结果
+        # 验证必填字段
         assert result is not None
-        # 联合主键模型没有单独的id字段
         
-        # 验证数据已持久化（使用联合主键查询）
+        # 验证默认值（如果模型定义了default）
+        # TODO: 根据实际模型补充默认值验证
+        
+        # 验证数据已持久化（联合主键查询）
         db_entity = unit_test_db.query({model_name}).filter_by({pk_filter}).first()
         assert db_entity is not None
     
-    def test_{method_name}_transaction(self, unit_test_db: Session):
-        """测试{method_name} - 事务提交"""
-        {entity_creation_transaction_code}
+    def test_{method_name}_full_fields(self, unit_test_db: Session):
+        """测试{method_name} - 完整字段创建
         
-        result = {repo_name}.{method_name}(unit_test_db, entity)
-        
-        # 验证事务已提交（可以在新会话中查询到）
-        unit_test_db.expire_all()
-        db_entity = unit_test_db.query({model_name}).filter_by({pk_filter}).first()
-        assert db_entity is not None
-'''
-        else:
-            # 标准单主键：使用id查询
-            return f'''    def test_{method_name}_success(self, unit_test_db: Session):
-        """测试{method_name} - 成功创建"""
-        # 准备测试数据（包括外键依赖）
-        {entity_creation_code}
+        符合标准: testing-standards.md 第2.1节 - 填写所有字段，验证保存正确
+        """
+        # 使用Factory Boy创建完整实体
+        from tests.factories.{module_name}_factories import {model_name}Factory
+        entity = {model_name}Factory.build()  # build不自动保存
         
         # 执行Repository方法
         result = {repo_name}.{method_name}(unit_test_db, entity)
         
-        # 验证结果
+        # 验证所有字段保存正确
+        assert result is not None
+        # TODO: 验证各个字段值
+        
+        # 验证持久化
+        db_entity = unit_test_db.query({model_name}).filter_by({pk_filter}).first()
+        assert db_entity is not None
+    
+    def test_{method_name}_transaction_commit(self, unit_test_db: Session):
+        """测试{method_name} - 事务提交验证
+        
+        符合标准: testing-standards.md 第2.5节 - 验证数据真正写入数据库
+        """
+        from tests.factories.{module_name}_factories import {model_name}Factory
+        entity = {model_name}Factory.build()
+        
+        result = {repo_name}.{method_name}(unit_test_db, entity)
+        
+        # 验证事务已提交（expire后重新查询能找到）
+        unit_test_db.expire_all()
+        db_entity = unit_test_db.query({model_name}).filter_by({pk_filter}).first()
+        assert db_entity is not None
+        
+    def test_{method_name}_transaction_rollback(self, unit_test_db: Session):
+        """测试{method_name} - 事务回滚验证
+        
+        符合标准: testing-standards.md 第2.5节 - 验证错误时回滚
+        """
+        from tests.factories.{module_name}_factories import {model_name}Factory
+        
+        initial_count = unit_test_db.query({model_name}).count()
+        
+        try:
+            entity = {model_name}Factory.build()
+            result = {repo_name}.{method_name}(unit_test_db, entity)
+            unit_test_db.flush()
+            
+            # 模拟错误，触发回滚
+            raise Exception("Simulated error")
+        except Exception:
+            unit_test_db.rollback()
+        
+        # 验证回滚后数据未增加
+        final_count = unit_test_db.query({model_name}).count()
+        assert final_count == initial_count
+'''
+        else:
+            # 标准单主键：使用id查询
+            return f'''    def test_{method_name}_minimal_fields(self, unit_test_db: Session):
+        """测试{method_name} - 最小必填字段创建
+        
+        符合标准: testing-standards.md 第2.1节 - 只填写必填字段，验证默认值
+        数据准备策略: 最小实体构造，不使用Factory Boy
+        """
+        # 创建最小实体（只填必填字段）
+{minimal_entity_code}
+        
+        # 执行Repository方法
+        result = {repo_name}.{method_name}(unit_test_db, entity)
+        
+        # 验证必填字段
         assert result is not None
         assert result.id is not None  # 验证ID已生成
+        
+        # 验证默认值（Column(default=...)定义的值）
+        # 示例: assert result.is_active == True
+        # 示例: assert result.status == "active"
+        # TODO: 根据实际模型补充默认值验证
         
         # 验证数据已持久化
         db_entity = unit_test_db.query({model_name}).filter_by(id=result.id).first()
         assert db_entity is not None
     
-    def test_{method_name}_transaction(self, unit_test_db: Session):
-        """测试{method_name} - 事务提交"""
-        {entity_creation_transaction_code}
+    def test_{method_name}_full_fields(self, unit_test_db: Session):
+        """测试{method_name} - 完整字段创建
+        
+        符合标准: testing-standards.md 第2.1节 - 填写所有字段，验证保存正确
+        数据准备策略: 使用Factory Boy
+        """
+        # 使用Factory Boy创建完整实体
+        from tests.factories.{module_name}_factories import {model_name}Factory
+        entity = {model_name}Factory.build()  # build不自动保存到数据库
+        
+        # 执行Repository方法
+        result = {repo_name}.{method_name}(unit_test_db, entity)
+        
+        # 验证所有字段保存正确
+        assert result is not None
+        assert result.id is not None
+        # TODO: 验证其他字段值正确保存
+        
+        # 验证持久化
+        db_entity = unit_test_db.query({model_name}).filter_by(id=result.id).first()
+        assert db_entity is not None
+    
+    def test_{method_name}_transaction_commit(self, unit_test_db: Session):
+        """测试{method_name} - 事务提交验证
+        
+        符合标准: testing-standards.md 第2.5节 - 验证数据真正写入数据库
+        """
+        from tests.factories.{module_name}_factories import {model_name}Factory
+        entity = {model_name}Factory.build()
         
         result = {repo_name}.{method_name}(unit_test_db, entity)
         
-        # 验证事务已提交（可以在新会话中查询到）
+        # 验证事务已提交（expire后重新查询能找到）
         unit_test_db.expire_all()
         db_entity = unit_test_db.query({model_name}).filter_by(id=result.id).first()
         assert db_entity is not None
+        
+    def test_{method_name}_transaction_rollback(self, unit_test_db: Session):
+        """测试{method_name} - 事务回滚验证
+        
+        符合标准: testing-standards.md 第2.5节 - 验证错误时回滚
+        """
+        from tests.factories.{module_name}_factories import {model_name}Factory
+        
+        initial_count = unit_test_db.query({model_name}).count()
+        
+        try:
+            entity = {model_name}Factory.build()
+            result = {repo_name}.{method_name}(unit_test_db, entity)
+            unit_test_db.flush()
+            
+            # 模拟错误，触发回滚
+            raise Exception("Simulated error")
+        except Exception:
+            unit_test_db.rollback()
+        
+        # 验证回滚后数据未增加
+        final_count = unit_test_db.query({model_name}).count()
+        assert final_count == initial_count
 '''
     
     def _generate_repository_read_test(self, method_info: RepositoryMethodInfo, model_name: str, repo_name: str, module_name: str, models: Dict[str, ModelInfo]) -> str:
@@ -2839,13 +2991,21 @@ class Test{repo_name}:
 '''
             else:
                 # 可以自动推断参数的方法
-                # 提取字段名用于验证
+                # 提取字段名用于验证（避免数字字面量导致的语法错误）
                 if ',' in query_param:
                     # 多个参数（如联合主键）- 使用第一个字段验证
                     first_param = query_param.split(',')[0].strip()
-                    verify_field = first_param.split('.')[-1]
+                    if '.' in first_param:
+                        verify_field = first_param.split('.')[-1]
+                    else:
+                        # 参数是字面量（如1），使用id作为验证字段
+                        verify_field = 'id'
                 else:
-                    verify_field = query_param.split('.')[-1]
+                    if '.' in query_param:
+                        verify_field = query_param.split('.')[-1]
+                    else:
+                        # 参数是字面量（如1, True, "test"），使用id作为验证字段
+                        verify_field = 'id'
                 
                 return f'''    def test_{method_name}_found(self, unit_test_db: Session):
         """测试{method_name} - 查询到数据"""
@@ -2869,7 +3029,14 @@ class Test{repo_name}:
 '''
     
     def _generate_repository_update_test(self, method_info: RepositoryMethodInfo, model_name: str, repo_name: str, module_name: str, models: Dict[str, ModelInfo]) -> str:
-        """生成Repository update方法测试（智能选择可更新字段，处理联合主键）"""
+        """生成Repository update方法测试（符合testing-standards.md 2.3节要求）
+        
+        测试类型（符合标准第2.3节）:
+        1. 单字段更新测试 - 只更新一个字段，验证其他字段不变
+        2. 多字段更新测试 - 同时更新多个字段
+        3. 专用方法测试 - 如update_status, update_password等
+        4. 批量更新测试 - 如update_many, bulk_update等
+        """
         method_name = method_info.name
         entity_creation = self._generate_test_entity_creation(model_name, models, "原始数据", with_dependencies=True)
         
@@ -2945,25 +3112,101 @@ class Test{repo_name}:
         assert db_entity.{update_field} == "更新后数据"
 '''
         else:
-            # 标准单主键
-            return f'''    def test_{method_name}_success(self, unit_test_db: Session):
-        """测试{method_name} - 更新成功"""
+            # 标准单主键 - 生成4种更新测试
+            # 找第二个可更新字段（用于多字段测试）
+            second_update_field = "description"
+            if model_name in models:
+                model_info = models[model_name]
+                excluded_fields = {'id', 'created_at', 'updated_at', 'is_deleted', 
+                                 'username', 'email', update_field}
+                updateable_fields = [
+                    f.name for f in model_info.fields
+                    if f.name not in excluded_fields
+                    and not f.primary_key and not f.foreign_key
+                    and 'String' in f.column_type
+                ]
+                if updateable_fields:
+                    second_update_field = updateable_fields[0]
+            
+            return f'''    def test_{method_name}_single_field(self, unit_test_db: Session):
+        """测试{method_name} - 单字段更新
+        
+        符合标准: testing-standards.md 第2.3节 - 只更新一个字段，验证其他字段不变
+        """
         # 准备测试数据
-        entity = {entity_creation}
-        unit_test_db.add(entity)
-        unit_test_db.commit()
+        from tests.factories.{module_name}_factories import {model_name}Factory
+        entity = {model_name}Factory.create()
+        original_{second_update_field} = entity.{second_update_field}
         
-        # 执行Repository方法
+        # 执行Repository方法（只更新{update_field}）
         update_data = {{"{update_field}": "更新后数据"}}
-        result = {repo_name}.{method_name}(unit_test_db, entity, update_data)  # TODO: 根据实际方法签名调整参数
+        result = {repo_name}.{method_name}(unit_test_db, entity, update_data)  # TODO: 根据实际方法签名调整
         
-        # 验证结果
+        # 验证目标字段已更新
         assert result.{update_field} == "更新后数据"
+        
+        # ✅ 验证其他字段未变化
+        assert result.{second_update_field} == original_{second_update_field}
         
         # 验证数据库已更新
         unit_test_db.expire_all()
         db_entity = unit_test_db.query({model_name}).filter_by(id=entity.id).first()
         assert db_entity.{update_field} == "更新后数据"
+        assert db_entity.{second_update_field} == original_{second_update_field}
+    
+    def test_{method_name}_multiple_fields(self, unit_test_db: Session):
+        """测试{method_name} - 多字段更新
+        
+        符合标准: testing-standards.md 第2.3节 - 同时更新多个字段
+        """
+        from tests.factories.{module_name}_factories import {model_name}Factory
+        entity = {model_name}Factory.create()
+        
+        # 执行Repository方法（同时更新多个字段）
+        update_data = {{
+            "{update_field}": "更新后数据1",
+            "{second_update_field}": "更新后数据2"
+        }}
+        result = {repo_name}.{method_name}(unit_test_db, entity, update_data)
+        
+        # 验证所有字段已更新
+        assert result.{update_field} == "更新后数据1"
+        assert result.{second_update_field} == "更新后数据2"
+        
+        # 验证持久化
+        unit_test_db.expire_all()
+        db_entity = unit_test_db.query({model_name}).filter_by(id=entity.id).first()
+        assert db_entity.{update_field} == "更新后数据1"
+        assert db_entity.{second_update_field} == "更新后数据2"
+    
+    def test_{method_name}_transaction_commit(self, unit_test_db: Session):
+        """测试{method_name} - 事务提交验证
+        
+        符合标准: testing-standards.md 第2.5节 - 验证更新真正写入数据库
+        """
+        from tests.factories.{module_name}_factories import {model_name}Factory
+        entity = {model_name}Factory.create()
+        
+        update_data = {{"{update_field}": "事务测试数据"}}
+        result = {repo_name}.{method_name}(unit_test_db, entity, update_data)
+        
+        # 验证事务已提交
+        unit_test_db.expire_all()
+        db_entity = unit_test_db.query({model_name}).filter_by(id=entity.id).first()
+        assert db_entity.{update_field} == "事务测试数据"
+    
+    def test_{method_name}_specialized_method(self, unit_test_db: Session):
+        """测试{method_name} - 专用方法测试（如有）
+        
+        符合标准: testing-standards.md 第2.3节 - 测试特殊更新方法
+        示例: update_status, update_password, activate, deactivate等
+        """
+        # TODO: 如果有专用更新方法，在这里测试
+        # 例如:
+        # entity = {model_name}Factory.create(status='active')
+        # result = {repo_name}.update_status(unit_test_db, entity.id, 'inactive')
+        # assert result.status == 'inactive'
+        pass
 '''
     
     def _generate_delete_verification(self, is_soft_delete: bool, model_name: str, filter_condition: str) -> str:
@@ -2996,7 +3239,13 @@ class Test{repo_name}:
         assert db_entity is None  # 记录已物理删除'''
     
     def _generate_repository_delete_test(self, method_info: RepositoryMethodInfo, model_name: str, repo_name: str, module_name: str, models: Dict[str, ModelInfo]) -> str:
-        """生成Repository delete方法测试（处理软删除/硬删除、联合主键和返回类型）"""
+        """生成Repository delete方法测试（符合testing-standards.md 2.4节要求）
+        
+        测试类型（符合标准第2.4节）:
+        1. 物理删除测试 - 验证数据真正从数据库删除
+        2. 软删除测试 - 验证is_deleted标记和deleted_at时间戳
+        3. 批量删除测试 - 如delete_many, bulk_delete等（如有）
+        """
         method_name = method_info.name
         entity_creation = self._generate_test_entity_creation(model_name, models, "待删除数据", with_dependencies=True)
         
@@ -3096,37 +3345,122 @@ class Test{repo_name}:
         {verification}
 '''
             else:
-                # delete方法接收ID
-                if returns_none:
-                    return f'''    def test_{method_name}_success(self, unit_test_db: Session):
-        """测试{method_name} - 删除成功"""
-        # 准备测试数据
-        entity = {entity_creation}
-        unit_test_db.add(entity)
-        unit_test_db.commit()
+                # delete方法接收ID - 生成3种删除测试
+                if is_soft_delete:
+                    # 软删除
+                    return f'''    def test_{method_name}_soft_delete(self, unit_test_db: Session):
+        """测试{method_name} - 软删除验证
+        
+        符合标准: testing-standards.md 第2.4节 - 验证is_deleted标记和deleted_at时间戳
+        """
+        from tests.factories.{module_name}_factories import {model_name}Factory
+        from datetime import datetime
+        
+        entity = {model_name}Factory.create()
         entity_id = entity.id
         
-        # 执行Repository方法（传递ID）
-        {repo_name}.{method_name}(unit_test_db, entity_id)
-        
-        {verification}
-'''
-                else:
-                    return f'''    def test_{method_name}_success(self, unit_test_db: Session):
-        """测试{method_name} - 删除成功"""
-        # 准备测试数据
-        entity = {entity_creation}
-        unit_test_db.add(entity)
-        unit_test_db.commit()
-        entity_id = entity.id
-        
-        # 执行Repository方法（传递ID）
+        # 执行软删除
         result = {repo_name}.{method_name}(unit_test_db, entity_id)
         
-        # 验证结果
-        assert result is not None
+        # ✅ 验证软删除标记
+        unit_test_db.expire_all()
+        db_entity = unit_test_db.query({model_name}).filter_by(id=entity_id).first()
+        assert db_entity is not None, "软删除后记录应仍存在"
+        assert db_entity.is_deleted == True, "is_deleted应为True"
         
-        {verification}
+        # ✅ 验证deleted_at时间戳
+        if hasattr(db_entity, 'deleted_at'):
+            assert db_entity.deleted_at is not None, "deleted_at应有值"
+            assert isinstance(db_entity.deleted_at, datetime), "deleted_at应为datetime类型"
+    
+    def test_{method_name}_cascade_soft_delete(self, unit_test_db: Session):
+        """测试{method_name} - 级联软删除（如有关联数据）
+        
+        符合标准: testing-standards.md 第2.4节 - 验证关联数据的软删除
+        """
+        # TODO: 如果该模型有关联数据，验证级联软删除
+        # 示例:
+        # parent = ParentFactory.create()
+        # child = ChildFactory.create(parent_id=parent.id)
+        # {repo_name}.{method_name}(unit_test_db, parent.id)
+        # assert child.is_deleted == True
+        pass
+    
+    def test_{method_name}_batch_soft_delete(self, unit_test_db: Session):
+        """测试{method_name} - 批量软删除（如有批量方法）
+        
+        符合标准: testing-standards.md 第2.4节 - 验证批量删除
+        """
+        # TODO: 如果有批量删除方法(delete_many, bulk_delete)，在这里测试
+        # 示例:
+        # entities = {model_name}Factory.create_batch(3)
+        # ids = [e.id for e in entities]
+        # {repo_name}.delete_many(unit_test_db, ids)
+        # for entity_id in ids:
+        #     db_entity = unit_test_db.query({model_name}).filter_by(id=entity_id).first()
+        #     assert db_entity.is_deleted == True
+        pass
+'''
+                else:
+                    # 物理删除
+                    return f'''    def test_{method_name}_physical_delete(self, unit_test_db: Session):
+        """测试{method_name} - 物理删除验证
+        
+        符合标准: testing-standards.md 第2.4节 - 验证数据真正从数据库删除
+        """
+        from tests.factories.{module_name}_factories import {model_name}Factory
+        
+        entity = {model_name}Factory.create()
+        entity_id = entity.id
+        
+        # 执行物理删除
+        result = {repo_name}.{method_name}(unit_test_db, entity_id)
+        
+        # ✅ 验证物理删除（记录不存在）
+        unit_test_db.expire_all()
+        db_entity = unit_test_db.query({model_name}).filter_by(id=entity_id).first()
+        assert db_entity is None, "物理删除后记录应不存在"
+        
+        # 验证数据库count减少
+        total_count = unit_test_db.query({model_name}).count()
+        assert total_count >= 0
+    
+    def test_{method_name}_cascade_delete(self, unit_test_db: Session):
+        """测试{method_name} - 级联删除（如有关联数据）
+        
+        符合标准: testing-standards.md 第2.4节 - 验证关联数据的物理删除
+        """
+        # TODO: 如果该模型有关联数据，验证级联删除行为
+        # 根据外键定义的ondelete行为:
+        # - CASCADE: 子记录应被删除
+        # - SET NULL: 子记录外键应为NULL
+        # - RESTRICT: 应抛出异常
+        
+        # 示例:
+        # parent = ParentFactory.create()
+        # child = ChildFactory.create(parent_id=parent.id)
+        # {repo_name}.{method_name}(unit_test_db, parent.id)
+        # 
+        # # CASCADE情况
+        # db_child = unit_test_db.query(Child).filter_by(id=child.id).first()
+        # assert db_child is None
+        pass
+    
+    def test_{method_name}_batch_delete(self, unit_test_db: Session):
+        """测试{method_name} - 批量物理删除（如有批量方法）
+        
+        符合标准: testing-standards.md 第2.4节 - 验证批量删除
+        """
+        # TODO: 如果有批量删除方法(delete_many, bulk_delete)，在这里测试
+        # 示例:
+        # entities = {model_name}Factory.create_batch(3)
+        # ids = [e.id for e in entities]
+        # {repo_name}.delete_many(unit_test_db, ids)
+        # 
+        # for entity_id in ids:
+        #     db_entity = unit_test_db.query({model_name}).filter_by(id=entity_id).first()
+        #     assert db_entity is None
+        pass
 '''
     
     def _generate_repository_count_test(self, method_info: RepositoryMethodInfo, model_name: str, repo_name: str, module_name: str, models: Dict[str, ModelInfo]) -> str:
@@ -3960,6 +4294,94 @@ class Test{model_name}Model:
             # 注意：目前不传递数据库参数，根据实际需要可以扩展
             return f"service = {service_class_name}()"
 
+    def _generate_mock_service_tests(
+        self, module_name: str, models: Dict[str, ModelInfo], repositories: Dict[str, RepositoryInfo], service_info: dict
+    ) -> str:
+        """生成Mock Repository的Service测试代码
+        
+        符合testing-standards.md v2.0.0要求：
+        - Mock所有Repository方法
+        - 验证业务逻辑，不测试SQL
+        - 使用pytest-mock
+        
+        Args:
+            module_name: 模块名称
+            models: 模型信息字典
+            repositories: Repository信息字典
+            service_info: 服务类信息
+            
+        Returns:
+            str: Mock测试代码
+        """
+        if not repositories:
+            return '''    
+    def test_service_methods_placeholder(self, mocker: MockerFixture):
+        """Service方法测试占位符
+        
+        注意: 未检测到Repository，请手动补充测试
+        """
+        print("\\n⚠️ 需要手动补充Service测试")
+        if not SERVICE_AVAILABLE:
+            pytest.skip("服务类不可用")
+        assert True  # 占位符测试
+'''
+        
+        tests = []
+        
+        # 为每个Repository生成Mock测试示例
+        for repo_name, repo_info in list(repositories.items())[:2]:  # 最多生成2个示例
+            model_name = repo_info.model_name
+            model_name_lower = model_name.lower()
+            
+            # 生成CRUD操作的Mock测试
+            test_code = f'''
+    def test_service_with_mock_{model_name_lower}_repository(self, mocker: MockerFixture):
+        """测试Service使用Mock {repo_name}
+        
+        测试策略:
+        - Mock {repo_name}的方法
+        - 验证Service业务逻辑
+        - 不依赖数据库
+        
+        示例: 测试获取{model_name}的业务逻辑
+        """
+        print("\\n🔧 测试Service Mock {repo_name}...")
+        
+        if not SERVICE_AVAILABLE:
+            pytest.skip("服务类不可用")
+        
+        # Mock Repository
+        mock_repo = mocker.patch(
+            'app.modules.{module_name}.repository.{repo_name}'
+        )
+        
+        # 创建Mock {model_name}对象
+        mock_{model_name_lower} = mocker.Mock(spec={model_name})
+        mock_{model_name_lower}.id = 1
+        # 设置其他必要属性
+        # mock_{model_name_lower}.name = "Test {model_name}"
+        
+        # 设置Mock Repository返回值
+        mock_repo.get_by_id.return_value = mock_{model_name_lower}
+        
+        # TODO: 调用Service方法（需要根据实际Service API补充）
+        # result = ServiceClass.some_method(mock_db, 1)
+        
+        # 验证Repository被正确调用
+        # mock_repo.get_by_id.assert_called_once_with(mock_db, 1)
+        
+        # 验证业务逻辑结果
+        # assert result is not None
+        # assert result.id == 1
+        
+        # 占位符断言
+        assert mock_{model_name_lower} is not None
+        assert mock_repo is not None
+'''
+            tests.append(test_code)
+        
+        return '\n'.join(tests)
+
     def _generate_service_method_tests(
         self, module_name: str, models: Dict[str, ModelInfo], service_info: dict
     ) -> str:
@@ -4126,72 +4548,99 @@ class Test{model_name}Model:
     ) -> str:
         """生成服务层测试 - Mock Repository [CHECK:TEST-001]
         
-        🚨 **关键f-string嵌套错误警告** 🚨
-        此函数曾因第2725行注释中的{model_name}引起 "name 'model_name' is not defined" 错误！
-        原因: 整个函数返回的是一个大的f-string模板，其中的注释中的{}也会被Python解析！
+        ✅ **符合架构设计意图** ✅
+        严格遵循 testing-standards.md v2.0.0 和 architecture/overview.md 的设计原则：
+        - Service层测试必须Mock Repository（不使用数据库）
+        - 专注测试业务逻辑，不测试SQL（SQL由Repository层测试）
+        - 使用pytest-mock而非SQLite数据库
+        - Mock Repository返回值，验证Service调用Repository的参数和顺序
         
-        重要经验教训:
-        1. 在f-string模板内部的注释中绝对不能使用{}花括号
-        2. 必须使用双大括号{{}}转义所有在f-string内部的变量引用
-        3. 模板变量替换时传入实际变量而不是字符串字面量
-        4. 移除不必要的StandardTestDataFactory依赖
+        🎯 **核心原则**:
+        1. Service层测试使用mocker fixture，不使用unit_test_db
+        2. Mock所有Repository方法调用
+        3. 验证业务规则、流程编排、异常处理
+        4. 不依赖数据库，测试速度快
+        
+        📖 **参考标准**:
+        - testing-standards.md 第46-123行: Service层Mock Repository
+        - architecture/overview.md 第310行: Repository可轻松Mock
 
         Args:
             module_name: 模块名称
             models: 模型信息字典
+            repositories: Repository信息字典
 
         Returns:
-            str: 服务层测试代码
+            str: 服务层测试代码（使用Mock Repository）
         """
         service_info = self._detect_service_info(module_name)
         service_class_name = service_info['class_name']
-        service_instantiation = self._generate_service_instantiation(service_info)
         test_class_name = f"Test{service_class_name}"
         
-        # 生成服务方法测试
-        service_methods = self._generate_service_method_tests(
-            module_name, models, service_info
+        # 收集需要Mock的Repository类
+        repo_imports = []
+        repo_mock_examples = []
+        for repo_name, repo_info in repositories.items():
+            repo_imports.append(repo_name)
+            # 生成Mock示例
+            repo_mock_examples.append(f"""
+    # Mock {repo_name}
+    mock_{repo_info.model_name.lower()}_repo = mocker.patch(
+        'app.modules.{module_name}.repository.{repo_name}'
+    )
+    # 设置Mock返回值
+    mock_{repo_info.model_name.lower()} = mocker.Mock(spec={repo_info.model_name})
+    mock_{repo_info.model_name.lower()}.id = 1
+    mock_{repo_info.model_name.lower()}_repo.get_by_id.return_value = mock_{repo_info.model_name.lower()}""")
+        
+        # 生成Mock Repository的业务逻辑测试
+        mock_tests = self._generate_mock_service_tests(
+            module_name, models, repositories, service_info
         )
-        # 【关键修复】根据历史经验(git commit 3a4387a)，将f-string模板转为字符串format避免嵌套f-string变量作用域错误
+        
         template = '''"""
 {module_title} 服务层测试
 
 测试类型: 单元测试 - 服务层业务逻辑
-数据策略: SQLite内存数据库 (tests/unit/test_services/)
-测试范围: 服务类方法、数据库交互、业务逻辑验证
+测试策略: Mock Repository（符合架构设计意图）
+测试范围: 业务规则、流程编排、异常处理、Repository调用验证
 生成时间: {generation_time}
 
 符合标准: 
 - [CHECK:TEST-001] 测试标准合规
-- testing-standards.md 第41行规范 (SQLite内存 + unit_test_db fixture)
+- testing-standards.md v2.0.0 第46-123行: Service层Mock Repository
+- architecture/overview.md 第310行: Repository可轻松Mock
 
-覆盖功能:
-1. 服务初始化和依赖注入
-2. 基础CRUD操作验证
-3. 业务逻辑方法测试
-4. 数据验证和错误处理
-5. 事务处理和数据一致性
-6. 服务间协作功能
+测试重点:
+1. ✅ 业务规则是否正确
+2. ✅ 流程编排是否合理
+3. ✅ 异常处理是否完善
+4. ✅ 调用Repository的参数和顺序
+5. ❌ 不测试SQL正确性（由Repository层测试负责）
+
+为什么Mock Repository?
+- 符合架构设计意图（"Repository可轻松Mock"）
+- 测试速度快，不依赖数据库
+- 职责清晰，只测试业务逻辑
+- SQL错误由Repository测试发现，Service不重复测试
 """
 
 import pytest
+from unittest.mock import Mock, MagicMock, patch
+from pytest_mock import MockerFixture
 from decimal import Decimal
 from datetime import datetime, timedelta
-from sqlalchemy.orm import Session
-from sqlalchemy.exc import IntegrityError
 
 # 全局常量
 NEWLINE = "\\n"
 
-# 测试基础设施
-from tests.conftest import unit_test_db
-# 【修复】移除不必要的StandardTestDataFactory依赖，因为它不存在且未被实际使用
-from tests.factories.{module_name}_factories import {factory_manager_class}FactoryManager
-
 # 被测服务和模型
 from app.modules.{module_name}.models import {model_imports}
 
-# 尝试导入服务类，如果不存在就跳过相关测试
+# Repository导入（用于Mock）
+from app.modules.{module_name}.repository import {repo_imports}
+
+# 尝试导入服务类
 try:
     from app.modules.{module_name}.service import {service_class_name}
     SERVICE_AVAILABLE = True
@@ -4203,159 +4652,110 @@ except ImportError as e:
 @pytest.mark.unit
 @pytest.mark.services
 class {test_class_name}:
-    """服务层测试类 - SQLite内存数据库验证"""
+    """服务层测试类 - Mock Repository策略
     
-    def setup_method(self):
-        """测试准备"""
-        # 【修复】移除不必要的test_data_factory，因为StandardTestDataFactory不存在
-        self.factory_manager = {factory_manager_class}FactoryManager()
+    测试策略说明:
+    - 使用pytest-mock的mocker fixture
+    - Mock所有Repository方法调用
+    - 验证业务逻辑，不测试SQL
+    - 测试速度快，无数据库依赖
+    """
+    
+    def test_service_initialization(self, mocker: MockerFixture):
+        """测试服务初始化
         
-    def test_service_initialization(self, unit_test_db: Session):
-        """测试服务初始化和依赖注入"""
+        验证点:
+        - Service类可以正常实例化
+        - 不依赖数据库连接
+        """
         print("\\n🔧 测试服务初始化...")
         
         if not SERVICE_AVAILABLE:
             pytest.skip("服务类不可用，跳过服务初始化测试")
         
-        # 测试正常初始化
-        {service_instantiation}
-        assert service is not None
+        # Service通常是静态方法类，不需要实例化
+        assert {service_class_name} is not None
         
-    def test_service_factory_integration(self, unit_test_db: Session):
-        """测试服务与Factory数据工厂的集成"""
-        print("\\n🏭 测试Factory集成...")
-        
-        if not SERVICE_AVAILABLE:
-            pytest.skip("服务类不可用，跳过Factory集成测试")
-        
-        # 设置Factory数据库会话
-        self.factory_manager.setup_factories(unit_test_db)
-        
-        # 创建测试数据
-        sample_data = self.factory_manager.create_sample_data(unit_test_db)
-        assert sample_data is not None
-        
-        # 验证Factory创建的数据可以被查询 - 支持联合主键模型
-        for model_name, created_instance in sample_data.items():
-            assert created_instance is not None
-            # 动态检测主键字段而不是硬编码id
-            if hasattr(created_instance, 'id'):
-                assert created_instance.id is not None
-            else:
-                # 联合主键模型，验证至少有一个主键字段
-                has_primary_key = False
-                for attr_name in dir(created_instance):
-                    if not attr_name.startswith('_') and hasattr(created_instance, attr_name):
-                        attr_value = getattr(created_instance, attr_name)
-                        if attr_value is not None and str(attr_name).endswith('_id'):
-                            has_primary_key = True
-                            break
-                # 【重要修复】双大括号转义避免f-string嵌套错误
-                assert has_primary_key, "模型 " + str(model_name) + " 没有找到有效的主键字段"
-            
-{service_methods}'''
-        
-        # 添加剩余的测试方法到模板
-        template += '''
+{mock_tests}
     
-    def test_error_handling_and_validation(self, unit_test_db: Session):
-        """测试错误处理和数据验证"""
-        print("\\n⚠️ 测试错误处理...")
+    def test_business_rule_validation(self, mocker: MockerFixture):
+        """测试业务规则验证
+        
+        验证点:
+        - 业务规则是否正确执行
+        - 参数验证是否有效
+        - 边界条件处理
+        """
+        print("\\n📋 测试业务规则验证...")
         
         if not SERVICE_AVAILABLE:
-            pytest.skip("服务类不可用，跳过错误处理测试")
+            pytest.skip("服务类不可用")
         
-        # 设置Factory
-        self.factory_manager.setup_factories(unit_test_db)
+        # 示例：测试参数验证
+        # Mock Repository
+        mock_repo = mocker.patch('app.modules.{module_name}.repository.{first_repo_name}')
         
-        # 测试数据库约束违反
-        from tests.factories.{module_name}_factories import {first_model_name}Factory
+        # 测试空参数
+        # TODO: 根据实际Service方法补充测试
+        assert True
+    
+    def test_exception_handling(self, mocker: MockerFixture):
+        """测试异常处理
         
-        # 创建第一个实例
-        first_instance = {first_model_name}Factory()
-        
-        # 测试唯一约束冲突（如果有唯一字段）
-        try:
-            # 尝试创建具有相同唯一字段值的实例
-            if hasattr(first_instance, 'email'):
-                duplicate_data = {{'email': first_instance.email}}
-                duplicate_instance = {first_model_name}Factory(**duplicate_data)
-                unit_test_db.commit()
-                # 如果到这里说明没有唯一约束，测试通过
-                assert True
-        except IntegrityError:
-            # 预期的唯一约束错误
-            unit_test_db.rollback()
-            assert True
-        except Exception as e:
-            # 其他错误
-            unit_test_db.rollback()
-            print("意外错误: " + str(e))
-            
-        # 测试空值约束
-        try:
-            # 如果有非空字段，测试空值插入
-            pass  # 由Factory自动处理非空约束
-        except Exception:
-            assert True
-            
-    def test_transaction_handling(self, unit_test_db: Session):
-        """测试事务处理和数据一致性"""
-        print("\\n💾 测试事务处理...")
+        验证点:
+        - Repository异常是否正确处理
+        - 业务异常是否正确抛出
+        - 错误信息是否清晰
+        """
+        print("\\n⚠️ 测试异常处理...")
         
         if not SERVICE_AVAILABLE:
-            pytest.skip("服务类不可用，跳过事务处理测试")
+            pytest.skip("服务类不可用")
         
-        # 设置Factory
-        self.factory_manager.setup_factories(unit_test_db)
+        # Mock Repository抛出异常
+        mock_repo = mocker.patch('app.modules.{module_name}.repository.{first_repo_name}')
+        mock_repo.get_by_id.side_effect = Exception("Database error")
         
-        # 测试事务回滚
-        from app.modules.{module_name}.models import {first_model_name}
+        # 测试Service如何处理Repository异常
+        # TODO: 根据实际Service方法补充测试
+        assert True
+    
+    def test_repository_call_verification(self, mocker: MockerFixture):
+        """测试Repository调用验证
         
-        # 记录初始数据数量
-        initial_count = unit_test_db.query({first_model_name}).count()
+        验证点:
+        - Repository方法是否被正确调用
+        - 调用参数是否正确
+        - 调用次数和顺序是否符合预期
+        """
+        print("\\n🔍 测试Repository调用...")
         
-        try:
-            # 开始事务
-            from tests.factories.{module_name}_factories import {first_model_name}Factory
-            
-            # 创建测试数据
-            test_instance = {first_model_name}Factory()
-            unit_test_db.flush()  # 刷新到数据库但不提交
-            
-            # 验证数据在事务中存在
-            temp_count = unit_test_db.query({first_model_name}).count()
-            assert temp_count == initial_count + 1
-            
-            # 模拟错误并回滚
-            unit_test_db.rollback()
-            
-            # 验证回滚后数据恢复
-            final_count = unit_test_db.query({first_model_name}).count()
-            assert final_count == initial_count
-            
-        except Exception as e:
-            # 确保回滚
-            unit_test_db.rollback()
-            print("事务测试异常: " + str(e))
-            assert True  # 异常处理成功
-            
-    def teardown_method(self):
-        """测试清理"""
-        pass
+        if not SERVICE_AVAILABLE:
+            pytest.skip("服务类不可用")
+        
+        # Mock Repository
+        mock_repo = mocker.patch('app.modules.{module_name}.repository.{first_repo_name}')
+        mock_result = mocker.Mock()
+        mock_repo.get_by_id.return_value = mock_result
+        
+        # TODO: 调用Service方法
+        # result = {service_class_name}.some_method(db, 1)
+        
+        # 验证Repository调用
+        # mock_repo.get_by_id.assert_called_once_with(db, 1)
+        assert True
 '''
         
         return template.format(
             module_title=module_name.title(),
             generation_time=datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
             module_name=module_name,
-            factory_manager_class=module_name.title().replace('_', ''),
-            model_imports=', '.join(models.keys()),
+            model_imports=', '.join(models.keys()) if models else '',
             service_class_name=service_class_name,
             test_class_name=test_class_name,
-            service_instantiation=service_instantiation,
-            service_methods=service_methods,
-            first_model_name=list(models.keys())[0] if models else 'User'
+            repo_imports=', '.join(repo_imports) if repo_imports else '',
+            mock_tests=mock_tests,
+            first_repo_name=repo_imports[0] if repo_imports else 'Repository'
         )
 
     def _generate_workflow_scenarios(

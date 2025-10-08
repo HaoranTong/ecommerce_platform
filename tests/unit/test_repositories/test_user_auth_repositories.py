@@ -2,7 +2,7 @@
 Auto Generated Test - 已生成到正式目录
 
 文件路径: tests/unit/test_repositories/test_user_auth_repositories.py
-生成时间: 2025-10-08 08:00:23
+生成时间: 2025-10-08 14:53:06
 生成工具: tools/generate_test_template.py v2.0
 状态: GENERATED - 需要经过代码审查和测试验证
 
@@ -41,78 +41,133 @@ class TestUserRepository:
     UserRepository 数据访问层测试
     
     测试范围:
-    - 14 个Repository方法
+    - 15 个Repository方法
     - CRUD操作完整性
     - 查询逻辑正确性
     - 事务处理和数据一致性
     
-    测试策略: SQLite内存数据库，无Mock依赖
+    测试策略: SQLite内存数据库 + Factory Boy
     """
     
-    def setup_method(self):
-        """测试准备 - 每个测试方法执行前调用"""
-        pass
+    def setup_method(self, unit_test_db: Session):
+        """测试准备 - 初始化Factory Manager"""
+        from tests.factories.user_auth_factories import UserAuthFactoryManager
+        self.factory_manager = UserAuthFactoryManager()
+        self.factory_manager.setup_factories(unit_test_db)
         
     def teardown_method(self):
-        """测试清理 - 每个测试方法执行后调用"""
+        """测试清理"""
         pass
         
-    def test_create_success(self, unit_test_db: Session):
-        """测试create - 成功创建"""
-        # 准备测试数据（包括外键依赖）
-        entity = User(username="测试数据", email="test_测试数据@example.com", password_hash="测试数据", is_active=True, status="active", email_verified=True, phone_verified=True, two_factor_enabled=True, failed_login_attempts=1, role="user")
+    def test_create_minimal_fields(self, unit_test_db: Session):
+        """测试create - 最小必填字段创建
+        
+        符合标准: testing-standards.md 第2.1节 - 只填写必填字段，验证默认值
+        数据准备策略: 最小实体构造，不使用Factory Boy
+        """
+        # 创建最小实体（只填必填字段）
+        entity = User()  # TODO: 补充必填字段
         
         # 执行Repository方法
         result = UserRepository.create(unit_test_db, entity)
         
-        # 验证结果
+        # 验证必填字段
         assert result is not None
         assert result.id is not None  # 验证ID已生成
+        
+        # 验证默认值（Column(default=...)定义的值）
+        # 示例: assert result.is_active == True
+        # 示例: assert result.status == "active"
+        # TODO: 根据实际模型补充默认值验证
         
         # 验证数据已持久化
         db_entity = unit_test_db.query(User).filter_by(id=result.id).first()
         assert db_entity is not None
     
-    def test_create_transaction(self, unit_test_db: Session):
-        """测试create - 事务提交"""
-        entity = User(username="事务测试", email="test_事务测试@example.com", password_hash="事务测试", is_active=True, status="active", email_verified=True, phone_verified=True, two_factor_enabled=True, failed_login_attempts=1, role="user")
+    def test_create_full_fields(self, unit_test_db: Session):
+        """测试create - 完整字段创建
+        
+        符合标准: testing-standards.md 第2.1节 - 填写所有字段，验证保存正确
+        数据准备策略: 使用Factory Boy
+        """
+        # 使用Factory Boy创建完整实体
+        from tests.factories.user_auth_factories import UserFactory
+        entity = UserFactory.build()  # build不自动保存到数据库
+        
+        # 执行Repository方法
+        result = UserRepository.create(unit_test_db, entity)
+        
+        # 验证所有字段保存正确
+        assert result is not None
+        assert result.id is not None
+        # TODO: 验证其他字段值正确保存
+        
+        # 验证持久化
+        db_entity = unit_test_db.query(User).filter_by(id=result.id).first()
+        assert db_entity is not None
+    
+    def test_create_transaction_commit(self, unit_test_db: Session):
+        """测试create - 事务提交验证
+        
+        符合标准: testing-standards.md 第2.5节 - 验证数据真正写入数据库
+        """
+        from tests.factories.user_auth_factories import UserFactory
+        entity = UserFactory.build()
         
         result = UserRepository.create(unit_test_db, entity)
         
-        # 验证事务已提交（可以在新会话中查询到）
+        # 验证事务已提交（expire后重新查询能找到）
         unit_test_db.expire_all()
         db_entity = unit_test_db.query(User).filter_by(id=result.id).first()
         assert db_entity is not None
+        
+    def test_create_transaction_rollback(self, unit_test_db: Session):
+        """测试create - 事务回滚验证
+        
+        符合标准: testing-standards.md 第2.5节 - 验证错误时回滚
+        """
+        from tests.factories.user_auth_factories import UserFactory
+        
+        initial_count = unit_test_db.query(User).count()
+        
+        try:
+            entity = UserFactory.build()
+            result = UserRepository.create(unit_test_db, entity)
+            unit_test_db.flush()
+            
+            # 模拟错误，触发回滚
+            raise Exception("Simulated error")
+        except Exception:
+            unit_test_db.rollback()
+        
+        # 验证回滚后数据未增加
+        final_count = unit_test_db.query(User).count()
+        assert final_count == initial_count
 
     def test_get_by_id_found(self, unit_test_db: Session):
         """测试get_by_id - 查询到数据"""
-        # 准备依赖实体
-        user = User(username="User数据", email="test_user数据@example.com", password_hash="User数据", is_active=True, status="active", email_verified=True, phone_verified=True, two_factor_enabled=True, failed_login_attempts=1, role="user")
-        unit_test_db.add(user)
-        unit_test_db.commit()
-        
         # 准备测试数据
-        entity = User(username="查询测试", email="test_查询测试@example.com", password_hash="查询测试", is_active=True, status="active", email_verified=True, phone_verified=True, two_factor_enabled=True, failed_login_attempts=1, role="user")
+        entity = User(name="查询测试")  # TODO: 根据实际字段调整
         unit_test_db.add(entity)
         unit_test_db.commit()
         
         # 执行Repository方法
-        result = UserRepository.get_by_id(unit_test_db, user.id)
+        result = UserRepository.get_by_id(unit_test_db, 1)
         
         # 验证结果
         assert result is not None
-
+        assert result.1 == entity.1
+    
     def test_get_by_id_not_found(self, unit_test_db: Session):
         """测试get_by_id - 数据不存在"""
-        result = UserRepository.get_by_id(unit_test_db, 99999)
+        result = UserRepository.get_by_id(unit_test_db, "nonexistent_value_12345")
         
-        # 验证结果
         assert result is None
 
     def test_get_by_username_found(self, unit_test_db: Session):
         """测试get_by_username - 查询到数据"""
         # 准备测试数据
-        entity = User(username="查询测试", email="test_查询测试@example.com", password_hash="查询测试", is_active=True, status="active", email_verified=True, phone_verified=True, two_factor_enabled=True, failed_login_attempts=1, role="user")
+        entity = User(name="查询测试")  # TODO: 根据实际字段调整
         unit_test_db.add(entity)
         unit_test_db.commit()
         
@@ -132,7 +187,7 @@ class TestUserRepository:
     def test_get_by_email_found(self, unit_test_db: Session):
         """测试get_by_email - 查询到数据"""
         # 准备测试数据
-        entity = User(username="查询测试", email="test_查询测试@example.com", password_hash="查询测试", is_active=True, status="active", email_verified=True, phone_verified=True, two_factor_enabled=True, failed_login_attempts=1, role="user")
+        entity = User(name="查询测试")  # TODO: 根据实际字段调整
         unit_test_db.add(entity)
         unit_test_db.commit()
         
@@ -152,7 +207,7 @@ class TestUserRepository:
     def test_get_by_username_or_email_found(self, unit_test_db: Session):
         """测试get_by_username_or_email - 查询到数据"""
         # 准备测试数据
-        entity = User(username="查询测试", email="test_查询测试@example.com", password_hash="查询测试", is_active=True, status="active", email_verified=True, phone_verified=True, two_factor_enabled=True, failed_login_attempts=1, role="user")
+        entity = User(name="查询测试")  # TODO: 根据实际字段调整
         unit_test_db.add(entity)
         unit_test_db.commit()
         
@@ -169,10 +224,30 @@ class TestUserRepository:
         
         assert result is None
 
+    def test_get_by_phone_found(self, unit_test_db: Session):
+        """测试get_by_phone - 查询到数据"""
+        # 准备测试数据
+        entity = User(name="查询测试")  # TODO: 根据实际字段调整
+        unit_test_db.add(entity)
+        unit_test_db.commit()
+        
+        # 执行Repository方法
+        result = UserRepository.get_by_phone(unit_test_db, entity.phone)
+        
+        # 验证结果
+        assert result is not None
+        assert result.phone == entity.phone
+    
+    def test_get_by_phone_not_found(self, unit_test_db: Session):
+        """测试get_by_phone - 数据不存在"""
+        result = UserRepository.get_by_phone(unit_test_db, "nonexistent_value_12345")
+        
+        assert result is None
+
     def test_get_by_wx_openid_found(self, unit_test_db: Session):
         """测试get_by_wx_openid - 查询到数据"""
         # 准备测试数据
-        entity = User(username="查询测试", email="test_查询测试@example.com", password_hash="查询测试", is_active=True, status="active", email_verified=True, phone_verified=True, two_factor_enabled=True, failed_login_attempts=1, role="user")
+        entity = User(name="查询测试")  # TODO: 根据实际字段调整
         unit_test_db.add(entity)
         unit_test_db.commit()
         
@@ -192,7 +267,7 @@ class TestUserRepository:
     def test_check_exists_found(self, unit_test_db: Session):
         """测试check_exists - 查询到数据"""
         # 准备测试数据
-        entity = User(username="查询测试", email="test_查询测试@example.com", password_hash="查询测试", is_active=True, status="active", email_verified=True, phone_verified=True, two_factor_enabled=True, failed_login_attempts=1, role="user")
+        entity = User(name="查询测试")  # TODO: 根据实际字段调整
         unit_test_db.add(entity)
         unit_test_db.commit()
         
@@ -211,7 +286,7 @@ class TestUserRepository:
     def test_list_found(self, unit_test_db: Session):
         """测试list - 查询到数据"""
         # 准备测试数据
-        entity = User(username="查询测试", email="test_查询测试@example.com", password_hash="查询测试", is_active=True, status="active", email_verified=True, phone_verified=True, two_factor_enabled=True, failed_login_attempts=1, role="user")
+        entity = User(name="查询测试")  # TODO: 根据实际字段调整
         unit_test_db.add(entity)
         unit_test_db.commit()
         
@@ -233,15 +308,15 @@ class TestUserRepository:
     def test_count_count(self, unit_test_db: Session):
         """测试count - 计数功能"""
         # 准备测试数据
-        entity0 = User(username="测试数据0", email="test_测试数据0@example.com", password_hash="测试数据0", is_active=True, status="active", email_verified=True, phone_verified=True, two_factor_enabled=True, failed_login_attempts=1, role="user")
+        entity0 = User(name="测试数据0")  # TODO: 根据实际字段调整
         unit_test_db.add(entity0)
-        entity1 = User(username="测试数据1", email="test_测试数据1@example.com", password_hash="测试数据1", is_active=True, status="active", email_verified=True, phone_verified=True, two_factor_enabled=True, failed_login_attempts=1, role="user")
+        entity1 = User(name="测试数据1")  # TODO: 根据实际字段调整
         unit_test_db.add(entity1)
-        entity2 = User(username="测试数据2", email="test_测试数据2@example.com", password_hash="测试数据2", is_active=True, status="active", email_verified=True, phone_verified=True, two_factor_enabled=True, failed_login_attempts=1, role="user")
+        entity2 = User(name="测试数据2")  # TODO: 根据实际字段调整
         unit_test_db.add(entity2)
-        entity3 = User(username="测试数据3", email="test_测试数据3@example.com", password_hash="测试数据3", is_active=True, status="active", email_verified=True, phone_verified=True, two_factor_enabled=True, failed_login_attempts=1, role="user")
+        entity3 = User(name="测试数据3")  # TODO: 根据实际字段调整
         unit_test_db.add(entity3)
-        entity4 = User(username="测试数据4", email="test_测试数据4@example.com", password_hash="测试数据4", is_active=True, status="active", email_verified=True, phone_verified=True, two_factor_enabled=True, failed_login_attempts=1, role="user")
+        entity4 = User(name="测试数据4")  # TODO: 根据实际字段调整
         unit_test_db.add(entity4)
         unit_test_db.commit()
         
@@ -252,24 +327,85 @@ class TestUserRepository:
         assert isinstance(count, int)
         assert count >= 0
 
-    def test_update_success(self, unit_test_db: Session):
-        """测试update - 更新成功"""
+    def test_update_single_field(self, unit_test_db: Session):
+        """测试update - 单字段更新
+        
+        符合标准: testing-standards.md 第2.3节 - 只更新一个字段，验证其他字段不变
+        """
         # 准备测试数据
-        entity = User(username="原始数据", email="test_原始数据@example.com", password_hash="原始数据", is_active=True, status="active", email_verified=True, phone_verified=True, two_factor_enabled=True, failed_login_attempts=1, role="user")
-        unit_test_db.add(entity)
-        unit_test_db.commit()
+        from tests.factories.user_auth_factories import UserFactory
+        entity = UserFactory.create()
+        original_description = entity.description
         
-        # 执行Repository方法
-        update_data = {"real_name": "更新后数据"}
-        result = UserRepository.update(unit_test_db, entity, update_data)  # TODO: 根据实际方法签名调整参数
+        # 执行Repository方法（只更新name）
+        update_data = {"name": "更新后数据"}
+        result = UserRepository.update(unit_test_db, entity, update_data)  # TODO: 根据实际方法签名调整
         
-        # 验证结果
-        assert result.real_name == "更新后数据"
+        # 验证目标字段已更新
+        assert result.name == "更新后数据"
+        
+        # ✅ 验证其他字段未变化
+        assert result.description == original_description
         
         # 验证数据库已更新
         unit_test_db.expire_all()
         db_entity = unit_test_db.query(User).filter_by(id=entity.id).first()
-        assert db_entity.real_name == "更新后数据"
+        assert db_entity.name == "更新后数据"
+        assert db_entity.description == original_description
+    
+    def test_update_multiple_fields(self, unit_test_db: Session):
+        """测试update - 多字段更新
+        
+        符合标准: testing-standards.md 第2.3节 - 同时更新多个字段
+        """
+        from tests.factories.user_auth_factories import UserFactory
+        entity = UserFactory.create()
+        
+        # 执行Repository方法（同时更新多个字段）
+        update_data = {
+            "name": "更新后数据1",
+            "description": "更新后数据2"
+        }
+        result = UserRepository.update(unit_test_db, entity, update_data)
+        
+        # 验证所有字段已更新
+        assert result.name == "更新后数据1"
+        assert result.description == "更新后数据2"
+        
+        # 验证持久化
+        unit_test_db.expire_all()
+        db_entity = unit_test_db.query(User).filter_by(id=entity.id).first()
+        assert db_entity.name == "更新后数据1"
+        assert db_entity.description == "更新后数据2"
+    
+    def test_update_transaction_commit(self, unit_test_db: Session):
+        """测试update - 事务提交验证
+        
+        符合标准: testing-standards.md 第2.5节 - 验证更新真正写入数据库
+        """
+        from tests.factories.user_auth_factories import UserFactory
+        entity = UserFactory.create()
+        
+        update_data = {"name": "事务测试数据"}
+        result = UserRepository.update(unit_test_db, entity, update_data)
+        
+        # 验证事务已提交
+        unit_test_db.expire_all()
+        db_entity = unit_test_db.query(User).filter_by(id=entity.id).first()
+        assert db_entity.name == "事务测试数据"
+    
+    def test_update_specialized_method(self, unit_test_db: Session):
+        """测试update - 专用方法测试（如有）
+        
+        符合标准: testing-standards.md 第2.3节 - 测试特殊更新方法
+        示例: update_status, update_password, activate, deactivate等
+        """
+        # TODO: 如果有专用更新方法，在这里测试
+        # 例如:
+        # entity = UserFactory.create(status='active')
+        # result = UserRepository.update_status(unit_test_db, entity.id, 'inactive')
+        # assert result.status == 'inactive'
+        pass
 
     # TODO: 测试专用更新方法 update_login_info
     # 这是一个专用更新方法，只修改特定字段，需要根据业务逻辑手动编写测试
@@ -286,7 +422,7 @@ class TestUserRepository:
     def test_soft_delete_success(self, unit_test_db: Session):
         """测试soft_delete - 删除成功"""
         # 准备测试数据
-        entity = User(username="待删除数据", email="test_待删除数据@example.com", password_hash="待删除数据", is_active=True, status="active", email_verified=True, phone_verified=True, two_factor_enabled=True, failed_login_attempts=1, role="user")
+        entity = User(name="待删除数据")  # TODO: 根据实际字段调整
         unit_test_db.add(entity)
         unit_test_db.commit()
         entity_id = entity.id
@@ -307,7 +443,7 @@ class TestUserRepository:
     def test_hard_delete_success(self, unit_test_db: Session):
         """测试hard_delete - 删除成功"""
         # 准备测试数据
-        entity = User(username="待删除数据", email="test_待删除数据@example.com", password_hash="待删除数据", is_active=True, status="active", email_verified=True, phone_verified=True, two_factor_enabled=True, failed_login_attempts=1, role="user")
+        entity = User(name="待删除数据")  # TODO: 根据实际字段调整
         unit_test_db.add(entity)
         unit_test_db.commit()
         entity_id = entity.id
@@ -335,73 +471,128 @@ class TestRoleRepository:
     - 查询逻辑正确性
     - 事务处理和数据一致性
     
-    测试策略: SQLite内存数据库，无Mock依赖
+    测试策略: SQLite内存数据库 + Factory Boy
     """
     
-    def setup_method(self):
-        """测试准备 - 每个测试方法执行前调用"""
-        pass
+    def setup_method(self, unit_test_db: Session):
+        """测试准备 - 初始化Factory Manager"""
+        from tests.factories.user_auth_factories import UserAuthFactoryManager
+        self.factory_manager = UserAuthFactoryManager()
+        self.factory_manager.setup_factories(unit_test_db)
         
     def teardown_method(self):
-        """测试清理 - 每个测试方法执行后调用"""
+        """测试清理"""
         pass
         
-    def test_create_success(self, unit_test_db: Session):
-        """测试create - 成功创建"""
-        # 准备测试数据（包括外键依赖）
-        entity = Role(name="测试数据", level=1)
+    def test_create_minimal_fields(self, unit_test_db: Session):
+        """测试create - 最小必填字段创建
+        
+        符合标准: testing-standards.md 第2.1节 - 只填写必填字段，验证默认值
+        数据准备策略: 最小实体构造，不使用Factory Boy
+        """
+        # 创建最小实体（只填必填字段）
+        entity = Role()  # TODO: 补充必填字段
         
         # 执行Repository方法
         result = RoleRepository.create(unit_test_db, entity)
         
-        # 验证结果
+        # 验证必填字段
         assert result is not None
         assert result.id is not None  # 验证ID已生成
+        
+        # 验证默认值（Column(default=...)定义的值）
+        # 示例: assert result.is_active == True
+        # 示例: assert result.status == "active"
+        # TODO: 根据实际模型补充默认值验证
         
         # 验证数据已持久化
         db_entity = unit_test_db.query(Role).filter_by(id=result.id).first()
         assert db_entity is not None
     
-    def test_create_transaction(self, unit_test_db: Session):
-        """测试create - 事务提交"""
-        entity = Role(name="事务测试", level=1)
+    def test_create_full_fields(self, unit_test_db: Session):
+        """测试create - 完整字段创建
+        
+        符合标准: testing-standards.md 第2.1节 - 填写所有字段，验证保存正确
+        数据准备策略: 使用Factory Boy
+        """
+        # 使用Factory Boy创建完整实体
+        from tests.factories.user_auth_factories import RoleFactory
+        entity = RoleFactory.build()  # build不自动保存到数据库
+        
+        # 执行Repository方法
+        result = RoleRepository.create(unit_test_db, entity)
+        
+        # 验证所有字段保存正确
+        assert result is not None
+        assert result.id is not None
+        # TODO: 验证其他字段值正确保存
+        
+        # 验证持久化
+        db_entity = unit_test_db.query(Role).filter_by(id=result.id).first()
+        assert db_entity is not None
+    
+    def test_create_transaction_commit(self, unit_test_db: Session):
+        """测试create - 事务提交验证
+        
+        符合标准: testing-standards.md 第2.5节 - 验证数据真正写入数据库
+        """
+        from tests.factories.user_auth_factories import RoleFactory
+        entity = RoleFactory.build()
         
         result = RoleRepository.create(unit_test_db, entity)
         
-        # 验证事务已提交（可以在新会话中查询到）
+        # 验证事务已提交（expire后重新查询能找到）
         unit_test_db.expire_all()
         db_entity = unit_test_db.query(Role).filter_by(id=result.id).first()
         assert db_entity is not None
+        
+    def test_create_transaction_rollback(self, unit_test_db: Session):
+        """测试create - 事务回滚验证
+        
+        符合标准: testing-standards.md 第2.5节 - 验证错误时回滚
+        """
+        from tests.factories.user_auth_factories import RoleFactory
+        
+        initial_count = unit_test_db.query(Role).count()
+        
+        try:
+            entity = RoleFactory.build()
+            result = RoleRepository.create(unit_test_db, entity)
+            unit_test_db.flush()
+            
+            # 模拟错误，触发回滚
+            raise Exception("Simulated error")
+        except Exception:
+            unit_test_db.rollback()
+        
+        # 验证回滚后数据未增加
+        final_count = unit_test_db.query(Role).count()
+        assert final_count == initial_count
 
     def test_get_by_id_found(self, unit_test_db: Session):
         """测试get_by_id - 查询到数据"""
-        # 准备依赖实体
-        role = Role(name="Role数据", level=1)
-        unit_test_db.add(role)
-        unit_test_db.commit()
-        
         # 准备测试数据
-        entity = Role(name="查询测试", level=1)
+        entity = Role(name="查询测试")  # TODO: 根据实际字段调整
         unit_test_db.add(entity)
         unit_test_db.commit()
         
         # 执行Repository方法
-        result = RoleRepository.get_by_id(unit_test_db, role.id)
+        result = RoleRepository.get_by_id(unit_test_db, 1)
         
         # 验证结果
         assert result is not None
-
+        assert result.1 == entity.1
+    
     def test_get_by_id_not_found(self, unit_test_db: Session):
         """测试get_by_id - 数据不存在"""
-        result = RoleRepository.get_by_id(unit_test_db, 99999)
+        result = RoleRepository.get_by_id(unit_test_db, "nonexistent_value_12345")
         
-        # 验证结果
         assert result is None
 
     def test_get_by_name_found(self, unit_test_db: Session):
         """测试get_by_name - 查询到数据"""
         # 准备测试数据
-        entity = Role(name="查询测试", level=1)
+        entity = Role(name="查询测试")  # TODO: 根据实际字段调整
         unit_test_db.add(entity)
         unit_test_db.commit()
         
@@ -421,7 +612,7 @@ class TestRoleRepository:
     def test_list_found(self, unit_test_db: Session):
         """测试list - 查询到数据"""
         # 准备测试数据
-        entity = Role(name="查询测试", level=1)
+        entity = Role(name="查询测试")  # TODO: 根据实际字段调整
         unit_test_db.add(entity)
         unit_test_db.commit()
         
@@ -440,29 +631,90 @@ class TestRoleRepository:
         assert isinstance(result, list)
         assert len(result) == 0
 
-    def test_update_success(self, unit_test_db: Session):
-        """测试update - 更新成功"""
+    def test_update_single_field(self, unit_test_db: Session):
+        """测试update - 单字段更新
+        
+        符合标准: testing-standards.md 第2.3节 - 只更新一个字段，验证其他字段不变
+        """
         # 准备测试数据
-        entity = Role(name="原始数据", level=1)
-        unit_test_db.add(entity)
-        unit_test_db.commit()
+        from tests.factories.user_auth_factories import RoleFactory
+        entity = RoleFactory.create()
+        original_description = entity.description
         
-        # 执行Repository方法
+        # 执行Repository方法（只更新name）
         update_data = {"name": "更新后数据"}
-        result = RoleRepository.update(unit_test_db, entity, update_data)  # TODO: 根据实际方法签名调整参数
+        result = RoleRepository.update(unit_test_db, entity, update_data)  # TODO: 根据实际方法签名调整
         
-        # 验证结果
+        # 验证目标字段已更新
         assert result.name == "更新后数据"
+        
+        # ✅ 验证其他字段未变化
+        assert result.description == original_description
         
         # 验证数据库已更新
         unit_test_db.expire_all()
         db_entity = unit_test_db.query(Role).filter_by(id=entity.id).first()
         assert db_entity.name == "更新后数据"
+        assert db_entity.description == original_description
+    
+    def test_update_multiple_fields(self, unit_test_db: Session):
+        """测试update - 多字段更新
+        
+        符合标准: testing-standards.md 第2.3节 - 同时更新多个字段
+        """
+        from tests.factories.user_auth_factories import RoleFactory
+        entity = RoleFactory.create()
+        
+        # 执行Repository方法（同时更新多个字段）
+        update_data = {
+            "name": "更新后数据1",
+            "description": "更新后数据2"
+        }
+        result = RoleRepository.update(unit_test_db, entity, update_data)
+        
+        # 验证所有字段已更新
+        assert result.name == "更新后数据1"
+        assert result.description == "更新后数据2"
+        
+        # 验证持久化
+        unit_test_db.expire_all()
+        db_entity = unit_test_db.query(Role).filter_by(id=entity.id).first()
+        assert db_entity.name == "更新后数据1"
+        assert db_entity.description == "更新后数据2"
+    
+    def test_update_transaction_commit(self, unit_test_db: Session):
+        """测试update - 事务提交验证
+        
+        符合标准: testing-standards.md 第2.5节 - 验证更新真正写入数据库
+        """
+        from tests.factories.user_auth_factories import RoleFactory
+        entity = RoleFactory.create()
+        
+        update_data = {"name": "事务测试数据"}
+        result = RoleRepository.update(unit_test_db, entity, update_data)
+        
+        # 验证事务已提交
+        unit_test_db.expire_all()
+        db_entity = unit_test_db.query(Role).filter_by(id=entity.id).first()
+        assert db_entity.name == "事务测试数据"
+    
+    def test_update_specialized_method(self, unit_test_db: Session):
+        """测试update - 专用方法测试（如有）
+        
+        符合标准: testing-standards.md 第2.3节 - 测试特殊更新方法
+        示例: update_status, update_password, activate, deactivate等
+        """
+        # TODO: 如果有专用更新方法，在这里测试
+        # 例如:
+        # entity = RoleFactory.create(status='active')
+        # result = RoleRepository.update_status(unit_test_db, entity.id, 'inactive')
+        # assert result.status == 'inactive'
+        pass
 
     def test_delete_success(self, unit_test_db: Session):
         """测试delete - 删除成功"""
         # 准备测试数据
-        entity = Role(name="待删除数据", level=1)
+        entity = Role(name="待删除数据")  # TODO: 根据实际字段调整
         unit_test_db.add(entity)
         unit_test_db.commit()
         entity_id = entity.id
@@ -478,15 +730,15 @@ class TestRoleRepository:
     def test_get_user_count_count(self, unit_test_db: Session):
         """测试get_user_count - 计数功能"""
         # 准备测试数据
-        entity0 = Role(name="测试数据0", level=1)
+        entity0 = Role(name="测试数据0")  # TODO: 根据实际字段调整
         unit_test_db.add(entity0)
-        entity1 = Role(name="测试数据1", level=1)
+        entity1 = Role(name="测试数据1")  # TODO: 根据实际字段调整
         unit_test_db.add(entity1)
-        entity2 = Role(name="测试数据2", level=1)
+        entity2 = Role(name="测试数据2")  # TODO: 根据实际字段调整
         unit_test_db.add(entity2)
-        entity3 = Role(name="测试数据3", level=1)
+        entity3 = Role(name="测试数据3")  # TODO: 根据实际字段调整
         unit_test_db.add(entity3)
-        entity4 = Role(name="测试数据4", level=1)
+        entity4 = Role(name="测试数据4")  # TODO: 根据实际字段调整
         unit_test_db.add(entity4)
         unit_test_db.commit()
         
@@ -512,73 +764,128 @@ class TestPermissionRepository:
     - 查询逻辑正确性
     - 事务处理和数据一致性
     
-    测试策略: SQLite内存数据库，无Mock依赖
+    测试策略: SQLite内存数据库 + Factory Boy
     """
     
-    def setup_method(self):
-        """测试准备 - 每个测试方法执行前调用"""
-        pass
+    def setup_method(self, unit_test_db: Session):
+        """测试准备 - 初始化Factory Manager"""
+        from tests.factories.user_auth_factories import UserAuthFactoryManager
+        self.factory_manager = UserAuthFactoryManager()
+        self.factory_manager.setup_factories(unit_test_db)
         
     def teardown_method(self):
-        """测试清理 - 每个测试方法执行后调用"""
+        """测试清理"""
         pass
         
-    def test_create_success(self, unit_test_db: Session):
-        """测试create - 成功创建"""
-        # 准备测试数据（包括外键依赖）
-        entity = Permission(name="测试数据", resource="测试数据", action="测试数据")
+    def test_create_minimal_fields(self, unit_test_db: Session):
+        """测试create - 最小必填字段创建
+        
+        符合标准: testing-standards.md 第2.1节 - 只填写必填字段，验证默认值
+        数据准备策略: 最小实体构造，不使用Factory Boy
+        """
+        # 创建最小实体（只填必填字段）
+        entity = Permission()  # TODO: 补充必填字段
         
         # 执行Repository方法
         result = PermissionRepository.create(unit_test_db, entity)
         
-        # 验证结果
+        # 验证必填字段
         assert result is not None
         assert result.id is not None  # 验证ID已生成
+        
+        # 验证默认值（Column(default=...)定义的值）
+        # 示例: assert result.is_active == True
+        # 示例: assert result.status == "active"
+        # TODO: 根据实际模型补充默认值验证
         
         # 验证数据已持久化
         db_entity = unit_test_db.query(Permission).filter_by(id=result.id).first()
         assert db_entity is not None
     
-    def test_create_transaction(self, unit_test_db: Session):
-        """测试create - 事务提交"""
-        entity = Permission(name="事务测试", resource="事务测试", action="事务测试")
+    def test_create_full_fields(self, unit_test_db: Session):
+        """测试create - 完整字段创建
+        
+        符合标准: testing-standards.md 第2.1节 - 填写所有字段，验证保存正确
+        数据准备策略: 使用Factory Boy
+        """
+        # 使用Factory Boy创建完整实体
+        from tests.factories.user_auth_factories import PermissionFactory
+        entity = PermissionFactory.build()  # build不自动保存到数据库
+        
+        # 执行Repository方法
+        result = PermissionRepository.create(unit_test_db, entity)
+        
+        # 验证所有字段保存正确
+        assert result is not None
+        assert result.id is not None
+        # TODO: 验证其他字段值正确保存
+        
+        # 验证持久化
+        db_entity = unit_test_db.query(Permission).filter_by(id=result.id).first()
+        assert db_entity is not None
+    
+    def test_create_transaction_commit(self, unit_test_db: Session):
+        """测试create - 事务提交验证
+        
+        符合标准: testing-standards.md 第2.5节 - 验证数据真正写入数据库
+        """
+        from tests.factories.user_auth_factories import PermissionFactory
+        entity = PermissionFactory.build()
         
         result = PermissionRepository.create(unit_test_db, entity)
         
-        # 验证事务已提交（可以在新会话中查询到）
+        # 验证事务已提交（expire后重新查询能找到）
         unit_test_db.expire_all()
         db_entity = unit_test_db.query(Permission).filter_by(id=result.id).first()
         assert db_entity is not None
+        
+    def test_create_transaction_rollback(self, unit_test_db: Session):
+        """测试create - 事务回滚验证
+        
+        符合标准: testing-standards.md 第2.5节 - 验证错误时回滚
+        """
+        from tests.factories.user_auth_factories import PermissionFactory
+        
+        initial_count = unit_test_db.query(Permission).count()
+        
+        try:
+            entity = PermissionFactory.build()
+            result = PermissionRepository.create(unit_test_db, entity)
+            unit_test_db.flush()
+            
+            # 模拟错误，触发回滚
+            raise Exception("Simulated error")
+        except Exception:
+            unit_test_db.rollback()
+        
+        # 验证回滚后数据未增加
+        final_count = unit_test_db.query(Permission).count()
+        assert final_count == initial_count
 
     def test_get_by_id_found(self, unit_test_db: Session):
         """测试get_by_id - 查询到数据"""
-        # 准备依赖实体
-        permission = Permission(name="Permission数据", resource="Permission数据", action="Permission数据")
-        unit_test_db.add(permission)
-        unit_test_db.commit()
-        
         # 准备测试数据
-        entity = Permission(name="查询测试", resource="查询测试", action="查询测试")
+        entity = Permission(name="查询测试")  # TODO: 根据实际字段调整
         unit_test_db.add(entity)
         unit_test_db.commit()
         
         # 执行Repository方法
-        result = PermissionRepository.get_by_id(unit_test_db, permission.id)
+        result = PermissionRepository.get_by_id(unit_test_db, 1)
         
         # 验证结果
         assert result is not None
-
+        assert result.1 == entity.1
+    
     def test_get_by_id_not_found(self, unit_test_db: Session):
         """测试get_by_id - 数据不存在"""
-        result = PermissionRepository.get_by_id(unit_test_db, 99999)
+        result = PermissionRepository.get_by_id(unit_test_db, "nonexistent_value_12345")
         
-        # 验证结果
         assert result is None
 
     def test_get_by_name_found(self, unit_test_db: Session):
         """测试get_by_name - 查询到数据"""
         # 准备测试数据
-        entity = Permission(name="查询测试", resource="查询测试", action="查询测试")
+        entity = Permission(name="查询测试")  # TODO: 根据实际字段调整
         unit_test_db.add(entity)
         unit_test_db.commit()
         
@@ -598,7 +905,7 @@ class TestPermissionRepository:
     def test_list_found(self, unit_test_db: Session):
         """测试list - 查询到数据"""
         # 准备测试数据
-        entity = Permission(name="查询测试", resource="查询测试", action="查询测试")
+        entity = Permission(name="查询测试")  # TODO: 根据实际字段调整
         unit_test_db.add(entity)
         unit_test_db.commit()
         
@@ -617,29 +924,90 @@ class TestPermissionRepository:
         assert isinstance(result, list)
         assert len(result) == 0
 
-    def test_update_success(self, unit_test_db: Session):
-        """测试update - 更新成功"""
+    def test_update_single_field(self, unit_test_db: Session):
+        """测试update - 单字段更新
+        
+        符合标准: testing-standards.md 第2.3节 - 只更新一个字段，验证其他字段不变
+        """
         # 准备测试数据
-        entity = Permission(name="原始数据", resource="原始数据", action="原始数据")
-        unit_test_db.add(entity)
-        unit_test_db.commit()
+        from tests.factories.user_auth_factories import PermissionFactory
+        entity = PermissionFactory.create()
+        original_description = entity.description
         
-        # 执行Repository方法
+        # 执行Repository方法（只更新name）
         update_data = {"name": "更新后数据"}
-        result = PermissionRepository.update(unit_test_db, entity, update_data)  # TODO: 根据实际方法签名调整参数
+        result = PermissionRepository.update(unit_test_db, entity, update_data)  # TODO: 根据实际方法签名调整
         
-        # 验证结果
+        # 验证目标字段已更新
         assert result.name == "更新后数据"
+        
+        # ✅ 验证其他字段未变化
+        assert result.description == original_description
         
         # 验证数据库已更新
         unit_test_db.expire_all()
         db_entity = unit_test_db.query(Permission).filter_by(id=entity.id).first()
         assert db_entity.name == "更新后数据"
+        assert db_entity.description == original_description
+    
+    def test_update_multiple_fields(self, unit_test_db: Session):
+        """测试update - 多字段更新
+        
+        符合标准: testing-standards.md 第2.3节 - 同时更新多个字段
+        """
+        from tests.factories.user_auth_factories import PermissionFactory
+        entity = PermissionFactory.create()
+        
+        # 执行Repository方法（同时更新多个字段）
+        update_data = {
+            "name": "更新后数据1",
+            "description": "更新后数据2"
+        }
+        result = PermissionRepository.update(unit_test_db, entity, update_data)
+        
+        # 验证所有字段已更新
+        assert result.name == "更新后数据1"
+        assert result.description == "更新后数据2"
+        
+        # 验证持久化
+        unit_test_db.expire_all()
+        db_entity = unit_test_db.query(Permission).filter_by(id=entity.id).first()
+        assert db_entity.name == "更新后数据1"
+        assert db_entity.description == "更新后数据2"
+    
+    def test_update_transaction_commit(self, unit_test_db: Session):
+        """测试update - 事务提交验证
+        
+        符合标准: testing-standards.md 第2.5节 - 验证更新真正写入数据库
+        """
+        from tests.factories.user_auth_factories import PermissionFactory
+        entity = PermissionFactory.create()
+        
+        update_data = {"name": "事务测试数据"}
+        result = PermissionRepository.update(unit_test_db, entity, update_data)
+        
+        # 验证事务已提交
+        unit_test_db.expire_all()
+        db_entity = unit_test_db.query(Permission).filter_by(id=entity.id).first()
+        assert db_entity.name == "事务测试数据"
+    
+    def test_update_specialized_method(self, unit_test_db: Session):
+        """测试update - 专用方法测试（如有）
+        
+        符合标准: testing-standards.md 第2.3节 - 测试特殊更新方法
+        示例: update_status, update_password, activate, deactivate等
+        """
+        # TODO: 如果有专用更新方法，在这里测试
+        # 例如:
+        # entity = PermissionFactory.create(status='active')
+        # result = PermissionRepository.update_status(unit_test_db, entity.id, 'inactive')
+        # assert result.status == 'inactive'
+        pass
 
     def test_delete_success(self, unit_test_db: Session):
         """测试delete - 删除成功"""
         # 准备测试数据
-        entity = Permission(name="待删除数据", resource="待删除数据", action="待删除数据")
+        entity = Permission(name="待删除数据")  # TODO: 根据实际字段调整
         unit_test_db.add(entity)
         unit_test_db.commit()
         entity_id = entity.id
@@ -667,75 +1035,117 @@ class TestUserRoleRepository:
     - 查询逻辑正确性
     - 事务处理和数据一致性
     
-    测试策略: SQLite内存数据库，无Mock依赖
+    测试策略: SQLite内存数据库 + Factory Boy
     """
     
-    def setup_method(self):
-        """测试准备 - 每个测试方法执行前调用"""
-        pass
+    def setup_method(self, unit_test_db: Session):
+        """测试准备 - 初始化Factory Manager"""
+        from tests.factories.user_auth_factories import UserAuthFactoryManager
+        self.factory_manager = UserAuthFactoryManager()
+        self.factory_manager.setup_factories(unit_test_db)
         
     def teardown_method(self):
-        """测试清理 - 每个测试方法执行后调用"""
+        """测试清理"""
         pass
         
-    def test_create_success(self, unit_test_db: Session):
-        """测试create - 成功创建"""
-        # 准备测试数据（包括外键依赖）
-        user = User(username="依赖测试数据", email="test_依赖测试数据@example.com", password_hash="依赖测试数据", is_active=True, status="active", email_verified=True, phone_verified=True, two_factor_enabled=True, failed_login_attempts=1, role="user")
-        unit_test_db.add(user)
-        unit_test_db.commit()
-        role = Role(name="依赖测试数据", level=1)
-        unit_test_db.add(role)
-        unit_test_db.commit()
-        entity = UserRole(assigned_at=datetime.now(), user_id=user.id, role_id=role.id)
+    def test_create_minimal_fields(self, unit_test_db: Session):
+        """测试create - 最小必填字段创建
+        
+        符合标准: testing-standards.md 第2.1节 - 只填写必填字段，验证默认值
+        数据准备策略: 最小实体构造，不使用Factory Boy
+        """
+        # 创建最小实体（只填必填字段）
+        entity = UserRole()  # TODO: 补充必填字段
         
         # 执行Repository方法
         result = UserRoleRepository.create(unit_test_db, entity)
         
-        # 验证结果
+        # 验证必填字段
         assert result is not None
-        # 联合主键模型没有单独的id字段
+        assert result.id is not None  # 验证ID已生成
         
-        # 验证数据已持久化（使用联合主键查询）
-        db_entity = unit_test_db.query(UserRole).filter_by(user_id=result.user_id, role_id=result.role_id).first()
+        # 验证默认值（Column(default=...)定义的值）
+        # 示例: assert result.is_active == True
+        # 示例: assert result.status == "active"
+        # TODO: 根据实际模型补充默认值验证
+        
+        # 验证数据已持久化
+        db_entity = unit_test_db.query(UserRole).filter_by(id=result.id).first()
         assert db_entity is not None
     
-    def test_create_transaction(self, unit_test_db: Session):
-        """测试create - 事务提交"""
-        user = User(username="依赖事务测试", email="test_依赖事务测试@example.com", password_hash="依赖事务测试", is_active=True, status="active", email_verified=True, phone_verified=True, two_factor_enabled=True, failed_login_attempts=1, role="user")
-        unit_test_db.add(user)
-        unit_test_db.commit()
-        role = Role(name="依赖事务测试", level=1)
-        unit_test_db.add(role)
-        unit_test_db.commit()
-        entity = UserRole(assigned_at=datetime.now(), user_id=user.id, role_id=role.id)
+    def test_create_full_fields(self, unit_test_db: Session):
+        """测试create - 完整字段创建
+        
+        符合标准: testing-standards.md 第2.1节 - 填写所有字段，验证保存正确
+        数据准备策略: 使用Factory Boy
+        """
+        # 使用Factory Boy创建完整实体
+        from tests.factories.user_auth_factories import UserRoleFactory
+        entity = UserRoleFactory.build()  # build不自动保存到数据库
+        
+        # 执行Repository方法
+        result = UserRoleRepository.create(unit_test_db, entity)
+        
+        # 验证所有字段保存正确
+        assert result is not None
+        assert result.id is not None
+        # TODO: 验证其他字段值正确保存
+        
+        # 验证持久化
+        db_entity = unit_test_db.query(UserRole).filter_by(id=result.id).first()
+        assert db_entity is not None
+    
+    def test_create_transaction_commit(self, unit_test_db: Session):
+        """测试create - 事务提交验证
+        
+        符合标准: testing-standards.md 第2.5节 - 验证数据真正写入数据库
+        """
+        from tests.factories.user_auth_factories import UserRoleFactory
+        entity = UserRoleFactory.build()
         
         result = UserRoleRepository.create(unit_test_db, entity)
         
-        # 验证事务已提交（可以在新会话中查询到）
+        # 验证事务已提交（expire后重新查询能找到）
         unit_test_db.expire_all()
-        db_entity = unit_test_db.query(UserRole).filter_by(user_id=result.user_id, role_id=result.role_id).first()
+        db_entity = unit_test_db.query(UserRole).filter_by(id=result.id).first()
         assert db_entity is not None
+        
+    def test_create_transaction_rollback(self, unit_test_db: Session):
+        """测试create - 事务回滚验证
+        
+        符合标准: testing-standards.md 第2.5节 - 验证错误时回滚
+        """
+        from tests.factories.user_auth_factories import UserRoleFactory
+        
+        initial_count = unit_test_db.query(UserRole).count()
+        
+        try:
+            entity = UserRoleFactory.build()
+            result = UserRoleRepository.create(unit_test_db, entity)
+            unit_test_db.flush()
+            
+            # 模拟错误，触发回滚
+            raise Exception("Simulated error")
+        except Exception:
+            unit_test_db.rollback()
+        
+        # 验证回滚后数据未增加
+        final_count = unit_test_db.query(UserRole).count()
+        assert final_count == initial_count
 
     def test_get_found(self, unit_test_db: Session):
         """测试get - 查询到数据"""
         # 准备测试数据
-        entity = user = User(username="依赖查询测试", email="test_依赖查询测试@example.com", password_hash="依赖查询测试", is_active=True, status="active", email_verified=True, phone_verified=True, two_factor_enabled=True, failed_login_attempts=1, role="user")
-        unit_test_db.add(user)
-        unit_test_db.commit()
-        role = Role(name="依赖查询测试", level=1)
-        unit_test_db.add(role)
-        unit_test_db.commit()
-        entity = UserRole(assigned_at=datetime.now(), user_id=user.id, role_id=role.id)
+        entity = UserRole(name="查询测试")  # TODO: 根据实际字段调整
         unit_test_db.add(entity)
         unit_test_db.commit()
         
         # 执行Repository方法
-        result = UserRoleRepository.get(unit_test_db, entity.user_id, entity.role_id)
+        result = UserRoleRepository.get(unit_test_db, 1, 1)
         
         # 验证结果
         assert result is not None
-        assert result.user_id == entity.user_id
+        assert result.1 == entity.1
     
     def test_get_not_found(self, unit_test_db: Session):
         """测试get - 数据不存在"""
@@ -745,101 +1155,61 @@ class TestUserRoleRepository:
 
     def test_get_user_roles_found(self, unit_test_db: Session):
         """测试get_user_roles - 查询到数据"""
-        # 准备依赖实体和关联数据
-        user = User(username="User数据", email="test_user数据@example.com", password_hash="User数据", is_active=True, status="active", email_verified=True, phone_verified=True, two_factor_enabled=True, failed_login_attempts=1, role="user")
-        unit_test_db.add(user)
-        unit_test_db.commit()
-        
-        # 准备关联数据（如UserRole关联User和Role）
-        entity = user = User(username="依赖关联数据", email="test_依赖关联数据@example.com", password_hash="依赖关联数据", is_active=True, status="active", email_verified=True, phone_verified=True, two_factor_enabled=True, failed_login_attempts=1, role="user")
-        unit_test_db.add(user)
-        unit_test_db.commit()
-        role = Role(name="依赖关联数据", level=1)
-        unit_test_db.add(role)
-        unit_test_db.commit()
-        entity = UserRole(assigned_at=datetime.now(), user_id=user.id, role_id=role.id)
+        # 准备测试数据
+        entity = UserRole(name="查询测试")  # TODO: 根据实际字段调整
         unit_test_db.add(entity)
         unit_test_db.commit()
         
         # 执行Repository方法
-        result = UserRoleRepository.get_user_roles(unit_test_db, user.id)
+        result = UserRoleRepository.get_user_roles(unit_test_db)  # TODO: 根据实际方法签名调整参数
         
         # 验证结果
         assert isinstance(result, list)
         assert len(result) > 0
-
+        assert any(item.id == entity.id for item in result)
+    
     def test_get_user_roles_not_found(self, unit_test_db: Session):
         """测试get_user_roles - 数据不存在"""
-        # 准备依赖实体（但不创建关联数据）
-        user = User(username="User数据", email="test_user数据@example.com", password_hash="User数据", is_active=True, status="active", email_verified=True, phone_verified=True, two_factor_enabled=True, failed_login_attempts=1, role="user")
-        unit_test_db.add(user)
-        unit_test_db.commit()
+        result = UserRoleRepository.get_user_roles(unit_test_db)  # TODO: 根据实际方法签名调整参数
         
-        # 执行Repository方法
-        result = UserRoleRepository.get_user_roles(unit_test_db, user.id)
-        
-        # 验证结果
         assert isinstance(result, list)
         assert len(result) == 0
 
     def test_get_role_users_found(self, unit_test_db: Session):
         """测试get_role_users - 查询到数据"""
-        # 准备依赖实体和关联数据
-        role = Role(name="Role数据", level=1)
-        unit_test_db.add(role)
-        unit_test_db.commit()
-        
-        # 准备关联数据（如UserRole关联User和Role）
-        entity = user = User(username="依赖关联数据", email="test_依赖关联数据@example.com", password_hash="依赖关联数据", is_active=True, status="active", email_verified=True, phone_verified=True, two_factor_enabled=True, failed_login_attempts=1, role="user")
-        unit_test_db.add(user)
-        unit_test_db.commit()
-        role = Role(name="依赖关联数据", level=1)
-        unit_test_db.add(role)
-        unit_test_db.commit()
-        entity = UserRole(assigned_at=datetime.now(), user_id=user.id, role_id=role.id)
+        # 准备测试数据
+        entity = UserRole(name="查询测试")  # TODO: 根据实际字段调整
         unit_test_db.add(entity)
         unit_test_db.commit()
         
         # 执行Repository方法
-        result = UserRoleRepository.get_role_users(unit_test_db, role.id, 1, 1)
+        result = UserRoleRepository.get_role_users(unit_test_db)  # TODO: 根据实际方法签名调整参数
         
         # 验证结果
         assert isinstance(result, list)
         assert len(result) > 0
-
+        assert any(item.id == entity.id for item in result)
+    
     def test_get_role_users_not_found(self, unit_test_db: Session):
         """测试get_role_users - 数据不存在"""
-        # 准备依赖实体（但不创建关联数据）
-        role = Role(name="Role数据", level=1)
-        unit_test_db.add(role)
-        unit_test_db.commit()
+        result = UserRoleRepository.get_role_users(unit_test_db)  # TODO: 根据实际方法签名调整参数
         
-        # 执行Repository方法
-        result = UserRoleRepository.get_role_users(unit_test_db, role.id, 1, 1)
-        
-        # 验证结果
         assert isinstance(result, list)
         assert len(result) == 0
 
     def test_delete_found(self, unit_test_db: Session):
         """测试delete - 查询到数据"""
         # 准备测试数据
-        entity = user = User(username="依赖查询测试", email="test_依赖查询测试@example.com", password_hash="依赖查询测试", is_active=True, status="active", email_verified=True, phone_verified=True, two_factor_enabled=True, failed_login_attempts=1, role="user")
-        unit_test_db.add(user)
-        unit_test_db.commit()
-        role = Role(name="依赖查询测试", level=1)
-        unit_test_db.add(role)
-        unit_test_db.commit()
-        entity = UserRole(assigned_at=datetime.now(), user_id=user.id, role_id=role.id)
+        entity = UserRole(name="查询测试")  # TODO: 根据实际字段调整
         unit_test_db.add(entity)
         unit_test_db.commit()
         
         # 执行Repository方法
-        result = UserRoleRepository.delete(unit_test_db, entity.user_id, entity.role_id)
+        result = UserRoleRepository.delete(unit_test_db, 1, 1)
         
         # 验证结果
         assert result is not None
-        assert result.user_id == entity.user_id
+        assert result.1 == entity.1
     
     def test_delete_not_found(self, unit_test_db: Session):
         """测试delete - 数据不存在"""
@@ -849,33 +1219,22 @@ class TestUserRoleRepository:
 
     def test_delete_all_user_roles_found(self, unit_test_db: Session):
         """测试delete_all_user_roles - 查询到数据"""
-        # 准备依赖实体
-        user = User(username="User数据", email="test_user数据@example.com", password_hash="User数据", is_active=True, status="active", email_verified=True, phone_verified=True, two_factor_enabled=True, failed_login_attempts=1, role="user")
-        unit_test_db.add(user)
-        unit_test_db.commit()
-        
         # 准备测试数据
-        entity = user = User(username="依赖查询测试", email="test_依赖查询测试@example.com", password_hash="依赖查询测试", is_active=True, status="active", email_verified=True, phone_verified=True, two_factor_enabled=True, failed_login_attempts=1, role="user")
-        unit_test_db.add(user)
-        unit_test_db.commit()
-        role = Role(name="依赖查询测试", level=1)
-        unit_test_db.add(role)
-        unit_test_db.commit()
-        entity = UserRole(assigned_at=datetime.now(), user_id=user.id, role_id=role.id)
+        entity = UserRole(name="查询测试")  # TODO: 根据实际字段调整
         unit_test_db.add(entity)
         unit_test_db.commit()
         
         # 执行Repository方法
-        result = UserRoleRepository.delete_all_user_roles(unit_test_db, user.id)
+        result = UserRoleRepository.delete_all_user_roles(unit_test_db, 1)
         
         # 验证结果
         assert result is not None
-
+        assert result.1 == entity.1
+    
     def test_delete_all_user_roles_not_found(self, unit_test_db: Session):
         """测试delete_all_user_roles - 数据不存在"""
-        result = UserRoleRepository.delete_all_user_roles(unit_test_db, 99999)
+        result = UserRoleRepository.delete_all_user_roles(unit_test_db, "nonexistent_value_12345")
         
-        # 验证结果
         assert result is None
 
 
@@ -893,75 +1252,117 @@ class TestRolePermissionRepository:
     - 查询逻辑正确性
     - 事务处理和数据一致性
     
-    测试策略: SQLite内存数据库，无Mock依赖
+    测试策略: SQLite内存数据库 + Factory Boy
     """
     
-    def setup_method(self):
-        """测试准备 - 每个测试方法执行前调用"""
-        pass
+    def setup_method(self, unit_test_db: Session):
+        """测试准备 - 初始化Factory Manager"""
+        from tests.factories.user_auth_factories import UserAuthFactoryManager
+        self.factory_manager = UserAuthFactoryManager()
+        self.factory_manager.setup_factories(unit_test_db)
         
     def teardown_method(self):
-        """测试清理 - 每个测试方法执行后调用"""
+        """测试清理"""
         pass
         
-    def test_create_success(self, unit_test_db: Session):
-        """测试create - 成功创建"""
-        # 准备测试数据（包括外键依赖）
-        role = Role(name="依赖测试数据", level=1)
-        unit_test_db.add(role)
-        unit_test_db.commit()
-        permission = Permission(name="依赖测试数据", resource="依赖测试数据", action="依赖测试数据")
-        unit_test_db.add(permission)
-        unit_test_db.commit()
-        entity = RolePermission(granted_at=datetime.now(), role_id=role.id, permission_id=permission.id)
+    def test_create_minimal_fields(self, unit_test_db: Session):
+        """测试create - 最小必填字段创建
+        
+        符合标准: testing-standards.md 第2.1节 - 只填写必填字段，验证默认值
+        数据准备策略: 最小实体构造，不使用Factory Boy
+        """
+        # 创建最小实体（只填必填字段）
+        entity = RolePermission()  # TODO: 补充必填字段
         
         # 执行Repository方法
         result = RolePermissionRepository.create(unit_test_db, entity)
         
-        # 验证结果
+        # 验证必填字段
         assert result is not None
-        # 联合主键模型没有单独的id字段
+        assert result.id is not None  # 验证ID已生成
         
-        # 验证数据已持久化（使用联合主键查询）
-        db_entity = unit_test_db.query(RolePermission).filter_by(role_id=result.role_id, permission_id=result.permission_id).first()
+        # 验证默认值（Column(default=...)定义的值）
+        # 示例: assert result.is_active == True
+        # 示例: assert result.status == "active"
+        # TODO: 根据实际模型补充默认值验证
+        
+        # 验证数据已持久化
+        db_entity = unit_test_db.query(RolePermission).filter_by(id=result.id).first()
         assert db_entity is not None
     
-    def test_create_transaction(self, unit_test_db: Session):
-        """测试create - 事务提交"""
-        role = Role(name="依赖事务测试", level=1)
-        unit_test_db.add(role)
-        unit_test_db.commit()
-        permission = Permission(name="依赖事务测试", resource="依赖事务测试", action="依赖事务测试")
-        unit_test_db.add(permission)
-        unit_test_db.commit()
-        entity = RolePermission(granted_at=datetime.now(), role_id=role.id, permission_id=permission.id)
+    def test_create_full_fields(self, unit_test_db: Session):
+        """测试create - 完整字段创建
+        
+        符合标准: testing-standards.md 第2.1节 - 填写所有字段，验证保存正确
+        数据准备策略: 使用Factory Boy
+        """
+        # 使用Factory Boy创建完整实体
+        from tests.factories.user_auth_factories import RolePermissionFactory
+        entity = RolePermissionFactory.build()  # build不自动保存到数据库
+        
+        # 执行Repository方法
+        result = RolePermissionRepository.create(unit_test_db, entity)
+        
+        # 验证所有字段保存正确
+        assert result is not None
+        assert result.id is not None
+        # TODO: 验证其他字段值正确保存
+        
+        # 验证持久化
+        db_entity = unit_test_db.query(RolePermission).filter_by(id=result.id).first()
+        assert db_entity is not None
+    
+    def test_create_transaction_commit(self, unit_test_db: Session):
+        """测试create - 事务提交验证
+        
+        符合标准: testing-standards.md 第2.5节 - 验证数据真正写入数据库
+        """
+        from tests.factories.user_auth_factories import RolePermissionFactory
+        entity = RolePermissionFactory.build()
         
         result = RolePermissionRepository.create(unit_test_db, entity)
         
-        # 验证事务已提交（可以在新会话中查询到）
+        # 验证事务已提交（expire后重新查询能找到）
         unit_test_db.expire_all()
-        db_entity = unit_test_db.query(RolePermission).filter_by(role_id=result.role_id, permission_id=result.permission_id).first()
+        db_entity = unit_test_db.query(RolePermission).filter_by(id=result.id).first()
         assert db_entity is not None
+        
+    def test_create_transaction_rollback(self, unit_test_db: Session):
+        """测试create - 事务回滚验证
+        
+        符合标准: testing-standards.md 第2.5节 - 验证错误时回滚
+        """
+        from tests.factories.user_auth_factories import RolePermissionFactory
+        
+        initial_count = unit_test_db.query(RolePermission).count()
+        
+        try:
+            entity = RolePermissionFactory.build()
+            result = RolePermissionRepository.create(unit_test_db, entity)
+            unit_test_db.flush()
+            
+            # 模拟错误，触发回滚
+            raise Exception("Simulated error")
+        except Exception:
+            unit_test_db.rollback()
+        
+        # 验证回滚后数据未增加
+        final_count = unit_test_db.query(RolePermission).count()
+        assert final_count == initial_count
 
     def test_get_found(self, unit_test_db: Session):
         """测试get - 查询到数据"""
         # 准备测试数据
-        entity = role = Role(name="依赖查询测试", level=1)
-        unit_test_db.add(role)
-        unit_test_db.commit()
-        permission = Permission(name="依赖查询测试", resource="依赖查询测试", action="依赖查询测试")
-        unit_test_db.add(permission)
-        unit_test_db.commit()
-        entity = RolePermission(granted_at=datetime.now(), role_id=role.id, permission_id=permission.id)
+        entity = RolePermission(name="查询测试")  # TODO: 根据实际字段调整
         unit_test_db.add(entity)
         unit_test_db.commit()
         
         # 执行Repository方法
-        result = RolePermissionRepository.get(unit_test_db, entity.role_id, entity.permission_id)
+        result = RolePermissionRepository.get(unit_test_db, 1, 1)
         
         # 验证结果
         assert result is not None
-        assert result.role_id == entity.role_id
+        assert result.1 == entity.1
     
     def test_get_not_found(self, unit_test_db: Session):
         """测试get - 数据不存在"""
@@ -971,101 +1372,61 @@ class TestRolePermissionRepository:
 
     def test_get_role_permissions_found(self, unit_test_db: Session):
         """测试get_role_permissions - 查询到数据"""
-        # 准备依赖实体和关联数据
-        role = Role(name="Role数据", level=1)
-        unit_test_db.add(role)
-        unit_test_db.commit()
-        
-        # 准备关联数据（如UserRole关联User和Role）
-        entity = role = Role(name="依赖关联数据", level=1)
-        unit_test_db.add(role)
-        unit_test_db.commit()
-        permission = Permission(name="依赖关联数据", resource="依赖关联数据", action="依赖关联数据")
-        unit_test_db.add(permission)
-        unit_test_db.commit()
-        entity = RolePermission(granted_at=datetime.now(), role_id=role.id, permission_id=permission.id)
+        # 准备测试数据
+        entity = RolePermission(name="查询测试")  # TODO: 根据实际字段调整
         unit_test_db.add(entity)
         unit_test_db.commit()
         
         # 执行Repository方法
-        result = RolePermissionRepository.get_role_permissions(unit_test_db, role.id)
+        result = RolePermissionRepository.get_role_permissions(unit_test_db)  # TODO: 根据实际方法签名调整参数
         
         # 验证结果
         assert isinstance(result, list)
         assert len(result) > 0
-
+        assert any(item.id == entity.id for item in result)
+    
     def test_get_role_permissions_not_found(self, unit_test_db: Session):
         """测试get_role_permissions - 数据不存在"""
-        # 准备依赖实体（但不创建关联数据）
-        role = Role(name="Role数据", level=1)
-        unit_test_db.add(role)
-        unit_test_db.commit()
+        result = RolePermissionRepository.get_role_permissions(unit_test_db)  # TODO: 根据实际方法签名调整参数
         
-        # 执行Repository方法
-        result = RolePermissionRepository.get_role_permissions(unit_test_db, role.id)
-        
-        # 验证结果
         assert isinstance(result, list)
         assert len(result) == 0
 
     def test_get_user_permissions_found(self, unit_test_db: Session):
         """测试get_user_permissions - 查询到数据"""
-        # 准备依赖实体和关联数据
-        user = User(username="User数据", email="test_user数据@example.com", password_hash="User数据", is_active=True, status="active", email_verified=True, phone_verified=True, two_factor_enabled=True, failed_login_attempts=1, role="user")
-        unit_test_db.add(user)
-        unit_test_db.commit()
-        
-        # 准备关联数据（如UserRole关联User和Role）
-        entity = role = Role(name="依赖关联数据", level=1)
-        unit_test_db.add(role)
-        unit_test_db.commit()
-        permission = Permission(name="依赖关联数据", resource="依赖关联数据", action="依赖关联数据")
-        unit_test_db.add(permission)
-        unit_test_db.commit()
-        entity = RolePermission(granted_at=datetime.now(), role_id=role.id, permission_id=permission.id)
+        # 准备测试数据
+        entity = RolePermission(name="查询测试")  # TODO: 根据实际字段调整
         unit_test_db.add(entity)
         unit_test_db.commit()
         
         # 执行Repository方法
-        result = RolePermissionRepository.get_user_permissions(unit_test_db, user.id)
+        result = RolePermissionRepository.get_user_permissions(unit_test_db)  # TODO: 根据实际方法签名调整参数
         
         # 验证结果
         assert isinstance(result, list)
         assert len(result) > 0
-
+        assert any(item.id == entity.id for item in result)
+    
     def test_get_user_permissions_not_found(self, unit_test_db: Session):
         """测试get_user_permissions - 数据不存在"""
-        # 准备依赖实体（但不创建关联数据）
-        user = User(username="User数据", email="test_user数据@example.com", password_hash="User数据", is_active=True, status="active", email_verified=True, phone_verified=True, two_factor_enabled=True, failed_login_attempts=1, role="user")
-        unit_test_db.add(user)
-        unit_test_db.commit()
+        result = RolePermissionRepository.get_user_permissions(unit_test_db)  # TODO: 根据实际方法签名调整参数
         
-        # 执行Repository方法
-        result = RolePermissionRepository.get_user_permissions(unit_test_db, user.id)
-        
-        # 验证结果
         assert isinstance(result, list)
         assert len(result) == 0
 
     def test_delete_found(self, unit_test_db: Session):
         """测试delete - 查询到数据"""
         # 准备测试数据
-        entity = role = Role(name="依赖查询测试", level=1)
-        unit_test_db.add(role)
-        unit_test_db.commit()
-        permission = Permission(name="依赖查询测试", resource="依赖查询测试", action="依赖查询测试")
-        unit_test_db.add(permission)
-        unit_test_db.commit()
-        entity = RolePermission(granted_at=datetime.now(), role_id=role.id, permission_id=permission.id)
+        entity = RolePermission(name="查询测试")  # TODO: 根据实际字段调整
         unit_test_db.add(entity)
         unit_test_db.commit()
         
         # 执行Repository方法
-        result = RolePermissionRepository.delete(unit_test_db, entity.role_id, entity.permission_id)
+        result = RolePermissionRepository.delete(unit_test_db, 1, 1)
         
         # 验证结果
         assert result is not None
-        assert result.role_id == entity.role_id
+        assert result.1 == entity.1
     
     def test_delete_not_found(self, unit_test_db: Session):
         """测试delete - 数据不存在"""
@@ -1075,33 +1436,22 @@ class TestRolePermissionRepository:
 
     def test_delete_all_role_permissions_found(self, unit_test_db: Session):
         """测试delete_all_role_permissions - 查询到数据"""
-        # 准备依赖实体
-        role = Role(name="Role数据", level=1)
-        unit_test_db.add(role)
-        unit_test_db.commit()
-        
         # 准备测试数据
-        entity = role = Role(name="依赖查询测试", level=1)
-        unit_test_db.add(role)
-        unit_test_db.commit()
-        permission = Permission(name="依赖查询测试", resource="依赖查询测试", action="依赖查询测试")
-        unit_test_db.add(permission)
-        unit_test_db.commit()
-        entity = RolePermission(granted_at=datetime.now(), role_id=role.id, permission_id=permission.id)
+        entity = RolePermission(name="查询测试")  # TODO: 根据实际字段调整
         unit_test_db.add(entity)
         unit_test_db.commit()
         
         # 执行Repository方法
-        result = RolePermissionRepository.delete_all_role_permissions(unit_test_db, role.id)
+        result = RolePermissionRepository.delete_all_role_permissions(unit_test_db, 1)
         
         # 验证结果
         assert result is not None
-
+        assert result.1 == entity.1
+    
     def test_delete_all_role_permissions_not_found(self, unit_test_db: Session):
         """测试delete_all_role_permissions - 数据不存在"""
-        result = RolePermissionRepository.delete_all_role_permissions(unit_test_db, 99999)
+        result = RolePermissionRepository.delete_all_role_permissions(unit_test_db, "nonexistent_value_12345")
         
-        # 验证结果
         assert result is None
 
 
@@ -1119,88 +1469,128 @@ class TestSessionRepository:
     - 查询逻辑正确性
     - 事务处理和数据一致性
     
-    测试策略: SQLite内存数据库，无Mock依赖
+    测试策略: SQLite内存数据库 + Factory Boy
     """
     
-    def setup_method(self):
-        """测试准备 - 每个测试方法执行前调用"""
-        pass
+    def setup_method(self, unit_test_db: Session):
+        """测试准备 - 初始化Factory Manager"""
+        from tests.factories.user_auth_factories import UserAuthFactoryManager
+        self.factory_manager = UserAuthFactoryManager()
+        self.factory_manager.setup_factories(unit_test_db)
         
     def teardown_method(self):
-        """测试清理 - 每个测试方法执行后调用"""
+        """测试清理"""
         pass
         
-    def test_create_success(self, unit_test_db: Session):
-        """测试create - 成功创建"""
-        # 准备测试数据（包括外键依赖）
-        user = User(username="依赖测试数据", email="test_依赖测试数据@example.com", password_hash="依赖测试数据", is_active=True, status="active", email_verified=True, phone_verified=True, two_factor_enabled=True, failed_login_attempts=1, role="user")
-        unit_test_db.add(user)
-        unit_test_db.commit()
-        entity = Session(token_hash="测试数据", expires_at=datetime.now(), last_accessed_at=datetime.now(), is_active=True, user_id=user.id)
+    def test_create_minimal_fields(self, unit_test_db: Session):
+        """测试create - 最小必填字段创建
+        
+        符合标准: testing-standards.md 第2.1节 - 只填写必填字段，验证默认值
+        数据准备策略: 最小实体构造，不使用Factory Boy
+        """
+        # 创建最小实体（只填必填字段）
+        entity = Session()  # TODO: 补充必填字段
         
         # 执行Repository方法
         result = SessionRepository.create(unit_test_db, entity)
         
-        # 验证结果
+        # 验证必填字段
         assert result is not None
         assert result.id is not None  # 验证ID已生成
+        
+        # 验证默认值（Column(default=...)定义的值）
+        # 示例: assert result.is_active == True
+        # 示例: assert result.status == "active"
+        # TODO: 根据实际模型补充默认值验证
         
         # 验证数据已持久化
         db_entity = unit_test_db.query(Session).filter_by(id=result.id).first()
         assert db_entity is not None
     
-    def test_create_transaction(self, unit_test_db: Session):
-        """测试create - 事务提交"""
-        user = User(username="依赖事务测试", email="test_依赖事务测试@example.com", password_hash="依赖事务测试", is_active=True, status="active", email_verified=True, phone_verified=True, two_factor_enabled=True, failed_login_attempts=1, role="user")
-        unit_test_db.add(user)
-        unit_test_db.commit()
-        entity = Session(token_hash="事务测试", expires_at=datetime.now(), last_accessed_at=datetime.now(), is_active=True, user_id=user.id)
+    def test_create_full_fields(self, unit_test_db: Session):
+        """测试create - 完整字段创建
+        
+        符合标准: testing-standards.md 第2.1节 - 填写所有字段，验证保存正确
+        数据准备策略: 使用Factory Boy
+        """
+        # 使用Factory Boy创建完整实体
+        from tests.factories.user_auth_factories import SessionFactory
+        entity = SessionFactory.build()  # build不自动保存到数据库
+        
+        # 执行Repository方法
+        result = SessionRepository.create(unit_test_db, entity)
+        
+        # 验证所有字段保存正确
+        assert result is not None
+        assert result.id is not None
+        # TODO: 验证其他字段值正确保存
+        
+        # 验证持久化
+        db_entity = unit_test_db.query(Session).filter_by(id=result.id).first()
+        assert db_entity is not None
+    
+    def test_create_transaction_commit(self, unit_test_db: Session):
+        """测试create - 事务提交验证
+        
+        符合标准: testing-standards.md 第2.5节 - 验证数据真正写入数据库
+        """
+        from tests.factories.user_auth_factories import SessionFactory
+        entity = SessionFactory.build()
         
         result = SessionRepository.create(unit_test_db, entity)
         
-        # 验证事务已提交（可以在新会话中查询到）
+        # 验证事务已提交（expire后重新查询能找到）
         unit_test_db.expire_all()
         db_entity = unit_test_db.query(Session).filter_by(id=result.id).first()
         assert db_entity is not None
+        
+    def test_create_transaction_rollback(self, unit_test_db: Session):
+        """测试create - 事务回滚验证
+        
+        符合标准: testing-standards.md 第2.5节 - 验证错误时回滚
+        """
+        from tests.factories.user_auth_factories import SessionFactory
+        
+        initial_count = unit_test_db.query(Session).count()
+        
+        try:
+            entity = SessionFactory.build()
+            result = SessionRepository.create(unit_test_db, entity)
+            unit_test_db.flush()
+            
+            # 模拟错误，触发回滚
+            raise Exception("Simulated error")
+        except Exception:
+            unit_test_db.rollback()
+        
+        # 验证回滚后数据未增加
+        final_count = unit_test_db.query(Session).count()
+        assert final_count == initial_count
 
     def test_get_by_id_found(self, unit_test_db: Session):
         """测试get_by_id - 查询到数据"""
-        # 准备依赖实体
-        session = user = User(username="依赖Session数据", email="test_依赖session数据@example.com", password_hash="依赖Session数据", is_active=True, status="active", email_verified=True, phone_verified=True, two_factor_enabled=True, failed_login_attempts=1, role="user")
-        unit_test_db.add(user)
-        unit_test_db.commit()
-        entity = Session(token_hash="Session数据", expires_at=datetime.now(), last_accessed_at=datetime.now(), is_active=True, user_id=user.id)
-        unit_test_db.add(session)
-        unit_test_db.commit()
-        
         # 准备测试数据
-        entity = user = User(username="依赖查询测试", email="test_依赖查询测试@example.com", password_hash="依赖查询测试", is_active=True, status="active", email_verified=True, phone_verified=True, two_factor_enabled=True, failed_login_attempts=1, role="user")
-        unit_test_db.add(user)
-        unit_test_db.commit()
-        entity = Session(token_hash="查询测试", expires_at=datetime.now(), last_accessed_at=datetime.now(), is_active=True, user_id=user.id)
+        entity = Session(name="查询测试")  # TODO: 根据实际字段调整
         unit_test_db.add(entity)
         unit_test_db.commit()
         
         # 执行Repository方法
-        result = SessionRepository.get_by_id(unit_test_db, session.id)
+        result = SessionRepository.get_by_id(unit_test_db, 1)
         
         # 验证结果
         assert result is not None
-
+        assert result.1 == entity.1
+    
     def test_get_by_id_not_found(self, unit_test_db: Session):
         """测试get_by_id - 数据不存在"""
-        result = SessionRepository.get_by_id(unit_test_db, 99999)
+        result = SessionRepository.get_by_id(unit_test_db, "nonexistent_value_12345")
         
-        # 验证结果
         assert result is None
 
     def test_get_by_token_hash_found(self, unit_test_db: Session):
         """测试get_by_token_hash - 查询到数据"""
         # 准备测试数据
-        entity = user = User(username="依赖查询测试", email="test_依赖查询测试@example.com", password_hash="依赖查询测试", is_active=True, status="active", email_verified=True, phone_verified=True, two_factor_enabled=True, failed_login_attempts=1, role="user")
-        unit_test_db.add(user)
-        unit_test_db.commit()
-        entity = Session(token_hash="查询测试", expires_at=datetime.now(), last_accessed_at=datetime.now(), is_active=True, user_id=user.id)
+        entity = Session(name="查询测试")  # TODO: 根据实际字段调整
         unit_test_db.add(entity)
         unit_test_db.commit()
         
@@ -1219,37 +1609,23 @@ class TestSessionRepository:
 
     def test_get_user_active_sessions_found(self, unit_test_db: Session):
         """测试get_user_active_sessions - 查询到数据"""
-        # 准备依赖实体和关联数据
-        user = User(username="User数据", email="test_user数据@example.com", password_hash="User数据", is_active=True, status="active", email_verified=True, phone_verified=True, two_factor_enabled=True, failed_login_attempts=1, role="user")
-        unit_test_db.add(user)
-        unit_test_db.commit()
-        
-        # 准备关联数据（如UserRole关联User和Role）
-        entity = user = User(username="依赖关联数据", email="test_依赖关联数据@example.com", password_hash="依赖关联数据", is_active=True, status="active", email_verified=True, phone_verified=True, two_factor_enabled=True, failed_login_attempts=1, role="user")
-        unit_test_db.add(user)
-        unit_test_db.commit()
-        entity = Session(token_hash="关联数据", expires_at=datetime.now(), last_accessed_at=datetime.now(), is_active=True, user_id=user.id)
+        # 准备测试数据
+        entity = Session(name="查询测试")  # TODO: 根据实际字段调整
         unit_test_db.add(entity)
         unit_test_db.commit()
         
         # 执行Repository方法
-        result = SessionRepository.get_user_active_sessions(unit_test_db, user.id)
+        result = SessionRepository.get_user_active_sessions(unit_test_db)  # TODO: 根据实际方法签名调整参数
         
         # 验证结果
         assert isinstance(result, list)
         assert len(result) > 0
-
+        assert any(item.id == entity.id for item in result)
+    
     def test_get_user_active_sessions_not_found(self, unit_test_db: Session):
         """测试get_user_active_sessions - 数据不存在"""
-        # 准备依赖实体（但不创建关联数据）
-        user = User(username="User数据", email="test_user数据@example.com", password_hash="User数据", is_active=True, status="active", email_verified=True, phone_verified=True, two_factor_enabled=True, failed_login_attempts=1, role="user")
-        unit_test_db.add(user)
-        unit_test_db.commit()
+        result = SessionRepository.get_user_active_sessions(unit_test_db)  # TODO: 根据实际方法签名调整参数
         
-        # 执行Repository方法
-        result = SessionRepository.get_user_active_sessions(unit_test_db, user.id)
-        
-        # 验证结果
         assert isinstance(result, list)
         assert len(result) == 0
 
@@ -1262,10 +1638,7 @@ class TestSessionRepository:
     def test_deactivate_success(self, unit_test_db: Session):
         """测试deactivate - 删除成功"""
         # 准备测试数据
-        entity = user = User(username="依赖待删除数据", email="test_依赖待删除数据@example.com", password_hash="依赖待删除数据", is_active=True, status="active", email_verified=True, phone_verified=True, two_factor_enabled=True, failed_login_attempts=1, role="user")
-        unit_test_db.add(user)
-        unit_test_db.commit()
-        entity = Session(token_hash="待删除数据", expires_at=datetime.now(), last_accessed_at=datetime.now(), is_active=True, user_id=user.id)
+        entity = Session(name="待删除数据")  # TODO: 根据实际字段调整
         unit_test_db.add(entity)
         unit_test_db.commit()
         entity_id = entity.id
@@ -1288,39 +1661,28 @@ class TestSessionRepository:
 
     def test_deactivate_user_sessions_found(self, unit_test_db: Session):
         """测试deactivate_user_sessions - 查询到数据"""
-        # 准备依赖实体
-        user = User(username="User数据", email="test_user数据@example.com", password_hash="User数据", is_active=True, status="active", email_verified=True, phone_verified=True, two_factor_enabled=True, failed_login_attempts=1, role="user")
-        unit_test_db.add(user)
-        unit_test_db.commit()
-        
         # 准备测试数据
-        entity = user = User(username="依赖查询测试", email="test_依赖查询测试@example.com", password_hash="依赖查询测试", is_active=True, status="active", email_verified=True, phone_verified=True, two_factor_enabled=True, failed_login_attempts=1, role="user")
-        unit_test_db.add(user)
-        unit_test_db.commit()
-        entity = Session(token_hash="查询测试", expires_at=datetime.now(), last_accessed_at=datetime.now(), is_active=True, user_id=user.id)
+        entity = Session(name="查询测试")  # TODO: 根据实际字段调整
         unit_test_db.add(entity)
         unit_test_db.commit()
         
         # 执行Repository方法
-        result = SessionRepository.deactivate_user_sessions(unit_test_db, user.id)
+        result = SessionRepository.deactivate_user_sessions(unit_test_db, 1)
         
         # 验证结果
         assert result is not None
-
+        assert result.1 == entity.1
+    
     def test_deactivate_user_sessions_not_found(self, unit_test_db: Session):
         """测试deactivate_user_sessions - 数据不存在"""
-        result = SessionRepository.deactivate_user_sessions(unit_test_db, 99999)
+        result = SessionRepository.deactivate_user_sessions(unit_test_db, "nonexistent_value_12345")
         
-        # 验证结果
         assert result is None
 
     def test_delete_expired_sessions_found(self, unit_test_db: Session):
         """测试delete_expired_sessions - 查询到数据"""
         # 准备测试数据
-        entity = user = User(username="依赖查询测试", email="test_依赖查询测试@example.com", password_hash="依赖查询测试", is_active=True, status="active", email_verified=True, phone_verified=True, two_factor_enabled=True, failed_login_attempts=1, role="user")
-        unit_test_db.add(user)
-        unit_test_db.commit()
-        entity = Session(token_hash="查询测试", expires_at=datetime.now(), last_accessed_at=datetime.now(), is_active=True, user_id=user.id)
+        entity = Session(name="查询测试")  # TODO: 根据实际字段调整
         unit_test_db.add(entity)
         unit_test_db.commit()
         
@@ -1340,10 +1702,7 @@ class TestSessionRepository:
     def test_delete_success(self, unit_test_db: Session):
         """测试delete - 删除成功"""
         # 准备测试数据
-        entity = user = User(username="依赖待删除数据", email="test_依赖待删除数据@example.com", password_hash="依赖待删除数据", is_active=True, status="active", email_verified=True, phone_verified=True, two_factor_enabled=True, failed_login_attempts=1, role="user")
-        unit_test_db.add(user)
-        unit_test_db.commit()
-        entity = Session(token_hash="待删除数据", expires_at=datetime.now(), last_accessed_at=datetime.now(), is_active=True, user_id=user.id)
+        entity = Session(name="待删除数据")  # TODO: 根据实际字段调整
         unit_test_db.add(entity)
         unit_test_db.commit()
         entity_id = entity.id

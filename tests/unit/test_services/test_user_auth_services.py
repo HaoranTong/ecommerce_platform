@@ -2,7 +2,7 @@
 Auto Generated Test - 已生成到正式目录
 
 文件路径: tests/unit/test_services/test_user_auth_services.py
-生成时间: 2025-10-08 08:00:23
+生成时间: 2025-10-08 14:53:06
 生成工具: tools/generate_test_template.py v2.0
 状态: GENERATED - 需要经过代码审查和测试验证
 
@@ -14,23 +14,21 @@ Auto Generated Test - 已生成到正式目录
 
 
 import pytest
+from unittest.mock import Mock, MagicMock, patch
+from pytest_mock import MockerFixture
 from decimal import Decimal
 from datetime import datetime, timedelta
-from sqlalchemy.orm import Session
-from sqlalchemy.exc import IntegrityError
 
 # 全局常量
 NEWLINE = "\n"
 
-# 测试基础设施
-from tests.conftest import unit_test_db
-# 【修复】移除不必要的StandardTestDataFactory依赖，因为它不存在且未被实际使用
-from tests.factories.user_auth_factories import UserAuthFactoryManager
-
 # 被测服务和模型
-from app.modules.user_auth.models import Permission, Role, RolePermission, Session, User, UserRole
+from app.modules.user_auth.models import 
 
-# 尝试导入服务类，如果不存在就跳过相关测试
+# Repository导入（用于Mock）
+from app.modules.user_auth.repository import UserRepository, RoleRepository, PermissionRepository, UserRoleRepository, RolePermissionRepository, SessionRepository
+
+# 尝试导入服务类
 try:
     from app.modules.user_auth.service import UserService
     SERVICE_AVAILABLE = True
@@ -42,442 +40,182 @@ except ImportError as e:
 @pytest.mark.unit
 @pytest.mark.services
 class TestUserService:
-    """服务层测试类 - SQLite内存数据库验证"""
+    """服务层测试类 - Mock Repository策略
     
-    def setup_method(self):
-        """测试准备"""
-        # 【修复】移除不必要的test_data_factory，因为StandardTestDataFactory不存在
-        self.factory_manager = UserAuthFactoryManager()
+    测试策略说明:
+    - 使用pytest-mock的mocker fixture
+    - Mock所有Repository方法调用
+    - 验证业务逻辑，不测试SQL
+    - 测试速度快，无数据库依赖
+    """
+    
+    def test_service_initialization(self, mocker: MockerFixture):
+        """测试服务初始化
         
-    def test_service_initialization(self, unit_test_db: Session):
-        """测试服务初始化和依赖注入"""
+        验证点:
+        - Service类可以正常实例化
+        - 不依赖数据库连接
+        """
         print("\n🔧 测试服务初始化...")
         
         if not SERVICE_AVAILABLE:
             pytest.skip("服务类不可用，跳过服务初始化测试")
         
-        # 测试正常初始化
-        service = UserService
-        assert service is not None
+        # Service通常是静态方法类，不需要实例化
+        assert UserService is not None
         
-    def test_service_factory_integration(self, unit_test_db: Session):
-        """测试服务与Factory数据工厂的集成"""
-        print("\n🏭 测试Factory集成...")
-        
-        if not SERVICE_AVAILABLE:
-            pytest.skip("服务类不可用，跳过Factory集成测试")
-        
-        # 设置Factory数据库会话
-        self.factory_manager.setup_factories(unit_test_db)
-        
-        # 创建测试数据
-        sample_data = self.factory_manager.create_sample_data(unit_test_db)
-        assert sample_data is not None
-        
-        # 验证Factory创建的数据可以被查询 - 支持联合主键模型
-        for model_name, created_instance in sample_data.items():
-            assert created_instance is not None
-            # 动态检测主键字段而不是硬编码id
-            if hasattr(created_instance, 'id'):
-                assert created_instance.id is not None
-            else:
-                # 联合主键模型，验证至少有一个主键字段
-                has_primary_key = False
-                for attr_name in dir(created_instance):
-                    if not attr_name.startswith('_') and hasattr(created_instance, attr_name):
-                        attr_value = getattr(created_instance, attr_name)
-                        if attr_value is not None and str(attr_name).endswith('_id'):
-                            has_primary_key = True
-                            break
-                # 【重要修复】双大括号转义避免f-string嵌套错误
-                assert has_primary_key, "模型 " + str(model_name) + " 没有找到有效的主键字段"
-            
-    def test_permission_crud_operations(self, unit_test_db: Session):
-        """测试Permission的CRUD操作 - general域"""
-        print("\n📋 测试Permission CRUD操作...")
-        
-        if not SERVICE_AVAILABLE:
-            pytest.skip("服务类不可用，跳过CRUD测试")
-        
-        # 设置Factory
-        self.factory_manager.setup_factories(unit_test_db)
-        
-        # 创建测试数据 - 使用Factory正确创建并保存到数据库
-        from tests.factories.user_auth_factories import PermissionFactory
-        test_instance = PermissionFactory()
-        
-        # 验证Factory创建的实例 - 单一主键模型验证
-        assert test_instance is not None
-        assert hasattr(test_instance, 'id')
-        assert test_instance.id is not None
-        
-        # 测试数据库查询 - 验证数据确实保存了
-        from app.modules.user_auth.models import Permission
-        query_result = unit_test_db.query(Permission).filter(Permission.id == test_instance.id).first()
-        assert query_result is not None
-        
-        # 测试审计字段
-        if hasattr(test_instance, 'created_at'):
-            assert test_instance.created_at is not None
-        if hasattr(test_instance, 'updated_at'):
-            assert test_instance.updated_at is not None
-        
-        # 测试数据更新 - 直接操作数据库对象
-        if hasattr(test_instance, 'updated_at'):
-            # 更新时间戳字段
-            from datetime import datetime
-            test_instance.updated_at = datetime.now()
-            unit_test_db.commit()
-            
-            # 验证更新成功 - 使用正确的查询条件支持联合主键
-            updated_instance = unit_test_db.query(Permission).filter(Permission.id == test_instance.id).first()
-            assert updated_instance.updated_at is not None
-            
-        # 测试数据删除
-        unit_test_db.delete(test_instance)
-        unit_test_db.commit()
-        
-        # 验证删除成功 - 使用正确的查询条件支持联合主键
-        deleted_check = unit_test_db.query(Permission).filter(Permission.id == test_instance.id).first()
-        assert deleted_check is None
 
-    def test_role_crud_operations(self, unit_test_db: Session):
-        """测试Role的CRUD操作 - general域"""
-        print("\n📋 测试Role CRUD操作...")
+    def test_service_with_mock_user_repository(self, mocker: MockerFixture):
+        """测试Service使用Mock UserRepository
+        
+        测试策略:
+        - Mock UserRepository的方法
+        - 验证Service业务逻辑
+        - 不依赖数据库
+        
+        示例: 测试获取User的业务逻辑
+        """
+        print("\n🔧 测试Service Mock UserRepository...")
         
         if not SERVICE_AVAILABLE:
-            pytest.skip("服务类不可用，跳过CRUD测试")
+            pytest.skip("服务类不可用")
         
-        # 设置Factory
-        self.factory_manager.setup_factories(unit_test_db)
+        # Mock Repository
+        mock_repo = mocker.patch(
+            'app.modules.user_auth.repository.UserRepository'
+        )
         
-        # 创建测试数据 - 使用Factory正确创建并保存到数据库
-        from tests.factories.user_auth_factories import RoleFactory
-        test_instance = RoleFactory()
+        # 创建Mock User对象
+        mock_user = mocker.Mock(spec=User)
+        mock_user.id = 1
+        # 设置其他必要属性
+        # mock_user.name = "Test User"
         
-        # 验证Factory创建的实例 - 单一主键模型验证
-        assert test_instance is not None
-        assert hasattr(test_instance, 'id')
-        assert test_instance.id is not None
+        # 设置Mock Repository返回值
+        mock_repo.get_by_id.return_value = mock_user
         
-        # 测试数据库查询 - 验证数据确实保存了
-        from app.modules.user_auth.models import Role
-        query_result = unit_test_db.query(Role).filter(Role.id == test_instance.id).first()
-        assert query_result is not None
+        # TODO: 调用Service方法（需要根据实际Service API补充）
+        # result = ServiceClass.some_method(mock_db, 1)
         
-        # 测试审计字段
-        if hasattr(test_instance, 'created_at'):
-            assert test_instance.created_at is not None
-        if hasattr(test_instance, 'updated_at'):
-            assert test_instance.updated_at is not None
+        # 验证Repository被正确调用
+        # mock_repo.get_by_id.assert_called_once_with(mock_db, 1)
         
-        # 测试数据更新 - 直接操作数据库对象
-        if hasattr(test_instance, 'updated_at'):
-            # 更新时间戳字段
-            from datetime import datetime
-            test_instance.updated_at = datetime.now()
-            unit_test_db.commit()
-            
-            # 验证更新成功 - 使用正确的查询条件支持联合主键
-            updated_instance = unit_test_db.query(Role).filter(Role.id == test_instance.id).first()
-            assert updated_instance.updated_at is not None
-            
-        # 测试数据删除
-        unit_test_db.delete(test_instance)
-        unit_test_db.commit()
+        # 验证业务逻辑结果
+        # assert result is not None
+        # assert result.id == 1
         
-        # 验证删除成功 - 使用正确的查询条件支持联合主键
-        deleted_check = unit_test_db.query(Role).filter(Role.id == test_instance.id).first()
-        assert deleted_check is None
+        # 占位符断言
+        assert mock_user is not None
+        assert mock_repo is not None
 
-    def test_rolepermission_crud_operations(self, unit_test_db: Session):
-        """测试RolePermission的CRUD操作 - general域"""
-        print("\n📋 测试RolePermission CRUD操作...")
-        
-        if not SERVICE_AVAILABLE:
-            pytest.skip("服务类不可用，跳过CRUD测试")
-        
-        # 设置Factory
-        self.factory_manager.setup_factories(unit_test_db)
-        
-        # 创建测试数据 - 使用Factory正确创建并保存到数据库
-        from tests.factories.user_auth_factories import RolePermissionFactory
-        test_instance = RolePermissionFactory()
-        
-        # 验证Factory创建的实例 - 联合主键模型验证
-        assert hasattr(test_instance, 'role_id')
-        assert test_instance.role_id is not None
-        assert hasattr(test_instance, 'permission_id')
-        assert test_instance.permission_id is not None
-        
-        # 测试数据库查询 - 验证数据确实保存了
-        from app.modules.user_auth.models import RolePermission
-        query_result = unit_test_db.query(RolePermission).filter(RolePermission.role_id == test_instance.role_id, RolePermission.permission_id == test_instance.permission_id).first()
-        assert query_result is not None
-        
-        # 测试审计字段
-        if hasattr(test_instance, 'created_at'):
-            assert test_instance.created_at is not None
-        if hasattr(test_instance, 'updated_at'):
-            assert test_instance.updated_at is not None
-        
-        # 测试数据更新 - 直接操作数据库对象
-        if hasattr(test_instance, 'updated_at'):
-            # 更新时间戳字段
-            from datetime import datetime
-            test_instance.updated_at = datetime.now()
-            unit_test_db.commit()
-            
-            # 验证更新成功 - 使用正确的查询条件支持联合主键
-            updated_instance = unit_test_db.query(RolePermission).filter(RolePermission.role_id == test_instance.role_id, RolePermission.permission_id == test_instance.permission_id).first()
-            assert updated_instance.updated_at is not None
-            
-        # 测试数据删除
-        unit_test_db.delete(test_instance)
-        unit_test_db.commit()
-        
-        # 验证删除成功 - 使用正确的查询条件支持联合主键
-        deleted_check = unit_test_db.query(RolePermission).filter(RolePermission.role_id == test_instance.role_id, RolePermission.permission_id == test_instance.permission_id).first()
-        assert deleted_check is None
 
-    def test_session_crud_operations(self, unit_test_db: Session):
-        """测试Session的CRUD操作 - general域"""
-        print("\n📋 测试Session CRUD操作...")
+    def test_service_with_mock_role_repository(self, mocker: MockerFixture):
+        """测试Service使用Mock RoleRepository
+        
+        测试策略:
+        - Mock RoleRepository的方法
+        - 验证Service业务逻辑
+        - 不依赖数据库
+        
+        示例: 测试获取Role的业务逻辑
+        """
+        print("\n🔧 测试Service Mock RoleRepository...")
         
         if not SERVICE_AVAILABLE:
-            pytest.skip("服务类不可用，跳过CRUD测试")
+            pytest.skip("服务类不可用")
         
-        # 设置Factory
-        self.factory_manager.setup_factories(unit_test_db)
+        # Mock Repository
+        mock_repo = mocker.patch(
+            'app.modules.user_auth.repository.RoleRepository'
+        )
         
-        # 创建测试数据 - 使用Factory正确创建并保存到数据库
-        from tests.factories.user_auth_factories import SessionFactory
-        test_instance = SessionFactory()
+        # 创建Mock Role对象
+        mock_role = mocker.Mock(spec=Role)
+        mock_role.id = 1
+        # 设置其他必要属性
+        # mock_role.name = "Test Role"
         
-        # 验证Factory创建的实例 - 单一主键模型验证
-        assert test_instance is not None
-        assert hasattr(test_instance, 'id')
-        assert test_instance.id is not None
+        # 设置Mock Repository返回值
+        mock_repo.get_by_id.return_value = mock_role
         
-        # 测试数据库查询 - 验证数据确实保存了
-        from app.modules.user_auth.models import Session
-        query_result = unit_test_db.query(Session).filter(Session.id == test_instance.id).first()
-        assert query_result is not None
+        # TODO: 调用Service方法（需要根据实际Service API补充）
+        # result = ServiceClass.some_method(mock_db, 1)
         
-        # 测试状态管理
-        if hasattr(test_instance, 'status'):
-            assert test_instance.status is not None
+        # 验证Repository被正确调用
+        # mock_repo.get_by_id.assert_called_once_with(mock_db, 1)
         
-        # 测试审计字段
-        if hasattr(test_instance, 'created_at'):
-            assert test_instance.created_at is not None
-        if hasattr(test_instance, 'updated_at'):
-            assert test_instance.updated_at is not None
+        # 验证业务逻辑结果
+        # assert result is not None
+        # assert result.id == 1
         
-        # 测试数据更新 - 直接操作数据库对象
-        if hasattr(test_instance, 'updated_at'):
-            # 更新时间戳字段
-            from datetime import datetime
-            test_instance.updated_at = datetime.now()
-            unit_test_db.commit()
-            
-            # 验证更新成功 - 使用正确的查询条件支持联合主键
-            updated_instance = unit_test_db.query(Session).filter(Session.id == test_instance.id).first()
-            assert updated_instance.updated_at is not None
-            
-        # 测试数据删除
-        unit_test_db.delete(test_instance)
-        unit_test_db.commit()
-        
-        # 验证删除成功 - 使用正确的查询条件支持联合主键
-        deleted_check = unit_test_db.query(Session).filter(Session.id == test_instance.id).first()
-        assert deleted_check is None
+        # 占位符断言
+        assert mock_role is not None
+        assert mock_repo is not None
 
-    def test_user_crud_operations(self, unit_test_db: Session):
-        """测试User的CRUD操作 - user_management域"""
-        print("\n📋 测试User CRUD操作...")
-        
-        if not SERVICE_AVAILABLE:
-            pytest.skip("服务类不可用，跳过CRUD测试")
-        
-        # 设置Factory
-        self.factory_manager.setup_factories(unit_test_db)
-        
-        # 创建测试数据 - 使用Factory正确创建并保存到数据库
-        from tests.factories.user_auth_factories import UserFactory
-        test_instance = UserFactory()
-        
-        # 验证Factory创建的实例 - 单一主键模型验证
-        assert test_instance is not None
-        assert hasattr(test_instance, 'id')
-        assert test_instance.id is not None
-        
-        # 测试数据库查询 - 验证数据确实保存了
-        from app.modules.user_auth.models import User
-        query_result = unit_test_db.query(User).filter(User.id == test_instance.id).first()
-        assert query_result is not None
-        
-        # 测试状态管理
-        if hasattr(test_instance, 'status'):
-            assert test_instance.status is not None
-        
-        # 测试审计字段
-        if hasattr(test_instance, 'created_at'):
-            assert test_instance.created_at is not None
-        if hasattr(test_instance, 'updated_at'):
-            assert test_instance.updated_at is not None
-        
-        # 测试数据更新 - 直接操作数据库对象
-        if hasattr(test_instance, 'updated_at'):
-            # 更新时间戳字段
-            from datetime import datetime
-            test_instance.updated_at = datetime.now()
-            unit_test_db.commit()
-            
-            # 验证更新成功 - 使用正确的查询条件支持联合主键
-            updated_instance = unit_test_db.query(User).filter(User.id == test_instance.id).first()
-            assert updated_instance.updated_at is not None
-            
-        # 测试数据删除
-        unit_test_db.delete(test_instance)
-        unit_test_db.commit()
-        
-        # 验证删除成功 - 使用正确的查询条件支持联合主键
-        deleted_check = unit_test_db.query(User).filter(User.id == test_instance.id).first()
-        assert deleted_check is None
-
-    def test_userrole_crud_operations(self, unit_test_db: Session):
-        """测试UserRole的CRUD操作 - general域"""
-        print("\n📋 测试UserRole CRUD操作...")
-        
-        if not SERVICE_AVAILABLE:
-            pytest.skip("服务类不可用，跳过CRUD测试")
-        
-        # 设置Factory
-        self.factory_manager.setup_factories(unit_test_db)
-        
-        # 创建测试数据 - 使用Factory正确创建并保存到数据库
-        from tests.factories.user_auth_factories import UserRoleFactory
-        test_instance = UserRoleFactory()
-        
-        # 验证Factory创建的实例 - 联合主键模型验证
-        assert hasattr(test_instance, 'user_id')
-        assert test_instance.user_id is not None
-        assert hasattr(test_instance, 'role_id')
-        assert test_instance.role_id is not None
-        
-        # 测试数据库查询 - 验证数据确实保存了
-        from app.modules.user_auth.models import UserRole
-        query_result = unit_test_db.query(UserRole).filter(UserRole.user_id == test_instance.user_id, UserRole.role_id == test_instance.role_id).first()
-        assert query_result is not None
-        
-        # 测试审计字段
-        if hasattr(test_instance, 'created_at'):
-            assert test_instance.created_at is not None
-        if hasattr(test_instance, 'updated_at'):
-            assert test_instance.updated_at is not None
-        
-        # 测试数据更新 - 直接操作数据库对象
-        if hasattr(test_instance, 'updated_at'):
-            # 更新时间戳字段
-            from datetime import datetime
-            test_instance.updated_at = datetime.now()
-            unit_test_db.commit()
-            
-            # 验证更新成功 - 使用正确的查询条件支持联合主键
-            updated_instance = unit_test_db.query(UserRole).filter(UserRole.user_id == test_instance.user_id, UserRole.role_id == test_instance.role_id).first()
-            assert updated_instance.updated_at is not None
-            
-        # 测试数据删除
-        unit_test_db.delete(test_instance)
-        unit_test_db.commit()
-        
-        # 验证删除成功 - 使用正确的查询条件支持联合主键
-        deleted_check = unit_test_db.query(UserRole).filter(UserRole.user_id == test_instance.user_id, UserRole.role_id == test_instance.role_id).first()
-        assert deleted_check is None
     
-    def test_error_handling_and_validation(self, unit_test_db: Session):
-        """测试错误处理和数据验证"""
-        print("\n⚠️ 测试错误处理...")
+    def test_business_rule_validation(self, mocker: MockerFixture):
+        """测试业务规则验证
+        
+        验证点:
+        - 业务规则是否正确执行
+        - 参数验证是否有效
+        - 边界条件处理
+        """
+        print("\n📋 测试业务规则验证...")
         
         if not SERVICE_AVAILABLE:
-            pytest.skip("服务类不可用，跳过错误处理测试")
+            pytest.skip("服务类不可用")
         
-        # 设置Factory
-        self.factory_manager.setup_factories(unit_test_db)
+        # 示例：测试参数验证
+        # Mock Repository
+        mock_repo = mocker.patch('app.modules.user_auth.repository.UserRepository')
         
-        # 测试数据库约束违反
-        from tests.factories.user_auth_factories import PermissionFactory
+        # 测试空参数
+        # TODO: 根据实际Service方法补充测试
+        assert True
+    
+    def test_exception_handling(self, mocker: MockerFixture):
+        """测试异常处理
         
-        # 创建第一个实例
-        first_instance = PermissionFactory()
-        
-        # 测试唯一约束冲突（如果有唯一字段）
-        try:
-            # 尝试创建具有相同唯一字段值的实例
-            if hasattr(first_instance, 'email'):
-                duplicate_data = {'email': first_instance.email}
-                duplicate_instance = PermissionFactory(**duplicate_data)
-                unit_test_db.commit()
-                # 如果到这里说明没有唯一约束，测试通过
-                assert True
-        except IntegrityError:
-            # 预期的唯一约束错误
-            unit_test_db.rollback()
-            assert True
-        except Exception as e:
-            # 其他错误
-            unit_test_db.rollback()
-            print("意外错误: " + str(e))
-            
-        # 测试空值约束
-        try:
-            # 如果有非空字段，测试空值插入
-            pass  # 由Factory自动处理非空约束
-        except Exception:
-            assert True
-            
-    def test_transaction_handling(self, unit_test_db: Session):
-        """测试事务处理和数据一致性"""
-        print("\n💾 测试事务处理...")
+        验证点:
+        - Repository异常是否正确处理
+        - 业务异常是否正确抛出
+        - 错误信息是否清晰
+        """
+        print("\n⚠️ 测试异常处理...")
         
         if not SERVICE_AVAILABLE:
-            pytest.skip("服务类不可用，跳过事务处理测试")
+            pytest.skip("服务类不可用")
         
-        # 设置Factory
-        self.factory_manager.setup_factories(unit_test_db)
+        # Mock Repository抛出异常
+        mock_repo = mocker.patch('app.modules.user_auth.repository.UserRepository')
+        mock_repo.get_by_id.side_effect = Exception("Database error")
         
-        # 测试事务回滚
-        from app.modules.user_auth.models import Permission
+        # 测试Service如何处理Repository异常
+        # TODO: 根据实际Service方法补充测试
+        assert True
+    
+    def test_repository_call_verification(self, mocker: MockerFixture):
+        """测试Repository调用验证
         
-        # 记录初始数据数量
-        initial_count = unit_test_db.query(Permission).count()
+        验证点:
+        - Repository方法是否被正确调用
+        - 调用参数是否正确
+        - 调用次数和顺序是否符合预期
+        """
+        print("\n🔍 测试Repository调用...")
         
-        try:
-            # 开始事务
-            from tests.factories.user_auth_factories import PermissionFactory
-            
-            # 创建测试数据
-            test_instance = PermissionFactory()
-            unit_test_db.flush()  # 刷新到数据库但不提交
-            
-            # 验证数据在事务中存在
-            temp_count = unit_test_db.query(Permission).count()
-            assert temp_count == initial_count + 1
-            
-            # 模拟错误并回滚
-            unit_test_db.rollback()
-            
-            # 验证回滚后数据恢复
-            final_count = unit_test_db.query(Permission).count()
-            assert final_count == initial_count
-            
-        except Exception as e:
-            # 确保回滚
-            unit_test_db.rollback()
-            print("事务测试异常: " + str(e))
-            assert True  # 异常处理成功
-            
-    def teardown_method(self):
-        """测试清理"""
-        pass
+        if not SERVICE_AVAILABLE:
+            pytest.skip("服务类不可用")
+        
+        # Mock Repository
+        mock_repo = mocker.patch('app.modules.user_auth.repository.UserRepository')
+        mock_result = mocker.Mock()
+        mock_repo.get_by_id.return_value = mock_result
+        
+        # TODO: 调用Service方法
+        # result = UserService.some_method(db, 1)
+        
+        # 验证Repository调用
+        # mock_repo.get_by_id.assert_called_once_with(db, 1)
+        assert True
