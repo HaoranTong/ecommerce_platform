@@ -338,17 +338,258 @@ from app.modules.{module_name}.models import (
         module_name: str,
         models: Dict[str, ModelInfo]
     ) -> str:
-        """生成Read测试（2种测试）
+        """生成Repository read方法测试（智能处理返回类型和参数）"""
+        method_name = method_info.name
+        entity_creation = self._generate_test_entity_creation(model_name, models, "查询测试", with_dependencies=True)
         
-        1. test_read_found - 查询到数据
-        2. test_read_not_found - 数据不存在
-        """
-        # 使用主程序实现(阶段A)
-        if self.main_generator:
-            return self.main_generator._generate_repository_read_test(
-                method_info, model_name, repo_name, module_name, models
-            )
-        return ""
+        # 检查返回类型
+        is_list_return = 'List[' in method_info.return_type or 'list[' in method_info.return_type.lower()
+        is_bool_return = method_info.return_type == 'bool'
+        
+        # 智能推断查询参数
+        setup_code, query_param, needs_todo = self._infer_query_parameter(method_info, model_name, models)
+        has_composite_pk = self._has_composite_primary_key(model_name, models)
+        
+        if is_bool_return:
+            # 返回bool的方法（如check_exists）
+            if method_name == 'check_exists':
+                return f'''    def test_{method_name}_found(self, unit_test_db: Session):
+        """测试{method_name} - 查询到数据"""
+        # 准备测试数据
+        entity = {entity_creation}
+        unit_test_db.add(entity)
+        unit_test_db.commit()
+        
+        # 执行Repository方法
+        result = {repo_name}.{method_name}(unit_test_db, {query_param})
+        
+        # 验证结果
+        assert result is True
+    
+    def test_{method_name}_not_found(self, unit_test_db: Session):
+        """测试{method_name} - 数据不存在"""
+        result = {repo_name}.{method_name}(unit_test_db, username="nonexistent", email="nonexistent@test.com")
+        
+        assert result is False
+'''
+            else:
+                return f'''    def test_{method_name}_found(self, unit_test_db: Session):
+        """测试{method_name} - 查询到数据"""
+        # 准备测试数据
+        entity = {entity_creation}
+        unit_test_db.add(entity)
+        unit_test_db.commit()
+        
+        # 执行Repository方法
+        result = {repo_name}.{method_name}(unit_test_db, {query_param})
+        
+        # 验证结果
+        assert result is True
+    
+    def test_{method_name}_not_found(self, unit_test_db: Session):
+        """测试{method_name} - 数据不存在"""
+        result = {repo_name}.{method_name}(unit_test_db)  # TODO: 根据实际方法签名调整参数
+        
+        assert result is False
+'''
+        elif is_list_return:
+            # 返回列表的方法（如list方法、get_user_roles等）
+            
+            # 如果有setup_code，说明需要创建依赖实体
+            if setup_code:
+                # 方法需要额外的参数实体（如user_id需要User）
+                entity_creation_with_deps = self._generate_test_entity_creation(model_name, models, "关联数据", with_dependencies=True)
+                return f'''    def test_{method_name}_found(self, unit_test_db: Session):
+        """测试{method_name} - 查询到数据"""
+        # 准备依赖实体和关联数据
+        {setup_code}
+        # 准备关联数据（如UserRole关联User和Role）
+        entity = {entity_creation_with_deps}
+        unit_test_db.add(entity)
+        unit_test_db.commit()
+        
+        # 执行Repository方法
+        result = {repo_name}.{method_name}(unit_test_db, {query_param})
+        
+        # 验证结果
+        assert isinstance(result, list)
+        assert len(result) > 0
+
+    def test_{method_name}_not_found(self, unit_test_db: Session):
+        """测试{method_name} - 数据不存在"""
+        # 准备依赖实体（但不创建关联数据）
+        {setup_code}
+        # 执行Repository方法
+        result = {repo_name}.{method_name}(unit_test_db, {query_param})
+        
+        # 验证结果
+        assert isinstance(result, list)
+        assert len(result) == 0
+'''
+            
+            # 联合主键的验证逻辑
+            elif has_composite_pk:
+                pk_fields = self._get_primary_key_fields(model_name, models)
+                pk_check = ' and '.join([f'item.{f.name} == entity.{f.name}' for f in pk_fields])
+                return f'''    def test_{method_name}_found(self, unit_test_db: Session):
+        """测试{method_name} - 查询到数据"""
+        # 准备测试数据
+        entity = {entity_creation}
+        unit_test_db.add(entity)
+        unit_test_db.commit()
+        
+        # 执行Repository方法
+        result = {repo_name}.{method_name}(unit_test_db)  # TODO: 根据实际方法签名调整参数
+        
+        # 验证结果
+        assert isinstance(result, list)
+        assert len(result) > 0
+        assert any({pk_check} for item in result)
+    
+    def test_{method_name}_not_found(self, unit_test_db: Session):
+        """测试{method_name} - 数据不存在"""
+        result = {repo_name}.{method_name}(unit_test_db)  # TODO: 根据实际方法签名调整参数
+        
+        assert isinstance(result, list)
+        assert len(result) == 0
+'''
+            else:
+                return f'''    def test_{method_name}_found(self, unit_test_db: Session):
+        """测试{method_name} - 查询到数据"""
+        # 准备测试数据
+        entity = {entity_creation}
+        unit_test_db.add(entity)
+        unit_test_db.commit()
+        
+        # 执行Repository方法
+        result = {repo_name}.{method_name}(unit_test_db)  # TODO: 根据实际方法签名调整参数
+        
+        # 验证结果
+        assert isinstance(result, list)
+        assert len(result) > 0
+        assert any(item.id == entity.id for item in result)
+    
+    def test_{method_name}_not_found(self, unit_test_db: Session):
+        """测试{method_name} - 数据不存在"""
+        result = {repo_name}.{method_name}(unit_test_db)  # TODO: 根据实际方法签名调整参数
+        
+        assert isinstance(result, list)
+        assert len(result) == 0
+'''
+        else:
+            # 返回单个对象的方法（如get_by_id, get_by_username）
+            
+            # 如果有setup_code，说明需要创建依赖实体
+            if setup_code:
+                # 生成not_found测试的参数（使用不存在的值替代）
+                not_found_param = self._generate_not_found_param(query_param)
+                
+                return f'''    def test_{method_name}_found(self, unit_test_db: Session):
+        """测试{method_name} - 查询到数据"""
+        # 准备依赖实体
+        {setup_code}
+        # 准备测试数据
+        entity = {entity_creation}
+        unit_test_db.add(entity)
+        unit_test_db.commit()
+        
+        # 执行Repository方法
+        result = {repo_name}.{method_name}(unit_test_db, {query_param})
+        
+        # 验证结果
+        assert result is not None
+
+    def test_{method_name}_not_found(self, unit_test_db: Session):
+        """测试{method_name} - 数据不存在"""
+        result = {repo_name}.{method_name}(unit_test_db, {not_found_param})
+        
+        # 验证结果
+        assert result is None
+'''
+            elif needs_todo or not query_param:
+                # 需要手动调整参数的方法
+                return f'''    def test_{method_name}_found(self, unit_test_db: Session):
+        """测试{method_name} - 查询到数据"""
+        # 准备测试数据
+        entity = {entity_creation}
+        unit_test_db.add(entity)
+        unit_test_db.commit()
+        
+        # 执行Repository方法
+        result = {repo_name}.{method_name}(unit_test_db)  # TODO: 根据实际方法签名调整参数
+        
+        # 验证结果
+        assert result is not None
+        # TODO: 添加具体字段验证
+    
+    def test_{method_name}_not_found(self, unit_test_db: Session):
+        """测试{method_name} - 数据不存在"""
+        result = {repo_name}.{method_name}(unit_test_db)  # TODO: 根据实际方法签名调整参数
+        
+        assert result is None or (isinstance(result, list) and len(result) == 0)
+'''
+            else:
+                # 可以自动推断参数的方法
+                # 提取字段名用于验证（避免数字字面量导致的语法错误）
+                if ',' in query_param:
+                    # 多个参数（如联合主键）- 使用第一个字段验证
+                    first_param = query_param.split(',')[0].strip()
+                    if '.' in first_param:
+                        verify_field = first_param.split('.')[-1]
+                    else:
+                        # 参数是字面量（如1），使用id作为验证字段
+                        verify_field = 'id'
+                else:
+                    if '.' in query_param:
+                        verify_field = query_param.split('.')[-1]
+                    else:
+                        # 参数是字面量（如1, True, "test"），使用id作为验证字段
+                        verify_field = 'id'
+                
+                return f'''    def test_{method_name}_found(self, unit_test_db: Session):
+        """测试{method_name} - 查询到数据"""
+        # 准备测试数据
+        entity = {entity_creation}
+        unit_test_db.add(entity)
+        unit_test_db.commit()
+        
+        # 执行Repository方法
+        result = {repo_name}.{method_name}(unit_test_db, {query_param})
+        
+        # 验证结果
+        assert result is not None
+        assert result.{verify_field} == entity.{verify_field}
+    
+    def test_{method_name}_not_found(self, unit_test_db: Session):
+        """测试{method_name} - 数据不存在"""
+        result = {repo_name}.{method_name}(unit_test_db, "nonexistent_value_12345")
+        
+        assert result is None
+'''
+    
+    def _generate_not_found_param(self, query_param: str) -> str:
+        """生成not_found测试的参数（将实际值替换为不存在的值）"""
+        # 如果参数中包含entity.xxx，替换为字面量
+        if 'entity.' in query_param:
+            # 提取字段名
+            if ',' in query_param:
+                # 多个参数
+                params = query_param.split(',')
+                not_found_params = []
+                for param in params:
+                    param = param.strip()
+                    if 'entity.' in param:
+                        # 替换为不存在的值
+                        not_found_params.append('999999')
+                    else:
+                        not_found_params.append(param)
+                return ', '.join(not_found_params)
+            else:
+                # 单个参数
+                return '999999'
+        else:
+            # 已经是字面量，替换为不存在的值
+            return '"nonexistent_value_12345"'
     
     def generate_repository_update_test(
         self,
