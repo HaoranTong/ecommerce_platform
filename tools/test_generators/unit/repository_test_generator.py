@@ -770,7 +770,7 @@ from app.modules.{module_name}.models import (
         """
         # 准备测试数据
         from tests.factories.{module_name}_factories import {model_name}Factory
-        entity = {model_name}Factory.create()
+        entity = {model_name}Factory.create(unit_test_db)
         original_{second_update_field} = entity.{second_update_field}
         
         # 执行Repository方法（只更新{update_field}）
@@ -795,7 +795,7 @@ from app.modules.{module_name}.models import (
         符合标准: testing-standards.md 第2.3节 - 同时更新多个字段
         """
         from tests.factories.{module_name}_factories import {model_name}Factory
-        entity = {model_name}Factory.create()
+        entity = {model_name}Factory.create(unit_test_db)
         
         # 执行Repository方法（同时更新多个字段）
         update_data = {{
@@ -820,7 +820,7 @@ from app.modules.{module_name}.models import (
         符合标准: testing-standards.md 第2.5节 - 验证更新真正写入数据库
         """
         from tests.factories.{module_name}_factories import {model_name}Factory
-        entity = {model_name}Factory.create()
+        entity = {model_name}Factory.create(unit_test_db)
         
         update_data = {{"{update_field}": "事务测试数据"}}
         result = {repo_name}.{method_name}(unit_test_db, entity, update_data)
@@ -969,7 +969,7 @@ from app.modules.{module_name}.models import (
         from tests.factories.{module_name}_factories import {model_name}Factory
         from datetime import datetime
         
-        entity = {model_name}Factory.create()
+        entity = {model_name}Factory.create(unit_test_db)
         entity_id = entity.id
         
         # 执行软删除
@@ -1023,7 +1023,7 @@ from app.modules.{module_name}.models import (
         """
         from tests.factories.{module_name}_factories import {model_name}Factory
         
-        entity = {model_name}Factory.create()
+        entity = {model_name}Factory.create(unit_test_db)
         entity_id = entity.id
         
         # 执行物理删除
@@ -1382,8 +1382,8 @@ class Test{repo_name}:
             # 添加Factory import（后续在方法开始处理）
             imports.append(f'from tests.factories.{module_name}_factories import {fk_model_name}Factory')
             
-            # 创建外键依赖实体
-            lines.append(f'{fk_var_name} = {fk_model_name}Factory.create()')
+            # 创建外键依赖实体（传入unit_test_db）
+            lines.append(f'{fk_var_name} = {fk_model_name}Factory.create(unit_test_db)')
             fk_var_names[field.name] = f'{fk_var_name}.id'
         
         if fk_fields:
