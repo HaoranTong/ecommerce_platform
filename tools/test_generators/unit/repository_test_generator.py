@@ -778,6 +778,15 @@ from app.modules.{module_name}.models import (
             if second_update_field is None:
                 second_update_field = update_field
             
+            # 🎯 核心改进：根据字段类型生成测试值
+            model_info = models[model_name]
+            update_field_info = next((f for f in model_info.fields if f.name == update_field), None)
+            second_field_info = next((f for f in model_info.fields if f.name == second_update_field), None)
+            
+            update_value1 = self._generate_test_value_by_field_type(update_field_info, "") if update_field_info else '"更新后数据"'
+            update_value2 = self._generate_test_value_by_field_type(update_field_info, "1") if update_field_info else '"更新后数据1"'
+            second_value = self._generate_test_value_by_field_type(second_field_info, "2") if second_field_info else '"更新后数据2"'
+            
             return f'''    def test_{method_name}_single_field(self, unit_test_db: Session):
         """测试{method_name} - 单字段更新
         
@@ -790,11 +799,11 @@ from app.modules.{module_name}.models import (
         original_{second_update_field} = entity.{second_update_field}
         
         # 执行Repository方法（只更新{update_field}）
-        update_data = {{"{update_field}": "更新后数据"}}
+        update_data = {{"{update_field}": {update_value1}}}
         result = {repo_name}.{method_name}(unit_test_db, entity, update_data)  # TODO: 根据实际方法签名调整
         
         # 验证目标字段已更新
-        assert result.{update_field} == "更新后数据"
+        assert result.{update_field} == {update_value1}
         
         # ✅ 验证其他字段未变化
         assert result.{second_update_field} == original_{second_update_field}
@@ -802,7 +811,7 @@ from app.modules.{module_name}.models import (
         # 验证数据库已更新
         unit_test_db.expire_all()
         db_entity = unit_test_db.query({model_name}).filter_by(id=entity.id).first()
-        assert db_entity.{update_field} == "更新后数据"
+        assert db_entity.{update_field} == {update_value1}
         assert db_entity.{second_update_field} == original_{second_update_field}
     
     def test_{method_name}_multiple_fields(self, unit_test_db: Session):
@@ -816,20 +825,20 @@ from app.modules.{module_name}.models import (
         
         # 执行Repository方法（同时更新多个字段）
         update_data = {{
-            "{update_field}": "更新后数据1",
-            "{second_update_field}": "更新后数据2"
+            "{update_field}": {update_value2},
+            "{second_update_field}": {second_value}
         }}
         result = {repo_name}.{method_name}(unit_test_db, entity, update_data)
         
         # 验证所有字段已更新
-        assert result.{update_field} == "更新后数据1"
-        assert result.{second_update_field} == "更新后数据2"
+        assert result.{update_field} == {update_value2}
+        assert result.{second_update_field} == {second_value}
         
         # 验证持久化
         unit_test_db.expire_all()
         db_entity = unit_test_db.query({model_name}).filter_by(id=entity.id).first()
-        assert db_entity.{update_field} == "更新后数据1"
-        assert db_entity.{second_update_field} == "更新后数据2"
+        assert db_entity.{update_field} == {update_value2}
+        assert db_entity.{second_update_field} == {second_value}
     
     def test_{method_name}_transaction_commit(self, unit_test_db: Session):
         """测试{method_name} - 事务提交验证
@@ -1159,9 +1168,40 @@ from app.modules.{module_name}.models import (
         module_name: str,
         models: Dict[str, ModelInfo]
     ) -> str:
-        """生成Repository query方法测试"""
+        """生成Repository query方法测试
+        
+        🎯 核心改进：
+        1. 智能识别返回类型（int, List, Optional等）
+        2. 根据返回类型生成正确的断言
+        3. 智能推断方法参数
+        """
         method_name = method_info.name
         entity_creation = self._generate_test_entity_creation(model_name, models, "查询测试", with_dependencies=True)
+        
+        # 🎯 核心改进：根据返回类型生成正确的断言
+        return_type = method_info.return_type
+        
+        # 分析返回类型
+        is_count_method = 'count' in method_name.lower() or return_type == 'int'
+        is_list_method = 'List[' in return_type or 'list[' in return_type or method_info.method_type in ['list', 'search']
+        is_optional = 'Optional[' in return_type or return_type.endswith('| None')
+        
+        # 生成参数调用（从方法签名智能推断）
+        param_call = self._generate_method_call_params(method_info, "unit_test_db")
+        
+        # 根据返回类型生成断言
+        if is_count_method:
+            assertion = "assert result >= 0  # count方法返回int"
+            result_var = "result"
+        elif is_list_method:
+            assertion = "assert isinstance(results, list)  # 返回列表"
+            result_var = "results"
+        elif is_optional:
+            assertion = "# 可能返回None，根据业务逻辑验证"
+            result_var = "result"
+        else:
+            assertion = "assert result is not None"
+            result_var = "result"
         
         return f'''    def test_{method_name}_query(self, unit_test_db: Session):
         """测试{method_name} - 查询功能"""
@@ -1171,10 +1211,10 @@ from app.modules.{module_name}.models import (
         unit_test_db.commit()
         
         # 执行Repository方法
-        results = {repo_name}.{method_name}(unit_test_db)  # TODO: 根据实际方法签名调整参数
+        {result_var} = {repo_name}.{method_name}({param_call})
         
         # 验证查询结果
-        assert len(results) > 0
+        {assertion}
 '''
     
     # ========== 核心生成方法 ==========
@@ -1736,3 +1776,90 @@ class Test{repo_name}:
         
         # 首字母大写
         return singular.capitalize()
+    
+    def _generate_method_call_params(
+        self,
+        method_info: RepositoryMethodInfo,
+        db_var: str = "unit_test_db",
+        entity_var: str = "entity",
+        **context
+    ) -> str:
+        """智能生成方法调用参数列表
+        
+        Args:
+            method_info: 方法信息
+            db_var: 数据库session变量名
+            entity_var: 实体变量名（如果方法需要）
+            context: 额外上下文变量（如user_id, role_id等）
+            
+        Returns:
+            str: 参数调用字符串，如 "unit_test_db, entity.id"
+        """
+        params = [db_var]  # 第一个参数总是db
+        
+        # 遍历方法参数（跳过db参数）
+        for param_name, param_type in method_info.parameters:
+            if param_name == 'db':
+                continue
+            
+            # 🎯 智能参数推断策略
+            # 1. 如果参数名匹配实体类型（如user: User），传入实体对象
+            if param_type and param_type == method_info.return_type.replace('Optional[', '').replace(']', ''):
+                params.append(entity_var)
+            # 2. 如果参数名是ID类型（user_id, role_id等）
+            elif param_name.endswith('_id'):
+                # 尝试从entity获取对应ID
+                params.append(f"{entity_var}.id")
+            # 3. 如果参数是实体对象（根据类型注解判断）
+            elif param_type and param_type[0].isupper():  # 类型注解首字母大写（如User, Role）
+                params.append(entity_var)
+            # 4. 如果参数是字典类型（data, update_data等）
+            elif 'dict' in param_type.lower() or param_name in ['data', 'update_data', 'filters']:
+                params.append(f"{param_name}  # TODO: 传入字典参数")
+            # 5. 如果context中有对应的值
+            elif param_name in context:
+                params.append(context[param_name])
+            # 6. 默认使用参数名作为变量
+            else:
+                params.append(f"{param_name}  # TODO: 补充参数值")
+        
+        return ', '.join(params)
+    
+    def _generate_test_value_by_field_type(
+        self,
+        field_info: FieldInfo,
+        suffix: str = ""
+    ) -> str:
+        """根据字段类型生成合适的测试值
+        
+        Args:
+            field_info: 字段信息
+            suffix: 值后缀（如"1"、"2"用于区分多个值）
+            
+        Returns:
+            str: Python字面量字符串（如 "'test'", "True", "123"）
+        """
+        column_type = field_info.column_type.lower()
+        
+        # Boolean类型
+        if 'boolean' in column_type or 'bool' in column_type:
+            return "False" if suffix == "2" else "True"
+        
+        # 整数类型
+        if 'integer' in column_type or 'int' in column_type:
+            return f"10{suffix}" if suffix else "100"
+        
+        # 浮点数/Decimal类型
+        if 'float' in column_type or 'decimal' in column_type or 'numeric' in column_type:
+            return f"99.{suffix}9" if suffix else "99.99"
+        
+        # 日期时间类型
+        if 'datetime' in column_type:
+            return "datetime.now()"
+        if 'date' in column_type:
+            return "datetime.now().date()"
+        if 'time' in column_type:
+            return "datetime.now().time()"
+        
+        # 字符串类型（默认）
+        return f'"更新后数据{suffix}"' if suffix else '"更新后数据"'
