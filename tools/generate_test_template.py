@@ -140,6 +140,10 @@ class IntelligentTestGenerator:
         from tools.test_generators.utils.model_analyzer import ModelAnalyzer
         self.model_analyzer = ModelAnalyzer(self.project_root)
         
+        # 初始化RepositoryAnalyzer
+        from tools.test_generators.utils.repository_analyzer import RepositoryAnalyzer
+        self.repository_analyzer = RepositoryAnalyzer(self.project_root)
+        
         self.models_cache = {}
 
     def _load_config(self) -> Dict[str, Any]:
@@ -210,212 +214,14 @@ class IntelligentTestGenerator:
             error_msg += f"📚 架构文档: docs/architecture/overview.md - 四层架构标准"
             raise FileNotFoundError(error_msg)
         
-        print(f"🔍 分析Repository层: {repo_path}")
-        
-        try:
-            with open(repo_path, "r", encoding="utf-8") as f:
-                content = f.read()
-            
-            tree = ast.parse(content)
-            repositories = {}
-            
-            for node in ast.walk(tree):
-                if isinstance(node, ast.ClassDef):
-                    # 只分析以Repository结尾的类
-                    if node.name.endswith('Repository'):
-                        repo_info = self._analyze_repository_class(node)
-                        repositories[repo_info.name] = repo_info
-                        print(f"  ✅ 发现Repository: {repo_info.name} ({len(repo_info.methods)}个方法)")
-            
-            print(f"✅ Repository分析完成，共 {len(repositories)} 个Repository类")
-            return repositories
-            
-        except Exception as e:
-            print(f"⚠️ Repository分析失败: {e}")
-            return {}
-    
-    def _analyze_repository_class(self, class_node: ast.ClassDef) -> RepositoryInfo:
-        """分析单个Repository类
-        
-        Args:
-            class_node: AST类定义节点
-            
-        Returns:
-            RepositoryInfo: Repository信息
-        """
-        # 提取模型名：CategoryRepository -> Category
-        repo_name = class_node.name
-        model_name = repo_name.replace('Repository', '')
-        
-        # 提取文档字符串
-        docstring = ast.get_docstring(class_node)
-        
-        # 分析所有方法
-        methods = []
-        for item in class_node.body:
-            if isinstance(item, ast.FunctionDef):
-                method_info = self._analyze_repository_method(item)
-                if method_info:
-                    methods.append(method_info)
-        
-        return RepositoryInfo(
-            name=repo_name,
-            model_name=model_name,
-            methods=methods,
-            docstring=docstring
-        )
-    
-    def _analyze_repository_method(self, func_node: ast.FunctionDef) -> Optional[RepositoryMethodInfo]:
-        """分析Repository方法
-        
-        Args:
-            func_node: AST函数定义节点
-            
-        Returns:
-            RepositoryMethodInfo: 方法信息，如果不是有效方法则返回None
-        """
-        # 跳过特殊方法
-        if func_node.name.startswith('_') and func_node.name != '__init__':
-            return None
-        
-        # 提取参数
-        parameters = []
-        for arg in func_node.args.args:
-            arg_name = arg.arg
-            # 提取类型注解
-            arg_type = "Any"
-            if arg.annotation:
-                arg_type = ast.unparse(arg.annotation) if hasattr(ast, 'unparse') else "Any"
-            parameters.append((arg_name, arg_type))
-        
-        # 提取返回类型
-        return_type = "Any"
-        if func_node.returns:
-            return_type = ast.unparse(func_node.returns) if hasattr(ast, 'unparse') else "Any"
-        
-        # 判断是否是静态方法
-        is_static = any(
-            isinstance(decorator, ast.Name) and decorator.id == 'staticmethod'
-            for decorator in func_node.decorator_list
-        )
-        
-        # 判断方法类型（基于AST分析函数体）
-        method_name = func_node.name
-        method_type, is_soft_delete, is_specialized_update = self._classify_repository_method(method_name, func_node)
-        
-        # 判断是否需要事务测试（create/update/delete方法需要）
-        has_transaction = method_type in ["create", "update", "delete"]
-        
-        # 提取文档字符串
-        docstring = ast.get_docstring(func_node)
-        
-        return RepositoryMethodInfo(
-            name=method_name,
-            method_type=method_type,
-            parameters=parameters,
-            return_type=return_type,
-            is_static=is_static,
-            docstring=docstring,
-            has_transaction=has_transaction,
-            is_soft_delete=is_soft_delete,
-            is_specialized_update=is_specialized_update
-        )
-    
-    def _classify_repository_method(self, method_name: str, func_node: ast.FunctionDef) -> tuple[str, bool, bool]:
-        """分类Repository方法类型（基于AST分析函数体）
-        
-        通过分析函数体的实际操作来判断方法类型，而不是依赖方法名：
-        - 包含 db.add() -> create
-        - 包含 db.query().filter() -> read
-        - 包含 setattr() + db.commit() -> update
-        - 包含 is_deleted = True 或 is_active = False -> delete (soft_delete)
-        - 包含 .count() -> count
-        
-        Args:
-            method_name: 方法名（作为fallback）
-            func_node: AST函数定义节点
-            
-        Returns:
-            tuple: (方法类型, 是否软删除, 是否专用更新)
-                - method_type: str (create/read/update/delete/query/count)
-                - is_soft_delete: bool (True if 设置is_deleted/is_active)
-                - is_specialized_update: bool (True if update_xxx专用方法)
-        """
-        # 分析函数体中的关键操作
-        has_db_add = False
-        has_db_query = False
-        has_setattr = False
-        has_attribute_update = False  # 检测entity.field = value这种赋值
-        has_soft_delete = False
-        has_count = False
-        has_filter = False
-        
-        for node in ast.walk(func_node):
-            # 检测 db.add()
-            if isinstance(node, ast.Call):
-                if isinstance(node.func, ast.Attribute):
-                    if node.func.attr == 'add':
-                        has_db_add = True
-                    elif node.func.attr == 'query':
-                        has_db_query = True
-                    elif node.func.attr == 'filter':
-                        has_filter = True
-                    elif node.func.attr == 'count':
-                        has_count = True
-            
-            # 检测 setattr()
-            if isinstance(node, ast.Call):
-                if isinstance(node.func, ast.Name) and node.func.id == 'setattr':
-                    has_setattr = True
-            
-            # 检测属性赋值: entity.field = value 或 entity.field += 1
-            if isinstance(node, (ast.Assign, ast.AugAssign)):
-                target = node.targets[0] if isinstance(node, ast.Assign) else node.target
-                if isinstance(target, ast.Attribute):
-                    # 排除is_deleted/is_active（这些是软删除标记）
-                    if target.attr not in ['is_deleted', 'is_active']:
-                        has_attribute_update = True
-                    # 检测软删除: entity.is_deleted = True 或 entity.is_active = False
-                    if target.attr in ['is_deleted', 'is_active']:
-                        has_soft_delete = True
-        
-        # 检测是否是专用更新方法（如update_login_info, increment_failed_login）
-        # 特征：方法名以update_或increment_开头 + 有赋值操作
-        is_specialized_update = False
-        if (has_setattr or has_attribute_update) and method_name != 'update':
-            if method_name.startswith(('update_', 'increment_', 'decrement_')):
-                is_specialized_update = True
-        
-        # 根据分析结果判断方法类型
-        if has_db_add:
-            return ("create", False, False)
-        elif has_soft_delete:
-            return ("delete", True, False)  # 软删除
-        elif has_setattr or has_attribute_update:
-            # 有赋值操作，是update类型
-            return ("update", False, is_specialized_update)
-        elif has_count:
-            return ("count", False, False)
-        elif has_db_query or has_filter:
-            return ("read", False, False)
-        else:
-            # Fallback: 基于方法名判断（只作为最后手段）
-            method_name_lower = method_name.lower()
-            if 'create' in method_name_lower or 'add' in method_name_lower:
-                return ("create", False, False)
-            elif 'update' in method_name_lower or 'modify' in method_name_lower:
-                is_specialized = method_name.startswith('update_') and method_name != 'update'
-                return ("update", False, is_specialized)
-            elif 'delete' in method_name_lower or 'remove' in method_name_lower:
-                # 根据方法名判断是否是软删除
-                is_soft = 'soft' in method_name_lower
-                return ("delete", is_soft, False)
-            elif 'count' in method_name_lower:
-                return ("count", False, False)
-            elif 'get' in method_name_lower or 'find' in method_name_lower or 'list' in method_name_lower:
-                return ("read", False, False)
-            else:
-                return ("query", False, False)
+        # 使用RepositoryAnalyzer进行分析
+        return self.repository_analyzer.analyze_module_repositories(module_name)
+
+    # 🔄 Repository分析方法已100%迁移到 repository_analyzer.py
+    # - _analyze_repository_class() - Repository类分析
+    # - _analyze_repository_method() - Repository方法分析
+    # - _classify_repository_method() - 方法类型分类 (AST分析)
+    # 已删除约220行Repository分析相关方法
 
     # 🔄 Factory生成方法已100%迁移到 factory_generator.py
     # 已删除约894行Factory相关方法
