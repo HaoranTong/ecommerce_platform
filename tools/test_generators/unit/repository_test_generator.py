@@ -749,19 +749,34 @@ from app.modules.{module_name}.models import (
         else:
             # 标准单主键 - 生成4种更新测试
             # 找第二个可更新字段（用于多字段测试）
-            second_update_field = "description"
+            second_update_field = None
             if model_name in models:
                 model_info = models[model_name]
                 excluded_fields = {'id', 'created_at', 'updated_at', 'is_deleted', 
-                                 'username', 'email', update_field}
-                updateable_fields = [
+                                 'username', 'email', 'password_hash', 'token', 'token_hash', update_field}
+                # 优先查找String类型字段
+                updateable_string_fields = [
                     f.name for f in model_info.fields
                     if f.name not in excluded_fields
                     and not f.primary_key and not f.foreign_key
                     and 'String' in f.column_type
                 ]
-                if updateable_fields:
-                    second_update_field = updateable_fields[0]
+                # 如果没有String字段，查找其他类型字段（Boolean, Integer等）
+                if updateable_string_fields:
+                    second_update_field = updateable_string_fields[0]
+                else:
+                    updateable_other_fields = [
+                        f.name for f in model_info.fields
+                        if f.name not in excluded_fields
+                        and not f.primary_key and not f.foreign_key
+                        and f.name not in {'created_at', 'updated_at', 'deleted_at', 'is_deleted'}
+                    ]
+                    if updateable_other_fields:
+                        second_update_field = updateable_other_fields[0]
+            
+            # 如果找不到第二个字段，使用update_field本身
+            if second_update_field is None:
+                second_update_field = update_field
             
             return f'''    def test_{method_name}_single_field(self, unit_test_db: Session):
         """测试{method_name} - 单字段更新
