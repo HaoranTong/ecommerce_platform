@@ -610,25 +610,41 @@ from app.modules.{module_name}.models import (
 '''
     
     def _generate_not_found_param(self, query_param: str) -> str:
-        """生成not_found测试的参数（将实际值替换为不存在的值）"""
+        """生成not_found测试的参数（将实际值替换为不存在的值）
+        
+        🎯 核心改进：
+        - 正确处理多参数（如entity.user_id, entity.role_id）
+        - 区分字段类型（ID用99999，字符串用"nonexistent"）
+        """
         # 如果参数中包含entity.xxx，替换为字面量
         if 'entity.' in query_param:
             # 提取字段名
             if ',' in query_param:
-                # 多个参数
+                # 多个参数（如entity.user_id, entity.role_id）
                 params = query_param.split(',')
                 not_found_params = []
                 for param in params:
                     param = param.strip()
                     if 'entity.' in param:
-                        # 替换为不存在的值
-                        not_found_params.append('999999')
+                        # 提取字段名判断类型
+                        field_name = param.replace('entity.', '').strip()
+                        if field_name.endswith('_id') or field_name == 'id':
+                            # ID字段用不存在的整数
+                            not_found_params.append('999999')
+                        else:
+                            # 字符串字段
+                            not_found_params.append('"nonexistent_value"')
                     else:
+                        # 保留其他参数
                         not_found_params.append(param)
                 return ', '.join(not_found_params)
             else:
                 # 单个参数
-                return '999999'
+                field_name = query_param.replace('entity.', '').strip()
+                if field_name.endswith('_id') or field_name == 'id':
+                    return '999999'
+                else:
+                    return '"nonexistent_value"'
         else:
             # 已经是字面量，替换为不存在的值
             return '"nonexistent_value_12345"'
