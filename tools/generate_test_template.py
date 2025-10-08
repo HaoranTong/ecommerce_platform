@@ -113,6 +113,7 @@ from tools.test_generators.core import (
 from tools.test_generators.utils.file_writer import TestFileWriter
 from tools.test_generators.utils.validation_reporter import ValidationReporter
 from tools.test_generators.utils.pytest_checker import PytestChecker
+from tools.test_generators.utils.environment_validator import EnvironmentValidator
 
 # 保留dataclass导入以便后续代码使用
 # 注意：上面的数据模型已经是dataclass，这里不需要重复定义
@@ -571,6 +572,7 @@ class IntelligentTestGenerator:
         reporter = ValidationReporter()
         return reporter.validate_generated_tests(files, self.project_root)
 
+
 def main():
     """主程序入口 [CHECK:DEV-009]"""
     parser = argparse.ArgumentParser(
@@ -653,59 +655,6 @@ def main():
     except Exception as e:
         print(f"❌ 执行失败: {e}")
         sys.exit(1)
-
-
-class EnvironmentValidator:
-    """测试环境兼容性验证器"""
-    
-    def __init__(self, config: Dict[str, Any]):
-        self.config = config
-    
-    def validate_test_environment(self, module_name: str) -> Dict[str, Any]:
-        """验证测试环境配置并返回环境信息"""
-        env_info = {
-            "module_exists": False,
-            "fixtures_available": [],
-            "database_config": {},
-            "issues": []
-        }
-        
-        # 检查模块是否存在
-        module_path = os.path.join(
-            self.config["project_structure"]["modules_path"], 
-            module_name
-        )
-        env_info["module_exists"] = os.path.exists(module_path)
-        if not env_info["module_exists"]:
-            env_info["issues"].append(f"模块路径不存在: {module_path}")
-        
-        # 检查conftest.py并获取可用fixture
-        conftest_path = os.path.join(self.config["project_structure"]["tests_path"], "conftest.py")
-        if os.path.exists(conftest_path):
-            try:
-                with open(conftest_path, 'r', encoding='utf-8') as f:
-                    conftest_content = f.read()
-                
-                # 解析可用的fixture
-                import re
-                fixture_pattern = r'@pytest\.fixture[^\n]*\ndef\s+(\w+)'
-                fixtures = re.findall(fixture_pattern, conftest_content)
-                env_info["fixtures_available"] = fixtures
-                
-            except Exception as e:
-                env_info["issues"].append(f"无法读取conftest.py: {e}")
-        else:
-            env_info["issues"].append(f"conftest.py不存在: {conftest_path}")
-        
-        # 设置数据库配置信息
-        db_config = self.config["database_config"]
-        env_info["database_config"] = {
-            "unit_fixture": db_config["unit_test_fixture"],
-            "integration_fixture": db_config["integration_test_fixture"],
-            "e2e_fixture": db_config["e2e_test_fixture"],
-        }
-        
-        return env_info
 
 
 if __name__ == "__main__":

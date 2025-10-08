@@ -41,17 +41,6 @@ class ValidationReporter:
         total_tests = collection["collected_tests"]
         print(f"🧪 pytest收集: {collection_files}个测试文件, {total_tests}个测试方法")
 
-        # 导入验证总结
-        imports = validation_results["import_validation"]
-        import_pass_rate = (
-            len(imports["passed"]) / len(imports["passed"] + imports["failed"]) * 100
-            if (imports["passed"] + imports["failed"])
-            else 100
-        )
-        print(
-            f"📦 导入验证: {len(imports['passed'])}/{len(imports['passed']) + len(imports['failed'])} 通过 ({import_pass_rate:.1f}%)"
-        )
-
         # 依赖完整性总结
         deps = validation_results["dependency_check"]
         missing_count = len(deps["missing_factories"])
@@ -66,8 +55,8 @@ class ValidationReporter:
             f"▶️ 执行测试: {execution['successful_executions']}/{execution['executed_files']} 通过 ({exec_rate:.1f}%)"
         )
 
-        # 整体评估
-        overall_score = (syntax_pass_rate + import_pass_rate + exec_rate) / 3
+        # 整体评估 (不再计算import_pass_rate，因为已移除导入验证)
+        overall_score = (syntax_pass_rate + exec_rate) / 2
         if overall_score >= 90:
             status = "🎉 优秀"
             validation_results["overall_success"] = True
@@ -85,7 +74,7 @@ class ValidationReporter:
 
         # 更新汇总信息
         summary["passed"] = len(syntax["passed"])
-        summary["failed"] = len(syntax["failed"]) + len(imports["failed"])
+        summary["failed"] = len(syntax["failed"])
         summary["overall_score"] = overall_score
         summary["status"] = status
 

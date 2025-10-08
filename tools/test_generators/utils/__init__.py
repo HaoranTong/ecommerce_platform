@@ -9,6 +9,7 @@
 - ValidationReporter: 验证报告生成
 - PytestChecker: Pytest检查工具
 - TestUtils: 测试代码生成工具
+- EnvironmentValidator: 环境验证器
 """
 
 from .model_analyzer import ModelAnalyzer
@@ -18,6 +19,7 @@ from .file_writer import TestFileWriter
 from .validation_reporter import ValidationReporter
 from .pytest_checker import PytestChecker
 from .test_utils import TestUtils
+from .environment_validator import EnvironmentValidator
 
 __all__ = [
     'ModelAnalyzer',
@@ -26,5 +28,6 @@ __all__ = [
     'TestFileWriter',
     'ValidationReporter',
     'PytestChecker',
-    'TestUtils'
+    'TestUtils',
+    'EnvironmentValidator'
 ]
