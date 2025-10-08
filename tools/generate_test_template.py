@@ -146,23 +146,6 @@ class IntelligentTestGenerator:
         
         self.models_cache = {}
 
-    def _load_config(self) -> Dict[str, Any]:
-        """加载配置文件 - 已废弃，保留向后兼容
-        
-        ⚠️ Deprecated: 使用ConfigLoader替代
-        """
-        from tools.test_generators.config import ConfigLoader
-        config_loader = ConfigLoader(self.project_root)
-        return config_loader.get_all()
-
-    def _get_default_config(self) -> Dict[str, Any]:
-        """获取默认配置 - 已废弃，保留向后兼容
-        
-        ⚠️ Deprecated: ConfigLoader内部已包含默认配置
-        """
-        from tools.test_generators.config import ConfigLoader
-        return ConfigLoader.DEFAULT_CONFIG.copy()
-
     def analyze_module_models(self, module_name: str) -> Dict[str, ModelInfo]:
         """智能分析模块中的所有数据模型 [CHECK:TEST-001]
 
@@ -216,9 +199,6 @@ class IntelligentTestGenerator:
         
         # 使用RepositoryAnalyzer进行分析
         return self.repository_analyzer.analyze_module_repositories(module_name)
-
-    def _table_name_to_model_name(self, table_name: str) -> str:
-        """表名转模型名：products -> Product, categories -> Category"""
 
     def generate_tests(
         self,
@@ -307,12 +287,22 @@ class IntelligentTestGenerator:
 
         if test_type in ["all", "smoke"]:
             # 烟雾测试使用通用脚本，不生成模块特定文件
-            smoke_files = self._generate_smoke_tests(module_name, models)
-            generated_files.update(smoke_files)  # 通常为空字典
+            print(f"ℹ️  烟雾测试使用通用脚本 tools/smoke_test.ps1，跳过 {module_name} 模块特定生成")
 
         if test_type in ["all", "specialized"]:
-            specialized_files = self._generate_specialized_tests(module_name, models)
-            generated_files.update(specialized_files)
+            # 生成专项测试（安全测试和性能测试）
+            from tools.test_generators import SecurityTestGenerator, PerformanceTestGenerator
+            
+            security_generator = SecurityTestGenerator(self.project_root, self.config)
+            performance_generator = PerformanceTestGenerator(self.project_root, self.config)
+            
+            security_tests = security_generator.generate_tests(module_name, models)
+            generated_files.update(security_tests)
+            
+            performance_tests = performance_generator.generate_tests(module_name, models)
+            generated_files.update(performance_tests)
+            
+            print(f"✅ 生成专项测试: 安全测试 + 性能测试")
 
         # 3. 写入文件（如果不是试运行）
         if not dry_run:
@@ -323,9 +313,6 @@ class IntelligentTestGenerator:
         validation_report = None
         if validate and not dry_run:
             validation_report = self._validate_generated_tests(generated_files)
-
-            # 保存验证报告
-            self._save_validation_report(module_name, validation_report)
 
         print(f"✅ 生成完成，共 {len(generated_files)} 个测试文件")
 
@@ -865,323 +852,6 @@ class IntelligentTestGenerator:
     # - _get_python_type_for_test (~12行)
     # Model测试生成器核心方法已100%迁移（~266行）
     
-    def _generate_relationship_tests(self, model_info: ModelInfo) -> List[str]:
-        """生成增强的关系测试方法 [CHECK:TEST-002]"""
-        test_classes = []
-
-        # 为每个模型生成测试类
-        for model_name, model_info in models.items():
-            test_class = self._generate_single_model_test(model_info)
-            test_classes.append(test_class)
-
-        imports = f'''"""
-{module_name.title()} 模块数据模型测试
-
-测试类型: 单元测试 - 模型字段、约束、关系验证
-数据策略: 100% Mock对象，无数据库依赖
-测试方法: pytest-mock，纯逻辑验证
-生成时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
-
-符合标准: testing-standards.md - test_models/ 100% Mock策略
-[CHECK:TEST-001] [CHECK:DEV-009]
-"""
-
-import pytest
-from datetime import datetime, date
-from decimal import Decimal
-import uuid
-
-# 导入模型类用于Mock测试
-from app.modules.{module_name}.models import (
-    {', '.join(models.keys())}
-)
-
-'''
-
-        return imports + "\n\n".join(test_classes)
-
-    def _generate_field_validation_test(
-        self, field: FieldInfo, model_info: ModelInfo
-    ) -> str:
-        """生成单个字段验证测试"""
-        test_values = self._get_test_values_for_field(field)
-
-        test_method = f'''    def test_{field.name}_field_validation(self):
-        """测试{field.name}字段验证 - 类型: {field.python_type}"""
-        # 使用智能工厂创建测试数据
-        factory = {model_info.name}Factory
-        
-        # 测试有效值
-        valid_data = {test_values['valid']}
-        instance = factory(**valid_data)
-        assert getattr(instance, '{field.name}') == valid_data['{field.name}']
-        
-        # 测试字段类型
-        field_value = getattr(instance, '{field.name}')
-        expected_types = ({self._get_python_type_tuple(field.python_type)})
-        if field_value is not None:
-            assert isinstance(field_value, expected_types), f"字段{field.name}类型验证失败"'''
-
-        # 添加无效值测试
-        if test_values["invalid"]:
-            test_method += f"""
-        
-        # 测试无效值
-        invalid_values = {test_values['invalid']}
-        for invalid_value in invalid_values:
-            with pytest.raises((ValueError, TypeError, ValidationError)) as exc_info:
-                factory(**{{'{field.name}': invalid_value}})"""
-
-        return test_method
-
-    def _generate_unique_constraint_test(
-        self, field: FieldInfo, model_info: ModelInfo
-    ) -> str:
-        """生成唯一约束测试"""
-        return f'''    def test_{field.name}_unique_constraint(self):
-        """测试{field.name}字段唯一约束"""
-        factory = {model_info.name}Factory
-        
-        # 创建第一个实例
-        value = "unique_test_value_123"
-        instance1 = factory(**{{'{field.name}': value}})
-        
-        # 尝试创建相同值的第二个实例应该失败
-        with pytest.raises((IntegrityError, ValidationError)) as exc_info:
-            instance2 = factory(**{{'{field.name}': value}})
-            # 如果使用数据库，需要提交来触发约束检查
-            if hasattr(exc_info, 'session'):
-                exc_info.session.commit()
-                
-        assert "unique" in str(exc_info.value).lower() or "duplicate" in str(exc_info.value).lower()'''
-
-    def _generate_required_field_test(
-        self, field: FieldInfo, model_info: ModelInfo
-    ) -> str:
-        """生成必填字段测试"""
-        return f'''    def test_{field.name}_required_field(self):
-        """测试{field.name}字段必填约束"""
-        factory = {model_info.name}Factory
-        
-        # 测试None值应该失败
-        with pytest.raises((ValueError, TypeError, IntegrityError, ValidationError)):
-            instance = factory(**{{'{field.name}': None}})
-            
-        # 测试空字符串（如果是字符串字段）
-        {self._generate_empty_string_test(field)}'''
-
-    def _generate_foreign_key_test(
-        self, field: FieldInfo, model_info: ModelInfo
-    ) -> str:
-        """生成外键测试"""
-        target_model = self._extract_fk_target_model(field.foreign_key)
-
-        return f'''    def test_{field.name}_foreign_key_constraint(self):
-        """测试{field.name}外键约束 - 引用: {field.foreign_key}"""
-        # 测试有效外键关系
-        {target_model.lower()}_instance = {target_model}Factory() if '{target_model}' in globals() else Mock(id=1)
-        factory = {model_info.name}Factory
-        
-        # 使用有效外键创建实例
-        valid_instance = factory(**{{'{field.name}': 1}})  # 使用固定的有效ID
-        assert getattr(valid_instance, '{field.name}') is not None
-        
-        # 测试无效外键应该失败
-        with pytest.raises((IntegrityError, ValueError, ValidationError)):
-            invalid_instance = factory(**{{'{field.name}': 99999}})  # 不存在的ID'''
-
-    def _generate_constraint_tests(self, model_info: ModelInfo) -> List[str]:
-        """生成增强的约束测试方法 [CHECK:TEST-002]"""
-        tests = []
-
-        # 主键测试
-        if model_info.primary_keys:
-            pk_test = self._generate_primary_key_test(model_info)
-            tests.append(pk_test)
-
-        # 唯一约束组合测试
-        if model_info.unique_constraints:
-            unique_test = self._generate_unique_constraints_test(model_info)
-            tests.append(unique_test)
-
-        # 模型创建和保存测试
-        creation_test = self._generate_model_creation_test(model_info)
-        tests.append(creation_test)
-
-        # 模型字符串表示测试
-        str_test = self._generate_model_str_test(model_info)
-        tests.append(str_test)
-
-        return tests
-
-    def _generate_primary_key_test(self, model_info: ModelInfo) -> str:
-        """生成主键约束测试"""
-        return f'''    def test_primary_key_constraints(self):
-        """测试主键约束"""
-        factory = {model_info.name}Factory
-        primary_keys = {model_info.primary_keys}
-        
-        # 创建实例并验证主键
-        instance = factory()
-        for pk_field in primary_keys:
-            pk_value = getattr(instance, pk_field)
-            assert pk_value is not None, f"主键字段{{pk_field}}不能为空"
-            
-        # 测试主键唯一性（如果不是自增ID）
-        if len(primary_keys) == 1 and primary_keys[0] != 'id':
-            pk_field = primary_keys[0]
-            instance1 = factory()
-            pk_value = getattr(instance1, pk_field)
-            
-            # 尝试创建相同主键的实例应该失败
-            with pytest.raises((IntegrityError, ValidationError)):
-                instance2 = factory(**{{pk_field: pk_value}})'''
-
-    def _generate_unique_constraints_test(self, model_info: ModelInfo) -> str:
-        """生成唯一约束组合测试"""
-        constraints_str = str(model_info.unique_constraints)
-        return f'''    def test_unique_constraints(self):
-        """测试唯一约束组合"""
-        factory = {model_info.name}Factory
-        unique_constraints = {constraints_str}
-        
-        for constraint_fields in unique_constraints:
-            if len(constraint_fields) > 1:
-                # 测试多字段唯一约束
-                test_values = {{field: f"test_{{field}}_value" for field in constraint_fields}}
-                
-                # 创建第一个实例
-                instance1 = factory(**test_values)
-                
-                # 尝试创建相同约束值的第二个实例应该失败
-                with pytest.raises((IntegrityError, ValidationError)):
-                    instance2 = factory(**test_values)'''
-
-    def _generate_model_creation_test(self, model_info: ModelInfo) -> str:
-        """生成模型创建测试"""
-        required_fields = [
-            f for f in model_info.fields if not f.nullable and f.name != "id"
-        ]
-
-        return f'''    def test_model_creation_with_required_fields(self):
-        """测试模型创建 - 必填字段验证"""
-        factory = {model_info.name}Factory
-        
-        # 测试使用工厂创建完整实例
-        instance = factory()
-        assert instance is not None
-        
-        # 验证必填字段都有值
-        required_fields = {[f.name for f in required_fields]}
-        for field_name in required_fields:
-            field_value = getattr(instance, field_name)
-            assert field_value is not None, f"必填字段{{field_name}}不能为空"
-            
-        # 测试创建最小化实例（仅必填字段）
-        minimal_data = {{}}
-{self._generate_minimal_data_setup(required_fields)}
-        
-        if minimal_data:
-            minimal_instance = factory(**minimal_data)
-            assert minimal_instance is not None'''
-
-    def _generate_minimal_data_setup(self, required_fields: list) -> str:
-        """生成最小化数据设置代码"""
-        if not required_fields:
-            return "        # 没有必填字段，使用默认工厂"
-
-        lines = []
-        for field in required_fields[:3]:  # 限制最多3个字段避免过度复杂
-            if field.python_type == "str":
-                lines.append(
-                    f"        minimal_data['{field.name}'] = 'test_{field.name}'"
-                )
-            elif field.python_type == "int":
-                lines.append(f"        minimal_data['{field.name}'] = 123")
-            elif field.python_type == "bool":
-                lines.append(f"        minimal_data['{field.name}'] = True")
-
-        return "\n".join(lines) if lines else "        # 使用工厂默认值"
-
-    def _generate_model_str_test(self, model_info: ModelInfo) -> str:
-        """生成模型字符串表示测试"""
-        return f'''    def test_model_string_representation(self):
-        """测试模型字符串表示方法"""
-        factory = {model_info.name}Factory
-        instance = factory()
-        
-        # 测试__str__方法
-        str_repr = str(instance)
-        assert str_repr is not None
-        assert len(str_repr) > 0
-        assert isinstance(str_repr, str)
-        
-        # 测试__repr__方法
-        repr_str = repr(instance)
-        assert repr_str is not None
-        assert '{model_info.name}' in repr_str or str(instance.id) in repr_str'''
-
-    def _generate_relationship_tests(self, model_info: ModelInfo) -> List[str]:
-        """生成增强的关系测试方法 [CHECK:TEST-002]"""
-        tests = []
-
-        for rel in model_info.relationships:
-            rel_test = self._generate_single_relationship_test(rel, model_info)
-            tests.append(rel_test)
-
-        return tests
-
-    def _generate_single_relationship_test(
-        self, rel: RelationshipInfo, model_info: ModelInfo
-    ) -> str:
-        """生成单个关系测试"""
-        return f'''    def test_{rel.name}_relationship(self):
-        """测试{rel.name}关系 - {rel.relationship_type}到{rel.related_model}"""
-        factory = {model_info.name}Factory
-        
-        # 创建主实例
-        instance = factory()
-        
-        # 验证关系属性存在
-        assert hasattr(instance, '{rel.name}'), f"关系属性{rel.name}不存在"
-        
-        # 测试关系类型
-        relationship_value = getattr(instance, '{rel.name}')
-        {self._generate_relationship_type_test(rel)}
-        
-        # 测试关系数据访问
-        {self._generate_relationship_access_test(rel, model_info)}'''
-
-    def _generate_relationship_type_test(self, rel: RelationshipInfo) -> str:
-        """生成关系类型测试代码"""
-        if rel.relationship_type == "many-to-many":
-            return """# many-to-many关系应该是列表或集合
-        assert hasattr(relationship_value, '__iter__') or relationship_value is None"""
-        elif rel.relationship_type == "one-to-many":
-            return """# one-to-many关系应该是列表或集合  
-        assert hasattr(relationship_value, '__iter__') or relationship_value is None"""
-        else:  # many-to-one, one-to-one
-            return """# many-to-one或one-to-one关系应该是单个对象或None
-        assert relationship_value is None or hasattr(relationship_value, 'id')"""
-
-    def _generate_relationship_access_test(
-        self, rel: RelationshipInfo, model_info: ModelInfo
-    ) -> str:
-        """生成关系访问测试代码"""
-        if rel.relationship_type in ["many-to-many", "one-to-many"]:
-            return f"""# 测试集合关系的访问
-        if relationship_value is not None:
-            # 验证可以迭代
-            try:
-                list(relationship_value)
-            except Exception as e:
-                pytest.fail(f"关系{rel.name}迭代失败: {{e}}")"""
-        else:
-            return f"""# 测试单对象关系的访问
-        if relationship_value is not None:
-            # 验证关系对象有基本属性
-            assert hasattr(relationship_value, 'id') or hasattr(relationship_value, '__dict__')"""
-
     def _analyze_model_business_features(self, model_info: ModelInfo) -> Dict[str, Any]:
         """分析模型的业务特征"""
         features = {
@@ -1385,68 +1055,6 @@ from app.modules.{module_name}.models import (
 
     # 🔄 Service测试相关方法已100%迁移到 service_test_generator.py
     # - generate_service_tests() (~215行) - 主入口，Mock Repository策略
-    def _generate_e2e_tests(
-        self, module_name: str, models: Dict[str, ModelInfo]
-    ) -> Dict[str, str]:
-        """生成E2E测试 (6%) - API测试和业务流程测试
-        
-        基于router.py分析生成：
-        1. API端点测试 - 测试所有REST API端点
-        2. 业务流程测试 - 测试完整的用户场景
-        3. 跨模块集成测试 - 测试模块间依赖
-        """
-        files = {}
-        
-        # 使用新的模块化E2E生成器（纯业务流程测试）
-        from tools.test_generators import E2ETestGenerator
-        
-        e2e_generator = E2ETestGenerator(self.project_root, self.config)
-        
-        # 生成E2E业务流程测试
-        e2e_tests = e2e_generator.generate_tests(module_name, models)
-        files.update(e2e_tests)
-        
-        print(f"✅ 生成E2E测试: 业务流程测试")
-        return files
-
-    def _generate_smoke_tests(
-        self, module_name: str, models: Dict[str, ModelInfo]
-    ) -> Dict[str, str]:
-        """烟雾测试使用通用脚本，不需要为每个模块单独生成
-
-        现有的 tools/smoke_test.ps1 和 tests/smoke/ 目录已经提供了：
-        - 通用API连通性测试
-        - 系统健康检查
-        - 基础功能验证
-        - 自动服务器管理
-
-        因此，不生成模块特定的烟雾测试文件。
-        """
-        print(
-            f"ℹ️  烟雾测试使用通用脚本 tools/smoke_test.ps1，跳过 {module_name} 模块特定生成"
-        )
-        return {}  # 返回空字典，不生成任何文件
-
-    def _generate_specialized_tests(
-        self, module_name: str, models: Dict[str, ModelInfo]
-    ) -> Dict[str, str]:
-        """生成专项测试 (2%) - 安全测试和性能测试
-        
-        基于OWASP Top 10和性能标准生成：
-        1. 安全测试 - 注入攻击、权限验证、数据保护测试
-        2. 性能测试 - 响应时间、并发测试、负载测试
-        """
-        files = {}
-        
-        # 使用新的模块化生成器
-        from tools.test_generators import SecurityTestGenerator, PerformanceTestGenerator
-        
-        security_generator = SecurityTestGenerator(self.project_root, self.config)
-        performance_generator = PerformanceTestGenerator(self.project_root, self.config)
-        
-        # 生成安全测试
-        security_tests = security_generator.generate_tests(module_name, models)
-        files.update(security_tests)
         
         # 生成性能测试
         performance_tests = performance_generator.generate_tests(module_name, models)
