@@ -989,7 +989,10 @@ class IntelligentTestGenerator:
         print(f"   Repositories: {len(repositories)} 个")
 
         # 2. 生成智能数据工厂 [CHECK:TEST-002]
-        factory_code = self.generate_intelligent_factories(module_name, models)
+        # 🔄 重构完成：使用独立的Factory生成器
+        from tools.test_generators.factories import FactoryGenerator
+        factory_generator = FactoryGenerator(self.project_root, self.config)
+        factory_code = factory_generator.generate_factories(module_name, models)
 
         # 3. 生成测试文件
         generated_files = {}
@@ -1003,15 +1006,24 @@ class IntelligentTestGenerator:
             generated_files.update(unit_files)
 
         if test_type in ["all", "integration"]:
-            integration_files = self._generate_integration_tests(module_name, models)
+            # 🔄 重构完成：使用独立的Integration生成器
+            from tools.test_generators.integration import IntegrationTestGenerator
+            integration_generator = IntegrationTestGenerator(self.project_root, self.config)
+            integration_files = integration_generator.generate_integration_tests(module_name, models)
             generated_files.update(integration_files)
-            
+        
         if test_type in ["all", "api"]:
-            api_files = self._generate_api_tests(module_name, models)
+            # 🔄 重构完成：使用独立的API测试生成器
+            from tools.test_generators.api_test_generator import APITestGenerator
+            api_generator = APITestGenerator(self.project_root, self.config)
+            api_files = api_generator.generate_tests(module_name, models)
             generated_files.update(api_files)
-
+        
         if test_type in ["all", "e2e"]:
-            e2e_files = self._generate_e2e_tests(module_name, models)
+            # 🔄 重构完成：使用独立的E2E测试生成器
+            from tools.test_generators.e2e_test_generator import E2ETestGenerator
+            e2e_generator = E2ETestGenerator(self.project_root, self.config)
+            e2e_files = e2e_generator.generate_tests(module_name, models)
             generated_files.update(e2e_files)
 
         if test_type in ["all", "smoke"]:
@@ -1069,7 +1081,10 @@ class IntelligentTestGenerator:
         files = {}
 
         # 1. 生成Mock模型测试 (test_models目录)
-        model_tests = self._generate_model_tests(module_name, models)
+        # 🔄 重构完成：使用独立的Model生成器
+        from tools.test_generators.unit import ModelTestGenerator
+        model_generator = ModelTestGenerator(self.project_root, self.config)
+        model_tests = model_generator.generate_model_tests(module_name, models)
         files[f"test_models/test_{module_name}_models"] = model_tests
 
         # 2. 生成Repository测试 (test_repositories目录) - 四层架构新增
@@ -1080,7 +1095,10 @@ class IntelligentTestGenerator:
         files[f"test_repositories/test_{module_name}_repositories"] = repository_tests
 
         # 3. 生成服务测试 (test_services目录) - 更新为Mock Repository
-        service_tests = self._generate_service_tests(module_name, models, repositories)
+        # 🔄 重构完成：使用独立的Service生成器
+        from tools.test_generators.unit import ServiceTestGenerator
+        service_generator = ServiceTestGenerator(self.project_root, self.config)
+        service_tests = service_generator.generate_service_tests(module_name, models, repositories)
         files[f"test_services/test_{module_name}_services"] = service_tests
 
         # 4. 生成业务流程测试 (standalone文件)
