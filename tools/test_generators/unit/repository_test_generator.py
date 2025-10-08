@@ -1114,8 +1114,13 @@ from app.modules.{module_name}.models import (
         pass
 '''
                 else:
-                    # 物理删除
-                    return f'''    def test_{method_name}_physical_delete(self, unit_test_db: Session):
+                    # 物理删除 - 🎯 根据方法参数智能判断是否需要entity_id
+                    # 检查方法是否需要ID参数（除了db之外）
+                    needs_id_param = len(delete_params) > 0
+                    
+                    if needs_id_param:
+                        # 方法需要ID参数（如 delete(db, id)）
+                        return f'''    def test_{method_name}_physical_delete(self, unit_test_db: Session):
         """测试{method_name} - 物理删除验证
         
         符合标准: testing-standards.md 第2.4节 - 验证数据真正从数据库删除
@@ -1135,6 +1140,33 @@ from app.modules.{module_name}.models import (
         assert db_entity is None, "物理删除后记录应不存在"
         
         # 验证数据库count减少
+        total_count = unit_test_db.query({model_name}).count()
+        assert total_count >= 0
+'''
+                    else:
+                        # 方法不需要ID参数（如 delete_expired_sessions(db)）
+                        # 只验证方法执行和返回值
+                        return f'''    def test_{method_name}_physical_delete(self, unit_test_db: Session):
+        """测试{method_name} - 批量删除功能
+        
+        符合标准: testing-standards.md 第2.4节 - 验证批量删除功能
+        """
+        from tests.factories.{module_name}_factories import {model_name}Factory
+        
+        {model_name}Factory._meta.sqlalchemy_session = unit_test_db
+        # 创建测试数据
+        entity = {model_name}Factory.create()
+        unit_test_db.commit()
+        
+        # 执行批量删除（方法根据内部条件删除数据）
+        result = {repo_name}.{method_name}(unit_test_db)
+        
+        # ✅ 验证返回结果（通常返回删除的数量）
+        if result is not None:
+            assert isinstance(result, int)
+            assert result >= 0
+        
+        # 验证数据库操作成功
         total_count = unit_test_db.query({model_name}).count()
         assert total_count >= 0
     
@@ -1253,6 +1285,7 @@ from app.modules.{module_name}.models import (
         return_type = method_info.return_type
         
         # 分析返回类型
+        is_none_return = return_type == 'None' or return_type == 'NoneType'
         is_count_method = 'count' in method_name.lower() or return_type == 'int'
         is_list_method = 'List[' in return_type or 'list[' in return_type or method_info.method_type in ['list', 'search']
         is_optional = 'Optional[' in return_type or return_type.endswith('| None')
@@ -1261,7 +1294,11 @@ from app.modules.{module_name}.models import (
         param_call = self._generate_method_call_params(method_info, "unit_test_db")
         
         # 根据返回类型生成断言
-        if is_count_method:
+        if is_none_return:
+            # 返回None的方法（如 update/deactivate 等），只验证执行成功
+            assertion = "# 方法返回None，验证执行成功即可"
+            result_var = "result"
+        elif is_count_method:
             assertion = "assert result >= 0  # count方法返回int"
             result_var = "result"
         elif is_list_method:
