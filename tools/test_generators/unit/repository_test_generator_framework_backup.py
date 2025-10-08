@@ -63,11 +63,8 @@ class RepositoryTestGenerator:
         Returns:
             生成的测试代码字符串
         """
-        # 使用主程序的实现（阶段A）
-        if self.main_generator:
-            return self.main_generator._generate_repository_tests(module_name, repositories, models)
-        
-        # 如果没有主程序引用，返回占位符
+        # TODO: 从主程序迁移实现
+        # 暂时返回占位符
         return f"""
 # Repository测试生成器占位符
 # 待从generate_test_template.py迁移实现

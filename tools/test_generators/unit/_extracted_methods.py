@@ -1,0 +1,787 @@
+# 从主程序提取的方法
+
+# ===== _table_name_to_model_name =====
+def _table_name_to_model_name(self, table_name: str) -> str:
+    """表名转模型名：products -> Product, categories -> Category"""
+    # 移除复数s
+    if table_name.endswith('ies'):
+        singular = table_name[:-3] + 'y'  # categories -> category
+    elif table_name.endswith('s'):
+        singular = table_name[:-1]  # products -> product
+    else:
+        singular = table_name
+        
+    # 首字母大写
+    return singular.capitalize()
+    
+
+# ===== _has_composite_primary_key =====
+def _has_composite_primary_key(self, model_name: str, models: Dict[str, ModelInfo]) -> bool:
+    """检查模型是否使用联合主键（多个primary_key字段）"""
+    if model_name not in models:
+        return False
+    model_info = models[model_name]
+    primary_key_count = sum(1 for f in model_info.fields if f.primary_key)
+    return primary_key_count > 1
+    
+
+# ===== _get_primary_key_fields =====
+def _get_primary_key_fields(self, model_name: str, models: Dict[str, ModelInfo]) -> List['FieldInfo']:
+    """获取模型的主键字段列表"""
+    if model_name not in models:
+        return []
+    model_info = models[model_name]
+    return [f for f in model_info.fields if f.primary_key]
+    
+
+# ===== _get_minimal_test_value =====
+def _get_minimal_test_value(self, field: 'FieldInfo') -> str:
+    """获取字段的最小测试值（用于最小实体创建）
+        
+    策略:
+    - 字符串: 最小长度 (如果有MinLength约束)
+    - 数字: 最小值 (如果有Min约束)
+    - 布尔: False
+    - 枚举: 第一个值
+    """
+    field_type = field.type.lower()
+        
+    # 字符串类型
+    if 'str' in field_type or 'varchar' in field_type or 'text' in field_type:
+        # 检查是否有长度约束
+        if hasattr(field, 'length') and field.length:
+            return f'"{field.name[:1]}"'  # 单字符
+        return f'"{field.name}"'  # 使用字段名作为值
+        
+    # 整数类型
+    if 'int' in field_type:
+        return '1'
+        
+    # 浮点数类型
+    if 'float' in field_type or 'decimal' in field_type:
+        return '0.01'
+        
+    # 布尔类型
+    if 'bool' in field_type:
+        return 'False'
+        
+    # 日期时间类型
+    if 'datetime' in field_type:
+        return 'datetime.now()'
+    if 'date' in field_type:
+        return 'date.today()'
+        
+    # 默认值
+    return f'"{field.name}"'
+    
+
+# ===== _get_test_value_for_field =====
+def _get_test_value_for_field(self, field: 'FieldInfo', suffix: str = "测试") -> str:
+    """为字段生成测试值
+        
+    Args:
+        field: 字段信息
+        suffix: 值的后缀
+            
+    Returns:
+        str: 测试值的字符串表示
+    """
+    field_name = field.name.lower()
+        
+    # 🔥 修复：先按字段类型判断（类型优先），再按字段名模式匹配（语义推断）
+    # 这样可以避免 email_verified 等 Boolean 字段被错误地当作 email 类型处理
+        
+    # 1. 明确的类型判断（优先级最高）
+    if field.python_type == 'bool':
+        return 'True'
+    elif field.python_type == 'int':
+        return '1'
+    elif field.python_type == 'Decimal':
+        return 'Decimal("10.00")'
+    elif field.python_type == 'datetime':
+        return 'datetime.now()'
+        
+    # 2. 字符串类型的语义推断（通过字段名）
+    elif field.python_type == 'str':
+        if 'email' in field_name:
+            return f'"test_{suffix.lower()}@example.com"'
+        elif 'slug' in field_name:
+            return f'"test-{suffix.lower()}"'
+        elif 'code' in field_name or 'sku' in field_name:
+            return f'"TEST{suffix.upper()}"'
+        elif 'url' in field_name:
+            return f'"https://example.com/{suffix.lower()}"'
+        elif field_name == 'status':
+            # 🔥 status字段使用合理的默认值
+            return '"active"'
+        elif field_name == 'role':
+            # 🔥 role字段使用合理的默认值
+            return '"user"'
+        elif 'name' in field_name:
+            return f'"{suffix}"'
+        else:
+            return f'"{suffix}"'
+        
+    # 3. 兜底默认值
+    else:
+        return f'"{suffix}"'
+    
+
+# ===== _generate_minimal_entity_creation =====
+def _generate_minimal_entity_creation(self, model_name: str, models: Dict[str, ModelInfo], module_name: str) -> str:
+    """生成最小实体创建代码（仅必填字段，符合testing-standards.md 2.1节）
+        
+    Args:
+        model_name: 模型名称
+        models: 模型信息字典
+        module_name: 模块名称
+            
+    Returns:
+        str: 最小实体创建代码（多行，含缩进）
+    """
+    if model_name not in models:
+        return f'        entity = {model_name}()  # TODO: 补充必填字段'
+        
+    model_info = models[model_name]
+        
+    # 提取必填字段（nullable=False 且无default）
+    auto_fields = {'id', 'created_at', 'updated_at', 'is_deleted'}
+    required_fields = [
+        f for f in model_info.fields 
+        if not f.nullable 
+        and f.name not in auto_fields 
+        and not (f.primary_key and f.name == 'id')
+        and not f.server_default  # 排除有数据库默认值的字段
+        # 注意: 如果field有default参数，仍然包括（用于测试默认值）
+    ]
+        
+    if not required_fields:
+        return f'        entity = {model_name}()\n        # 注意: 该模型所有字段均为可选或有默认值'
+        
+    # 分离外键和普通字段
+    fk_fields = [f for f in required_fields if f.foreign_key]
+    normal_fields = [f for f in required_fields if not f.foreign_key]
+        
+    lines = []
+        
+    # 先创建外键依赖
+    fk_var_names = {}
+    for field in fk_fields:
+        fk_target = field.foreign_key
+        fk_table = fk_target.split('.')[0]
+        fk_model_name = self._table_name_to_model_name(fk_table)
+        fk_var_name = fk_model_name.lower()
+            
+        # 使用Factory Boy创建依赖实体（简化）
+        lines.append(f'from tests.factories.{module_name}_factories import {fk_model_name}Factory')
+        lines.append(f'{fk_var_name} = {fk_model_name}Factory.create()')
+        fk_var_names[field.name] = f'{fk_var_name}.id'
+        
+    if fk_fields:
+        lines.append('')  # 空行分隔
+        
+    # 构造最小实体
+    field_assignments = []
+    for field in normal_fields:
+        test_value = self._get_minimal_test_value(field)
+        field_assignments.append(f'{field.name}={test_value}')
+        
+    # 添加外键字段
+    for field in fk_fields:
+        field_assignments.append(f'{field.name}={fk_var_names[field.name]}')
+        
+    if field_assignments:
+        lines.append(f'entity = {model_name}(')
+        for i, assignment in enumerate(field_assignments):
+            comma = ',' if i < len(field_assignments) - 1 else ''
+            lines.append(f'    {assignment}{comma}')
+        lines.append(')')
+    else:
+        lines.append(f'entity = {model_name}()')
+        
+    # 添加缩进
+    return '\n        '.join(lines)
+    
+
+# ===== _generate_test_entity_creation =====
+def _generate_test_entity_creation(self, model_name: str, models: Dict[str, ModelInfo], suffix: str = "测试数据", with_dependencies: bool = False) -> str:
+    """生成测试实体创建代码，自动包含必填字段和外键依赖
+        
+    Args:
+        model_name: 模型名称
+        models: 模型信息字典
+        suffix: 名称后缀
+        with_dependencies: 是否生成外键依赖的完整代码（多行）
+            
+    Returns:
+        str: 实体创建代码（可能是多行的依赖创建+主实体创建）
+    """
+    if model_name not in models:
+        # 如果模型信息不存在，返回简单的创建代码并添加TODO
+        return f'{model_name}(name="{suffix}")  # TODO: 根据实际字段调整'
+        
+    model_info = models[model_name]
+        
+    # 提取所有非nullable的字段（排除id和自动字段）
+    auto_fields = {'id', 'created_at', 'updated_at', 'is_deleted'}
+    required_fields = [
+        f for f in model_info.fields 
+        # 🔥 修复：不排除作为外键的主键字段（如UserRole的联合主键）
+        # 只排除自增主键（field.name == 'id'）
+        if not f.nullable and f.name not in auto_fields and not (f.primary_key and f.name == 'id')
+    ]
+        
+    # 分离外键字段和普通字段
+    fk_fields = [f for f in required_fields if f.foreign_key]
+    normal_fields = [f for f in required_fields if not f.foreign_key]
+        
+    if not required_fields:
+        # 如果没有必填字段，使用简单形式
+        return f'{model_name}()'
+        
+    # 如果不需要生成依赖，或没有外键字段，生成简单单行形式
+    if not with_dependencies or not fk_fields:
+        field_assignments = []
+        for field in required_fields:
+            test_value = self._get_test_value_for_field(field, suffix)
+            field_assignments.append(f'{field.name}={test_value}')
+        # 返回不带变量赋值的表达式（用于单行赋值：entity = XXX()）
+        return f'{model_name}({", ".join(field_assignments)})'
+        
+    # 生成完整的依赖创建代码（多行）
+    lines = []
+    fk_var_names = {}
+        
+    # 为每个外键字段创建依赖实体
+    for field in fk_fields:
+        # 解析外键目标：'products.id' -> table='products', column='id'
+        fk_target = field.foreign_key
+        fk_table = fk_target.split('.')[0]
+            
+        # 推断模型名（表名转模型名：products -> Product, categories -> Category）
+        fk_model_name = self._table_name_to_model_name(fk_table)
+        # 使用相同的单数化逻辑作为变量名（小写）
+        fk_var_name = self._table_name_to_model_name(fk_table).lower()
+            
+        # 递归生成依赖实体（不再生成依赖的依赖，避免无限递归）
+        fk_entity_code = self._generate_test_entity_creation(fk_model_name, models, f"依赖{suffix}", with_dependencies=False)
+        lines.append(f'{fk_var_name} = {fk_entity_code}')
+        lines.append(f'unit_test_db.add({fk_var_name})')
+        lines.append(f'unit_test_db.commit()')
+            
+        # 记录变量名，用于后续引用
+        fk_var_names[field.name] = f'{fk_var_name}.id'
+        
+    # 生成主实体的字段赋值
+    field_assignments = []
+    for field in normal_fields:
+        test_value = self._get_test_value_for_field(field, suffix)
+        field_assignments.append(f'{field.name}={test_value}')
+        
+    # 添加外键字段赋值
+    for field in fk_fields:
+        field_assignments.append(f'{field.name}={fk_var_names[field.name]}')
+        
+    # 添加主实体创建
+    lines.append(f'entity = {model_name}({", ".join(field_assignments)})')
+        
+    return '\n        '.join(lines)
+    
+
+# ===== _infer_query_parameter =====
+def _infer_query_parameter(self, method_info: 'RepositoryMethodInfo', model_name: str, models: Dict[str, ModelInfo]) -> tuple[str, str, bool]:
+    """推断自定义查询方法需要的参数（通用化改进版）
+        
+    通过分析方法签名自动推断参数：
+    - get_by_username -> entity.username
+    - get_user_roles(user_id: int) -> 需要创建User，传入user.id
+    - get_role_users(role_id: int) -> 需要创建Role，传入role.id
+    - get (联合主键) -> 需要所有主键字段
+        
+    Args:
+        method_info: 方法信息（包含参数签名）
+        model_name: 模型名称
+        models: 所有模型信息
+            
+    Returns:
+        tuple: (准备代码, 参数字符串, 是否需要TODO注释)
+            - setup_code: 创建依赖实体的代码（如创建User）
+            - param_str: 调用方法时的参数字符串（如user.id）
+            - needs_todo: 是否需要TODO注释
+    """
+    method_name = method_info.name
+        
+    # 🔥 提取方法参数（排除self, db, cls）
+    method_params = [p for p in method_info.parameters if p[0] not in ['self', 'db', 'cls']]
+        
+    # 特殊处理check_exists方法（可选参数组合）
+    if method_name == 'check_exists':
+        return ('', 'username=entity.username, email=entity.email', False)
+        
+    # 特殊处理联合主键的get方法
+    if method_name == 'get' and self._has_composite_primary_key(model_name, models):
+        pk_fields = self._get_primary_key_fields(model_name, models)
+        param_str = ', '.join([f'entity.{f.name}' for f in pk_fields])
+        return ('', param_str, False)
+        
+    # 特殊处理联合主键的delete方法
+    if method_name == 'delete' and self._has_composite_primary_key(model_name, models):
+        pk_fields = self._get_primary_key_fields(model_name, models)
+        param_str = ', '.join([f'entity.{f.name}' for f in pk_fields])
+        return ('', param_str, False)
+        
+    # 🔥 智能推断：分析方法参数，自动生成依赖实体
+    if method_params:
+        setup_code_lines = []
+        param_parts = []
+            
+        for param_name, param_type in method_params:
+            # 推断参数对应的实体类型
+            # user_id: int -> User
+            # role_id: int -> Role
+            # permission_id: int -> Permission
+            entity_name = self._infer_entity_from_param(param_name, param_type, models)
+                
+            if entity_name and entity_name in models:
+                # 生成创建实体的代码
+                var_name = entity_name.lower()
+                entity_creation = self._generate_test_entity_creation(entity_name, models, f"{entity_name}数据", with_dependencies=True)
+                setup_code_lines.append(f"{var_name} = {entity_creation}")
+                setup_code_lines.append(f"unit_test_db.add({var_name})")
+                setup_code_lines.append(f"unit_test_db.commit()")
+                setup_code_lines.append("")
+                    
+                # 参数使用实体的ID
+                if param_name.endswith('_id'):
+                    param_parts.append(f"{var_name}.id")
+                else:
+                    param_parts.append(f"{var_name}")
+            else:
+                # 无法推断实体，尝试从方法名推断字段
+                # get_by_username(username: str) -> entity.username
+                # get_by_email(email: str) -> entity.email
+                if method_name.startswith('get_by_') and param_type == 'str':
+                    field_name = method_name[7:]  # 移除'get_by_'
+                    if '_or_' in field_name:
+                        field_name = field_name.split('_or_')[0]  # 使用第一个字段
+                    param_parts.append(f'entity.{field_name}')
+                elif param_type == 'int':
+                    param_parts.append('1')
+                elif param_type == 'str':
+                    param_parts.append('"test_value"')
+                elif param_type == 'bool':
+                    param_parts.append('True')
+                else:
+                    # 复杂类型，需要TODO
+                    return ('', '', True)
+            
+        setup_code = '\n        '.join(setup_code_lines) if setup_code_lines else ''
+        param_str = ', '.join(param_parts)
+        return (setup_code, param_str, False)
+        
+    # 提取方法名中的字段名（兼容老逻辑）
+    if method_name.startswith('get_by_'):
+        field_part = method_name[7:]  # 移除'get_by_'
+        # 特殊处理复合查询（如username_or_email）
+        if '_or_' in field_part:
+            # 使用第一个字段
+            field_name = field_part.split('_or_')[0]
+            return ('', f'entity.{field_name}', False)
+        else:
+            return ('', f'entity.{field_part}', False)
+    elif method_name == 'check_exists':
+        # check_exists通常接受多个可选参数
+        return ('', 'username=entity.username, email=entity.email', False)
+    else:
+        # 默认使用id（如果有的话）
+        has_composite_pk = self._has_composite_primary_key(model_name, models)
+        if has_composite_pk:
+            # 联合主键模型需要TODO
+            return ('', '', True)
+        return ('', 'entity.id', False)
+    
+
+# ===== _infer_entity_from_param =====
+def _infer_entity_from_param(self, param_name: str, param_type: str, models: Dict[str, ModelInfo]) -> Optional[str]:
+    """从参数名和类型推断对应的实体类型（通用化推断）
+        
+    推断规则：
+    1. user_id: int -> User (ID参数)
+    2. user: User -> User (对象参数)
+    3. role_id: int -> Role (ID参数)
+    4. role: Role -> Role (对象参数)
+        
+    Args:
+        param_name: 参数名（如user_id或user）
+        param_type: 参数类型（如int或User）
+        models: 所有模型信息
+            
+    Returns:
+        str: 实体名称（如User），如果无法推断返回None
+    """
+    # 🔥 情况1：对象类型参数（如user: User）
+    # 检查参数类型是否直接是模型名
+    if param_type in models:
+        return param_type
+        
+    # 🔥 情况2：ID参数（如user_id: int）
+    if param_type == 'int' and param_name.endswith('_id'):
+        # 提取实体名：user_id -> user -> User
+        entity_base = param_name[:-3]  # 移除'_id'
+            
+        # 尝试各种命名变体
+        candidates = [
+            entity_base.title(),  # user -> User
+            entity_base.capitalize(),  # user -> User
+            entity_base.upper(),  # user -> USER
+            ''.join(word.capitalize() for word in entity_base.split('_'))  # user_role -> UserRole
+        ]
+            
+        for candidate in candidates:
+            if candidate in models:
+                return candidate
+        
+    # 🔥 情况3：对象参数但类型名不标准（如user: 'User'带引号）
+    # 尝试从参数名推断
+    candidates = [
+        param_name.title(),  # user -> User
+        param_name.capitalize(),  # user -> User
+        ''.join(word.capitalize() for word in param_name.split('_'))  # user_role -> UserRole
+    ]
+        
+    for candidate in candidates:
+        if candidate in models:
+            return candidate
+        
+    return None
+    
+
+# ===== _generate_repository_create_test =====
+def _generate_repository_create_test(self, method_info: RepositoryMethodInfo, model_name: str, repo_name: str, module_name: str, models: Dict[str, ModelInfo]) -> str:
+    """生成Repository create方法测试（符合testing-standards.md 2.1节要求）
+        
+    测试类型（符合标准第2.1节）:
+    1. 最小必填字段创建测试 - 只填写nullable=False且无default的字段
+    2. 完整字段创建测试 - 填写所有字段包括可选字段
+    3. 字段验证测试 - 验证约束和格式
+    4. 关联创建测试 - 验证外键关联
+    """
+    method_name = method_info.name
+        
+    # 生成最小字段创建代码（只填必填字段）
+    minimal_entity_code = self._generate_minimal_entity_creation(model_name, models, module_name)
+        
+    # 生成完整字段创建代码（使用Factory Boy）
+    # 如果是单行代码，需要添加entity =前缀
+        
+    # 🔥 检查是否使用联合主键
+    has_composite_pk = self._has_composite_primary_key(model_name, models)
+        
+    if has_composite_pk:
+        # 联合主键：使用主键字段组合查询
+        pk_fields = self._get_primary_key_fields(model_name, models)
+        pk_filter = ', '.join([f'{f.name}=result.{f.name}' for f in pk_fields])
+            
+        return f'''    def test_{method_name}_minimal_fields(self, unit_test_db: Session):
+    """测试{method_name} - 最小必填字段创建
+        
+    符合标准: testing-standards.md 第2.1节 - 只填写必填字段，验证默认值
+    """
+    # 创建最小实体（只填必填字段）
+
+# ===== _generate_repository_read_test =====
+def _generate_repository_read_test(self, method_info: RepositoryMethodInfo, model_name: str, repo_name: str, module_name: str, models: Dict[str, ModelInfo]) -> str:
+    """生成Repository read方法测试（智能处理返回类型和参数）"""
+    method_name = method_info.name
+    entity_creation = self._generate_test_entity_creation(model_name, models, "查询测试", with_dependencies=True)
+        
+    # 检查返回类型
+    is_list_return = 'List[' in method_info.return_type or 'list[' in method_info.return_type.lower()
+    is_bool_return = method_info.return_type == 'bool'
+        
+    # 🔥 智能推断查询参数
+    setup_code, query_param, needs_todo = self._infer_query_parameter(method_info, model_name, models)
+    has_composite_pk = self._has_composite_primary_key(model_name, models)
+        
+    if is_bool_return:
+        # 返回bool的方法（如check_exists）
+        if method_name == 'check_exists':
+            return f'''    def test_{method_name}_found(self, unit_test_db: Session):
+    """测试{method_name} - 查询到数据"""
+    # 准备测试数据
+    entity = {entity_creation}
+    unit_test_db.add(entity)
+    unit_test_db.commit()
+        
+    # 执行Repository方法
+    result = {repo_name}.{method_name}(unit_test_db, {query_param})
+        
+    # 验证结果
+    assert result is True
+    
+
+# ===== _generate_repository_update_test =====
+def _generate_repository_update_test(self, method_info: RepositoryMethodInfo, model_name: str, repo_name: str, module_name: str, models: Dict[str, ModelInfo]) -> str:
+    """生成Repository update方法测试（符合testing-standards.md 2.3节要求）
+        
+    测试类型（符合标准第2.3节）:
+    1. 单字段更新测试 - 只更新一个字段，验证其他字段不变
+    2. 多字段更新测试 - 同时更新多个字段
+    3. 专用方法测试 - 如update_status, update_password等
+    4. 批量更新测试 - 如update_many, bulk_update等
+    """
+    method_name = method_info.name
+    entity_creation = self._generate_test_entity_creation(model_name, models, "原始数据", with_dependencies=True)
+        
+    # 🔥 智能选择可更新的字段（优先name，然后业务字段，最后才是其他字段）
+    update_field = "name"  # 默认
+    if model_name in models:
+        model_info = models[model_name]
+        # 检查是否有name字段
+        has_name = any(f.name == 'name' for f in model_info.fields)
+        if not has_name:
+            # 📝 排除规则：只排除真正不能修改的字段
+            # 1. 系统字段：id, timestamps, 软删除标记
+            # 2. 唯一约束字段：username, email（这些需要唯一性验证）
+            # 3. 经过验证的敏感字段：password_hash, token等
+            # 4. 已验证的真实信息：如果有verified标记的字段
+            excluded_fields = {
+                # 系统字段
+                'id', 'created_at', 'updated_at', 'is_deleted', 'deleted_at',
+                # 唯一约束字段（需要特殊处理）
+                'username', 'email', 'wx_openid', 'wx_unionid',
+                # 认证和令牌字段
+                'password_hash', 'token', 'token_hash', 'refresh_token',
+                # 唯一标识码
+                'code', 'sku', 'slug'
+            }
+                
+            # 🎯 优先级排序：业务字段 > 描述字段 > 其他字段
+            priority_fields = ['real_name', 'phone', 'status', 'role', 'description', 'remark', 'note', 'address']
+                
+            # 先检查优先级字段
+            for field in priority_fields:
+                field_info = next((f for f in model_info.fields if f.name == field), None)
+                if field_info and not field_info.primary_key and not field_info.foreign_key:
+                    update_field = field
+                    break
+            else:
+                # 如果没有优先级字段，查找第一个可更新的字符串字段
+                updateable_fields = [
+                    f.name for f in model_info.fields
+                    if f.name not in excluded_fields
+                    and not f.primary_key 
+                    and not f.foreign_key
+                    and 'String' in f.column_type
+                ]
+                if updateable_fields:
+                    update_field = updateable_fields[0]
+        
+    # 🔥 检查是否使用联合主键
+    has_composite_pk = self._has_composite_primary_key(model_name, models)
+        
+    if has_composite_pk:
+        # 联合主键：使用主键字段组合查询
+        pk_fields = self._get_primary_key_fields(model_name, models)
+        pk_filter = ', '.join([f'{f.name}=entity.{f.name}' for f in pk_fields])
+            
+        return f'''    def test_{method_name}_success(self, unit_test_db: Session):
+    """测试{method_name} - 更新成功"""
+    # 准备测试数据
+    entity = {entity_creation}
+    unit_test_db.add(entity)
+    unit_test_db.commit()
+        
+    # 执行Repository方法
+    update_data = {{"{update_field}": "更新后数据"}}
+    result = {repo_name}.{method_name}(unit_test_db, entity, update_data)  # TODO: 根据实际方法签名调整参数
+        
+    # 验证结果
+    assert result.{update_field} == "更新后数据"
+        
+    # 验证数据库已更新（使用联合主键查询）
+    unit_test_db.expire_all()
+    db_entity = unit_test_db.query({model_name}).filter_by({pk_filter}).first()
+    assert db_entity.{update_field} == "更新后数据"
+
+# ===== _generate_repository_delete_test =====
+def _generate_repository_delete_test(self, method_info: RepositoryMethodInfo, model_name: str, repo_name: str, module_name: str, models: Dict[str, ModelInfo]) -> str:
+    """生成Repository delete方法测试（符合testing-standards.md 2.4节要求）
+        
+    测试类型（符合标准第2.4节）:
+    1. 物理删除测试 - 验证数据真正从数据库删除
+    2. 软删除测试 - 验证is_deleted标记和deleted_at时间戳
+    3. 批量删除测试 - 如delete_many, bulk_delete等（如有）
+    """
+    method_name = method_info.name
+    entity_creation = self._generate_test_entity_creation(model_name, models, "待删除数据", with_dependencies=True)
+        
+    # 🔥 检查是否是软删除（通过AST分析得到）
+    is_soft_delete = method_info.is_soft_delete
+        
+    # 🔥 检查是否使用联合主键
+    has_composite_pk = self._has_composite_primary_key(model_name, models)
+    # 检查返回类型
+    returns_none = method_info.return_type == 'None'
+        
+    # 🔥 检查delete方法的参数类型（接收对象还是ID）
+    # parameters: [(name, type), ...], 跳过'self', 'db', 'cls'
+    delete_params = [p for p in method_info.parameters if p[0] not in ['self', 'db', 'cls']]
+    # 如果第一个参数类型包含模型名（如Role），说明接收对象；否则接收ID
+    accepts_entity = False
+    if delete_params and model_name.lower() in delete_params[0][1].lower():
+        accepts_entity = True
+        
+    if has_composite_pk:
+        # 联合主键：保存主键值用于后续查询和删除参数
+        pk_fields = self._get_primary_key_fields(model_name, models)
+        pk_saves = '\n        '.join([f'{f.name}_val = entity.{f.name}' for f in pk_fields])
+        pk_params = ', '.join([f'{f.name}_val' for f in pk_fields])
+        pk_filter = ', '.join([f'{f.name}={f.name}_val' for f in pk_fields])
+            
+        verification = self._generate_delete_verification(is_soft_delete, model_name, pk_filter)
+            
+        if returns_none:
+            # delete返回None
+            return f'''    def test_{method_name}_success(self, unit_test_db: Session):
+    """测试{method_name} - 删除成功"""
+    # 准备测试数据
+    entity = {entity_creation}
+    unit_test_db.add(entity)
+    unit_test_db.commit()
+    {pk_saves}
+        
+    # 执行Repository方法（使用主键参数）
+    {repo_name}.{method_name}(unit_test_db, {pk_params})
+        
+    {verification}
+
+# ===== _generate_repository_count_test =====
+def _generate_repository_count_test(self, method_info: RepositoryMethodInfo, model_name: str, repo_name: str, module_name: str, models: Dict[str, ModelInfo]) -> str:
+    """生成Repository count方法测试（智能处理参数）"""
+    method_name = method_info.name
+        
+    # 分析方法参数（排除db: Session）
+    params = [p for p in method_info.parameters if p[0] not in ['self', 'db', 'cls']]
+        
+    # 生成5个不同的测试实体
+    entity_creations = []
+    for i in range(5):
+        entity_creation = self._generate_test_entity_creation(model_name, models, f"测试数据{i}")
+        entity_creations.append(f"        entity{i} = {entity_creation}\n        unit_test_db.add(entity{i})")
+        
+    entities_code = "\n".join(entity_creations)
+        
+    # 如果有参数，使用第一个实体的属性作为参数值
+    if params:
+        # 假设第一个参数是关键查询参数（如category_id）
+        param_name = params[0][0]
+        # 推断参数值：如果参数名包含_id，使用entity0.xxx_id；否则使用entity0的对应属性
+        if param_name.endswith('_id'):
+            # 例如：category_id -> entity0.id (假设是查询自身ID)
+            base_name = param_name[:-3]  # 移除_id
+            if base_name == model_name.lower():
+                param_value = "entity0.id"
+            else:
+                param_value = f"entity0.{param_name}"
+        else:
+            param_value = f"entity0.{param_name}"
+            
+        method_call = f"{repo_name}.{method_name}(unit_test_db, {param_value})"
+    else:
+        method_call = f"{repo_name}.{method_name}(unit_test_db)"
+        
+    return f'''    def test_{method_name}_count(self, unit_test_db: Session):
+    """测试{method_name} - 计数功能"""
+    # 准备测试数据
+
+# ===== _generate_repository_query_test =====
+def _generate_repository_query_test(self, method_info: RepositoryMethodInfo, model_name: str, repo_name: str, module_name: str, models: Dict[str, ModelInfo]) -> str:
+    """生成Repository query方法测试"""
+    method_name = method_info.name
+    entity_creation = self._generate_test_entity_creation(model_name, models, "查询测试", with_dependencies=True)
+        
+    return f'''    def test_{method_name}_query(self, unit_test_db: Session):
+    """测试{method_name} - 查询功能"""
+    # 准备测试数据
+    entity = {entity_creation}
+    unit_test_db.add(entity)
+    unit_test_db.commit()
+        
+    # 执行Repository方法
+    results = {repo_name}.{method_name}(unit_test_db)  # TODO: 根据实际方法签名调整参数
+        
+    # 验证查询结果
+    assert len(results) > 0
+
+# ===== _generate_single_repository_test =====
+def _generate_single_repository_test(self, repo_info: RepositoryInfo, models: Dict[str, ModelInfo], module_name: str) -> str:
+    """为单个Repository生成测试类
+        
+    Args:
+        repo_info: Repository信息
+        models: 模型信息（用于创建测试数据）
+        module_name: 模块名称
+            
+    Returns:
+        str: Repository测试类代码
+    """
+    repo_name = repo_info.name
+    model_name = repo_info.model_name
+        
+    # 生成各类测试方法
+    test_methods = []
+        
+    for method_info in repo_info.methods:
+        # 🔥 跳过专用更新方法（如update_login_info），生成TODO提示
+        if method_info.is_specialized_update:
+            todo_comment = f'''    # TODO: 测试专用更新方法 {method_info.name}
+# 这是一个专用更新方法，只修改特定字段，需要根据业务逻辑手动编写测试
+# 方法签名: {method_info.parameters}
+# 返回类型: {method_info.return_type}
+    
+
+# ===== _generate_repository_tests =====
+def _generate_repository_tests(
+    self, module_name: str, repositories: Dict[str, RepositoryInfo], models: Dict[str, ModelInfo]
+) -> str:
+    """生成Repository层测试代码（四层架构新增）
+        
+    🔄 重构标记：此方法将迁移到 unit/repository_test_generator.py
+    当前阶段：阶段A（保留在主程序，待迁移）
+    目标位置：RepositoryTestGenerator.generate_repository_tests()
+    依赖方法：_generate_single_repository_test, _generate_repository_*_test等
+    预计代码量：~1200行（含所有依赖方法）
+        
+    测试策略:
+    - 使用 SQLite 内存数据库 (unit_test_db fixture)
+    - 测试每个 Repository 方法的数据访问逻辑
+    - 验证查询条件、过滤、排序、分页等
+    - 测试事务处理（create/update/delete）
+    - 测试边界情况和错误处理
+        
+    Args:
+        module_name: 模块名称
+        repositories: Repository信息字典
+        models: 模型信息字典（用于创建测试数据）
+            
+    Returns:
+        str: Repository测试代码
+    """
+    test_classes = []
+        
+    # 为每个Repository生成测试类
+    for repo_name, repo_info in repositories.items():
+        test_class = self._generate_single_repository_test(repo_info, models, module_name)
+        test_classes.append(test_class)
+        
+    # 收集需要导入的模型
+    model_imports = set()
+    for repo_info in repositories.values():
+        model_imports.add(repo_info.model_name)
+        
+    # 收集需要导入的Repository
+    repo_imports = [repo_info.name for repo_info in repositories.values()]
+        
+    imports = f'''"""
+

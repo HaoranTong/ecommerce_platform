@@ -2223,7 +2223,7 @@ class Test{repo_name}:
         - 布尔: False
         - 枚举: 第一个值
         """
-        field_type = field.type.lower()
+        field_type = field.column_type.lower()
         
         # 字符串类型
         if 'str' in field_type or 'varchar' in field_type or 'text' in field_type:
