@@ -386,6 +386,38 @@ from app.modules.{module_name}.models import (
         setup_code, query_param, needs_todo = self._infer_query_parameter(method_info, model_name, models)
         has_composite_pk = self._has_composite_primary_key(model_name, models)
         
+        # 🎯 特殊处理: 复合主键的get方法
+        if method_name == 'get' and has_composite_pk:
+            pk_fields = self._get_primary_key_fields(model_name, models)
+            not_found_params = ', '.join(['999999' for _ in pk_fields])
+            
+            # 根据返回类型选择断言
+            if method_info.return_type == "int" or "count" in method_name:
+                not_found_assertion = "assert result == 0  # count方法返回0"
+            else:
+                not_found_assertion = "assert result is None"
+            
+            return f'''    def test_{method_name}_found(self, unit_test_db: Session):
+        """测试{method_name} - 查询到数据"""
+        # 准备测试数据
+        entity = {entity_creation}
+        unit_test_db.add(entity)
+        unit_test_db.commit()
+        
+        # 执行Repository方法
+        result = {repo_name}.{method_name}(unit_test_db, {query_param})
+        
+        # 验证结果
+        assert result is not None
+
+    def test_{method_name}_not_found(self, unit_test_db: Session):
+        """测试{method_name} - 数据不存在（复合主键）"""
+        result = {repo_name}.{method_name}(unit_test_db, {not_found_params})
+        
+        # 验证结果
+        {not_found_assertion}
+'''
+        
         if is_bool_return:
             # 返回bool的方法（如check_exists）
             if method_name == 'check_exists':
