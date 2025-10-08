@@ -53,24 +53,114 @@ graph TB
 ### 模块内部架构
 ```
 user_auth/
-├── router.py           # API路由层 - 请求接收和响应
-├── service.py          # 业务逻辑层 - 认证核心逻辑
-├── models.py           # 数据模型层 - RBAC权限模型实体定义
+├── router.py           # 第1层: API路由层 - HTTP请求处理
+├── service.py          # 第2层: 业务逻辑层 - 认证核心逻辑
+├── repository.py       # 第3层: 数据访问层 - 数据库操作封装
+├── models.py           # 第4层: 数据模型层 - RBAC权限模型实体定义
 ├── schemas.py          # 数据传输对象 - API请求响应结构
 ├── dependencies.py     # 依赖注入 - 权限检查装饰器
 ├── README.md           # 模块说明文档
 └── __init__.py         # 模块初始化文件
 ```
 
-**注意**: 数据访问层(repository)、异常处理(exceptions)、JWT工具(utils)已集成到核心组件：
-- 数据访问: 直接在service.py中通过SQLAlchemy ORM实现
-- 异常处理: 使用`app/core/auth.py`中的`AuthenticationError`
-- JWT工具: 使用`app/core/auth.py`中的JWT相关函数
+**架构说明**: 
+- **四层架构**: Router → Service → Repository → Model，遵循单向依赖原则
+- **Repository层**: 封装所有数据库操作，提供标准CRUD接口，支持Mock测试
+- **异常处理**: 使用`app/core/auth.py`的`AuthenticationError`和`app/core/exceptions.py`的`ServiceException`
+- **工具函数**: 密码加密、JWT令牌等核心工具统一使用`app/core/auth.py`中的函数
+- **无需exceptions.py/utils.py**: 所有异常和工具函数都是跨模块共享的，已在core层统一管理
 
 ### 层次职责
-- **API层**: 处理HTTP请求、参数验证、响应格式化、错误处理
-- **业务层**: 认证逻辑实现、权限验证、业务规则执行、状态管理
-- **数据层**: 用户数据持久化、查询优化、事务管理、数据一致性
+- **Router层**: 处理HTTP请求、参数验证、响应格式化、调用Service层
+- **Service层**: 认证逻辑实现、业务规则验证、事务边界管理、调用Repository层
+- **Repository层**: 数据库操作封装、查询构建、CRUD方法提供、隔离ORM实现
+- **Model层**: ORM实体定义、数据库表映射、实体关系定义、无业务逻辑
+
+### 异步架构设计
+
+#### 架构问题与解决方案
+
+**问题背景**：
+FastAPI支持async/await异步编程，可以充分利用异步IO提升并发性能。然而，当前项目使用SQLAlchemy同步ORM + pymysql同步驱动，在async endpoint中直接调用同步数据库操作会导致**事件循环阻塞**，失去async的并发优势。
+
+**技术本质**：
+```python
+# ❌ 错误示例：在async context中调用同步DB操作会阻塞事件循环
+async def login(db: Session):
+    user = UserRepository.get_by_username(db, username)  # 同步调用，阻塞整个事件循环
+    # 其他异步请求被阻塞，无法并发执行
+```
+
+**当前实现策略：分层异步 + 线程池（方案2）**
+
+采用`asyncio.run_in_executor`将同步数据库操作放到线程池执行，避免阻塞事件循环：
+
+```python
+# ✅ 正确示例：使用run_in_thread避免阻塞
+from app.core.async_utils import run_in_thread
+
+async def login_user(db: Session, username: str):
+    # 同步Repository调用通过线程池执行，不阻塞事件循环
+    user = await run_in_thread(UserRepository.get_by_username, db, username)
+    
+    # Redis操作仍是真正的async
+    await VerificationCodeService.verify_code(...)
+    
+    return user
+```
+
+**架构层次**：
+- **Router层**: 全部`async def`，FastAPI推荐模式
+- **Service层**: 需要数据库操作的方法使用`async def`，内部用`run_in_thread`包装Repository调用
+- **Repository层**: 保持同步方法（`def`），使用SQLAlchemy同步Session
+- **核心服务层**: Redis、验证码等真正的异步服务使用`async def`
+
+**性能考虑**：
+- **优点**：
+  - 避免事件循环阻塞，保持并发能力
+  - 改造成本低，无需替换ORM和数据库驱动
+  - 适合中等并发场景（<1000 req/s）
+  - 线程池由Python自动管理，默认大小：min(32, cpu_count + 4)
+
+- **缺点**：
+  - 线程切换有小开销（但远好于阻塞事件循环）
+  - 不是真正的异步IO（仍然是同步操作在线程池执行）
+  - 高并发场景（>1000 req/s）性能受限
+
+**未来升级路径**：
+当并发需求进一步增长时，可以升级为全async架构：
+- 使用`AsyncSession` + `aiomysql`（或`asyncpg`）
+- Repository层改为async方法
+- 全链路真正的异步IO
+- 改造成本较高，但性能更好
+
+**实现工具**：
+```python
+# app/core/async_utils.py 提供的工具函数
+from app.core.async_utils import run_in_thread, sync_to_async
+
+# 方式1：直接调用run_in_thread
+user = await run_in_thread(UserRepository.get_by_id, db, user_id)
+
+# 方式2：使用装饰器包装Repository方法（可选）
+class UserRepository:
+    @staticmethod
+    @sync_to_async
+    def get_by_id(db: Session, user_id: int):
+        return db.query(User).filter(User.id == user_id).first()
+```
+
+**关键原则**：
+1. **Router层必须async**：FastAPI推荐模式，支持异步中间件
+2. **Service层按需async**：需要数据库操作的方法用async，内部用run_in_thread包装
+3. **Repository层保持同步**：便于测试和维护，通过线程池桥接
+4. **真正的async服务直接await**：Redis、HTTP请求等无需run_in_thread
+
+**注意事项**：
+- 线程池执行的同步代码无法被asyncio.cancel()取消
+- 避免在线程池中执行CPU密集型操作
+- 数据库连接池大小需考虑线程池大小
+- Session对象不能跨线程共享，使用FastAPI的Depends注入确保每个请求独立Session
 
 ## 数据库设计
 
@@ -130,36 +220,33 @@ CREATE TABLE permissions (
 );
 
 -- 用户角色关联表
+-- 注意：关联表使用联合主键，遵循database-standards.md关于多对多中间表的设计规范
 CREATE TABLE user_roles (
-    id INT PRIMARY KEY AUTO_INCREMENT,
     user_id INT NOT NULL COMMENT '用户ID',
     role_id INT NOT NULL COMMENT '角色ID',
-    granted_at DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '授权时间',
-    granted_by INT NULL COMMENT '授权人ID',
-    expires_at DATETIME NULL COMMENT '过期时间',
-    is_active BOOLEAN DEFAULT TRUE,
+    assigned_by INT NULL COMMENT '分配人ID',
+    assigned_at DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '分配时间',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (user_id, role_id),  -- 联合主键，天然保证唯一性
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
     FOREIGN KEY (role_id) REFERENCES roles(id) ON DELETE CASCADE,
-    FOREIGN KEY (granted_by) REFERENCES users(id) ON DELETE SET NULL,
-    UNIQUE KEY uk_user_role (user_id, role_id)
+    FOREIGN KEY (assigned_by) REFERENCES users(id) ON DELETE SET NULL
 );
 
 -- 角色权限关联表
+-- 注意：关联表使用联合主键，遵循database-standards.md关于多对多中间表的设计规范
 CREATE TABLE role_permissions (
-    id INT PRIMARY KEY AUTO_INCREMENT,
     role_id INT NOT NULL COMMENT '角色ID',
     permission_id INT NOT NULL COMMENT '权限ID',
-    granted_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     granted_by INT NULL COMMENT '授权人ID',
-    is_active BOOLEAN DEFAULT TRUE,
+    granted_at DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '授权时间',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (role_id, permission_id),  -- 联合主键，天然保证唯一性
     FOREIGN KEY (role_id) REFERENCES roles(id) ON DELETE CASCADE,
     FOREIGN KEY (permission_id) REFERENCES permissions(id) ON DELETE CASCADE,
-    FOREIGN KEY (granted_by) REFERENCES users(id) ON DELETE SET NULL,
-    UNIQUE KEY uk_role_permission (role_id, permission_id)
+    FOREIGN KEY (granted_by) REFERENCES users(id) ON DELETE SET NULL
 );
 
 -- 用户会话表
@@ -211,17 +298,93 @@ CREATE TABLE sessions (
 - **基础路径**: `/api/v1/user-auth/`
 - **认证方式**: JWT Bearer Token (Authorization: Bearer <token>)
 - **数据格式**: JSON请求和响应
-- **错误处理**: 统一错误码和消息格式
+
+#### 统一响应格式规范（StandardResponse）
+
+**模块独立定义原则**：
+根据 api-standards.md 的模块化设计原则，每个模块必须在自己的 schemas.py 中独立定义 StandardResponse 和 ErrorResponse，**禁止跨模块共享**。这确保了模块的独立性和可维护性。
+
+**成功响应格式**（StandardResponse）：
+```python
+# app/modules/user_auth/schemas.py
+from pydantic import BaseModel
+from typing import Optional, Any, Dict, Generic, TypeVar
+
+T = TypeVar("T")
+
+class StandardResponse(BaseModel, Generic[T]):
+    """统一成功响应格式（模块内独立定义）"""
+    success: bool = True              # 业务执行状态
+    code: int = 200                   # HTTP状态码
+    message: str = "操作成功"          # 用户友好消息
+    data: Optional[T] = None          # 业务数据载荷（泛型）
+    metadata: Optional[Dict[str, Any]] = None  # 响应元数据
+```
+
+**响应示例**：
+```json
+{
+  "success": true,
+  "code": 200,
+  "message": "操作成功",
+  "data": {
+    "id": 123,
+    "username": "testuser",
+    "email": "test@example.com"
+  },
+  "metadata": {
+    "request_id": "req_123456",
+    "timestamp": "2025-10-08T10:00:00Z"
+  }
+}
+```
+
+**metadata字段使用规范**：
+- **分页信息**：列表接口返回 `{"total": 100, "skip": 0, "limit": 20}`
+- **统计数据**：聚合接口返回 `{"total_users": 1000, "active_users": 800}`
+- **请求追踪**：可包含 `request_id`、`timestamp`、`execution_time` 等
+- **可选字段**：metadata 为可选，简单查询可以不返回
+
+**错误响应格式**（ErrorResponse）：
+```python
+# app/modules/user_auth/schemas.py
+class ErrorResponse(BaseModel):
+    """统一错误响应格式（模块内独立定义）"""
+    success: bool = False             # 固定为 False
+    code: int                         # HTTP错误状态码
+    message: str                      # 错误消息
+    data: Optional[Dict[str, Any]] = None      # 错误详情
+    metadata: Optional[Dict[str, Any]] = None  # 错误元数据
+```
+
+**错误响应示例**：
+```json
+{
+  "success": false,
+  "code": 400,
+  "message": "验证码错误或已过期",
+  "data": {
+    "error_type": "VALIDATION_ERROR",
+    "field": "verification_code"
+  },
+  "metadata": {
+    "request_id": "req_123456",
+    "timestamp": "2025-10-08T10:00:00Z"
+  }
+}
+```
 
 ### 端点设计
 | 方法 | 路径 | 功能 | 认证要求 | 权限要求 | 实现状态 |
 |------|------|------|----------|----------|----------|
-| POST | `/user-auth/register` | 用户注册 | 无 | 公开 | ✅ 已实现 |
-| POST | `/user-auth/login` | 用户登录 | 无 | 公开 | ✅ 已实现 |
+| POST | `/user-auth/verification-code` | 发送验证码 | 无 | 公开 | ✅ 已实现 |
+| POST | `/user-auth/register` | 用户注册（需验证码） | 无 | 公开 | ✅ 已实现 |
+| POST | `/user-auth/login` | 密码登录（失败3次需验证码） | 无 | 公开 | ✅ 已实现 |
+| POST | `/user-auth/phone-login` | 手机验证码登录 | 无 | 公开 | ✅ 已实现 |
 | POST | `/user-auth/logout` | 用户登出 | Bearer Token | 已登录用户 | ✅ 已实现 |
 | POST | `/user-auth/refresh` | 刷新令牌 | Refresh Token | 已登录用户 | ✅ 已实现 |
-| POST | `/user-auth/password/reset-request` | 请求密码重置 | 无 | 公开 | ❌ 待实现 |
-| POST | `/user-auth/password/reset-confirm` | 确认密码重置 | Reset Token | 公开 | ❌ 待实现 |
+| POST | `/user-auth/password/reset-request` | 请求密码重置 | 无 | 公开 | ✅ 已实现 |
+| POST | `/user-auth/password/reset-confirm` | 确认密码重置（需验证码） | 无 | 公开 | ✅ 已实现 |
 | PUT | `/user-auth/password` | 修改密码 | Bearer Token | 已登录用户 | ✅ 已实现 |
 | GET | `/user-auth/me` | 获取用户信息 | Bearer Token | 已登录用户 | ✅ 已实现 |
 | PUT | `/user-auth/me` | 更新用户信息 | Bearer Token | 已登录用户 | ✅ 已实现 |
@@ -233,6 +396,81 @@ CREATE TABLE sessions (
 **注意**: 
 - 实际路径会在main.py中自动添加全局前缀`/api/v1`
 - 最终访问路径为: `/api/v1/user-auth/register`等
+
+### API文档规范
+
+所有API端点必须添加以下文档元数据（符合 OpenAPI/Swagger 规范）：
+
+```python
+@router.post(
+    "/user-auth/login",
+    response_model=StandardResponse[Token],
+    summary="用户登录",                    # 简短功能描述（必填）
+    description="用户登录，使用用户名/邮箱和密码。登录失败3次后需要提供验证码",  # 详细说明（必填）
+    tags=["用户认证"],                    # 功能分组（可选）
+    status_code=200,                      # 成功状态码（可选）
+    responses={                           # 错误响应文档（推荐）
+        400: {"description": "参数错误或验证码错误"},
+        401: {"description": "用户名或密码错误"},
+    }
+)
+async def login_user(...):
+    """用户登录（密码登录）"""
+    pass
+```
+
+**文档要求**：
+- ✅ **summary**：必填，简短描述（≤50字），显示在API列表
+- ✅ **description**：必填，详细说明（可多行），包含参数要求、业务规则、注意事项
+- ✅ **response_model**：必填，使用 StandardResponse[T] 包装返回类型
+- ✅ **tags**：推荐，用于API文档分组
+- ✅ **status_code**：推荐，明确成功状态码（200/201/204）
+- ✅ **responses**：推荐，文档化可能的错误响应
+
+### Token响应格式规范
+
+**Token Schema定义**：
+```python
+# app/modules/user_auth/schemas.py
+class Token(BaseModel):
+    """认证令牌响应格式"""
+    access_token: str                 # 访问令牌（JWT格式）
+    refresh_token: Optional[str] = None  # 刷新令牌（可选）
+    token_type: str = "bearer"        # 令牌类型（固定为bearer，符合OAuth2标准）
+    expires_in: int                   # 过期时间（单位：秒）
+```
+
+**Token响应示例**：
+```json
+{
+  "success": true,
+  "code": 200,
+  "message": "登录成功",
+  "data": {
+    "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "token_type": "bearer",
+    "expires_in": 1800
+  }
+}
+```
+
+**Token字段说明**：
+- **access_token**: 访问令牌，用于API认证，有效期30分钟
+- **refresh_token**: 刷新令牌，用于获取新的access_token，有效期30天
+- **token_type**: 固定为"bearer"，符合OAuth2标准（RFC 6750）
+- **expires_in**: 访问令牌过期时间（秒），便于客户端计算过期时刻
+
+**注册响应扩展**：
+```python
+# app/modules/user_auth/schemas.py
+class UserRegisterResponse(BaseModel):
+    """用户注册响应格式（包含用户信息和令牌）"""
+    user: UserRead                    # 用户信息
+    access_token: str                 # 访问令牌
+    refresh_token: Optional[str] = None  # 刷新令牌
+    token_type: str = "bearer"        # 令牌类型
+```
 
 ### 错误处理设计
 ```json
@@ -259,18 +497,38 @@ CREATE TABLE sessions (
 
 ### 核心业务流程
 
-#### 用户注册流程
+#### 用户注册流程（含验证码）
 ```mermaid
 sequenceDiagram
     participant C as Client
     participant A as Auth API
     participant S as Auth Service
+    participant V as Verification Service
+    participant Cache as Redis
     participant R as User Repository
     participant D as Database
     
-    C->>A: POST /register (username, email, password)
-    A->>A: 参数验证
+    Note over C,D: 步骤1：发送验证码
+    C->>A: POST /verification-code (email, code_type=register)
+    A->>S: 请求发送验证码
+    S->>R: 检查邮箱是否已注册
+    R->>D: SELECT查询
+    D-->>R: 返回查询结果
+    R-->>S: 邮箱未注册
+    S->>V: 生成6位验证码
+    V->>Cache: 存储验证码(5分钟有效)
+    V-->>S: 返回验证码
+    S-->>A: 验证码发送成功
+    A-->>C: 返回成功响应(开发环境返回验证码)
+    
+    Note over C,D: 步骤2：用户注册
+    C->>A: POST /register (username, email, password, verification_code)
+    A->>A: 参数验证（密码至少8位，包含字母和数字）
     A->>S: 注册处理
+    S->>V: 验证验证码
+    V->>Cache: 获取存储的验证码
+    Cache-->>V: 返回验证码
+    V-->>S: 验证码正确
     S->>R: 检查用户名邮箱唯一性
     R->>D: SELECT查询
     D-->>R: 返回查询结果
@@ -282,52 +540,94 @@ sequenceDiagram
     R-->>S: 返回用户对象
     S->>S: 生成JWT令牌对
     S-->>A: 返回注册结果+令牌
-    A-->>C: JSON响应(用户信息+令牌)
+    A-->>C: StandardResponse(用户信息+令牌)
 ```
 
-#### 用户登录流程
+#### 用户登录流程（支持验证码和多种登录方式）
 ```mermaid
 sequenceDiagram
     participant C as Client
     participant A as Auth API
     participant S as Auth Service
+    participant V as Verification Service
     participant R as User Repository
     participant D as Database
     participant Cache as Redis
     
-    C->>A: POST /login (username, password)
+    Note over C,Cache: 方式1：密码登录（失败3次后需验证码）
+    C->>A: POST /login (username, password, [verification_code])
     A->>S: 登录验证
     S->>R: 根据用户名查询用户
     R->>D: SELECT用户信息
     D-->>R: 返回用户数据
     R-->>S: 用户对象
+    
+    alt 失败次数>=3
+        S->>S: 检查是否提供验证码
+        alt 未提供验证码
+            S-->>A: 返回400错误：需要验证码
+            A-->>C: StandardResponse(error)
+        else 提供验证码
+            S->>V: 验证验证码
+            V->>Cache: 获取存储的验证码
+            Cache-->>V: 返回验证码
+            V-->>S: 验证结果
+            alt 验证码错误
+                S-->>A: 返回400错误：验证码错误
+                A-->>C: StandardResponse(error)
+            end
+        end
+    end
+    
     S->>S: 检查账户状态和锁定
     S->>S: bcrypt密码验证
     alt 密码正确
-        S->>R: 更新最后登录时间
+        S->>R: 更新最后登录时间（重置失败次数）
         S->>S: 生成JWT令牌对
         S->>Cache: 存储会话信息
         S-->>A: 返回登录成功+令牌
+        A-->>C: StandardResponse(token)
     else 密码错误
         S->>R: 增加失败次数
         S->>S: 检查是否需要锁定账户
-        S-->>A: 返回登录失败
+        S-->>A: 返回401错误：密码错误
+        A-->>C: StandardResponse(error)
     end
-    A-->>C: JSON响应
+    
+    Note over C,Cache: 方式2：手机验证码登录
+    C->>A: POST /phone-login (phone, verification_code)
+    A->>S: 手机登录验证
+    S->>V: 验证验证码
+    V->>Cache: 获取存储的验证码
+    Cache-->>V: 返回验证码
+    V-->>S: 验证结果
+    alt 验证码正确
+        S->>R: 根据手机号查询用户
+        R->>D: SELECT用户信息
+        D-->>R: 返回用户数据
+        R-->>S: 用户对象
+        S->>R: 更新最后登录时间
+        S->>S: 生成JWT令牌对
+        S-->>A: 返回登录成功+令牌
+        A-->>C: StandardResponse(token)
+    else 验证码错误
+        S-->>A: 返回400错误：验证码错误
+        A-->>C: StandardResponse(error)
+    end
 ```
 
-#### 密码重置流程
+#### 密码重置流程（使用验证码）
 ```mermaid
 sequenceDiagram
     participant C as Client
     participant A as Auth API
     participant S as Auth Service  
+    participant V as Verification Service
     participant R as User Repository
     participant D as Database
     participant Cache as Redis
-    participant E as Email Service
     
-    Note over C,E: 第一步：请求密码重置
+    Note over C,Cache: 第一步：请求密码重置
     C->>A: POST /password/reset-request (email)
     A->>S: 密码重置请求
     S->>R: 根据邮箱查询用户
@@ -335,40 +635,158 @@ sequenceDiagram
     D-->>R: 返回用户数据
     alt 用户存在
         R-->>S: 用户对象
-        S->>S: 生成重置令牌(15分钟有效)
-        S->>Cache: 存储重置令牌
-        S->>E: 发送重置邮件
-        S-->>A: 返回成功响应
+        S->>V: 生成6位验证码
+        V->>Cache: 存储验证码(5分钟有效)
+        V-->>S: 返回验证码
+        S-->>A: 返回成功响应(开发环境返回验证码)
+        A-->>C: StandardResponse(success)
     else 用户不存在
         S-->>A: 返回邮箱不存在错误
+        A-->>C: StandardResponse(error)
     end
-    A-->>C: JSON响应
     
-    Note over C,E: 第二步：确认密码重置
-    C->>A: POST /password/reset-confirm (reset_token, new_password)
+    Note over C,Cache: 第二步：确认密码重置
+    C->>A: POST /password/reset-confirm (email, verification_code, new_password)
+    A->>A: 参数验证（密码至少8位，包含字母和数字）
     A->>S: 密码重置确认
-    S->>Cache: 验证重置令牌
-    alt 令牌有效
-        Cache-->>S: 返回用户ID
+    S->>V: 验证验证码
+    V->>Cache: 获取存储的验证码
+    Cache-->>V: 返回验证码
+    V-->>S: 验证结果
+    alt 验证码正确
+        S->>R: 根据邮箱查询用户
+        R->>D: SELECT用户信息
+        D-->>R: 返回用户数据
+        R-->>S: 用户对象
         S->>S: 新密码bcrypt加密
         S->>R: 更新用户密码
         R->>D: UPDATE密码哈希
-        S->>Cache: 删除重置令牌
-        S->>S: 生成登录令牌对
-        S-->>A: 返回重置成功+令牌
-    else 令牌无效
-        S-->>A: 返回令牌无效错误
+        D-->>R: 更新成功
+        R-->>S: 更新完成
+        V->>Cache: 删除验证码（防止重复使用）
+        S-->>A: 返回重置成功
+        A-->>C: StandardResponse(success)
+    else 验证码错误
+        S-->>A: 返回验证码错误
+        A-->>C: StandardResponse(error)
     end
-    A-->>C: JSON响应
 ```
 
 ### 业务规则实现
-- **密码强度验证**: 正则表达式检查，至少8位包含大小写字母数字
-- **登录失败锁定**: 3次失败后锁定15分钟，防暴力破解
-- **令牌双重机制**: 访问令牌15分钟，刷新令牌7天，遵循零信任安全架构原则
-- **权限继承规则**: admin包含user权限，super_admin包含所有权限
-- **密码重置安全**: 重置令牌15分钟有效，一次性使用，通过邮箱验证身份
-- **重置频率限制**: 同一邮箱10分钟内最多申请3次密码重置，防止邮箱轰炸
+
+#### 密码安全规范
+
+**密码强度要求**：
+- **最小长度**：8位
+- **字符要求**：必须包含字母和数字
+- **大小写**：不强制，允许全小写或全大写（用户友好）
+- **特殊字符**：可选，不强制（简化用户体验）
+- **正则表达式**：`^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{8,}$`
+  - `(?=.*[A-Za-z])`：至少包含一个字母（大小写均可）
+  - `(?=.*\d)`：至少包含一个数字
+  - `[A-Za-z\d]{8,}`：只允许字母和数字，至少8位
+
+**验证实现方式**：
+
+方式1：使用Pydantic的pattern验证（推荐）
+```python
+class UserRegister(BaseSchema):
+    password: str = Field(
+        ..., 
+        min_length=8, 
+        max_length=128,
+        pattern=r"^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{8,}$",
+        description="密码（至少8位，包含字母和数字）"
+    )
+```
+
+方式2：使用field_validator自定义验证
+```python
+@field_validator("password")
+@classmethod
+def validate_password(cls, v):
+    if len(v) < 8:
+        raise ValueError("密码长度至少为8位")
+    if not any(c.isalpha() for c in v):
+        raise ValueError("密码必须包含字母")
+    if not any(c.isdigit() for c in v):
+        raise ValueError("密码必须包含数字")
+    # 可选：检查是否包含非法字符
+    if not all(c.isalnum() for c in v):
+        raise ValueError("密码只能包含字母和数字")
+    return v
+  ```
+- **密码加密**: 使用 bcrypt 算法加密存储
+- **密码策略**: 不强制要求大小写组合、特殊字符等（简化用户体验）
+
+#### 扩展字段业务用途
+- **phone字段**：
+  - 用途1：手机号验证码登录（独立登录方式）
+  - 用途2：短信验证码发送（用于重要操作二次验证）
+  - 用途3：找回密码备用途径
+  - 字段规则：可选字段，格式验证为11位中国大陆手机号 `^1[3-9]\d{9}$`
+  - 数据库索引：建立索引支持快速查询
+  
+- **real_name字段**：
+  - 用途1：实名认证（电商平台合规要求）
+  - 用途2：订单配送信息（与收货地址关联）
+  - 用途3：发票开具（企业用户）
+  - 字段规则：可选字段，最长100字符
+  - 隐私保护：敏感信息，API返回时部分脱敏处理
+
+#### 验证码安全机制
+- **验证码格式**: 6位随机数字（000000-999999）
+- **有效期**: 5分钟（300秒）
+- **存储方式**: Redis，key格式 `verification_code:{type}:{email/phone}`
+- **防重复使用**: 验证成功后自动删除，确保一次性使用
+- **支持类型**:
+  - `register`: 用户注册验证
+  - `login`: 登录失败后二次验证
+  - `reset_password`: 重置密码验证
+  - `phone_login`: 手机号登录验证
+- **环境差异**:
+  - 开发环境：API直接返回验证码（便于测试）
+  - 生产环境：仅返回发送成功消息，验证码通过邮件/短信发送
+- **安全措施**: TODO - 后续添加发送频率限制（同一邮箱/手机号10分钟内最多3次）
+
+#### 登录安全机制
+- **失败次数控制**:
+  - 失败1-2次：正常密码登录
+  - 失败3次及以上：强制要求提供验证码
+  - 失败5次：账户锁定30分钟
+  - 成功登录：自动重置失败次数为0
+- **账户锁定机制**: 
+  - 锁定时长：30分钟
+  - 实现方式：Repository层设置 `locked_until` 时间戳
+  - 解锁方式：自动解锁（时间到期）或管理员手动解锁
+- **多种登录方式**:
+  - **方式1**: 用户名/邮箱 + 密码（主要方式，失败3次后需验证码）
+  - **方式2**: 手机号 + 短信验证码（独立验证流程，无需密码）
+
+#### JWT令牌机制
+- **双令牌设计**:
+  - **Access Token**: 有效期30分钟，用于API认证
+  - **Refresh Token**: 有效期30天，用于刷新Access Token
+- **令牌配置**: 在 `app/core/auth.py` 中定义过期时间常量
+- **安全存储**: 客户端应安全存储token（推荐HttpOnly Cookie或加密LocalStorage）
+- **注销处理**: JWT无状态设计，客户端删除token即可（服务端可选实现token黑名单）
+
+#### 权限控制规范
+- **当前实现**: V1.0 使用简单的 role 字段（user/admin）
+- **未来扩展**: V2.0 计划实现完整RBAC模型（Role-Permission多对多）
+- **依赖注入**: 使用 `get_current_user`、`get_current_active_user` 等依赖函数
+- **权限检查**: 在Router层或Service层进行角色/权限验证
+
+#### 密码重置流程
+- **触发方式**: 用户忘记密码时使用
+- **验证方式**: 邮箱验证码（5分钟有效）
+- **流程**:
+  1. 用户提供邮箱 → 系统发送验证码
+  2. 用户提供邮箱+验证码+新密码 → 系统验证并更新密码
+- **安全措施**: 
+  - 验证码一次性使用
+  - 新密码必须符合强度要求
+  - 重置成功后原有token失效（JWT特性）
 
 ### 状态机设计
 ```mermaid
@@ -393,10 +811,11 @@ stateDiagram-v2
 - **app/core/redis_client.py**: Redis缓存服务，存储会话状态和令牌黑名单
 
 ### 对外提供的服务
-- **认证依赖函数**: get_current_user、get_current_admin_user等依赖注入
-- **密码管理工具**: get_password_hash、verify_password密码加密验证
-- **令牌管理服务**: create_access_token、decode_token令牌生成解码
-- **权限检查装饰器**: require_permission权限验证装饰器
+- **认证依赖函数**: `get_current_user`、`get_current_active_user`等（来自core/auth.py）
+- **密码管理工具**: `get_password_hash`、`verify_password`（来自core/auth.py）
+- **令牌管理服务**: `create_access_token`、`create_refresh_token`、`decode_token`（来自core/auth.py）
+- **Repository接口**: UserRepository、RoleRepository等提供数据访问接口
+- **权限检查装饰器**: V1.0暂未实现，依赖get_current_user进行基础认证
 
 ### 与其他模块的集成
 | 集成模块 | 集成方式 | 集成内容 |

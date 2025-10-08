@@ -24,7 +24,7 @@
 
 ### Web框架标准
 - **FastAPI**: 0.100+ (强制，禁止使用其他框架)
-- **异步支持**: 必须使用async/await模式
+- **异步支持**: Router层必须使用async/await，业务层采用分层异步策略（详见下文）
 - **自动文档**: 强制启用OpenAPI文档生成
 
 ### 数据层技术标准
@@ -121,15 +121,26 @@ app.add_middleware(
 )
 ```
 
-### SQLAlchemy数据库配置（强制）
+### SQLAlchemy数据库配置（分阶段实施）
+
+#### 当前阶段（V1.0 MVP）- 同步ORM + 线程池桥接
+
+**架构策略**：
+- **数据库层**：使用同步ORM（SQLAlchemy 2.0 + pymysql同步驱动）
+- **业务层**：async endpoint + asyncio.run_in_executor桥接同步数据库操作
+- **适用场景**：中等并发（< 1000 req/s），稳定可靠，改造成本低
+- **性能特点**：通过线程池避免事件循环阻塞，保持并发能力
+
 ```python
-# app/core/database.py - 统一数据库配置
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+# app/core/database.py - 当前阶段配置（V1.0）
+from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-DATABASE_URL = "mysql+aiomysql://user:password@localhost/ecommerce"
+# 使用同步驱动
+DATABASE_URL = "mysql+pymysql://user:password@localhost/ecommerce"
 
-engine = create_async_engine(
+# 同步引擎配置
+engine = create_engine(
     DATABASE_URL,
     pool_size=20,           # 连接池大小（强制）
     max_overflow=30,        # 最大溢出连接（强制）
@@ -138,12 +149,107 @@ engine = create_async_engine(
     echo=False              # 生产环境禁止SQL日志
 )
 
+# 同步Session配置
+SessionLocal = sessionmaker(
+    autocommit=False,
+    autoflush=False,
+    bind=engine
+)
+
+# 依赖注入
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+```
+
+**线程池桥接实现**：
+```python
+# app/core/async_utils.py - 异步桥接工具
+import asyncio
+from typing import Callable, TypeVar
+
+T = TypeVar('T')
+
+async def run_in_thread(func: Callable[..., T], *args, **kwargs) -> T:
+    """
+    在线程池中运行同步函数，避免阻塞事件循环
+    
+    使用场景：在async Service方法中调用同步Repository方法
+    """
+    loop = asyncio.get_event_loop()
+    if kwargs:
+        from functools import partial
+        func = partial(func, **kwargs)
+        return await loop.run_in_executor(None, func, *args)
+    else:
+        return await loop.run_in_executor(None, func, *args)
+
+# 使用示例
+from app.core.async_utils import run_in_thread
+
+async def login_user(db: Session, username: str):
+    # 同步Repository调用通过线程池执行，不阻塞事件循环
+    user = await run_in_thread(UserRepository.get_by_username, db, username)
+    return user
+```
+
+#### 未来升级（V2.0+）- 全异步架构
+
+**升级时机**：当业务并发需求超过 1000 req/s 或需要更高性能时
+
+**架构策略**：
+- **数据库层**：使用异步ORM（SQLAlchemy 2.0 + aiomysql异步驱动）
+- **业务层**：全链路真正的异步IO，无需线程池桥接
+- **适用场景**：高并发（> 1000 req/s），极致性能
+- **改造成本**：需要修改Repository层为async方法
+
+```python
+# app/core/database.py - 未来升级配置（V2.0）
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+from sqlalchemy.orm import sessionmaker
+
+# 使用异步驱动
+DATABASE_URL = "mysql+aiomysql://user:password@localhost/ecommerce"
+
+# 异步引擎配置
+engine = create_async_engine(
+    DATABASE_URL,
+    pool_size=20,
+    max_overflow=30,
+    pool_pre_ping=True,
+    pool_recycle=3600,
+    echo=False
+)
+
+# 异步Session配置
 AsyncSessionLocal = sessionmaker(
     autocommit=False,
     autoflush=False,
     bind=engine,
     class_=AsyncSession
 )
+
+# 异步依赖注入
+async def get_db():
+    async with AsyncSessionLocal() as session:
+        yield session
+```
+
+**架构对比**：
+
+| 维度 | 当前阶段（V1.0） | 未来升级（V2.0） |
+|------|-----------------|-----------------|
+| **数据库驱动** | pymysql（同步） | aiomysql（异步） |
+| **Session类型** | SessionLocal（同步） | AsyncSession（异步） |
+| **Repository层** | 同步方法（def） | 异步方法（async def） |
+| **Service层** | async + run_in_thread | 纯async |
+| **并发性能** | <1000 req/s | >1000 req/s |
+| **改造成本** | 低 | 中等 |
+| **稳定性** | 高（成熟方案） | 高（需充分测试） |
+| **推荐场景** | MVP、中小规模 | 高并发、大规模 |
 ```
 
 ### Redis缓存配置（强制）

@@ -31,16 +31,19 @@
 ### 目录结构
 ```
 app/modules/user_auth/
-├── __init__.py
-├── router.py           # ✅ API路由实现
-├── service.py          # ✅ 业务逻辑实现
-├── repository.py       # 🔄 数据访问层
-├── models.py           # ✅ 数据模型
+├── __init__.py         # ✅ 模块初始化
+├── router.py           # ✅ API路由实现（第1层）
+├── service.py          # ✅ 业务逻辑实现（第2层）
+├── repository.py       # ✅ 数据访问层实现（第3层）
+├── models.py           # ✅ 数据模型定义（第4层）
 ├── schemas.py          # ✅ 数据传输对象
-├── dependencies.py     # ⏳ 依赖注入
-├── exceptions.py       # ⏳ 自定义异常
-└── utils.py           # ⏳ 工具函数
+├── dependencies.py     # ✅ 依赖注入（基础实现）
+└── README.md           # ✅ 模块说明文档
 ```
+
+**说明**:
+- ❌ **无exceptions.py**: 使用`app/core/exceptions.py`的`ServiceException`和`app/core/auth.py`的`AuthenticationError`
+- ❌ **无utils.py**: 所有工具函数（密码、JWT等）统一在`app/core/auth.py`中
 
 ### 核心组件实现
 

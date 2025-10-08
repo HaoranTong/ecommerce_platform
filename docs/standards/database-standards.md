@@ -28,10 +28,69 @@
 ## 🎯 数据库设计原则
 
 ### 主键设计标准
-- **统一标准**：所有表主键使用 `id` (INTEGER AUTO_INCREMENT)
+
+#### 业务实体表主键设计
+- **统一标准**：所有业务实体表主键使用 `id` (INTEGER AUTO_INCREMENT)
 - **兼容性原则**：确保SQLite、PostgreSQL、MySQL等数据库的一致性行为
 - **扩展策略**：超大规模数据采用分库分表，而非单表大主键策略
 - **⚠️ 重要限制**：禁止使用 BIGINT 作为主键，维护统一性和兼容性
+
+#### 关联表（多对多中间表）主键设计
+
+**适用场景**：多对多关系的中间表（如user_roles, role_permissions, product_tags等）
+
+**推荐方式：联合主键**（✅ 优先采用）
+```python
+class UserRole(Base):
+    """用户角色关联表 - 使用联合主键"""
+    __tablename__ = "user_roles"
+    
+    # 联合主键：两个外键字段共同组成主键
+    user_id = Column(Integer, ForeignKey('users.id'), primary_key=True)
+    role_id = Column(Integer, ForeignKey('roles.id'), primary_key=True)
+    
+    # 其他关联信息字段
+    assigned_by = Column(Integer, ForeignKey('users.id'), nullable=True)
+    assigned_at = Column(DateTime, server_default=func.now())
+```
+
+**优势**：
+- ✅ **天然唯一性**：联合主键自动保证(user_id, role_id)组合唯一
+- ✅ **节省空间**：无需额外的自增id字段
+- ✅ **语义清晰**：主键即业务关系，自然主键
+- ✅ **符合规范**：SQLAlchemy和数据库设计最佳实践
+- ✅ **查询高效**：主键索引直接支持关联查询
+
+**可选方式：独立id主键** (⚠️ 特殊场景使用)
+```python
+class UserRole(Base):
+    """用户角色关联表 - 使用独立id（不推荐）"""
+    __tablename__ = "user_roles"
+    
+    # 独立自增主键
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    role_id = Column(Integer, ForeignKey('roles.id'), nullable=False)
+    
+    # 必须添加唯一约束保证业务逻辑
+    __table_args__ = (
+        UniqueConstraint('user_id', 'role_id', name='uk_user_role'),
+    )
+```
+
+**使用场景**：
+- ⚠️ 需要在关联表上建立进一步的关联关系（极少见）
+- ⚠️ ORM框架对联合主键支持不佳（SQLAlchemy支持良好，无此问题）
+
+**劣势**：
+- ❌ 额外存储开销（多一个id字段）
+- ❌ 需要额外唯一约束保证业务唯一性
+- ❌ 人工主键，语义不如自然主键清晰
+
+**设计原则**：
+1. ✅ **关联表优先使用联合主键**（默认选择）
+2. ⚠️ **仅在特殊业务需求时使用独立id**（需要文档说明理由）
+3. ✅ **两个外键字段必须建立索引**（联合主键自动建立）
 
 ### 外键约束设计
 - **引用完整性**：必须定义外键约束确保数据一致性

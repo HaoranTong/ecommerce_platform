@@ -2192,15 +2192,17 @@ class Test{repo_name}:
     - 查询逻辑正确性
     - 事务处理和数据一致性
     
-    测试策略: SQLite内存数据库，无Mock依赖
+    测试策略: SQLite内存数据库 + Factory Boy
     """
     
-    def setup_method(self):
-        """测试准备 - 每个测试方法执行前调用"""
-        pass
+    def setup_method(self, unit_test_db: Session):
+        """测试准备 - 初始化Factory Manager"""
+        from tests.factories.{module_name}_factories import {module_name.title().replace('_', '')}FactoryManager
+        self.factory_manager = {module_name.title().replace('_', '')}FactoryManager()
+        self.factory_manager.setup_factories(unit_test_db)
         
     def teardown_method(self):
-        """测试清理 - 每个测试方法执行后调用"""
+        """测试清理"""
         pass
         
 {chr(10).join(test_methods)}
