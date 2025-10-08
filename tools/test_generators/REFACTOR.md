@@ -75,9 +75,66 @@ tools/test_generators/
    - ✅ 添加向后兼容的deprecated方法
    - ✅ 更新导入语句使用 `tools.test_generators.core`
 
+## ✅ 已完成的重构进度
+
+### 阶段2：创建RepositoryTestGenerator框架（已完成）
+
+**完成时间**: 2025-10-08  
+**Commit**: d40b08b
+
+1. **创建文件**: `unit/repository_test_generator.py` (250行)
+   - ✅ RepositoryTestGenerator类定义
+   - ✅ 16个方法接口（6个生成+10个辅助）
+   - ✅ 详细文档注释
+
+2. **更新导入**:
+   - ✅ `unit/__init__.py` 导出RepositoryTestGenerator
+   - ✅ `test_generators/__init__.py` 统一导出
+   - ✅ 导入验证通过
+
+3. **方法接口**:
+   - ✅ `generate_repository_create_test()` - 4种创建测试
+   - ✅ `generate_repository_read_test()` - 2种读取测试
+   - ✅ `generate_repository_update_test()` - 4种更新测试
+   - ✅ `generate_repository_delete_test()` - 3-6种删除测试
+   - ✅ `generate_repository_count_test()` - 计数测试
+   - ✅ `generate_repository_query_test()` - 查询测试
+   - ✅ 10个辅助方法接口
+
+**状态**: 框架完成，待迁移具体实现（~1200行代码）
+
 ## 🚧 待完成的重构
 
-### 阶段2：拆分Factory生成器（预计15分钟）
+### 阶段3：迁移Repository测试生成实现（预计60分钟）
+
+**任务**: 从 `generate_test_template.py` 迁移~1200行代码到 `repository_test_generator.py`
+
+**需要迁移的方法**:
+1. `_generate_repository_create_test()` - 第2608行，约90行
+2. `_generate_repository_read_test()` - 第2800行，约230行
+3. `_generate_repository_update_test()` - 第3031行，约210行
+4. `_generate_repository_delete_test()` - 第3241行，约220行
+5. `_generate_repository_count_test()` - 第3466行，约50行
+6. `_generate_repository_query_test()` - 第3514行，约20行
+7. `_generate_minimal_entity_creation()` - 第2213行，约110行
+8. `_generate_test_entity_creation()` - 第2213行，约120行
+9. `_get_minimal_test_value()` - 约30行
+10. `_get_test_value_for_field()` - 约50行
+11. `_has_composite_primary_key()` - 约10行
+12. `_get_primary_key_fields()` - 约10行
+13. `_infer_query_parameter()` - 第2437行，约120行
+14. `_table_name_to_model_name()` - 第2408行，约10行
+15. 其他辅助方法
+
+**迁移步骤**:
+1. 复制方法代码到新文件
+2. 更新方法签名（移除self绑定）
+3. 更新类型导入
+4. 更新方法调用（self. → 直接调用）
+5. 验证生成功能
+6. 更新主程序调用新类
+
+### 阶段4：拆分Factory生成器（预计15分钟）
 
 从 `generate_test_template.py` 提取以下方法到 `factories/factory_generator.py`:
 - `generate_intelligent_factories()`
