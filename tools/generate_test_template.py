@@ -178,34 +178,7 @@ class IntelligentTestGenerator:
         return merged_models
 
     def analyze_module_repositories(self, module_name: str) -> Dict[str, RepositoryInfo]:
-        """分析模块的Repository层（四层架构强制要求）
-        
-        项目标准要求所有模块必须实现四层架构（Router→Service→Repository→Model）
-        如果模块缺失Repository层，将抛出错误提示开发者补充。
-        
-        Args:
-            module_name: 模块名称，如 'product_catalog'
-            
-        Returns:
-            Dict[str, RepositoryInfo]: Repository名称到Repository信息的映射
-            
-        Raises:
-            FileNotFoundError: 当模块缺失repository.py时（违反四层架构标准）
-        """
-        repo_path = self.project_root / f"app/modules/{module_name}/repository.py"
-        
-        if not repo_path.exists():
-            error_msg = f"❌ 模块 '{module_name}' 缺失 repository.py 文件！\n"
-            error_msg += f"📋 项目标准要求: 所有模块必须实现四层架构\n"
-            error_msg += f"🔧 修复方法:\n"
-            error_msg += f"   1. 创建文件: app/modules/{module_name}/repository.py\n"
-            error_msg += f"   2. 实现Repository类处理数据访问逻辑\n"
-            error_msg += f"   3. 重构Service层使用Repository而不是直接访问数据库\n"
-            error_msg += f"📖 参考示例: app/modules/product_catalog/repository.py\n"
-            error_msg += f"📚 架构文档: docs/architecture/overview.md - 四层架构标准"
-            raise FileNotFoundError(error_msg)
-        
-        # 使用RepositoryAnalyzer进行分析
+        """分析模块的Repository层（委托给RepositoryAnalyzer）"""
         return self.repository_analyzer.analyze_module_repositories(module_name)
 
     def generate_tests(
