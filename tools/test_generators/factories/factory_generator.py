@@ -221,11 +221,8 @@ from {module_import_path} import (
         sqlalchemy_session_persistence = "commit"
 '''
         
-        if not is_composite_key and has_id_field:
-            class_def += f'        sqlalchemy_get_or_create = ("name",) if hasattr({model_name}, "name") else None\n'
-        else:
-            class_def += '        # 联合主键模型，不使用get_or_create\n'
-            class_def += '        sqlalchemy_get_or_create = None\n'
+        # 不使用sqlalchemy_get_or_create，因为它与动态session（unit_test_db fixture）不兼容
+        # Factory.create(unit_test_db)的方式需要在运行时传入session
 
         # 生成字段定义
         field_definitions = []
