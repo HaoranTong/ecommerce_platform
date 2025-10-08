@@ -1,10 +1,50 @@
 """
-Service分析器 - 服务类信息检测
+Service分析器 - 业务服务层智能检测与信息提取
 
-功能：
-- 检测服务类的真实名称
-- 分析服务方法的实例化模式（静态/实例）
-- 支持多种服务文件结构和命名模式
+该模块实现测试代码生成工具中的Service层分析功能，通过AST静态分析识别Service类的
+真实名称、实例化模式、方法签名等信息，支持多种服务文件结构和命名约定。
+
+主要功能:
+- Service类识别: 自动识别模块中的Service类（支持多种命名模式）
+- 实例化模式检测: 判断服务方法是否为静态方法或需要实例化
+- 命名约定支持: 支持{Module}Service、Service等多种命名模式
+- 文件结构适配: 支持单文件service.py和多文件services/结构
+
+技术栈:
+- Python AST: 抽象语法树解析和分析
+- pathlib: 跨平台路径处理
+
+依赖关系:
+- app.modules.{module}.service: 待分析的业务模块Service定义
+- tools.test_generators.generate_test_template: IntelligentTestGenerator主程序调用
+- tools.test_generators.unit.service_test_generator: ServiceTestGenerator使用分析结果
+
+使用示例:
+    from pathlib import Path
+    from tools.test_generators.utils.service_analyzer import ServiceAnalyzer
+    
+    # 初始化分析器
+    analyzer = ServiceAnalyzer(project_root=Path.cwd())
+    
+    # 检测user_auth模块的Service信息
+    service_info = analyzer.detect_service_info("user_auth")
+    
+    # 使用Service信息
+    if service_info:
+        print(f"Service类名: {service_info['service_class_name']}")
+        print(f"实例化模式: {'静态' if service_info['is_static'] else '实例'}")
+    else:
+        print("未检测到Service类")
+
+注意事项:
+- 仅检测Service类的基本信息，不深入分析方法细节
+- 假设Service类命名遵循项目命名约定（{Module}Service或Service）
+- 对于非标准命名的Service类，可能无法自动识别
+
+Author: AI Assistant
+Created: 2025-10-08
+Modified: 2025-10-08
+Version: 1.0.0
 """
 
 import ast

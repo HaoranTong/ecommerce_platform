@@ -1,14 +1,51 @@
 """
-验证报告生成器 - 测试质量验证报告
+验证报告生成器 - 测试质量分析与报告输出
 
-职责：
-1. 汇总测试验证结果
-2. 生成Markdown格式报告
-3. 计算质量评分和状态
-4. 提供改进建议
+该模块实现测试代码生成工具中的质量验证和报告功能，对生成的测试代码进行多维度验证
+（语法正确性、pytest兼容性、依赖完整性等），并生成详细的质量分析报告。
 
-版本: v1.0
-创建时间: 2025-10-08
+主要功能:
+- 验证结果汇总: 整合语法检查、pytest收集、依赖检查等多项验证结果
+- 质量评分计算: 根据各项验证结果计算综合质量评分（0-100分）
+- Markdown报告生成: 生成结构化的验证报告，保存到指定目录
+- 控制台输出: 实时输出验证进度和结果摘要
+- 改进建议提供: 根据验证结果提供针对性的改进建议
+
+技术栈:
+- Python subprocess: 调用pytest命令行工具
+- ast: Python代码语法验证
+- datetime: 时间戳和报告元数据
+
+依赖关系:
+- tools.test_generators.utils.pytest_checker: 使用其进行pytest兼容性检查
+- tools.test_generators.generate_test_template: IntelligentTestGenerator主程序调用
+- tests/unit/generated/: 待验证的测试代码目录
+
+使用示例:
+    from tools.test_generators.utils.validation_reporter import ValidationReporter
+    
+    # 初始化报告生成器
+    reporter = ValidationReporter()
+    
+    # 执行完整验证
+    validation_results = reporter.validate_generated_tests("user_auth")
+    
+    # 生成Markdown报告
+    reporter.generate_validation_report(validation_results, "user_auth")
+    
+    # 输出控制台摘要
+    reporter.summarize_validation_results(validation_results)
+
+注意事项:
+- 语法检查使用Python内置的ast模块，速度快但不完全等同于实际运行
+- pytest收集测试需要测试环境正确配置（数据库连接、依赖库等）
+- 质量评分算法：语法30% + pytest收集30% + 依赖检查20% + fixture检查20%
+- 报告文件保存在reports/test_validation_{module}_{timestamp}.md
+
+Author: AI Assistant
+Created: 2025-10-08
+Modified: 2025-10-08
+Version: 1.0.0
 """
 from datetime import datetime
 from typing import Any, Dict

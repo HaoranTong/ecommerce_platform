@@ -1,14 +1,55 @@
 """
-Repository分析工具 - 提取和分析Repository类信息
+Repository分析器 - 数据访问层智能分析与方法提取
 
-职责：
-1. AST分析Repository类结构
-2. 提取Repository方法签名和参数
-3. 分类Repository方法类型（CRUD, 查询, 批量操作等）
-4. 推断方法的查询参数和返回类型
+该模块实现测试代码生成工具中的Repository层分析功能，通过AST静态分析提取Repository类的
+完整方法信息，包括方法签名、参数类型、返回类型、操作类型等，为生成精准的Repository测试代码提供基础数据。
 
-版本: v1.0
-创建时间: 2025-10-08
+主要功能:
+- Repository类识别: 自动识别模块中的所有Repository类
+- 方法签名提取: 提取方法名称、参数列表、参数类型注解、返回类型注解
+- 操作类型分类: 自动识别方法类型（CRUD操作、查询操作、批量操作、事务操作等）
+- 参数推断: 根据方法名和参数名推断查询条件和过滤参数
+- 依赖关系分析: 识别Repository之间的调用关系和依赖关系
+
+技术栈:
+- Python AST: 抽象语法树解析和分析
+- typing: 类型注解解析和处理
+- re: 正则表达式模式匹配
+
+依赖关系:
+- tools.test_generators.core.schema: RepositoryInfo/RepositoryMethodInfo数据模型
+- app.modules.{module}.repository: 待分析的业务模块Repository定义
+- tools.test_generators.generate_test_template: IntelligentTestGenerator主程序调用
+- tools.test_generators.unit.repository_test_generator: RepositoryTestGenerator使用分析结果
+
+使用示例:
+    from pathlib import Path
+    from tools.test_generators.utils.repository_analyzer import RepositoryAnalyzer
+    
+    # 初始化分析器
+    analyzer = RepositoryAnalyzer(project_root=Path.cwd())
+    
+    # 分析user_auth模块的所有Repository
+    repositories = analyzer.analyze_module_repositories("user_auth")
+    
+    # 遍历Repository信息
+    for repo_name, repo_info in repositories.items():
+        print(f"Repository: {repo_name}")
+        print(f"  模型: {repo_info.model_name}")
+        print(f"  方法数: {len(repo_info.methods)}")
+        for method in repo_info.methods:
+            print(f"    - {method.name}({', '.join(method.params)}): {method.operation_type}")
+
+注意事项:
+- 仅支持AST静态分析，无法获取运行时动态生成的方法
+- 方法类型推断基于命名约定（get_*, create_*, update_*, delete_*等）
+- 对于复杂的类型注解（如Union、Optional），会尽可能解析但可能不完整
+- 分析结果的准确性依赖于代码的规范性和类型注解的完整性
+
+Author: AI Assistant
+Created: 2025-10-08
+Modified: 2025-10-08
+Version: 1.0.0
 """
 import ast
 import inspect

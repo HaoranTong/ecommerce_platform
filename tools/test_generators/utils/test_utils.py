@@ -1,14 +1,61 @@
 """
-测试工具模块 - 测试代码生成辅助方法
+测试工具类 - 测试代码生成通用辅助方法
 
-职责：
-1. 生成测试实体创建代码
-2. 生成最小实体创建代码
-3. 推断查询参数
-4. 生成测试值
+该模块提供测试代码生成过程中的通用辅助方法，包括实体创建代码生成、测试值生成、
+参数推断、命名转换等功能，被各个测试生成器共享使用。
 
-版本: v1.0
-创建时间: 2025-10-08
+主要功能:
+- 实体创建代码生成: 根据模型信息生成完整的实体创建代码（包含所有必填字段）
+- 最小实体创建代码: 生成仅包含必填字段的精简实体创建代码
+- 测试值生成: 根据字段类型和约束生成合适的测试值
+- 查询参数推断: 根据Repository方法名推断可能的查询参数
+- 命名转换: 表名/模型名互转，支持多种命名约定
+- Factory名称推断: 根据模型名生成对应的Factory类名
+
+技术栈:
+- Python typing: 类型注解和类型检查
+- pathlib: 路径处理
+
+依赖关系:
+- tools.test_generators.core.schema: ModelInfo/FieldInfo数据模型
+- tools.test_generators.unit.*: 各测试生成器调用工具方法
+- tests/factories/: Factory类命名约定参考
+
+使用示例:
+    from tools.test_generators.utils.test_utils import TestUtils
+    from tools.test_generators.core.schema import ModelInfo, FieldInfo
+    
+    # 生成实体创建代码
+    model_info = ModelInfo(
+        name="User",
+        table_name="users",
+        fields=[
+            FieldInfo(name="username", type="String", nullable=False),
+            FieldInfo(name="email", type="String", nullable=False)
+        ]
+    )
+    code = TestUtils.generate_test_entity_creation(model_info)
+    print(code)
+    # 输出:
+    # entity = User(
+    #     username="test_username",
+    #     email="test@example.com"
+    # )
+    
+    # 表名转模型名
+    model_name = TestUtils.table_name_to_model_name("user_roles")
+    print(model_name)  # "UserRole"
+
+注意事项:
+- 测试值生成基于字段类型和命名约定，可能不完全符合业务规则
+- 外键字段会自动生成1或None，具体取决于nullable属性
+- 对于复杂类型（JSON、ARRAY等），生成默认值或空值
+- 所有方法都是静态方法，无需实例化即可使用
+
+Author: AI Assistant
+Created: 2025-10-08
+Modified: 2025-10-08
+Version: 1.0.0
 """
 from typing import Any, Dict, List, Optional, Set
 from pathlib import Path

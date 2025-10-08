@@ -1,13 +1,57 @@
 """
-Pytest检查工具 - 测试验证和依赖检查
+Pytest检查器 - 测试代码兼容性与依赖验证
 
-职责：
-1. pytest测试收集检查
-2. 依赖完整性检查（工厂类依赖）
-3. 基础执行测试
+该模块实现测试代码生成工具中的pytest兼容性检查功能，通过调用pytest命令行工具和AST分析
+验证生成的测试代码是否符合pytest规范，并检查测试代码的依赖完整性（如Factory类、fixture等）。
 
-版本: v1.0
-创建时间: 2025-10-08
+主要功能:
+- Pytest收集测试: 使用pytest --collect-only验证测试可被正常收集
+- 依赖完整性检查: 检查测试代码中使用的Factory类、fixture是否已定义
+- Fixture可用性检查: 解析conftest.py中的可用fixture列表
+- 测试执行预检: 在不实际运行的情况下验证测试代码结构正确性
+- 错误信息解析: 解析pytest输出，提取错误信息和改进建议
+
+技术栈:
+- subprocess: 调用pytest命令行工具
+- Python AST: 代码依赖分析
+- re: 正则表达式解析pytest输出
+
+依赖关系:
+- pytest: 测试框架（需要在环境中已安装）
+- tests/conftest.py: pytest配置文件（解析fixture定义）
+- tools.test_generators.utils.validation_reporter: 验证结果汇总和报告
+
+使用示例:
+    from pathlib import Path
+    from tools.test_generators.utils.pytest_checker import PytestChecker
+    
+    # 初始化检查器
+    checker = PytestChecker(project_root=Path.cwd())
+    
+    # 收集测试
+    collect_result = checker.run_pytest_collect("tests/unit/generated/user_auth")
+    if collect_result["success"]:
+        print(f"成功收集 {collect_result['test_count']} 个测试")
+    
+    # 检查依赖
+    test_file = "tests/unit/generated/user_auth/test_repositories.py"
+    deps_result = checker.check_dependencies(test_file)
+    print(f"缺失依赖: {deps_result['missing_dependencies']}")
+
+注意事项:
+- pytest收集需要测试环境配置正确（数据库连接、依赖包等）
+- 依赖检查仅检测明显的Factory和fixture引用，可能有误报或漏报
+- 过滤注释行中的Factory引用，避免误报（已修复Bug #2）
+- 检查器不会实际运行测试，只验证可收集性
+
+Performance:
+- pytest收集: 平均耗时2-5秒（取决于测试数量）
+- 依赖检查: 平均耗时<100ms（纯AST分析）
+
+Author: AI Assistant
+Created: 2025-10-08
+Modified: 2025-10-08  
+Version: 1.0.1
 """
 import ast
 import os

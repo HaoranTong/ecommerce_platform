@@ -1,14 +1,53 @@
 """
-模型分析工具 - 提取和分析SQLAlchemy模型信息
+模型分析器 - SQLAlchemy模型智能分析与信息提取
 
-职责：
-1. AST静态分析模型结构
-2. 运行时动态分析模型信息
-3. 合并和验证模型数据
-4. 提取字段、关系、约束等信息
+该模块实现测试代码生成工具中的模型分析功能，提供双重分析策略（AST静态分析+运行时动态分析）
+来提取和验证SQLAlchemy模型的完整信息。
 
-版本: v1.0
-创建时间: 2025-10-08
+主要功能:
+- AST静态分析: 解析Python源代码，提取模型类定义、字段、关系等结构信息
+- 运行时动态分析: 通过反射机制获取SQLAlchemy ORM的运行时元数据
+- 分析结果合并: 融合静态和动态分析结果，提供完整准确的模型信息
+- 字段信息提取: 识别字段类型、约束、默认值、外键关系等属性
+- 关系信息提取: 识别一对一、一对多、多对多等关系映射
+
+技术栈:
+- Python AST: 抽象语法树解析和分析
+- SQLAlchemy: ORM框架的反射和元数据访问
+- importlib: 动态模块导入和代码执行
+
+依赖关系:
+- tools.test_generators.core.schema: ModelInfo/FieldInfo/RelationshipInfo数据模型
+- app.modules.{module}.models: 待分析的业务模块模型定义
+- tools.test_generators.generate_test_template: IntelligentTestGenerator主程序调用
+
+使用示例:
+    from pathlib import Path
+    from tools.test_generators.utils.model_analyzer import ModelAnalyzer
+    
+    # 初始化分析器
+    analyzer = ModelAnalyzer(project_root=Path.cwd())
+    
+    # 分析user_auth模块的所有模型
+    models = analyzer.analyze_module_models("user_auth")
+    
+    # 遍历模型信息
+    for model_name, model_info in models.items():
+        print(f"模型: {model_name}")
+        print(f"  表名: {model_info.table_name}")
+        print(f"  字段数: {len(model_info.fields)}")
+        print(f"  关系数: {len(model_info.relationships)}")
+
+注意事项:
+- AST分析可能无法获取运行时计算的值（如动态生成的表名）
+- 运行时分析需要确保模型文件可以正常导入，避免循环依赖
+- 合并策略优先使用运行时信息，AST信息作为补充和验证
+- 分析过程会实际导入模型文件，可能触发数据库连接或其他副作用
+
+Author: AI Assistant
+Created: 2025-10-08
+Modified: 2025-10-08
+Version: 1.0.0
 """
 import ast
 import importlib.util

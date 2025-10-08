@@ -1,14 +1,52 @@
 """
-文件写入工具 - 测试文件生成和保存
+测试文件写入器 - 生成代码持久化与目录管理
 
-职责：
-1. 将生成的测试代码写入磁盘
-2. 处理文件路径解析和命名
-3. 添加生成信息头部
-4. 创建必要的目录结构
+该模块实现测试代码生成工具中的文件写入功能，负责将生成的测试代码安全地写入磁盘，
+并按照项目规范创建目录结构、添加文件头部、处理文件命名。
 
-版本: v1.0
-创建时间: 2025-10-08
+主要功能:
+- 测试文件写入: 将生成的测试代码保存到指定目录
+- 目录结构管理: 自动创建tests/unit/generated/{module}/目录层次
+- 文件头部生成: 添加生成时间、工具版本、警告信息等元数据
+- 路径规范化: 处理Windows/Linux路径兼容性
+- 文件覆盖保护: 安全写入，避免意外覆盖重要文件
+
+技术栈:
+- pathlib: 跨平台路径处理
+- datetime: 时间戳生成
+
+依赖关系:
+- tools.test_generators.generate_test_template: IntelligentTestGenerator主程序调用
+- tools.test_generators.unit.*: 各生成器产生的测试代码内容
+- tests/unit/generated/: 目标输出目录
+
+使用示例:
+    from pathlib import Path
+    from tools.test_generators.utils.file_writer import TestFileWriter
+    
+    # 初始化写入器
+    writer = TestFileWriter(project_root=Path.cwd())
+    
+    # 准备测试文件内容
+    test_files = {
+        "tests/unit/generated/user_auth/test_models.py": "# 测试代码...",
+        "tests/unit/generated/user_auth/test_repositories.py": "# 测试代码..."
+    }
+    
+    # 写入测试文件
+    writer.write_test_files(test_files)
+    print("测试文件写入完成")
+
+注意事项:
+- 所有测试文件统一写入tests/unit/generated目录
+- 每个文件会自动添加生成信息头部（包含警告：不要手动修改）
+- 目录不存在时会自动创建（包括父目录）
+- 写入失败会抛出异常，调用方需要处理
+
+Author: AI Assistant
+Created: 2025-10-08
+Modified: 2025-10-08
+Version: 1.0.0
 """
 from pathlib import Path
 from typing import Dict
