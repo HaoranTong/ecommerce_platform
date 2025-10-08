@@ -2464,11 +2464,22 @@ from {module_import_path} import (
     # - _generate_repository_delete_test (~255行)
     # - _generate_repository_count_test (~58行)
     # - _generate_repository_query_test (~19行)
-
-    def _generate_model_tests(
-        self, module_name: str, models: Dict[str, ModelInfo]
-    ) -> str:
-        """生成模型测试代码 - 100% Mock，无数据库依赖"""
+    
+    # 🔄 重构完成：已迁移到 model_test_generator.py
+    # - _generate_model_tests (~38行)
+    # - _generate_single_model_test (~33行)  
+    # - _generate_mock_field_tests (~21行)
+    # - _generate_mock_field_test (~15行)
+    # - _generate_field_validation_logic_test (~多个if分支, ~80行)
+    # - _generate_model_instance_test (~10行)
+    # - _generate_model_method_tests (~15行)
+    # - _generate_mock_relationship_tests (~17行)
+    # - _get_mock_test_value (~25行)
+    # - _get_python_type_for_test (~12行)
+    # Model测试生成器核心方法已100%迁移（~266行）
+    
+    def _generate_relationship_tests(self, model_info: ModelInfo) -> List[str]:
+        """生成增强的关系测试方法 [CHECK:TEST-002]"""
         test_classes = []
 
         # 为每个模型生成测试类
@@ -2501,206 +2512,6 @@ from app.modules.{module_name}.models import (
 '''
 
         return imports + "\n\n".join(test_classes)
-
-    def _generate_single_model_test(self, model_info: ModelInfo) -> str:
-        """为单个模型生成测试类 - 100% Mock策略"""
-        model_name = model_info.name
-
-        test_methods = []
-
-        # 1. 模型实例化测试
-        instance_test = self._generate_model_instance_test(model_info)
-        test_methods.append(instance_test)
-
-        # 2. 字段验证逻辑测试
-        field_tests = self._generate_mock_field_tests(model_info)
-        test_methods.extend(field_tests)
-
-        # 3. 业务逻辑方法测试（如果模型有方法）
-        method_tests = self._generate_model_method_tests(model_info)
-        test_methods.extend(method_tests)
-
-        # 4. 关系测试
-        if model_info.relationships:
-            relationship_tests = self._generate_mock_relationship_tests(model_info)
-            test_methods.extend(relationship_tests)
-
-        class_code = '''
-class Test{model_name}Model:
-    """{{model_name}}模型测试类 - 100% Mock策略"""
-        
-{test_methods}
-'''.format(model_name=model_name, test_methods=chr(10).join(test_methods))
-
-        return class_code
-
-    def _generate_mock_field_tests(self, model_info: ModelInfo) -> List[str]:
-        """生成Mock字段测试方法 - 纯逻辑验证"""
-        tests = []
-
-        for field in model_info.fields:
-            # 生成字段设置和获取测试
-            field_test = self._generate_mock_field_test(field, model_info)
-            tests.append(field_test)
-
-            # 生成字段验证逻辑测试
-            if field.name in ['email', 'username', 'phone']:
-                validation_test = self._generate_field_validation_logic_test(field, model_info)
-                tests.append(validation_test)
-
-        return tests
-
-    def _generate_mock_field_test(self, field: FieldInfo, model_info: ModelInfo) -> str:
-        """生成单个字段的Mock测试"""
-        test_value = self._get_mock_test_value(field)
-        
-        return f'''    def test_{field.name}_field_mock(self, mocker):
-        """测试{field.name}字段Mock行为"""
-        # 创建Mock实例
-        mock_{model_info.name.lower()} = mocker.Mock(spec={model_info.name})
-        
-        # 设置字段值
-        mock_{model_info.name.lower()}.{field.name} = {test_value}
-        
-        # 验证字段设置
-        assert mock_{model_info.name.lower()}.{field.name} == {test_value}
-        
-        # 验证字段类型（如果值不为None）
-        if mock_{model_info.name.lower()}.{field.name} is not None:
-            expected_type = {self._get_python_type_for_test(field.python_type)}
-            assert isinstance(mock_{model_info.name.lower()}.{field.name}, expected_type)'''
-
-    def _generate_field_validation_logic_test(self, field: FieldInfo, model_info: ModelInfo) -> str:
-        """生成字段验证逻辑测试"""
-        if field.name == 'email':
-            return f'''    def test_{field.name}_validation_logic(self, mocker):
-        """测试{field.name}字段验证逻辑"""
-        mock_{model_info.name.lower()} = mocker.Mock(spec={model_info.name})
-        
-        # 测试有效邮箱
-        valid_email = "test@example.com"
-        mock_{model_info.name.lower()}.{field.name} = valid_email
-        
-        # Mock邮箱验证逻辑
-        assert "@" in mock_{model_info.name.lower()}.{field.name}
-        assert "." in mock_{model_info.name.lower()}.{field.name}
-        
-        # 测试无效邮箱
-        invalid_email = "invalid-email"
-        mock_{model_info.name.lower()}.{field.name} = invalid_email
-        assert "@" not in mock_{model_info.name.lower()}.{field.name}'''
-        
-        elif field.name == 'username':
-            return f'''    def test_{field.name}_validation_logic(self, mocker):
-        """测试{field.name}字段验证逻辑"""
-        mock_{model_info.name.lower()} = mocker.Mock(spec={model_info.name})
-        
-        # 测试有效用户名
-        valid_username = "testuser123"
-        mock_{model_info.name.lower()}.{field.name} = valid_username
-        
-        # Mock用户名验证逻辑
-        assert len(mock_{model_info.name.lower()}.{field.name}) >= 3
-        assert mock_{model_info.name.lower()}.{field.name}.isalnum() or "_" in mock_{model_info.name.lower()}.{field.name}'''
-        
-        else:
-            return f'''    def test_{field.name}_validation_logic(self, mocker):
-        """测试{field.name}字段验证逻辑"""
-        mock_{model_info.name.lower()} = mocker.Mock(spec={model_info.name})
-        
-        # 测试字段基本验证
-        test_value = "test_value"
-        mock_{model_info.name.lower()}.{field.name} = test_value
-        assert mock_{model_info.name.lower()}.{field.name} == test_value'''
-
-    def _generate_model_instance_test(self, model_info: ModelInfo) -> str:
-        """生成模型实例化测试"""
-        return f'''    def test_model_instance_creation(self, mocker):
-        """测试{model_info.name}模型实例创建"""
-        # 创建Mock实例
-        mock_{model_info.name.lower()} = mocker.Mock(spec={model_info.name})
-        
-        # 验证Mock对象创建成功
-        assert mock_{model_info.name.lower()} is not None
-        
-        # 验证Mock对象具有模型规范
-        assert hasattr(mock_{model_info.name.lower()}, '_spec_class')
-        assert mock_{model_info.name.lower()}._spec_class == {model_info.name}'''
-
-    def _generate_model_method_tests(self, model_info: ModelInfo) -> List[str]:
-        """生成模型方法测试"""
-        tests = []
-        
-        # 生成__str__方法测试
-        str_test = f'''    def test_model_string_representation(self, mocker):
-        """测试{model_info.name}模型字符串表示"""
-        mock_{model_info.name.lower()} = mocker.Mock(spec={model_info.name})
-        
-        # 配置Mock的字符串表示
-        expected_str = "Mock {model_info.name} Instance"
-        mock_{model_info.name.lower()}.configure_mock(__str__=mocker.Mock(return_value=expected_str))
-        
-        # 验证字符串表示
-        assert str(mock_{model_info.name.lower()}) == expected_str'''
-        
-        tests.append(str_test)
-        return tests
-
-    def _generate_mock_relationship_tests(self, model_info: ModelInfo) -> List[str]:
-        """生成Mock关系测试"""
-        tests = []
-        
-        for rel_info in model_info.relationships:
-            rel_test = f'''    def test_{rel_info.name}_relationship_mock(self, mocker):
-        """测试{rel_info.name}关系Mock行为"""
-        mock_{model_info.name.lower()} = mocker.Mock(spec={model_info.name})
-        mock_related = mocker.Mock()
-        
-        # Mock关系设置
-        mock_{model_info.name.lower()}.{rel_info.name} = mock_related
-        
-        # 验证关系设置
-        assert mock_{model_info.name.lower()}.{rel_info.name} == mock_related'''
-            
-            tests.append(rel_test)
-        
-        return tests
-
-    def _get_mock_test_value(self, field: FieldInfo):
-        """获取字段的Mock测试值"""
-        if field.python_type == 'str':
-            if field.name == 'email':
-                return '"test@example.com"'
-            elif field.name == 'username':
-                return '"testuser"'
-            elif field.name == 'phone':
-                return '"1234567890"'
-            else:
-                return f'"test_{field.name}"'
-        elif field.python_type == 'int':
-            return '123'
-        elif field.python_type == 'bool':
-            return 'True'
-        elif field.python_type == 'datetime':
-            return 'datetime(2025, 1, 1, 12, 0, 0)'
-        elif field.python_type == 'date':
-            return 'date.today()'
-        elif field.python_type == 'Decimal':
-            return 'Decimal("99.99")'
-        else:
-            return 'None'
-
-    def _get_python_type_for_test(self, python_type: str):
-        """获取Python类型用于测试"""
-        type_mapping = {
-            'str': 'str',
-            'int': 'int',
-            'bool': 'bool',
-            'datetime': 'datetime',
-            'date': 'date',
-            'Decimal': 'Decimal'
-        }
-        return type_mapping.get(python_type, 'object')
 
     def _generate_field_validation_test(
         self, field: FieldInfo, model_info: ModelInfo
