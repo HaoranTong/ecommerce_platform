@@ -217,16 +217,8 @@ class IntelligentTestGenerator:
         # 使用RepositoryAnalyzer进行分析
         return self.repository_analyzer.analyze_module_repositories(module_name)
 
-    # 🔄 Repository分析方法已100%迁移到 repository_analyzer.py
-    # - _analyze_repository_class() - Repository类分析
-    # - _analyze_repository_method() - Repository方法分析
-    # - _classify_repository_method() - 方法类型分类 (AST分析)
-    # 已删除约220行Repository分析相关方法
-
-    # 🔄 Factory生成方法已100%迁移到 factory_generator.py
-    # 已删除约894行Factory相关方法
-
-        return "UnknownModel"
+    def _table_name_to_model_name(self, table_name: str) -> str:
+        """表名转模型名：products -> Product, categories -> Category"""
 
     def generate_tests(
         self,
@@ -279,8 +271,7 @@ class IntelligentTestGenerator:
         print(f"   Models: {len(models)} 个")
         print(f"   Repositories: {len(repositories)} 个")
 
-        # 2. 生成智能数据工厂 [CHECK:TEST-002]
-        # 🔄 重构完成：使用独立的Factory生成器
+        # 2. 生成智能数据工厂
         from tools.test_generators.factories import FactoryGenerator
         factory_generator = FactoryGenerator(self.project_root, self.config)
         factory_code = factory_generator.generate_factories(module_name, models)
@@ -297,21 +288,18 @@ class IntelligentTestGenerator:
             generated_files.update(unit_files)
 
         if test_type in ["all", "integration"]:
-            # 🔄 重构完成：使用独立的Integration生成器
             from tools.test_generators.integration import IntegrationTestGenerator
             integration_generator = IntegrationTestGenerator(self.project_root, self.config)
             integration_files = integration_generator.generate_integration_tests(module_name, models)
             generated_files.update(integration_files)
         
         if test_type in ["all", "api"]:
-            # 🔄 重构完成：使用独立的API测试生成器
             from tools.test_generators.api_test_generator import APITestGenerator
             api_generator = APITestGenerator(self.project_root, self.config)
             api_files = api_generator.generate_tests(module_name, models)
             generated_files.update(api_files)
         
         if test_type in ["all", "e2e"]:
-            # 🔄 重构完成：使用独立的E2E测试生成器
             from tools.test_generators.e2e_test_generator import E2ETestGenerator
             e2e_generator = E2ETestGenerator(self.project_root, self.config)
             e2e_files = e2e_generator.generate_tests(module_name, models)
@@ -371,29 +359,25 @@ class IntelligentTestGenerator:
         """
         files = {}
 
-        # 1. 生成Mock模型测试 (test_models目录)
-        # 🔄 重构完成：使用独立的Model生成器
+        # 1. 生成Mock模型测试
         from tools.test_generators.unit import ModelTestGenerator
         model_generator = ModelTestGenerator(self.project_root, self.config)
         model_tests = model_generator.generate_model_tests(module_name, models)
         files[f"test_models/test_{module_name}_models"] = model_tests
 
-        # 2. 生成Repository测试 (test_repositories目录) - 四层架构新增
-        # 🔄 重构完成：使用独立的Repository生成器
+        # 2. 生成Repository测试
         from tools.test_generators.unit import RepositoryTestGenerator
         repo_generator = RepositoryTestGenerator(self.project_root, self.config, main_generator=self)
         repository_tests = repo_generator.generate_repository_tests(module_name, models, repositories)
         files[f"test_repositories/test_{module_name}_repositories"] = repository_tests
 
-        # 3. 生成服务测试 (test_services目录) - 更新为Mock Repository
-        # 🔄 重构完成：使用独立的Service生成器
+        # 3. 生成服务测试
         from tools.test_generators.unit import ServiceTestGenerator
         service_generator = ServiceTestGenerator(self.project_root, self.config)
         service_tests = service_generator.generate_service_tests(module_name, models, repositories)
         files[f"test_services/test_{module_name}_services"] = service_tests
 
-        # 4. 生成业务流程测试 (standalone文件)
-        # 🔄 重构完成：使用独立的Workflow/Standalone生成器
+        # 4. 生成业务流程测试
         from tools.test_generators.unit.standalone_test_generator import StandaloneTestGenerator
         workflow_generator = StandaloneTestGenerator(self.project_root, self.config)
         workflow_tests = workflow_generator.generate_workflow_tests(module_name, models)
@@ -405,10 +389,6 @@ class IntelligentTestGenerator:
         print(f"   🔄 业务流程测试: {module_name}_standalone.py")
 
         return files
-
-    # 🔄 重构完成：_generate_repository_tests 和 _generate_single_repository_test 已迁移
-    # 新位置：tools/test_generators/unit/repository_test_generator.py
-    # 减少代码量：~170行
     
     def _generate_minimal_entity_creation(self, model_name: str, models: Dict[str, ModelInfo], module_name: str) -> str:
         """生成最小实体创建代码（仅必填字段，符合testing-standards.md 2.1节）
@@ -880,24 +860,6 @@ class IntelligentTestGenerator:
         # 3. 兜底默认值
         else:
             return f'"{suffix}"'
-    
-    # 🔄 重构完成：已迁移到 repository_test_generator.py
-    # - _generate_repository_create_test (~192行)
-    # - _generate_repository_read_test (~237行)
-    # - _generate_repository_update_test (~209行)
-    # - _generate_delete_verification (~29行辅助方法)
-    # - _generate_repository_delete_test (~255行)
-    # - _generate_repository_count_test (~58行)
-    # - _generate_repository_query_test (~19行)
-    
-    # 🔄 重构完成：已迁移到 model_test_generator.py
-    # - _generate_model_tests (~38行)
-    # - _generate_single_model_test (~33行)  
-    # - _generate_mock_field_tests (~21行)
-    # - _generate_mock_field_test (~15行)
-    # - _generate_field_validation_logic_test (~多个if分支, ~80行)
-    # - _generate_model_instance_test (~10行)
-    # - _generate_model_method_tests (~15行)
     # - _generate_mock_relationship_tests (~17行)
     # - _get_mock_test_value (~25行)
     # - _get_python_type_for_test (~12行)
@@ -1423,23 +1385,6 @@ from app.modules.{module_name}.models import (
 
     # 🔄 Service测试相关方法已100%迁移到 service_test_generator.py
     # - generate_service_tests() (~215行) - 主入口，Mock Repository策略
-    # - _generate_mock_service_tests() (~106行) - Mock测试代码生成
-    # - _detect_service_info() - Service信息检测
-    # - _generate_service_instantiation() (~47行) - Service实例化代码生成
-    # 累计迁移：~370行
-    # 🔄 Integration测试方法已100%迁移到 integration_test_generator.py
-    # - generate_integration_tests() - 主入口
-    # - _generate_integration_test_content() - 内容生成调度
-    # - _generate_user_auth_integration_tests() - user_auth专用测试（~280行）
-    # - _generate_generic_integration_tests() - 通用模块测试（~70行）
-    # 累计迁移：~350行
-
-    # 🔄 单元测试生成方法已废弃 - 使用模块化生成器替代
-    # - _generate_unit_test_content() - 已被ModelTestGenerator等替代
-    # - _generate_user_auth_unit_tests() - 特定模块测试已模块化（284行）
-    # - _generate_generic_unit_tests() - 通用测试已模块化（46行）
-    # 已删除约330行废弃的单元测试生成代码
-
     def _generate_e2e_tests(
         self, module_name: str, models: Dict[str, ModelInfo]
     ) -> Dict[str, str]:
