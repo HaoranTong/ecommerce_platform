@@ -309,12 +309,16 @@ class UserRoleRepository:
     @staticmethod
     def get_user_roles(db: Session, user_id: int) -> List[Role]:
         """获取用户的所有角色"""
-        return db.query(Role).join(UserRole).filter(UserRole.user_id == user_id).all()
+        # 显式指定join条件，避免与assigned_by外键混淆
+        return db.query(Role).join(UserRole, Role.id == UserRole.role_id).filter(
+            UserRole.user_id == user_id
+        ).all()
 
     @staticmethod
     def get_role_users(db: Session, role_id: int, skip: int = 0, limit: int = 100) -> List[User]:
         """获取拥有指定角色的用户列表"""
-        return db.query(User).join(UserRole).filter(
+        # 显式指定join条件，避免与assigned_by外键混淆
+        return db.query(User).join(UserRole, User.id == UserRole.user_id).filter(
             UserRole.role_id == role_id,
             User.is_deleted == False
         ).offset(skip).limit(limit).all()
@@ -359,14 +363,24 @@ class RolePermissionRepository:
     @staticmethod
     def get_role_permissions(db: Session, role_id: int) -> List[Permission]:
         """获取角色的所有权限"""
-        return db.query(Permission).join(RolePermission).filter(
+        # 显式指定join条件，保持代码一致性
+        return db.query(Permission).join(
+            RolePermission, Permission.id == RolePermission.permission_id
+        ).filter(
             RolePermission.role_id == role_id
         ).all()
 
     @staticmethod
     def get_user_permissions(db: Session, user_id: int) -> List[Permission]:
         """获取用户的所有权限（通过角色）"""
-        return db.query(Permission).join(RolePermission).join(Role).join(UserRole).filter(
+        # 显式指定所有join条件，确保关联链正确
+        return db.query(Permission).join(
+            RolePermission, Permission.id == RolePermission.permission_id
+        ).join(
+            Role, RolePermission.role_id == Role.id
+        ).join(
+            UserRole, Role.id == UserRole.role_id
+        ).filter(
             UserRole.user_id == user_id
         ).distinct().all()
 
