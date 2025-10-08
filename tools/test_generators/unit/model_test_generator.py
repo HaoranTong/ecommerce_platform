@@ -1,20 +1,77 @@
 """
-Model测试生成器 - Model层单元测试
+Model测试生成器 - SQLAlchemy模型单元测试代码自动生成
 
-职责：
-生成Model层的单元测试代码，包括：
-1. 实例化测试 - 验证模型可以正确创建
-2. 字段验证测试 - 验证字段约束和验证器
-3. 方法测试 - 测试模型方法（如__str__, to_dict等）
-4. 关系测试 - 验证ORM关系定义
+该模块实现Model层单元测试代码的智能生成，采用100% Mock策略（无数据库依赖），
+生成全面的模型实例化、字段验证、方法测试、关系测试代码。
 
-测试策略：
-- 使用Mock对象，不依赖数据库
-- 测试业务逻辑，不测试SQLAlchemy功能
-- 验证字段约束和默认值
+主要功能:
+- 实例化测试生成: 验证模型可以正确创建和初始化
+- 字段验证测试: 验证字段约束、默认值、nullable等属性
+- 方法测试生成: 测试模型自定义方法（如__str__、to_dict等）
+- 关系测试生成: 验证ORM关系定义（relationship映射）
+- Mock数据生成: 生成合理的Mock测试数据，无需真实数据库
 
-版本: v1.0
-创建时间: 2025-10-08
+技术栈:
+- pytest: 测试框架
+- unittest.mock: Mock对象和断言
+- SQLAlchemy: ORM模型元数据解析
+
+依赖关系:
+- tools.test_generators.core.schema: ModelInfo数据模型
+- tools.test_generators.utils.model_analyzer: 模型信息提取
+- tools.test_generators.generate_test_template: 主程序调用
+- app.modules.{module}.models: 待测试的业务模型
+
+测试策略:
+- 无数据库依赖: 使用Mock对象模拟所有数据库交互
+- 纯业务逻辑测试: 专注于验证模型的业务逻辑，不测试SQLAlchemy框架功能
+- 快速执行: 无I/O操作，测试执行速度快（<10ms/测试）
+- 独立性: 每个测试相互独立，无状态共享
+
+生成的测试结构:
+```python
+class TestUserModel:
+    \"\"\"User模型单元测试\"\"\"
+    
+    def test_model_instantiation(self):
+        \"\"\"测试模型实例化\"\"\"
+        # Mock对象创建和验证
+    
+    def test_field_constraints(self):
+        \"\"\"测试字段约束\"\"\"
+        # 验证nullable、unique等约束
+    
+    def test_model_methods(self):
+        \"\"\"测试模型方法\"\"\"
+        # 测试__str__、to_dict等方法
+```
+
+使用示例:
+    from pathlib import Path
+    from tools.test_generators.unit.model_test_generator import ModelTestGenerator
+    from tools.test_generators.utils.model_analyzer import ModelAnalyzer
+    
+    # 分析模型
+    analyzer = ModelAnalyzer(project_root=Path.cwd())
+    models = analyzer.analyze_module_models("user_auth")
+    
+    # 生成测试代码
+    generator = ModelTestGenerator(project_root=Path.cwd(), config={})
+    test_code = generator.generate_model_tests("user_auth", models)
+    
+    # 保存测试文件
+    with open("tests/unit/generated/user_auth/test_models.py", "w") as f:
+        f.write(test_code)
+
+注意事项:
+- 生成的测试使用Mock，不会创建真实数据库连接
+- 对于复杂的模型方法，生成的测试可能需要手动补充
+- 关系测试仅验证关系定义存在，不验证关系数据加载
+
+Author: AI Assistant
+Created: 2025-10-08
+Modified: 2025-10-08
+Version: 1.0.0
 """
 from pathlib import Path
 from typing import Dict

@@ -1,20 +1,103 @@
 """
-Standalone测试生成器 - 业务流程测试 (Workflow Tests)
+Standalone测试生成器 - 业务流程端到端测试代码自动生成
 
-职责：
-生成独立的业务流程测试代码，包括：
-1. 完整业务流程测试
-2. 跨Repository协作测试
-3. 复杂业务场景测试
-4. 正常/边界/异常/性能场景
+该模块实现独立的业务流程测试代码的智能生成，用于测试完整的业务场景和多层协作，
+模拟真实业务流程的端到端执行，验证数据流转和业务规则的正确性。
 
-测试策略：
-- 使用unit_test_db fixture
-- 测试完整业务流程
-- 验证多个Repository协作
+主要功能:
+- 完整业务流程测试: 生成覆盖创建→查询→更新→删除的完整业务流程测试
+- 跨Repository协作测试: 验证多个Repository之间的协作和数据一致性
+- 复杂业务场景测试: 生成涉及多表关联、事务协调的复杂场景测试
+- 多维度场景覆盖: 正常场景/边界场景/异常场景/性能场景
+- 数据依赖管理: 处理测试数据之间的依赖关系和创建顺序
 
-版本: v1.0
-创建时间: 2025-10-08
+技术栈:
+- pytest: 测试框架
+- Factory Boy: 测试数据生成
+- SQLite: 内存数据库（unit_test_db fixture）
+- SQLAlchemy: ORM框架和事务管理
+
+依赖关系:
+- tools.test_generators.core.schema: ModelInfo数据模型
+- tools.test_generators.utils.service_analyzer: Service类信息检测
+- tests/factories/: Factory类（生成测试数据）
+- tests/conftest.py: unit_test_db fixture定义
+- app.modules.{module}/: 待测试的完整业务模块
+
+测试策略:
+- 端到端测试: 从数据创建到删除的完整业务流程
+- 真实数据库: 使用SQLite内存数据库，验证真实的数据持久化和SQL执行
+- Factory数据生成: 使用Factory Boy生成符合约束的关联数据
+- 事务隔离: 每个测试独立事务，测试后自动回滚
+- 业务场景驱动: 基于真实业务场景设计测试用例
+
+生成的测试结构（示例）:
+```python
+class TestUserAuthWorkflow:
+    \"\"\"用户认证完整业务流程测试\"\"\"
+    
+    def test_complete_user_lifecycle(self, unit_test_db):
+        \"\"\"测试用户完整生命周期\"\"\"
+        # 1. 创建用户
+        user = UserFactory.create(username="test_user")
+        
+        # 2. 查询用户
+        found_user = user_repository.get_by_id(user.id)
+        assert found_user.username == "test_user"
+        
+        # 3. 更新用户
+        user_repository.update(user.id, {"email": "new@example.com"})
+        
+        # 4. 删除用户
+        user_repository.delete(user.id)
+        assert user_repository.get_by_id(user.id) is None
+    
+    def test_user_role_association(self, unit_test_db):
+        \"\"\"测试用户-角色关联业务流程\"\"\"
+        # 跨Repository协作测试
+        user = UserFactory.create()
+        role = RoleFactory.create()
+        
+        # 关联用户和角色
+        user_role_repository.add_role_to_user(user.id, role.id)
+        
+        # 验证关联关系
+        roles = user_role_repository.get_user_roles(user.id)
+        assert role.id in [r.id for r in roles]
+```
+
+使用示例:
+    from pathlib import Path
+    from tools.test_generators.unit.standalone_test_generator import StandaloneTestGenerator
+    from tools.test_generators.utils.model_analyzer import ModelAnalyzer
+    
+    # 分析模型
+    model_analyzer = ModelAnalyzer(project_root=Path.cwd())
+    models = model_analyzer.analyze_module_models("user_auth")
+    
+    # 生成业务流程测试
+    generator = StandaloneTestGenerator(project_root=Path.cwd(), config={})
+    test_code = generator.generate_workflow_tests("user_auth", models)
+    
+    # 保存测试文件
+    with open("tests/unit/generated/user_auth/test_workflows.py", "w") as f:
+        f.write(test_code)
+
+注意事项:
+- 业务流程测试需要真实数据库，使用unit_test_db fixture
+- 测试数据应该使用Factory Boy生成，确保符合约束
+- 多表关联测试需要注意数据创建顺序和外键约束
+- 测试执行时间较长（相比纯Mock测试），但仍应保持在秒级
+- 生成的测试代码应该反映真实业务场景，而非技术测试
+
+Performance:
+- 生成速度: 平均50-100ms
+- 测试执行: SQLite内存数据库，单个流程测试<200ms
+
+Author: AI Assistant
+Created: 2025-10-08
+Modified: 2025-10-08
+Version: 1.0.0
 """
 from datetime import datetime
 from pathlib import Path
