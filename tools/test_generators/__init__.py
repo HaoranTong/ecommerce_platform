@@ -43,6 +43,9 @@ from .core import (
     ModuleStructure
 )
 
+# 单元测试生成器
+from .unit import RepositoryTestGenerator
+
 # 已有的专项测试生成器
 from .base_generator import BaseTestGenerator
 from .api_test_generator import APITestGenerator
@@ -60,7 +63,10 @@ __all__ = [
     'RepositoryInfo',
     'ModuleStructure',
     
-    # 生成器
+    # 单元测试生成器
+    'RepositoryTestGenerator',
+    
+    # 专项测试生成器
     'BaseTestGenerator',
     'APITestGenerator', 
     'E2ETestGenerator',
