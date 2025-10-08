@@ -4,10 +4,14 @@
 按照四层架构设计，Repository层负责：
 1. 数据库CRUD操作
 2. 数据查询和过滤
-3. 数据持久化逻辑
-4. 事务管理
+3. 数据访问逻辑封装
 
-参考: docs/design/modules/user-auth/overview.md
+⚠️ 重要：Repository层不负责事务管理
+- Repository方法只执行数据访问操作（add/flush/refresh）
+- 事务的提交/回滚由Service层控制
+- 所有方法保持无状态，可在不同事务上下文中复用
+
+参考: docs/architecture/overview.md - 事务管理原则
 """
 from typing import Any, Dict, List, Optional
 from datetime import datetime
@@ -22,9 +26,9 @@ class UserRepository:
 
     @staticmethod
     def create(db: Session, user: User) -> User:
-        """创建用户"""
+        """创建用户（不提交事务）"""
         db.add(user)
-        db.commit()
+        db.flush()  # 刷新获取ID，但不提交事务
         db.refresh(user)
         return user
 
@@ -140,7 +144,7 @@ class UserRepository:
         for key, value in data.items():
             if hasattr(user, key) and value is not None:
                 setattr(user, key, value)
-        db.commit()
+        db.flush()
         db.refresh(user)
         return user
 
@@ -150,7 +154,7 @@ class UserRepository:
         user.last_login_at = datetime.now()
         user.failed_login_attempts = 0
         user.locked_until = None
-        db.commit()
+        db.flush()
         db.refresh(user)
         return user
 
@@ -162,7 +166,7 @@ class UserRepository:
         if user.failed_login_attempts >= 5:
             from datetime import timedelta
             user.locked_until = datetime.now() + timedelta(minutes=30)
-        db.commit()
+        db.flush()
         db.refresh(user)
         return user
 
@@ -172,13 +176,13 @@ class UserRepository:
         user.is_deleted = True
         user.deleted_at = datetime.now()
         user.is_active = False
-        db.commit()
+        db.flush()
 
     @staticmethod
     def hard_delete(db: Session, user: User) -> None:
         """硬删除用户（谨慎使用）"""
         db.delete(user)
-        db.commit()
+        db.flush()
 
 
 class RoleRepository:
@@ -188,7 +192,7 @@ class RoleRepository:
     def create(db: Session, role: Role) -> Role:
         """创建角色"""
         db.add(role)
-        db.commit()
+        db.flush()
         db.refresh(role)
         return role
 
@@ -213,7 +217,7 @@ class RoleRepository:
         for key, value in data.items():
             if hasattr(role, key) and value is not None:
                 setattr(role, key, value)
-        db.commit()
+        db.flush()
         db.refresh(role)
         return role
 
@@ -221,7 +225,7 @@ class RoleRepository:
     def delete(db: Session, role: Role) -> None:
         """删除角色"""
         db.delete(role)
-        db.commit()
+        db.flush()
 
     @staticmethod
     def get_user_count(db: Session, role_id: int) -> int:
@@ -236,7 +240,7 @@ class PermissionRepository:
     def create(db: Session, permission: Permission) -> Permission:
         """创建权限"""
         db.add(permission)
-        db.commit()
+        db.flush()
         db.refresh(permission)
         return permission
 
@@ -272,7 +276,7 @@ class PermissionRepository:
         for key, value in data.items():
             if hasattr(permission, key) and value is not None:
                 setattr(permission, key, value)
-        db.commit()
+        db.flush()
         db.refresh(permission)
         return permission
 
@@ -280,7 +284,7 @@ class PermissionRepository:
     def delete(db: Session, permission: Permission) -> None:
         """删除权限"""
         db.delete(permission)
-        db.commit()
+        db.flush()
 
 
 class UserRoleRepository:
@@ -290,7 +294,7 @@ class UserRoleRepository:
     def create(db: Session, user_role: UserRole) -> UserRole:
         """创建用户角色关联"""
         db.add(user_role)
-        db.commit()
+        db.flush()
         db.refresh(user_role)
         return user_role
 
@@ -324,13 +328,13 @@ class UserRoleRepository:
         ).first()
         if user_role:
             db.delete(user_role)
-            db.commit()
+            db.flush()
 
     @staticmethod
     def delete_all_user_roles(db: Session, user_id: int) -> None:
         """删除用户的所有角色"""
         db.query(UserRole).filter(UserRole.user_id == user_id).delete()
-        db.commit()
+        db.flush()
 
 
 class RolePermissionRepository:
@@ -340,7 +344,7 @@ class RolePermissionRepository:
     def create(db: Session, role_permission: RolePermission) -> RolePermission:
         """创建角色权限关联"""
         db.add(role_permission)
-        db.commit()
+        db.flush()
         db.refresh(role_permission)
         return role_permission
 
@@ -375,13 +379,13 @@ class RolePermissionRepository:
         ).first()
         if role_permission:
             db.delete(role_permission)
-            db.commit()
+            db.flush()
 
     @staticmethod
     def delete_all_role_permissions(db: Session, role_id: int) -> None:
         """删除角色的所有权限"""
         db.query(RolePermission).filter(RolePermission.role_id == role_id).delete()
-        db.commit()
+        db.flush()
 
 
 class SessionRepository:
@@ -391,7 +395,7 @@ class SessionRepository:
     def create(db: Session, session: UserSession) -> UserSession:
         """创建会话"""
         db.add(session)
-        db.commit()
+        db.flush()
         db.refresh(session)
         return session
 
@@ -421,7 +425,7 @@ class SessionRepository:
     def update_last_accessed(db: Session, session: UserSession) -> UserSession:
         """更新最后访问时间"""
         session.last_accessed_at = datetime.now()
-        db.commit()
+        db.flush()
         db.refresh(session)
         return session
 
@@ -429,7 +433,7 @@ class SessionRepository:
     def deactivate(db: Session, session: UserSession) -> UserSession:
         """停用会话"""
         session.is_active = False
-        db.commit()
+        db.flush()
         db.refresh(session)
         return session
 
@@ -439,7 +443,7 @@ class SessionRepository:
         db.query(UserSession).filter(UserSession.user_id == user_id).update(
             {"is_active": False}
         )
-        db.commit()
+        db.flush()
 
     @staticmethod
     def delete_expired_sessions(db: Session) -> int:
@@ -447,11 +451,11 @@ class SessionRepository:
         count = db.query(UserSession).filter(
             UserSession.expires_at < datetime.now()
         ).delete()
-        db.commit()
+        db.flush()
         return count
 
     @staticmethod
     def delete(db: Session, session: UserSession) -> None:
         """删除会话"""
         db.delete(session)
-        db.commit()
+        db.flush()

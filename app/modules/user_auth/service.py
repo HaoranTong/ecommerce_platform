@@ -92,8 +92,12 @@ class UserService:
         )
 
         try:
-            # 使用Repository创建用户
-            return UserRepository.create(db, user)
+            # 使用Repository创建用户（Repository不commit）
+            user = UserRepository.create(db, user)
+            # Service层负责提交事务
+            db.commit()
+            db.refresh(user)
+            return user
         except IntegrityError:
             db.rollback()
             raise HTTPException(
@@ -185,8 +189,12 @@ class UserService:
             return None
 
         try:
-            # 使用Repository更新用户
-            return UserRepository.update(db, user, kwargs)
+            # 使用Repository更新用户（Repository不commit）
+            user = UserRepository.update(db, user, kwargs)
+            # Service层负责提交事务
+            db.commit()
+            db.refresh(user)
+            return user
         except IntegrityError:
             db.rollback()
             raise HTTPException(
@@ -214,9 +222,11 @@ class UserService:
         if not user or not verify_password(old_password, user.password_hash):
             return False
 
-        # 使用Repository更新密码
+        # 使用Repository更新密码（Repository不commit）
         password_hash = get_password_hash(new_password)
         UserRepository.update(db, user, {"password_hash": password_hash})
+        # Service层负责提交事务
+        db.commit()
         return True
 
     @staticmethod
@@ -312,6 +322,9 @@ class UserService:
                 email_verified=True,  # 通过验证码注册，邮箱已验证
             )
             created_user = await run_in_thread(UserRepository.create, db, user)
+            # Service层负责提交事务
+            await run_in_thread(db.commit)
+            await run_in_thread(db.refresh, created_user)
             
             # 5. 生成token
             tokens = UserService.generate_tokens(created_user)
@@ -387,6 +400,7 @@ class UserService:
             # 如果用户存在但认证失败，增加失败次数（通过线程池执行，避免阻塞事件循环）
             if user_for_check:
                 await run_in_thread(UserRepository.increment_failed_login, db, user_for_check)
+                await run_in_thread(db.commit)  # Service层提交事务
             
             # 记录登录失败事件
             from app.core.security_logger import log_security_event
@@ -406,6 +420,7 @@ class UserService:
 
         # 认证成功，更新登录信息（会重置失败次数）（通过线程池执行，避免阻塞事件循环）
         await run_in_thread(UserRepository.update_login_info, db, user)
+        await run_in_thread(db.commit)  # Service层提交事务
         
         # 创建访问令牌和刷新令牌
         access_token = create_access_token(data={"sub": str(user.id)})
@@ -520,7 +535,10 @@ class UserService:
             update_data["real_name"] = real_name
 
         try:
-            return UserRepository.update(db, user, update_data)
+            user = UserRepository.update(db, user, update_data)
+            db.commit()  # Service层提交事务
+            db.refresh(user)
+            return user
         except IntegrityError:
             db.rollback()
             raise HTTPException(
@@ -566,6 +584,7 @@ class UserService:
         try:
             password_hash = get_password_hash(new_password)
             UserRepository.update(db, user, {"password_hash": password_hash})
+            db.commit()  # Service层提交事务
             return {"message": "Password changed successfully"}
         except Exception:
             db.rollback()
@@ -722,6 +741,7 @@ class UserService:
         
         # 更新登录信息（通过线程池执行，避免阻塞事件循环）
         await run_in_thread(UserRepository.update_login_info, db, user)
+        await run_in_thread(db.commit)  # Service层提交事务
         
         # 创建访问令牌和刷新令牌
         access_token = create_access_token(data={"sub": str(user.id)})
@@ -804,9 +824,10 @@ class UserService:
         try:
             password_hash = get_password_hash(new_password)
             await run_in_thread(UserRepository.update, db, user, {"password_hash": password_hash})
+            await run_in_thread(db.commit)  # Service层提交事务
             return {"message": "Password reset successfully"}
         except Exception:
-            db.rollback()
+            await run_in_thread(db.rollback)
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Failed to reset password",

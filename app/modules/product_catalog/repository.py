@@ -1,5 +1,10 @@
 """
 商品目录模块数据访问层（Repository）
+
+⚠️ 重要：Repository层不负责事务管理
+- Repository方法只执行数据访问操作（add/flush/refresh）
+- 事务的提交/回滚由Service层控制
+- 所有方法保持无状态，可在不同事务上下文中复用
 """
 from typing import Any, Dict, List, Optional
 from sqlalchemy.orm import Session
@@ -12,7 +17,7 @@ class CategoryRepository:
     @staticmethod
     def create(db: Session, category: Category) -> Category:
         db.add(category)
-        db.commit()
+        db.flush()
         db.refresh(category)
         return category
 
@@ -46,7 +51,7 @@ class BrandRepository:
     @staticmethod
     def create(db: Session, brand: Brand) -> Brand:
         db.add(brand)
-        db.commit()
+        db.flush()
         db.refresh(brand)
         return brand
 
@@ -62,7 +67,7 @@ class BrandRepository:
     def update(db: Session, brand: Brand, data: Dict[str, Any]) -> Brand:
         for k, v in data.items():
             setattr(brand, k, v)
-        db.commit()
+        db.flush()
         db.refresh(brand)
         return brand
 
@@ -71,7 +76,7 @@ class BrandRepository:
         # Perform soft delete if is_active field exists
         if hasattr(brand, 'is_active'):
             brand.is_active = False
-        db.commit()
+        db.flush()
 
 
 class ProductRepository:
@@ -80,7 +85,7 @@ class ProductRepository:
     @staticmethod
     def create(db: Session, product: Product) -> Product:
         db.add(product)
-        db.commit()
+        db.flush()
         db.refresh(product)
         return product
 
@@ -104,14 +109,14 @@ class ProductRepository:
     def update(db: Session, product: Product, data: Dict[str, Any]) -> Product:
         for k, v in data.items():
             setattr(product, k, v)
-        db.commit()
+        db.flush()
         db.refresh(product)
         return product
 
     @staticmethod
     def soft_delete(db: Session, product: Product) -> None:
         product.is_deleted = True
-        db.commit()
+        db.flush()
 
 
 class SKURepository:
@@ -120,7 +125,7 @@ class SKURepository:
     @staticmethod
     def create(db: Session, sku: SKU) -> SKU:
         db.add(sku)
-        db.commit()
+        db.flush()
         db.refresh(sku)
         return sku
 
@@ -141,11 +146,11 @@ class SKURepository:
     def update(db: Session, sku: SKU, data: Dict[str, Any]) -> SKU:
         for k, v in data.items():
             setattr(sku, k, v)
-        db.commit()
+        db.flush()
         db.refresh(sku)
         return sku
 
     @staticmethod
     def soft_delete(db: Session, sku: SKU) -> None:
         sku.is_active = False
-        db.commit()
+        db.flush()
