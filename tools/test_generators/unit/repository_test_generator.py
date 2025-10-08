@@ -1813,15 +1813,30 @@ class Test{repo_name}:
             # 3. 如果参数是实体对象（根据类型注解判断）
             elif param_type and param_type[0].isupper():  # 类型注解首字母大写（如User, Role）
                 params.append(entity_var)
-            # 4. 如果参数是字典类型（data, update_data等）
+            # 4. 如果参数是字典类型（data, update_data等）- 使用{} 占位
             elif 'dict' in param_type.lower() or param_name in ['data', 'update_data', 'filters']:
-                params.append(f"{param_name}  # TODO: 传入字典参数")
+                params.append("{}")
             # 5. 如果context中有对应的值
             elif param_name in context:
                 params.append(context[param_name])
-            # 6. 默认使用参数名作为变量
+            # 6. 根据参数类型生成默认值
+            elif param_type:
+                if 'int' in param_type.lower():
+                    params.append("0")
+                elif 'str' in param_type.lower():
+                    params.append('""')
+                elif 'bool' in param_type.lower():
+                    params.append("False")
+                else:
+                    params.append("None")  # 其他类型用None
             else:
-                params.append(f"{param_name}  # TODO: 补充参数值")
+                # 没有类型注解，根据参数名猜测
+                if 'skip' in param_name or 'limit' in param_name or 'count' in param_name:
+                    params.append("0")
+                elif 'name' in param_name or 'email' in param_name or 'username' in param_name:
+                    params.append('""')
+                else:
+                    params.append("None")
         
         return ', '.join(params)
     
