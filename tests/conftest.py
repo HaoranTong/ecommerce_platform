@@ -485,9 +485,20 @@ def mysql_integration_engine():
         
         # 所有模型已在文件顶部导入，SQLAlchemy会自动处理表创建
 
-        # 创建所有表
+        # 创建所有表（先删除再创建，确保表结构是最新的）
+        with engine.begin() as conn:
+            # 禁用外键检查以允许删除表
+            conn.execute(text("SET FOREIGN_KEY_CHECKS = 0"))
+            
+        # 删除并重新创建所有表
+        Base.metadata.drop_all(bind=engine)
         Base.metadata.create_all(bind=engine)
-        print("✅ MySQL集成测试数据库已准备完成")
+        
+        with engine.begin() as conn:
+            # 重新启用外键检查
+            conn.execute(text("SET FOREIGN_KEY_CHECKS = 1"))
+            
+        print("✅ MySQL集成测试数据库已准备完成（表结构已更新）")
         yield engine
     finally:
         # 清理测试数据但保留表结构
