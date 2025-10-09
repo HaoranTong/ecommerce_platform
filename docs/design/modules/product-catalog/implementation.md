@@ -66,6 +66,7 @@ app/modules/product_catalog/
 ├── router.py           # ✅ API路由实现
 ├── service.py          # ✅ 业务逻辑实现
 ├── category_service.py # ✅ 分类业务实现
+├── repository.py       # ✅ 数据访问层实现（Repository模式）
 ├── models.py           # ✅ 数据模型定义
 ├── schemas.py          # ✅ 请求/响应模型定义
 ├── dependencies.py     # ✅ 依赖注入实现

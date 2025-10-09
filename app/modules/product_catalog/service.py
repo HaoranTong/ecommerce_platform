@@ -350,25 +350,44 @@ class SKUService:
 
     @staticmethod
     def create_sku(db: Session, data: Dict[str, Any]) -> SKU:
+        """
+        创建SKU
+        
+        注意：遵循四层架构原则，通过Repository层进行数据访问
+        """
         # 提取attributes字段（如果存在），不传递给模型构造函数
         attributes_data = data.pop('attributes', None)
         
-        # 创建SKU
-        sku = SKU(**data)
-        db.add(sku)
-        db.flush()  # 获取SKU的ID
-        
-        # 如果有attributes数据，创建关联的SKUAttribute
-        if attributes_data:
-            from .models import SKUAttribute
-            for attr_data in attributes_data:
-                attr_data['sku_id'] = sku.id
-                sku_attr = SKUAttribute(**attr_data)
-                db.add(sku_attr)
-        
-        db.commit()
-        db.refresh(sku)
-        return sku
+        try:
+            # 通过Repository创建SKU，遵循四层架构原则
+            sku = SKU(**data)
+            sku = SKURepository.create(db, sku)
+            
+            # 如果有attributes数据，创建关联的SKUAttribute
+            # TODO: 后续可以考虑将此逻辑移到SKURepository中处理
+            if attributes_data:
+                from .models import SKUAttribute
+                for attr_data in attributes_data:
+                    attr_data['sku_id'] = sku.id
+                    sku_attr = SKUAttribute(**attr_data)
+                    db.add(sku_attr)  # 临时直接操作，待SKUAttributeRepository实现后改为Repository模式
+                    db.flush()
+            
+            db.commit()
+            return sku
+            
+        except IntegrityError:
+            db.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="SKU创建失败，数据冲突"
+            )
+        except Exception:
+            db.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="SKU创建失败，系统错误"
+            )
 
     @staticmethod
     def get_sku(db: Session, sku_id: int) -> Optional[SKU]:

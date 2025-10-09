@@ -75,7 +75,7 @@ class CategoryService:
             is_active=is_active,
         )
         try:
-        return CategoryRepository.create(db, category)
+            return CategoryRepository.create(db, category)
         except IntegrityError:
             db.rollback()
             raise HTTPException(
@@ -98,7 +98,7 @@ class CategoryService:
         Returns:
             Category: 分类对象或None
         """
-    return CategoryRepository.get_by_id(db, category_id)
+        return CategoryRepository.get_by_id(db, category_id)
 
     @staticmethod
     def get_categories(
@@ -140,7 +140,7 @@ class CategoryService:
         """
 
         def build_tree(parent_id: Optional[int]) -> List[Dict[str, Any]]:
-        categories = CategoryRepository.list(db, parent_id, is_active, 0, 1000)
+            categories = CategoryRepository.list(db, parent_id, is_active, 0, 1000)
             tree = []
 
             for category in categories:
