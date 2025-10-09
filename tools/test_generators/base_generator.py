@@ -474,7 +474,9 @@ class BaseTestGenerator(ABC):
             resource = path_parts[-1] if '{' not in path_parts[-1] else path_parts[-2]
             # 智能单数化
             resource = self._singularize(resource)
-            return f"{resource.title()}Update"
+            # 处理常见缩写词
+            resource = self._handle_abbreviations(resource)
+            return f"{resource}Update"
         return "UpdateSchema"
     
     def _infer_schema_from_path(self, route: RouterInfo) -> Optional[str]:
@@ -483,11 +485,12 @@ class BaseTestGenerator(ABC):
         if len(path_parts) >= 2:
             resource = path_parts[-1] if '{' not in path_parts[-1] else path_parts[-2]
             resource = self._singularize(resource)
+            resource = self._handle_abbreviations(resource)
             # 基于HTTP方法推断操作类型
             if route.method.upper() == 'POST':
-                return f"{resource.title()}Create"
+                return f"{resource}Create"
             elif route.method.upper() in ['PUT', 'PATCH']:
-                return f"{resource.title()}Update"
+                return f"{resource}Update"
         return None
     
     def _singularize(self, word: str) -> str:
@@ -499,6 +502,33 @@ class BaseTestGenerator(ABC):
         elif word.endswith('s') and not word.endswith('ss'):
             return word[:-1]  # products -> product, users -> user
         return word
+    
+    def _handle_abbreviations(self, word: str) -> str:
+        """处理常见缩写词的大小写"""
+        # 常见的缩写词映射
+        abbreviations = {
+            'sku': 'SKU',
+            'api': 'API',
+            'url': 'URL',
+            'id': 'ID',
+            'seo': 'SEO',
+            'uuid': 'UUID',
+            'xml': 'XML',
+            'json': 'JSON',
+            'http': 'HTTP',
+            'oauth': 'OAuth',
+            'jwt': 'JWT',
+            'sms': 'SMS',
+            'qr': 'QR',
+            'pdf': 'PDF',
+        }
+        
+        lower_word = word.lower()
+        if lower_word in abbreviations:
+            return abbreviations[lower_word]
+        
+        # 如果不是缩写词，使用普通的首字母大写
+        return word.title()
     
     def _infer_create_schema(self, route: RouterInfo) -> str:
         """推断创建操作的Schema名称"""
@@ -746,8 +776,19 @@ class BaseTestGenerator(ABC):
                     return 'fake.user_name().replace(".", "_")[:20]'
                 elif any(keyword in field_name_lower for keyword in ['password', 'pwd']):
                     return 'fake.password(length=12)'
-                elif any(keyword in field_name_lower for keyword in ['name']) and 'username' not in field_name_lower:
-                    return 'fake.name()[:50]'
+                elif field_name_lower == 'name' and 'username' not in field_name_lower:
+                    # 根据上下文推断name字段类型
+                    # 对于产品、分类、品牌等实体，生成合适的名称
+                    return 'fake.company()[:50]'  # 使用公司名作为产品/品牌名更合适
+                elif field_name_lower in ['real_name', 'full_name', 'display_name']:
+                    return 'fake.name()[:50]'  # 只有明确的人名字段才使用fake.name()
+                elif field_name_lower in ['status'] and is_optional:
+                    # 对于状态字段，即使是Optional，也应该提供默认的有效值
+                    return '"published"'  # 或其他合理的默认状态
+                elif any(keyword in field_name_lower for keyword in ['seo_keywords', 'keywords']):
+                    return '", ".join(fake.words(nb=5))'  # SEO关键词应该是逗号分隔的字符串
+                elif any(keyword in field_name_lower for keyword in ['title']) and 'seo' in field_name_lower:
+                    return 'fake.sentence(nb_words=5)[:200]'  # SEO标题应该是句子格式
                 elif any(keyword in field_name_lower for keyword in ['address', 'addr']):
                     return 'fake.address()'
                 else:
@@ -758,7 +799,7 @@ class BaseTestGenerator(ABC):
                 # 外键ID字段 - 使用创建的实体ID
                 if field_name_lower.endswith('_id') and field_name_lower not in ['user_id']:
                     if is_optional:
-                        return 'None'
+                        return 'None'  # Optional外键可以为None
                     else:
                         # 推断实体变量名（去掉_id后缀）
                         entity_name = field.replace('_id', '')
