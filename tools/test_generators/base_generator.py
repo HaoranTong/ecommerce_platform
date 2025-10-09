@@ -422,28 +422,41 @@ class BaseTestGenerator(ABC):
         return route.method in ['POST', 'PUT', 'PATCH']
     
     def _infer_schema_class(self, route: RouterInfo) -> Optional[str]:
-        """根据路由功能推断Schema类名"""
+        """根据路由功能推断Schema类名 - 动态推断，无硬编码"""
         function_name = route.function_name.lower()
         
-        # 注册相关
-        if 'register' in function_name:
-            return 'UserRegister'
+        # 无需Schema的端点
+        if any(word in function_name for word in ['logout', 'get_current', 'get_user', 'list']):
+            return None
         
-        # 登录相关
-        elif 'phone_login' in function_name:
-            return 'PhoneLogin'
+        # 创建操作
+        if 'create' in function_name:
+            return self._infer_create_schema(route)
+        
+        # 更新操作
+        elif 'update' in function_name:
+            return self._infer_update_schema(route)
+        
+        # 登录相关 - 基于路径和功能名动态推断
         elif 'login' in function_name:
+            if 'phone' in function_name:
+                return 'PhoneLogin'
             return 'UserLogin'
         
+        # 注册相关
+        elif 'register' in function_name:
+            return 'UserRegister'
+            
         # Token相关
         elif 'refresh' in function_name and 'token' in function_name:
             return 'TokenRefresh'
         
         # 密码相关
-        elif 'reset_password_confirm' in function_name or 'reset' in function_name and 'confirm' in function_name:
-            return 'PasswordResetConfirm'
-        elif 'reset_password_request' in function_name or 'reset' in function_name and 'request' in function_name:
-            return 'PasswordResetRequest'
+        elif 'reset' in function_name:
+            if 'confirm' in function_name:
+                return 'PasswordResetConfirm'
+            elif 'request' in function_name:
+                return 'PasswordResetRequest'
         elif 'change' in function_name and 'password' in function_name:
             return 'UserChangePassword'
         
@@ -451,30 +464,50 @@ class BaseTestGenerator(ABC):
         elif 'verification_code' in function_name or 'send_verification' in function_name:
             return 'SendVerificationCode'
         
-        # 用户信息更新
-        elif 'update' in function_name:
-            return 'UserUpdate'
-        
-        # 无需Schema的端点
-        elif 'logout' in function_name:
-            return None
-        elif 'get_current_user' in function_name or 'get_user' in function_name:
-            return None
-        elif 'list_users' in function_name or 'list' in function_name:
-            return None
-        
-        # 创建操作
-        elif 'create' in function_name:
-            return self._infer_create_schema(route)
-        
+        # 基于路径的通用推断
+        return self._infer_schema_from_path(route)
+    
+    def _infer_update_schema(self, route: RouterInfo) -> str:
+        """推断更新操作的Schema名称"""
+        path_parts = route.path.strip('/').split('/')
+        if len(path_parts) >= 2:
+            resource = path_parts[-1] if '{' not in path_parts[-1] else path_parts[-2]
+            # 智能单数化
+            resource = self._singularize(resource)
+            return f"{resource.title()}Update"
+        return "UpdateSchema"
+    
+    def _infer_schema_from_path(self, route: RouterInfo) -> Optional[str]:
+        """基于路径推断Schema类名"""
+        path_parts = route.path.strip('/').split('/')
+        if len(path_parts) >= 2:
+            resource = path_parts[-1] if '{' not in path_parts[-1] else path_parts[-2]
+            resource = self._singularize(resource)
+            # 基于HTTP方法推断操作类型
+            if route.method.upper() == 'POST':
+                return f"{resource.title()}Create"
+            elif route.method.upper() in ['PUT', 'PATCH']:
+                return f"{resource.title()}Update"
         return None
+    
+    def _singularize(self, word: str) -> str:
+        """智能单数化"""
+        if word.endswith('ies'):
+            return word[:-3] + 'y'  # categories -> category
+        elif word.endswith('es') and len(word) > 3:
+            return word[:-2]  # boxes -> box, wishes -> wish
+        elif word.endswith('s') and not word.endswith('ss'):
+            return word[:-1]  # products -> product, users -> user
+        return word
     
     def _infer_create_schema(self, route: RouterInfo) -> str:
         """推断创建操作的Schema名称"""
         # 基于路径推断资源类型
         path_parts = route.path.strip('/').split('/')
-        if len(path_parts) >= 2:
-            resource = path_parts[-1].rstrip('s')  # 去掉复数s
+        if len(path_parts) >= 1:
+            resource = path_parts[-1]
+            # 智能单数化：处理常见复数形式
+            resource = self._singularize(resource)
             return f"{resource.title()}Create"
         return "CreateSchema"
     
@@ -519,32 +552,52 @@ class BaseTestGenerator(ABC):
     def _generate_field_value(self, field_name: str, field_info) -> Any:
         """根据字段信息生成测试值 - 动态生成"""
         fake = Faker()
-        
-        # 根据字段名称生成合适的动态测试值
         field_name_lower = field_name.lower()
         
-        if 'email' in field_name_lower:
-            return fake.email()
-        elif 'username' in field_name_lower:
-            return fake.user_name()
-        elif 'password' in field_name_lower:
-            return secrets.token_hex(4)
-        elif 'phone' in field_name_lower:
-            # 生成符合中国手机号格式的号码: 1[3-9]xxxxxxxxx
-            return f"1{fake.random_element(elements=[3,4,5,6,7,8,9])}{fake.random_number(digits=9)}"
-        elif 'verification_code' in field_name_lower or 'code' in field_name_lower:
-            return str(fake.random_int(100000, 999999))
-        elif 'name' in field_name_lower:
-            return fake.name()
-        elif field_name_lower in ['age', 'count', 'quantity']:
-            return fake.random_int(18, 80)
-        elif field_name_lower in ['price', 'amount']:
-            return fake.random_int(10, 1000)
-        elif field_name_lower in ['is_active', 'enabled', 'status']:
-            return fake.boolean()
-        else:
-            # 根据字段类型推断
-            return self._generate_by_type(field_info)
+        # 通用字段类型推断 - 基于常见模式，不限于特定业务
+        field_patterns = {
+            'email': lambda: fake.email(),
+            'username': lambda: fake.user_name(),
+            'password': lambda: secrets.token_hex(4),
+            'phone': lambda: f"1{fake.random_element(elements=[3,4,5,6,7,8,9])}{fake.random_number(digits=9)}",
+            'code': lambda: str(fake.random_int(100000, 999999)),
+            'verification': lambda: str(fake.random_int(100000, 999999)),
+            'name': lambda: fake.name(),
+            'title': lambda: fake.text(max_nb_chars=50),
+            'description': lambda: fake.text(max_nb_chars=200),
+            'url': lambda: fake.url(),
+            'address': lambda: fake.address(),
+            'city': lambda: fake.city(),
+            'country': lambda: fake.country(),
+            'currency': lambda: fake.currency_code(),
+            'color': lambda: fake.color_name(),
+            'size': lambda: fake.random_element(['S', 'M', 'L', 'XL']),
+            'weight': lambda: fake.random_int(1, 1000),
+            'height': lambda: fake.random_int(1, 200),
+            'width': lambda: fake.random_int(1, 200),
+            'length': lambda: fake.random_int(1, 200),
+            'age': lambda: fake.random_int(18, 80),
+            'count': lambda: fake.random_int(1, 100),
+            'quantity': lambda: fake.random_int(1, 1000),
+            'price': lambda: fake.random_int(10, 1000),
+            'amount': lambda: fake.random_int(10, 10000),
+            'discount': lambda: fake.random_int(5, 50),
+            'rate': lambda: fake.random_int(1, 10),
+            'rating': lambda: fake.random_int(1, 5),
+            'active': lambda: fake.boolean(),
+            'enabled': lambda: fake.boolean(),
+            'status': lambda: fake.boolean(),
+            'available': lambda: fake.boolean(),
+            'visible': lambda: fake.boolean(),
+        }
+        
+        # 查找匹配的模式
+        for pattern, generator in field_patterns.items():
+            if pattern in field_name_lower:
+                return generator()
+        
+        # 如果没有匹配的模式，根据字段类型推断
+        return self._generate_by_type(field_info)
     
     def _generate_by_type(self, field_info) -> Any:
         """根据字段类型生成默认值"""

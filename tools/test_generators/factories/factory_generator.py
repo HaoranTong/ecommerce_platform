@@ -141,10 +141,13 @@ from {module_import_path} import (
             deps = []
             for field in model_info.fields:
                 if field.foreign_key:
-                    target_model = self._extract_fk_target_model(field.foreign_key)
-                    if target_model in models:
+                    target_model = self._extract_fk_target_model(field.foreign_key, models)
+                    # 排除自引用：如果目标模型就是当前模型，不视为依赖
+                    if target_model in models and target_model != model_name:
                         deps.append(target_model)
                         print(f"  📎 {model_name}.{field.name} → {target_model} (外键依赖)")
+                    elif target_model == model_name:
+                        print(f"  🔄 {model_name}.{field.name} → {target_model} (自引用，工厂中将设为None)")
             dependencies[model_name] = deps
             
         print(f"📊 依赖图构建完成: {len(dependencies)} 个模型")
@@ -180,16 +183,23 @@ from {module_import_path} import (
             
         return result
     
-    def _extract_fk_target_model(self, foreign_key: str) -> str:
+    def _extract_fk_target_model(self, foreign_key: str, models: Dict[str, ModelInfo] = None) -> str:
         """从外键字符串提取目标模型名"""
         # foreign_key格式：table_name.column_name
         if '.' in foreign_key:
             table_name = foreign_key.split('.')[0]
-            return self._infer_model_name_from_table(table_name)
+            return self._infer_model_name_from_table(table_name, models)
         return foreign_key
     
-    def _infer_model_name_from_table(self, table_name: str) -> str:
-        """从表名推导模型名"""
+    def _infer_model_name_from_table(self, table_name: str, models: Dict[str, ModelInfo] = None) -> str:
+        """从表名推导模型名 - 纯动态映射版本"""
+        # 优先使用动态映射：从models字典中查找表名对应的模型名
+        if models:
+            for model_name, model_info in models.items():
+                if model_info.tablename == table_name:
+                    return model_name
+        
+        # 如果没有找到动态映射，使用通用推导逻辑
         if table_name.endswith('ies'):
             singular = table_name[:-3] + 'y'
         elif table_name.endswith('s'):
@@ -294,7 +304,7 @@ from {module_import_path} import (
                 break
         
         if not target_model:
-            target_model = self._infer_model_name_from_table(target_table)
+            target_model = self._infer_model_name_from_table(target_table, all_models)
             
         # 检测自引用
         is_self_reference = self._is_self_reference_field(field.name, target_table)
