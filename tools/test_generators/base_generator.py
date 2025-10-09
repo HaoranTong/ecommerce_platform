@@ -763,6 +763,18 @@ class BaseTestGenerator(ABC):
                 elif field_type.__origin__ in (dict, typing.Dict):
                     actual_type = dict
             
+            # 重新检查actual_type是否是Literal（处理Optional[Literal]的情况）
+            if hasattr(actual_type, '__origin__'):
+                origin = get_origin(actual_type) if hasattr(typing, 'get_origin') else getattr(actual_type, '__origin__', None)
+                if origin is Literal or (hasattr(typing, 'Literal') and origin is getattr(typing, 'Literal', None)):
+                    literal_values = get_args(actual_type) if hasattr(typing, 'get_args') else getattr(actual_type, '__args__', ())
+                    if literal_values:
+                        # 如果有默认值且在Literal选项中，使用默认值
+                        if field_default is not None and field_default in literal_values:
+                            return f'"{field_default}"'
+                        # 否则使用第一个选项
+                        return f'"{literal_values[0]}"'
+            
             # 根据字段名称和类型生成代码
             # 字符串类型
             if actual_type in (str, type(str)):
