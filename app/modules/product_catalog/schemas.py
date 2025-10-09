@@ -113,8 +113,8 @@ class CategoryCreate(BaseSchema):
     description: Optional[str] = Field(None, max_length=500, description="分类描述")
     meta_data: Optional[Dict[str, Any]] = Field(None, description="元数据")
 
-# Alias for test generator (路径 /categories → CategorieCreate)
-CategorieCreate = CategoryCreate
+# Alias for test generator (路径 /categories → CategoriesCreate)
+CategoriesCreate = CategoryCreate
   
 # Alias for missing UserUpdate schema to avoid fallback warnings
 UserUpdate = BaseSchema

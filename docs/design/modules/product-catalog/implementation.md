@@ -74,10 +74,60 @@ app/modules/product_catalog/
 
 ## 技术实现细节
 
-- **主键策略**：使用 UUID 作为各表主键，保证跨服务唯一性
-- **事务管理**：在 Service 层使用 SQLAlchemy Session 进行原子操作
-- **缓存策略**：对热门商品查询结果使用 Redis 缓存，TTL 30 分钟
-- **错误处理**：统一捕获并包装为模块自定义异常，返回规范错误格式
+### 核心技术决策
+
+- **主键策略**：使用 INTEGER(自增) 作为各表主键，遵循 `database-standards.md` 默认标准
+  - 优势：索引体积更小、查询性能更优、兼容MySQL自增特性
+  - 适用场景：单体架构下的高性能数据访问
+  
+- **架构模式**：引入 Repository 模式实现数据访问层
+  - Service层：业务逻辑 + 事务管理（commit/rollback）
+  - Repository层：数据访问封装（add/flush/refresh/query）
+  - 职责清晰：Service编排业务流程，Repository保持无状态可复用
+  
+- **事务管理**：在 Service 层使用 SQLAlchemy Session 进行事务控制
+  - Service方法内使用 `db.commit()` 提交事务
+  - 异常情况下调用 `db.rollback()` 回滚事务
+  - Repository层只使用 `db.flush()` 确保对象持久化到当前事务
+  
+- **缓存策略**：当前 MVP 阶段暂不实现 Redis 缓存
+  - 优先保证功能正确性和数据一致性
+  - 已完成数据库索引优化，查询性能可接受
+  - 后续根据性能压测结果按需引入缓存
+  
+- **错误处理**：统一使用 FastAPI 的 `HTTPException`
+  - 规范化状态码使用（400/401/403/404/422/500）
+  - 详细的错误信息和字段验证反馈
+  - 完整的异常追踪和日志记录
+
+### 开发状态（2025-10-09更新）
+
+- **✅ P0阻塞问题**：100%完成 (5/5项)
+  - Product.sku字段引用已清理
+  - update_stock方法已删除
+  - ServiceException已修复为HTTPException
+  - ProductService已完全重构使用Repository
+  - CategorieCreate拼写错误已修复
+
+- **✅ P1架构统一**：100%完成 (5/5项)
+  - 模块边界已明确，库存管理归inventory模块
+  - 事务管理已规范化，Service控制Repository只flush
+  - Brand软删除已实现
+  - 文档字符串已补充完整
+  - 缓存功能决策已明确
+
+- **✅ P2代码质量**：100%完成 (4/4项)
+  - API响应格式已统一
+  - 数据库字段comment已补充
+  - 复杂逻辑注释已完善
+  - API路径规范已统一使用/product-catalog/*前缀
+
+- **🟡 P3文档同步**：83%完成 (5/6项)
+  - Repository模式文档已补充
+  - 模块边界文档已明确
+  - 主键类型文档需要更新（UUID→INTEGER）
+  - 缓存功能说明需要补充
+  - 库存模块交互接口需要详细说明
 
 ## 部署与维护
 

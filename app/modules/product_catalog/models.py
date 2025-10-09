@@ -78,7 +78,7 @@ class Category(Base, TimestampMixin, SoftDeleteMixin):
 
 
 @ModelRegistry.register
-class Brand(Base, TimestampMixin):
+class Brand(Base, TimestampMixin, SoftDeleteMixin):
     """品牌模型 - 管理商品品牌信息
 
     根据overview.md文档规范实现，包含：
@@ -86,6 +86,7 @@ class Brand(Base, TimestampMixin):
     - 唯一性约束（name, slug）
     - SEO友好的slug字段
     - 时间戳自动维护（TimestampMixin）
+    - 软删除支持（SoftDeleteMixin）
     """
 
     __tablename__ = "brands"

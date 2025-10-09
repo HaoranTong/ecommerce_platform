@@ -42,25 +42,25 @@
 #### 业务模块命名映射表（完整版）
 | 🏷️ 业务概念名 | 🔧 技术实现名 | 📁 目录路径 | 🌐 API路径前缀 | 🗄️ 数据库表前缀 |
 |---------------|---------------|------------|---------------|----------------|
-| user-auth | user_auth | app/modules/user_auth/ | /auth/* | user_, auth_ |
-| shopping-cart | shopping_cart | app/modules/shopping_cart/ | /cart/* | cart_, shopping_ |
-| product-catalog | product_catalog | app/modules/product_catalog/ | /products/* | product_, catalog_ |
-| order-management | order_management | app/modules/order_management/ | /orders/* | order_, payment_ |
-| payment-service | payment_service | app/modules/payment_service/ | /payments/* | payment_, transaction_ |
-| inventory-management | inventory_management | app/modules/inventory_management/ | /inventory/* | inventory_, stock_ |
-| member-system | member_system | app/modules/member_system/ | /members/* | member_, membership_ |
-| logistics-management | logistics_management | app/modules/logistics_management/ | /logistics/* | logistics_, shipping_ |
-| notification-service | notification_service | app/modules/notification_service/ | /notifications/* | notification_, message_ |
-| quality-control | quality_control | app/modules/quality_control/ | /quality/* | quality_, inspection_ |
-| recommendation-system | recommendation_system | app/modules/recommendation_system/ | /recommendations/* | recommendation_, suggest_ |
-| risk-control-system | risk_control_system | app/modules/risk_control_system/ | /risk/* | risk_, control_ |
-| social-features | social_features | app/modules/social_features/ | /social/* | social_, community_ |
-| supplier-management | supplier_management | app/modules/supplier_management/ | /suppliers/* | supplier_, vendor_ |
-| marketing-campaigns | marketing_campaigns | app/modules/marketing_campaigns/ | /campaigns/* | campaign_, promotion_ |
-| customer-service-system | customer_service_system | app/modules/customer_service_system/ | /support/* | support_, ticket_ |
-| data-analytics-platform | data_analytics_platform | app/modules/data_analytics_platform/ | /analytics/* | analytics_, metric_ |
-| distributor-management | distributor_management | app/modules/distributor_management/ | /distributors/* | distributor_, channel_ |
-| batch-traceability | batch_traceability | app/modules/batch_traceability/ | /traceability/* | batch_, trace_ |
+| user-auth | user_auth | app/modules/user_auth/ | /user-auth/* | user_, auth_ |
+| shopping-cart | shopping_cart | app/modules/shopping_cart/ | /shopping-cart/* | cart_, shopping_ |
+| product-catalog | product_catalog | app/modules/product_catalog/ | /product-catalog/* | product_, catalog_ |
+| order-management | order_management | app/modules/order_management/ | /order-management/* | order_, payment_ |
+| payment-service | payment_service | app/modules/payment_service/ | /payment-service/* | payment_, transaction_ |
+| inventory-management | inventory_management | app/modules/inventory_management/ | /inventory-management/* | inventory_, stock_ |
+| member-system | member_system | app/modules/member_system/ | /member-system/* | member_, membership_ |
+| logistics-management | logistics_management | app/modules/logistics_management/ | /logistics-management/* | logistics_, shipping_ |
+| notification-service | notification_service | app/modules/notification_service/ | /notification-service/* | notification_, message_ |
+| quality-control | quality_control | app/modules/quality_control/ | /quality-control/* | quality_, inspection_ |
+| recommendation-system | recommendation_system | app/modules/recommendation_system/ | /recommendation-system/* | recommendation_, suggest_ |
+| risk-control-system | risk_control_system | app/modules/risk_control_system/ | /risk-control-system/* | risk_, control_ |
+| social-features | social_features | app/modules/social_features/ | /social-features/* | social_, community_ |
+| supplier-management | supplier_management | app/modules/supplier_management/ | /supplier-management/* | supplier_, vendor_ |
+| marketing-campaigns | marketing_campaigns | app/modules/marketing_campaigns/ | /marketing-campaigns/* | campaign_, promotion_ |
+| customer-service-system | customer_service_system | app/modules/customer_service_system/ | /customer-service-system/* | support_, ticket_ |
+| data-analytics-platform | data_analytics_platform | app/modules/data_analytics_platform/ | /data-analytics-platform/* | analytics_, metric_ |
+| distributor-management | distributor_management | app/modules/distributor_management/ | /distributor-management/* | distributor_, channel_ |
+| batch-traceability | batch_traceability | app/modules/batch_traceability/ | /batch-traceability/* | batch_, trace_ |
 
 #### 技术组件命名映射
 | 组件英文名 | 完整描述名 | 中文名称 | 代码文件前缀 |
@@ -131,34 +131,39 @@ images = [
 
 #### RESTful API路径规则
 ```
-{base_url}/api/{module_name}/{resource}[/{resource_id}][/{sub_resource}]      
+/api/v1/{完整模块名}/{资源名}[/{资源id}][/{子资源或操作}]
+
+说明:
+- 完整模块名: 使用业务概念名（kebab-case），如 product-catalog
+- 资源名: 使用复数形式，如 products, categories
+- API路径 = 模块业务概念名，保持一致性
 ```
 
 ### 标准API端点模式
 | 操作 | HTTP方法 | 路径模式 | 示例 |
 |------|----------|----------|------|
-| 创建 | POST | `/{resources}` | `POST /products` |
-| 列表 | GET | `/{resources}` | `GET /products` |
-| 详情 | GET | `/{resources}/{id}` | `GET /products/123` |
-| 更新 | PUT | `/{resources}/{id}` | `PUT /products/123` |
-| 删除 | DELETE | `/{resources}/{id}` | `DELETE /products/123` |
+| 创建 | POST | `/api/v1/{module}/{resources}` | `POST /api/v1/product-catalog/products` |
+| 列表 | GET | `/api/v1/{module}/{resources}` | `GET /api/v1/product-catalog/products` |
+| 详情 | GET | `/api/v1/{module}/{resources}/{id}` | `GET /api/v1/product-catalog/products/123` |
+| 更新 | PUT | `/api/v1/{module}/{resources}/{id}` | `PUT /api/v1/product-catalog/products/123` |
+| 删除 | DELETE | `/api/v1/{module}/{resources}/{id}` | `DELETE /api/v1/product-catalog/products/123` |
 
 ### 特殊操作命名
 | 操作类型 | 路径模式 | 示例 |
 |----------|----------|------|
-| 子资源 | `/{resources}/{id}/{sub_resources}` | `GET /orders/123/items` |    
-| 操作动作 | `/{resources}/{id}/{action}` | `POST /orders/123/cancel` |       
+| 子资源 | `/api/v1/{module}/{resources}/{id}/{sub_resources}` | `GET /api/v1/order-management/orders/123/items` |
+| 操作动作 | `/api/v1/{module}/{resources}/{id}/{action}` | `POST /api/v1/order-management/orders/123/cancel` |       
 | 状态更新 | `PATCH /{resources}/{id}/{field}` | `PATCH /orders/123/status` | 
 
 ### 用户认证API规范
 ```
-POST /auth/register     # 用户注册
-POST /auth/login        # 用户登录  
-POST /auth/refresh      # 刷新令牌
-GET  /auth/me           # 获取当前用户
-PUT  /auth/me           # 更新当前用户
-POST /auth/logout       # 用户登出
-POST /auth/change-password  # 修改密码
+POST /user-auth/register     # 用户注册
+POST /user-auth/login        # 用户登录  
+POST /user-auth/refresh      # 刷新令牌
+GET  /user-auth/me           # 获取当前用户
+PUT  /user-auth/me           # 更新当前用户
+POST /user-auth/logout       # 用户登出
+POST /user-auth/change-password  # 修改密码
 ```
 
 ### 代码文件命名规范

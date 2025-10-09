@@ -18,7 +18,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
 
 from .models import Category
-from .repository import CategoryRepository
+from .repository import CategoryRepository, ProductRepository
 
 
 class CategoryService:
@@ -52,10 +52,7 @@ class CategoryService:
             HTTPException: 分类名称重复或父分类不存在时抛出错误
         """
         # 验证分类名称唯一性（同级别下）
-        existing_category = db.query(Category).filter(
-            Category.name == name, Category.parent_id == parent_id
-        ).first()
-
+        existing_category = CategoryRepository.find_by_name_and_parent(db, name, parent_id)
         if existing_category:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -64,9 +61,7 @@ class CategoryService:
 
         # 验证父分类存在性
         if parent_id:
-            parent_category = (
-                db.query(Category).filter(Category.id == parent_id).first()
-            )
+            parent_category = CategoryRepository.get_by_id(db, parent_id)
             if not parent_category:
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND, detail="父分类不存在"
@@ -80,9 +75,13 @@ class CategoryService:
             is_active=is_active,
         )
         try:
-            return CategoryRepository.create(db, category)
+        return CategoryRepository.create(db, category)
         except IntegrityError:
-            raise ServiceException("分类创建失败，数据冲突")
+            db.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="分类创建失败，数据冲突"
+            )
 
     @staticmethod
     def get_category_by_id(
@@ -99,7 +98,7 @@ class CategoryService:
         Returns:
             Category: 分类对象或None
         """
-        return CategoryRepository.get_by_id(db, category_id)
+    return CategoryRepository.get_by_id(db, category_id)
 
     @staticmethod
     def get_categories(
@@ -141,7 +140,7 @@ class CategoryService:
         """
 
         def build_tree(parent_id: Optional[int]) -> List[Dict[str, Any]]:
-            categories = CategoryRepository.list(db, parent_id, is_active, 0, 1000)
+        categories = CategoryRepository.list(db, parent_id, is_active, 0, 1000)
             tree = []
 
             for category in categories:
@@ -190,21 +189,14 @@ class CategoryService:
         Raises:
             HTTPException: 分类名称重复或父分类不存在时抛出错误
         """
-        category = db.query(Category).filter(Category.id == category_id).first()
+        category = CategoryRepository.get_by_id(db, category_id)
         if not category:
             return None
 
         # 验证分类名称唯一性（如果更改了名称）
         if name and name != category.name:
-            existing_category = (
-                db.query(Category)
-                .filter(
-                    Category.name == name,
-                    Category.parent_id
-                    == (parent_id if parent_id is not None else category.parent_id),
-                    Category.id != category_id,
-                )
-                .first()
+            existing_category = CategoryRepository.find_by_name_and_parent(
+                db, name, parent_id if parent_id is not None else category.parent_id, exclude_id=category_id
             )
 
             if existing_category:
@@ -216,9 +208,7 @@ class CategoryService:
         # 验证父分类存在性（如果更改了父分类）
         if parent_id is not None and parent_id != category.parent_id:
             if parent_id:
-                parent_category = (
-                    db.query(Category).filter(Category.id == parent_id).first()
-                )
+                parent_category = CategoryRepository.get_by_id(db, parent_id)
                 if not parent_category:
                     raise HTTPException(
                         status_code=status.HTTP_404_NOT_FOUND, detail="父分类不存在"
@@ -265,7 +255,7 @@ class CategoryService:
         Raises:
             HTTPException: 分类下有商品或子分类时抛出错误（非级联删除）
         """
-        category = db.query(Category).filter(Category.id == category_id).first()
+        category = CategoryRepository.get_by_id(db, category_id)
         if not category:
             return False
 
@@ -278,9 +268,7 @@ class CategoryService:
             )
 
         # 检查是否有子分类
-        children_count = (
-            db.query(Category).filter(Category.parent_id == category_id).count()
-        )
+        children_count = CategoryRepository.count_children(db, category_id)
         if children_count > 0 and not cascade:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -315,9 +303,9 @@ class CategoryService:
             # 获取所有子分类ID
             child_ids = CategoryService._get_all_child_ids(db, category_id)
             child_ids.append(category_id)
-            return db.query(Product).filter(Product.category_id.in_(child_ids)).count()
+            return ProductRepository.count_by_category_ids(db, child_ids)
         else:
-            return db.query(Product).filter(Product.category_id == category_id).count()
+            return ProductRepository.count_by_category_ids(db, [category_id])
 
     @staticmethod
     def get_category_path(db: Session, category_id: int) -> List[Category]:
@@ -335,7 +323,7 @@ class CategoryService:
         current_id = category_id
 
         while current_id:
-            category = db.query(Category).filter(Category.id == current_id).first()
+            category = CategoryRepository.get_by_id(db, current_id)
             if not category:
                 break
             path.insert(0, category)
@@ -390,7 +378,7 @@ class CategoryService:
             if current_id == category_id:
                 return True
 
-            parent = db.query(Category).filter(Category.id == current_id).first()
+            parent = CategoryRepository.get_by_id(db, current_id)
             if not parent:
                 break
             current_id = parent.parent_id
@@ -410,7 +398,7 @@ class CategoryService:
             List[int]: 子分类ID列表
         """
         child_ids = []
-        children = db.query(Category).filter(Category.parent_id == category_id).all()
+        children = CategoryRepository.children(db, category_id)
 
         for child in children:
             child_ids.append(child.id)
@@ -428,11 +416,11 @@ class CategoryService:
             category_id: 分类ID
         """
         # 先删除所有子分类
-        children = db.query(Category).filter(Category.parent_id == category_id).all()
+        children = CategoryRepository.children(db, category_id)
         for child in children:
             CategoryService._delete_category_recursive(db, child.id)
 
         # 删除当前分类
-        category = db.query(Category).filter(Category.id == category_id).first()
+        category = CategoryRepository.get_by_id(db, category_id)
         if category:
             db.delete(category)

@@ -44,6 +44,38 @@
 - **技术分离性** - 接口设计与具体实现技术解耦
 - **可扩展性** - 支持模块独立版本管理和功能演进
 
+### API路径命名统一标准 ⭐ 重要
+
+**强制规则**: API路径前缀 = 完整业务模块名（kebab-case）
+
+```
+标准格式:
+/api/v1/{完整业务模块名}/{资源名}[/{资源id}][/{子资源或操作}]
+
+命名原则:
+✅ 使用完整业务概念名（如 product-catalog, shopping-cart, user-auth）
+✅ 模块名使用 kebab-case（小写-连字符）
+✅ 与模块目录名保持一致（product_catalog → product-catalog）
+❌ 禁止使用简化名称（products, cart, auth）
+❌ 禁止省略模块前缀
+
+正确示例:
+✅ /api/v1/product-catalog/products
+✅ /api/v1/shopping-cart/items
+✅ /api/v1/order-management/orders
+
+错误示例:
+❌ /api/v1/products  (缺少模块前缀)
+❌ /api/v1/cart/items  (使用简化名)
+❌ /api/v1/auth/login  (应为 user-auth)
+```
+
+**统一性要求**:
+- 业务概念名: `product-catalog` (文档中)
+- 技术实现名: `product_catalog` (Python模块名)
+- API路径名: `/product-catalog/` (URL路径)
+- 保持三者语义一致，仅格式转换
+
 ## 🌐 API架构设计规范
 
 ### 模块化路由架构
@@ -62,11 +94,18 @@ app.include_router(
 
 **业务端点设计模式**:
 ```bash
-# API端点组织规则
-/{业务模块名}/{资源集合}/{资源操作}
-/user-auth/sessions/create          # 用户认证：创建会话
-/product-catalog/products/list      # 商品管理：商品列表
-/order-management/orders/submit     # 订单管理：提交订单
+# API端点组织规则（完整格式）
+/api/v1/{完整业务模块名}/{资源集合}[/{资源id}][/{操作}]
+
+# 示例
+/api/v1/user-auth/register          # 用户认证：用户注册
+/api/v1/product-catalog/products    # 商品管理：商品列表
+/api/v1/order-management/orders     # 订单管理：订单操作
+
+# 说明：
+# - 完整业务模块名：使用kebab-case，如 user-auth, product-catalog
+# - 资源名使用复数形式
+# - 避免使用简化名称（如 /auth/, /products/）
 ```
 
 ### 资源导向设计
@@ -76,30 +115,78 @@ app.include_router(
 - **跨模块资源**: 避免直接跨模块API调用，使用事件或消息
 
 ### 领域驱动API设计
+
+**核心原则**: API路径前缀 = 完整业务模块名（kebab-case）
+
 ```bash
-# 用户认证领域
-POST   /api/v1/user-auth/register     # 用户注册
-POST   /api/v1/user-auth/login        # 用户登录
-GET    /api/v1/user-auth/profile      # 用户资料
-PUT    /api/v1/user-auth/profile      # 更新资料
+# 用户认证领域 (user-auth)
+POST   /api/v1/user-auth/register           # 用户注册
+POST   /api/v1/user-auth/login              # 用户登录
+GET    /api/v1/user-auth/profile            # 用户资料
+PUT    /api/v1/user-auth/profile            # 更新资料
+POST   /api/v1/user-auth/logout             # 用户登出
 
-# 商品管理领域  
-GET    /api/v1/product-catalog/products          # 商品列表
-POST   /api/v1/product-catalog/products          # 创建商品
-GET    /api/v1/product-catalog/categories        # 分类管理
-POST   /api/v1/product-catalog/inventory         # 库存操作
+# 商品目录领域 (product-catalog)
+GET    /api/v1/product-catalog/products              # 商品列表
+POST   /api/v1/product-catalog/products              # 创建商品
+GET    /api/v1/product-catalog/products/{id}         # 商品详情
+GET    /api/v1/product-catalog/categories            # 分类列表
+GET    /api/v1/product-catalog/brands                # 品牌列表
 
-# 订单管理领域
-POST   /api/v1/order-management/orders           # 创建订单
-GET    /api/v1/order-management/orders/{id}      # 订单详情
-PUT    /api/v1/order-management/orders/{id}/pay  # 订单支付
-PUT    /api/v1/order-management/orders/{id}/ship # 订单发货
+# 购物车领域 (shopping-cart)
+GET    /api/v1/shopping-cart/items                   # 购物车列表
+POST   /api/v1/shopping-cart/items                   # 添加商品
+DELETE /api/v1/shopping-cart/items/{id}              # 删除商品
 
-# 农产品特色功能
-GET    /api/v1/agricultural-trace/products/{id}/origin    # 溯源信息
-POST   /api/v1/agricultural-trace/batches                 # 批次管理
-GET    /api/v1/agricultural-trace/certifications         # 认证信息
+# 订单管理领域 (order-management)
+POST   /api/v1/order-management/orders               # 创建订单
+GET    /api/v1/order-management/orders/{id}          # 订单详情
+PUT    /api/v1/order-management/orders/{id}/pay      # 订单支付
+PUT    /api/v1/order-management/orders/{id}/ship     # 订单发货
+PUT    /api/v1/order-management/orders/{id}/cancel   # 取消订单
+
+# 支付服务领域 (payment-service)
+POST   /api/v1/payment-service/transactions          # 创建支付
+GET    /api/v1/payment-service/transactions/{id}     # 支付详情
+POST   /api/v1/payment-service/refunds               # 申请退款
+
+# 库存管理领域 (inventory-management)
+GET    /api/v1/inventory-management/stock/{sku_id}   # 查询库存
+POST   /api/v1/inventory-management/inbound          # 入库操作
+POST   /api/v1/inventory-management/outbound         # 出库操作
+GET    /api/v1/inventory-management/reservations     # 库存预留
+
+# 会员系统领域 (member-system)
+GET    /api/v1/member-system/levels                  # 会员等级
+GET    /api/v1/member-system/points                  # 积分查询
+POST   /api/v1/member-system/points/exchange         # 积分兑换
+
+# 营销活动领域 (marketing-campaigns)
+GET    /api/v1/marketing-campaigns/campaigns         # 活动列表
+GET    /api/v1/marketing-campaigns/coupons           # 优惠券列表
+POST   /api/v1/marketing-campaigns/coupons/claim     # 领取优惠券
+
+# 批次溯源领域 (batch-traceability)
+GET    /api/v1/batch-traceability/products/{id}/origin     # 溯源信息
+POST   /api/v1/batch-traceability/batches                  # 批次管理
+GET    /api/v1/batch-traceability/certifications          # 认证信息
+
+# 物流管理领域 (logistics-management)
+POST   /api/v1/logistics-management/shipments              # 创建物流单
+GET    /api/v1/logistics-management/shipments/{id}/track   # 物流跟踪
+
+# 通知服务领域 (notification-service)
+GET    /api/v1/notification-service/notifications          # 通知列表
+POST   /api/v1/notification-service/notifications/send     # 发送通知
+PUT    /api/v1/notification-service/notifications/{id}/read # 标记已读
 ```
+
+**命名规范说明**:
+- ✅ 使用完整业务模块名（如 `product-catalog`，而非 `products`）
+- ✅ 模块名使用 kebab-case（小写-连字符）
+- ✅ 资源名使用复数形式
+- ✅ 统一添加 `/api/v1` 版本前缀
+- ❌ 避免使用简化名称或缩写
 
 ## 🔧 HTTP协议规范
 
@@ -114,18 +201,22 @@ GET    /api/v1/agricultural-trace/certifications         # 认证信息
 
 ### 业务操作映射原则
 ```bash
-# 资源CRUD操作映射
-GET    /api/v1/products               # 查询商品列表 (安全、幂等)
-POST   /api/v1/products               # 创建新商品 (非幂等)
-PUT    /api/v1/products/{id}          # 替换商品信息 (幂等)
-PATCH  /api/v1/products/{id}          # 更新部分字段 (非幂等)
-DELETE /api/v1/products/{id}          # 删除商品 (幂等)
+# 资源CRUD操作映射（标准RESTful）
+GET    /api/v1/product-catalog/products           # 查询商品列表 (安全、幂等)
+POST   /api/v1/product-catalog/products           # 创建新商品 (非幂等)
+GET    /api/v1/product-catalog/products/{id}      # 查询商品详情 (安全、幂等)
+PUT    /api/v1/product-catalog/products/{id}      # 替换商品信息 (幂等)
+PATCH  /api/v1/product-catalog/products/{id}      # 更新部分字段 (非幂等)
+DELETE /api/v1/product-catalog/products/{id}      # 删除商品 (幂等)
 
-# 复杂业务操作映射
-POST   /api/v1/orders/{id}/pay        # 支付订单 (业务操作)
-PUT    /api/v1/orders/{id}/status     # 更新订单状态 (状态变更)
-POST   /api/v1/products/{id}/favorite # 收藏商品 (关系操作)
-DELETE /api/v1/products/{id}/favorite # 取消收藏 (关系删除)
+# 复杂业务操作映射（模块前缀 + 业务动作）
+POST   /api/v1/order-management/orders/{id}/pay          # 支付订单 (业务操作)
+PUT    /api/v1/order-management/orders/{id}/status       # 更新订单状态 (状态变更)
+POST   /api/v1/order-management/orders/{id}/cancel       # 取消订单 (业务操作)
+POST   /api/v1/product-catalog/products/{id}/favorite    # 收藏商品 (关系操作)
+DELETE /api/v1/product-catalog/products/{id}/favorite    # 取消收藏 (关系删除)
+
+# 注意：所有API路径必须包含完整模块前缀
 ```
 
 ### 幂等性设计考虑

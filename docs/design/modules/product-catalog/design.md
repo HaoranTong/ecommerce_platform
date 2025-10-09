@@ -58,11 +58,13 @@ labels:
 - **依赖倒置**: 高层模块不依赖底层实现，依赖抽象接口
 
 ### 关键设计决策
-| 决策点 | 选择方案 | 理由 | 替代方案 |
-|--------|----------|------|----------|
-| 主键类型 | Integer (自增) | 索引更小、性能更优，符合 database-standards.md 默认 | UUID (CHAR(36)) |
-| 数据访问 | SQLAlchemy ORM | 与现有核心一致，方便模型定义 | 原生SQL |
-| 缓存策略 | Redis | 高频查询数据缓存，降低DB压力 | 本地缓存 |
+| 决策点 | 选择方案 | 理由 | 替代方案 | 决策状态 |
+|--------|----------|------|----------|----------|
+| 主键类型 | Integer (自增) | 索引更小、性能更优，符合 database-standards.md 标准 | UUID (CHAR(36)) | ✅ 已实施 |
+| 数据访问 | Repository模式 + SQLAlchemy ORM | 职责分离清晰，Service管理事务，Repository封装数据访问 | 直接在Service中使用ORM | ✅ 已实施 |
+| 缓存策略 | 暂不实施 | MVP阶段优先功能完整性，已完成数据库索引优化 | Redis缓存 | ✅ 已决策 |
+| 库存管理 | inventory_management模块 | 模块职责清晰分离，避免耦合 | 在product表中存储库存 | ✅ 已实施 |
+| 软删除 | SoftDeleteMixin | 保护历史数据，支持数据恢复 | 物理删除 | ✅ 已实施 |
 
 ## 2. 设计概览
 
@@ -70,71 +72,135 @@ labels:
 ```mermaid
 graph TB
     Router[API Router] --> Service[Service Layer]
-    Service --> Model[Models Layer]
+    Service --> Repository[Repository Layer]
+    Repository --> Model[Models Layer]
     Model --> DB[MySQL]
-    Service --> Cache[Redis]
-```  
+    
+    Service -.->|跨模块调用| Inventory[Inventory Module]
+    Service -.->|权限验证| Auth[User Auth Module]
+    
+    style Repository fill:#e1f5ff
+    style Service fill:#fff4e1
+```
+
+**架构说明**：
+- Router → Service → Repository → Models 四层架构
+- Service层负责事务管理（commit/rollback）
+- Repository层负责数据访问（add/flush/refresh/query）
+- 缓存层（Redis）暂未实现
 
 ### 2.2 模块内部架构
 ```plaintext
 product_catalog/
-├── router.py             # API 路由层
-├── service.py            # 业务逻辑层（调用 Repository）
-├── repository.py         # 数据访问层（CRUD 封装）
-├── category_service.py   # 分类业务逻辑示例
-├── models.py             # 数据模型层
-├── schemas.py            # DTO 层 (Pydantic V2)
+├── router.py             # 第1层: API路由层 - HTTP请求处理
+├── service.py            # 第2层: 业务逻辑层 - 事务管理、业务编排
+├── repository.py         # 第3层: 数据访问层 - Repository模式CRUD封装
+├── category_service.py   # 第2层: 分类业务逻辑 - 树结构管理
+├── models.py             # 第4层: 数据模型层 - SQLAlchemy ORM定义
+├── schemas.py            # DTO层: Pydantic V2请求响应模型
 ├── dependencies.py       # 依赖注入 & 权限校验
-└── README.md             # 模块使用说明 & 示例
+└── README.md             # 模块使用说明 & 代码示例
 ```
 
-### 层次职责
-- **API层**: 负责请求路由与参数校验
-- **业务层**: 核心逻辑处理与边界校验
-- **数据层**: CRUD 操作与事务管理
+### 层次职责（Repository模式）
+
+| 层级 | 文件 | 职责 | 禁止行为 |
+|------|------|------|----------|
+| **Router层** | `router.py` | HTTP请求处理、参数验证、调用Service | ❌ 禁止直接操作数据库 |
+| **Service层** | `service.py`<br>`category_service.py` | 业务逻辑实现、事务边界管理（commit/rollback）、编排Repository调用 | ❌ 禁止直接使用 `db.query()` |
+| **Repository层** | `repository.py` | 数据访问封装、CRUD操作、复杂查询构建，使用 `db.add()`/`db.flush()` | ❌ 禁止 `db.commit()`，保持无状态 |
+| **Models层** | `models.py` | 数据库表结构定义、关系映射、字段约束 | ❌ 禁止包含业务逻辑 |
+
+**关键原则**：
+- ✅ Service调用Repository，Repository操作Models
+- ✅ 事务由Service控制，Repository保持可复用
+- ✅ 所有数据库查询必须通过Repository封装
 
 ## 3. 数据模型
 
 ### 表结构设计
+
+**说明**: 所有表主键和外键统一使用 `INTEGER AUTO_INCREMENT`，遵循 `database-standards.md` 标准
+
 ```sql
 -- categories 表
 CREATE TABLE categories (
-    id INT PRIMARY KEY AUTO_INCREMENT,
-    name VARCHAR(100) NOT NULL,
-    parent_id CHAR(36),
-    sort_order INT DEFAULT 0,
-    is_active BOOLEAN DEFAULT TRUE
-);
+    id INTEGER PRIMARY KEY AUTO_INCREMENT COMMENT '分类ID',
+    name VARCHAR(100) NOT NULL COMMENT '分类名称',
+    parent_id INTEGER COMMENT '父分类ID',
+    sort_order INTEGER DEFAULT 0 COMMENT '排序序号',
+    is_active BOOLEAN DEFAULT TRUE COMMENT '是否激活',
+    is_deleted BOOLEAN DEFAULT FALSE COMMENT '软删除标记',
+    deleted_at DATETIME COMMENT '删除时间',
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    FOREIGN KEY (parent_id) REFERENCES categories(id),
+    INDEX idx_categories_parent_id (parent_id),
+    INDEX idx_categories_sort_order (sort_order)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='商品分类表';
 
 -- brands 表
 CREATE TABLE brands (
-    id INT PRIMARY KEY AUTO_INCREMENT,
-    name VARCHAR(100) UNIQUE NOT NULL,
-    slug VARCHAR(100) UNIQUE,
-    is_active BOOLEAN DEFAULT TRUE
-);
+    id INTEGER PRIMARY KEY AUTO_INCREMENT COMMENT '品牌ID',
+    name VARCHAR(100) UNIQUE NOT NULL COMMENT '品牌名称',
+    slug VARCHAR(100) UNIQUE NOT NULL COMMENT 'SEO友好标识',
+    description TEXT COMMENT '品牌描述',
+    logo_url VARCHAR(500) COMMENT '品牌Logo URL',
+    website_url VARCHAR(500) COMMENT '品牌官网',
+    is_active BOOLEAN DEFAULT TRUE COMMENT '是否激活',
+    is_deleted BOOLEAN DEFAULT FALSE COMMENT '软删除标记',
+    deleted_at DATETIME COMMENT '删除时间',
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    UNIQUE INDEX idx_brands_name (name),
+    UNIQUE INDEX idx_brands_slug (slug)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='品牌表';
 
 -- products 表
 CREATE TABLE products (
-    id INT PRIMARY KEY AUTO_INCREMENT,
-    name VARCHAR(200) NOT NULL,
-    description TEXT,
-    category_id CHAR(36) NOT NULL,
-    brand_id CHAR(36) NOT NULL,
-    status VARCHAR(20) DEFAULT 'draft',
-    is_active BOOLEAN DEFAULT TRUE,
-    created_at DATETIME,
-    updated_at DATETIME
-);
+    id INTEGER PRIMARY KEY AUTO_INCREMENT COMMENT '商品ID',
+    name VARCHAR(200) NOT NULL COMMENT '商品名称',
+    description TEXT COMMENT '商品描述',
+    category_id INTEGER COMMENT '分类ID',
+    brand_id INTEGER COMMENT '品牌ID',
+    status VARCHAR(20) DEFAULT 'draft' COMMENT '商品状态: draft/published/archived',
+    seo_title VARCHAR(200) COMMENT 'SEO标题',
+    seo_description TEXT COMMENT 'SEO描述',
+    seo_keywords VARCHAR(500) COMMENT 'SEO关键词',
+    sort_order INTEGER DEFAULT 0 COMMENT '排序序号',
+    view_count INTEGER DEFAULT 0 COMMENT '浏览次数',
+    sale_count INTEGER DEFAULT 0 COMMENT '销售次数',
+    published_at DATETIME COMMENT '发布时间',
+    is_deleted BOOLEAN DEFAULT FALSE COMMENT '软删除标记',
+    deleted_at DATETIME COMMENT '删除时间',
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    FOREIGN KEY (category_id) REFERENCES categories(id),
+    FOREIGN KEY (brand_id) REFERENCES brands(id),
+    INDEX idx_products_brand_category (brand_id, category_id),
+    INDEX idx_products_status_published (status, published_at),
+    INDEX idx_products_view_count (view_count),
+    INDEX idx_products_sale_count (sale_count)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='商品表（SPU）';
 
--- product_skus 表
+-- product_skus 表 (SKU规格表)
 CREATE TABLE product_skus (
-    id INT PRIMARY KEY AUTO_INCREMENT,
-    product_id CHAR(36) NOT NULL,
-    sku_code VARCHAR(50) UNIQUE NOT NULL,
-    price DECIMAL(10,2) NOT NULL,
-    is_active BOOLEAN DEFAULT TRUE
-);
+    id INTEGER PRIMARY KEY AUTO_INCREMENT COMMENT 'SKU ID',
+    product_id INTEGER NOT NULL COMMENT '商品ID',
+    sku_code VARCHAR(100) UNIQUE NOT NULL COMMENT 'SKU编码',
+    name VARCHAR(200) COMMENT 'SKU名称',
+    price DECIMAL(10,2) NOT NULL COMMENT 'SKU价格',
+    cost_price DECIMAL(10,2) COMMENT '成本价',
+    market_price DECIMAL(10,2) COMMENT '市场价',
+    is_active BOOLEAN DEFAULT TRUE COMMENT '是否激活',
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    FOREIGN KEY (product_id) REFERENCES products(id),
+    UNIQUE INDEX idx_skus_sku_code (sku_code),
+    INDEX idx_skus_product_id (product_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='商品SKU表';
+
+-- 注意: 库存数量由 inventory_management 模块管理，不在此表中
 -- product_attributes 表
 CREATE TABLE product_attributes (
     id INT PRIMARY KEY AUTO_INCREMENT,

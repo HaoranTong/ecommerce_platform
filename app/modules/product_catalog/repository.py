@@ -1,10 +1,21 @@
 """
 商品目录模块数据访问层（Repository）
 
-⚠️ 重要：Repository层不负责事务管理
-- Repository方法只执行数据访问操作（add/flush/refresh）
-- 事务的提交/回滚由Service层控制
-- 所有方法保持无状态，可在不同事务上下文中复用
+⚠️ 重要：Repository层职责边界
+1. Repository层职责：
+   - 只负责数据访问操作（add/flush/refresh/query）
+   - 封装SQL查询逻辑
+   - 保持方法无状态，可复用
+
+2. Repository层不负责：
+   - ❌ 事务管理（commit/rollback）- 由Service层控制
+   - ❌ 业务逻辑验证 - 由Service层负责
+   - ❌ 跨表复杂业务流程 - 由Service层编排
+
+3. 使用原则：
+   - Service层调用Repository获取/操作数据
+   - Service层负责事务边界和业务流程
+   - Repository只关注数据访问的正确性
 """
 from typing import Any, Dict, List, Optional
 from sqlalchemy.orm import Session
@@ -43,8 +54,26 @@ class CategoryRepository:
         return query.order_by(Category.sort_order, Category.name).offset(skip).limit(limit).all()
 
     @staticmethod
+    def children(db: Session, parent_id: Optional[int]) -> List[Category]:
+        """Return all direct children for a parent category (no limit)."""
+        return db.query(Category).filter(Category.parent_id == parent_id).all()
+
+    @staticmethod
+    def count_children(db: Session, parent_id: int) -> int:
+        return db.query(Category).filter(Category.parent_id == parent_id).count()
+
+    @staticmethod
+    def find_by_name_and_parent(db: Session, name: str, parent_id: Optional[int], exclude_id: Optional[int] = None) -> Optional[Category]:
+        query = db.query(Category).filter(Category.name == name, Category.parent_id == parent_id)
+        if exclude_id is not None:
+            query = query.filter(Category.id != exclude_id)
+        return query.first()
+
+    @staticmethod
     def count_products(db: Session, category_id: int) -> int:
         return db.query(Product).filter(Product.category_id == category_id).count()
+ 
+
  
 class BrandRepository:
     """品牌数据访问"""
@@ -141,6 +170,12 @@ class SKURepository:
         if is_active is not None:
             query = query.filter(SKU.is_active == is_active)
         return query.all()
+
+    @staticmethod
+    def count_by_category_ids(db: Session, category_ids: List[int]) -> int:
+        if not category_ids:
+            return 0
+        return db.query(Product).filter(Product.category_id.in_(category_ids)).count()
 
     @staticmethod
     def update(db: Session, sku: SKU, data: Dict[str, Any]) -> SKU:

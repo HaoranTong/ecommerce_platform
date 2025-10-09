@@ -98,12 +98,12 @@ ecommerce_platform/
 ### 核心模块名称映射
 | 业务概念名 | 技术实现名 | API路径前缀 |
 |------------|------------|-------------|
-| user-auth | user_auth | /auth/* |
-| shopping-cart | shopping_cart | /cart/* |
-| product-catalog | product_catalog | /products/* |
-| order-management | order_management | /orders/* |
-| payment-service | payment_service | /payments/* |
-| inventory-management | inventory_management | /inventory/* |
+| user-auth | user_auth | /user-auth/* |
+| shopping-cart | shopping_cart | /shopping-cart/* |
+| product-catalog | product_catalog | /product-catalog/* |
+| order-management | order_management | /order-management/* |
+| payment-service | payment_service | /payment-service/* |
+| inventory-management | inventory_management | /inventory-management/* |
 
 > **完整映射表**: 详见 [naming-conventions-standards.md](docs/standards/naming-conventions-standards.md)
 

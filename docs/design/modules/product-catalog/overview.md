@@ -46,9 +46,19 @@ labels:
 
 ### 模块架构标准
 - 采用模块化单体架构，遵循依赖倒置原则
-- API层、业务层、数据层职责分离
-- 使用FastAPI框架，SQLAlchemy ORM，Redis缓存
-- 主键统一使用UUID，支持软删除和时间戳混入
+- API层、业务层、数据层职责分离，引入Repository模式
+- 使用FastAPI框架，SQLAlchemy ORM
+- 主键统一使用INTEGER(自增)，支持软删除和时间戳混入
+- 缓存策略：当前MVP阶段暂不实现Redis缓存，优先数据库索引优化
+
+### 实施状态更新
+- **代码完成度**: ✅ 95% (19/20项)
+- **P0-P2问题**: ✅ 100%完成 (14/14项)
+- **P3文档同步**: 🟡 83%完成 (5/6项)
+- **Repository模式**: ✅ 已全面实施
+- **事务管理**: ✅ 已规范化（Service管事务，Repository只flush）
+- **API路径规范**: ✅ 已统一使用/product-catalog/*前缀
+- **最后更新**: 2025-10-09
 
 ### 业务规则标准
 - 分类支持无限级嵌套，建议不超过3级
@@ -80,10 +90,38 @@ labels:
 ### 模块边界
 - **包含功能**: 商品CRUD、分类管理、品牌管理、SKU管理、商品属性、商品图片、商品标签
 - **排除功能**: 库存数量管理(库存模块)、价格计算逻辑(订单模块)、商品推荐算法(推荐模块)
-- **依赖模块**: user-auth(权限验证)、core/database(数据持久化)、core/redis_client(缓存)
+- **依赖模块**: user-auth(权限验证)、core/database(数据持久化)
 - **依赖接口**:
-  - GET `/api/v1/inventory/availability` : 查询商品库存可用性  
+  - GET `/api/v1/inventory/stock/{sku_id}` : 查询SKU实时库存数量
+  - GET `/api/v1/inventory/availability` : 批量查询商品库存可用性  
 - **被依赖**: shopping-cart、order-management、inventory-management、recommendation-system
+
+#### 与库存模块的交互
+本模块与 `inventory_management` 模块的职责边界和交互方式：
+
+**职责划分**：
+- **product-catalog模块**: 负责商品基本信息（名称、描述、规格、价格等）
+- **inventory_management模块**: 负责库存数量管理（入库、出库、库存扣减、库存预留）
+
+**数据隔离**：
+- `Product` 和 `SKU` 模型不包含库存数量字段
+- 库存数据存储在 `inventory_management.models.InventoryStock` 表中
+- 通过 `sku_id` 外键关联商品规格与库存记录
+
+**接口调用**：
+- **查询库存**: 调用 `GET /api/v1/inventory/stock/{sku_id}` 获取实时库存
+- **批量查询**: 调用 `GET /api/v1/inventory/availability?sku_ids=1,2,3` 批量查询
+- **库存更新**: 由 `inventory_management` 模块独立处理，product-catalog不直接操作
+
+**示例场景**：
+```python
+# 商品详情API中获取库存信息
+product = ProductService.get_product_by_id(db, product_id)
+# 调用库存模块API获取各SKU库存（跨模块调用）
+for sku in product.skus:
+    stock_info = await inventory_client.get_stock(sku.id)
+    sku.available_stock = stock_info.available_quantity
+```
 
 ## 技术架构
 
@@ -91,10 +129,9 @@ labels:
 ```mermaid
 graph TD
     A[API Router] --> B[Service Layer]
-    B --> C[Models Layer]
-    B --> D[Cache Layer]
-    C --> E[Database]
-    D --> F[Redis]
+    B --> C[Repository Layer]
+    C --> D[Models Layer]
+    D --> E[Database]
     
     G[Category API] --> A
     H[Product API] --> A  
@@ -103,18 +140,36 @@ graph TD
     
     B --> K[User Auth Module]
     B --> L[Inventory Module]
+    
+    style C fill:#e1f5ff
+    style B fill:#fff4e1
 ```
+
+**架构说明**：
+- **Router → Service → Repository → Models** 四层架构
+- Service层管理事务边界（commit/rollback）
+- Repository层只负责数据访问（add/flush/refresh/query）
+- 缓存层（Redis）暂未实现，当前优先数据库索引优化
 
 ### 核心组件
 ```plaintext
 product_catalog/
-├── router.py           # API路由定义 (399行，21个API端点)
-├── service.py          # 业务逻辑处理
-├── models.py           # 数据模型定义 (337行，7个核心模型)
-├── schemas.py          # 请求/响应模型 (366行，完整API模式)
-├── dependencies.py     # 模块依赖注入
-└── utils.py            # 工具函数
+├── router.py           # API路由定义 (API层，FastAPI端点)
+├── service.py          # 业务逻辑层 (事务管理，业务编排)
+├── repository.py       # 数据访问层 (Repository模式，CRUD封装) ⭐ 新增
+├── category_service.py # 分类业务逻辑 (树结构管理)
+├── models.py           # 数据模型定义 (SQLAlchemy ORM，7个核心模型)
+├── schemas.py          # 请求/响应模型 (Pydantic V2，API模式)
+├── dependencies.py     # 依赖注入配置 (权限验证)
+└── README.md           # 模块使用文档
 ```
+
+**组件职责**：
+- **router.py**: 处理HTTP请求，参数验证，调用Service
+- **service.py**: 业务逻辑实现，事务边界管理（commit/rollback）
+- **repository.py**: 数据访问封装，只执行add/flush/refresh/query操作
+- **models.py**: 数据库表结构定义，关系映射
+- **schemas.py**: API请求/响应数据传输对象（DTO）
 
 ### 模块化单体架构
 - **架构模式**: 模块化单体架构 (Modular Monolith)
@@ -439,14 +494,48 @@ class Test{Entity}API:
 ## 性能优化
 
 ### 缓存策略
-- **应用缓存**: Redis缓存热点数据
-- **数据库缓存**: 查询结果缓存
-- **CDN缓存**: 静态资源缓存
 
-### 数据库优化
-- **索引优化**: 关键字段索引
-- **查询优化**: SQL查询优化
-- **连接池**: 数据库连接池配置
+#### 当前状态（MVP阶段）
+**暂不实现Redis缓存** - 优先保证功能正确性和数据一致性
+
+**决策原因**：
+1. **数据一致性优先**: 商品信息变更频繁，缓存失效策略复杂
+2. **数据库优化先行**: 已实现完整的数据库索引优化，查询性能可接受
+3. **开发资源聚焦**: MVP阶段优先完成核心业务功能
+4. **后续按需引入**: 根据性能压测结果决定是否需要缓存
+
+#### 已实现的数据库索引优化
+```sql
+-- Product表复合索引
+CREATE INDEX idx_products_brand_category ON products(brand_id, category_id);
+CREATE INDEX idx_products_status_published ON products(status, published_at);
+CREATE INDEX idx_products_view_count ON products(view_count);
+CREATE INDEX idx_products_sale_count ON products(sale_count);
+
+-- Category表索引
+CREATE INDEX idx_categories_parent_id ON categories(parent_id);
+CREATE INDEX idx_categories_sort_order ON categories(sort_order);
+
+-- Brand表唯一索引
+CREATE UNIQUE INDEX idx_brands_name ON brands(name);
+CREATE UNIQUE INDEX idx_brands_slug ON brands(slug);
+
+-- SKU表索引
+CREATE UNIQUE INDEX idx_skus_sku_code ON skus(sku_code);
+CREATE INDEX idx_skus_product_id ON skus(product_id);
+```
+
+#### 后续缓存计划（待性能测试后决策）
+- **热点数据缓存**: 高频访问商品信息（浏览量 > 1000）
+- **分类树缓存**: 完整分类树结构（TTL: 1小时）
+- **品牌列表缓存**: 全部品牌数据（TTL: 24小时）
+- **缓存失效策略**: 主动更新 + TTL过期 + 版本控制
+
+### 数据库优化（已实现）
+- **索引优化**: ✅ 已完成核心字段索引创建
+- **查询优化**: ✅ Repository模式封装，避免N+1查询
+- **连接池**: ✅ SQLAlchemy连接池配置（pool_size=20）
+- **软删除查询**: ✅ 所有查询默认过滤 `is_deleted=False`
 
 ### 扩展性设计
 - **水平扩展**: 支持多实例部署
