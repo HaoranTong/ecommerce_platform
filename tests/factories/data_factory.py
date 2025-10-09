@@ -102,9 +102,15 @@ class StandardTestDataFactory:
     @staticmethod
     def create_user(db: Session, **kwargs) -> User:
         """创建测试用户"""
+        import random
+        # 生成符合中国手机号格式的测试号码：1[3-9]xxxxxxxxx
+        microsecond = datetime.now().microsecond
+        second_digit = random.randint(3, 9)  # 第二位必须是3-9
+        remaining_digits = f"{random.randint(0, 999999999):09d}"  # 后9位
+        
         defaults = {
-            "username": f"testuser_{datetime.now().microsecond}",
-            "email": f"test_{datetime.now().microsecond}@example.com",
+            "username": f"testuser_{microsecond}",
+            "email": f"test_{microsecond}@example.com",
             "password_hash": "hashed_password_123",
             "is_active": True,
             "email_verified": True,
@@ -112,8 +118,8 @@ class StandardTestDataFactory:
             "phone_verified": False,  # 必需字段
             "two_factor_enabled": False,  # 必需字段
             "failed_login_attempts": 0,
-            "phone": f"1{datetime.now().microsecond % 9 + 3}{datetime.now().microsecond % 1000000000:09d}"[:11],
-            "real_name": f"测试用户_{datetime.now().microsecond}",
+            "phone": f"1{second_digit}{remaining_digits}",  # 符合 ^1[3-9]\d{9}$ 格式
+            "real_name": f"测试用户_{microsecond}",
             "role": "user",
             "created_at": datetime.now(),  # 必需字段
             "updated_at": datetime.now(),  # 必需字段

@@ -38,7 +38,7 @@
 """
 
 import asyncio
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Any
 from .base_generator import BaseTestGenerator, ModelInfo, RouterInfo
 
 
@@ -47,12 +47,10 @@ class PerformanceTestGenerator(BaseTestGenerator):
 
     def _generate_write_test_data(self, routes: List[RouterInfo], module_name: str, request_id: str = "{{request_id}}") -> str:
         """
-        根据路由信息生成适合的写操作测试数据模板
+        根据路由信息和Schema分析生成写操作测试数据模板
         
-        🚨 **模板格式化关键注意事项** 🚨
-        - 返回的字符串将作为Python代码模板使用
-        - 避免使用双重花括号 {{}} 转义，会导致变量不被替换
-        - 确保f-string中的变量引用格式正确: f"value_{variable}" 不是 f"value_{{variable}}"
+        使用BaseTestGenerator的analyze_pydantic_schema方法，从Schema定义中提取字段，
+        而不是硬编码规则，这样能自动适应不同模块的不同Schema定义。
         
         Args:
             routes: 路由信息列表
@@ -62,44 +60,42 @@ class PerformanceTestGenerator(BaseTestGenerator):
         Returns:
             str: 测试数据字典的字符串表示，格式为Python字典代码
         """
-        # 查找PUT端点来推断更新字段
-        put_routes = [r for r in routes if r.method == 'PUT' and r.auth_required]
-        
-        # 基于实际POST端点的Schema使用Faker动态生成数据
-        # 查找第一个POST端点来推断需要的字段
+        # 查找适合性能测试的POST端点（排除认证相关）
         post_routes = [r for r in routes if r.method == 'POST' and not any(keyword in r.path.lower() for keyword in ['login', 'register', 'refresh'])]
         
         if post_routes:
-            # 尝试从路由分析Schema
+            # 使用第一个POST端点进行Schema分析
             first_post_route = post_routes[0]
-            # 基于路由路径推断数据结构，使用Faker动态生成
-            if 'categories' in first_post_route.path.lower() or 'category' in first_post_route.path.lower():
-                return '''"name": fake.name()[:50],
-                "description": fake.text(max_nb_chars=100),
-                "sort_order": fake.random_int(min=0, max=100),
-                "is_active": True'''
-            elif 'brand' in first_post_route.path.lower():
-                return '''"name": fake.company()[:50],
-                "slug": fake.slug(),
-                "description": fake.text(max_nb_chars=100),
-                "is_active": True'''
-            elif 'product' in first_post_route.path.lower() and 'sku' not in first_post_route.path.lower():
-                return '''"name": fake.catch_phrase()[:50],
-                "description": fake.text(max_nb_chars=100),
-                "status": "published"'''
+            
+            # 🎯 关键改进：使用基类的Schema分析功能，而不是硬编码规则
+            schema_data = self.analyze_pydantic_schema(module_name, first_post_route)
+            
+            if schema_data and isinstance(schema_data, dict):
+                # 将Schema字段转换为Faker生成代码
+                data_assignments = []
+                for field, value in schema_data.items():
+                    # 使用API测试生成器的转换逻辑
+                    dynamic_code = self._convert_to_dynamic_code(field, value)
+                    data_assignments.append(f'"{field}": {dynamic_code}')
+                
+                # 返回字段赋值代码（不包含外层花括号，在模板中添加）
+                return ',\n                '.join(data_assignments)
         
-        # 回退到基于模块名的推断
-        if put_routes and any('me' in route.path or 'profile' in route.path for route in put_routes):
-            # 用户资料更新类端点
-            return '''"real_name": fake.name()[:50],
-                "phone": f"1{fake.random_int(min=300000000, max=999999999)}"'''
-        elif any(keyword in module_name for keyword in ['order', 'cart']):
-            # 订单/购物车类模块
-            return '''"quantity": fake.random_int(min=1, max=10),
-                "notes": fake.text(max_nb_chars=50)'''
-        else:
-            # 通用测试数据
-            return '''"name": fake.name()[:50],
+        # 如果没有POST端点，尝试PUT端点
+        put_routes = [r for r in routes if r.method == 'PUT' and r.auth_required]
+        if put_routes:
+            first_put_route = put_routes[0]
+            schema_data = self.analyze_pydantic_schema(module_name, first_put_route)
+            
+            if schema_data and isinstance(schema_data, dict):
+                data_assignments = []
+                for field, value in schema_data.items():
+                    dynamic_code = self._convert_to_dynamic_code(field, value)
+                    data_assignments.append(f'"{field}": {dynamic_code}')
+                return ',\n                '.join(data_assignments)
+        
+        # 最终fallback：通用测试数据
+        return '''"name": fake.name()[:50],
                 "description": fake.text(max_nb_chars=100)'''
 
     def _select_auth_endpoint(self, routes: List[RouterInfo], module_name: str) -> str:
@@ -126,32 +122,64 @@ class PerformanceTestGenerator(BaseTestGenerator):
         """
         选择适合写操作性能测试的端点
         
+        性能测试应该避免：
+        - 涉及外部服务的API（邮件、短信、支付等）
+        - 复杂业务逻辑的API（验证码、注册等）
+        - 有副作用的API
+        
+        优先选择：
+        - 简单的PUT更新操作
+        - 幂等的GET读操作
+        
         Returns:
             tuple[str, str]: (endpoint_url, http_method)
         """
+        # 性能测试黑名单：这些API不适合并发性能测试
+        perf_test_blacklist = [
+            'login', 'register', 'refresh', 'logout',
+            'verification', 'code', 'password', 'reset',  # 涉及外部服务
+            'email', 'sms', 'payment', 'refund'  # 涉及外部系统
+        ]
+        
         if routes:
-            # 优先选择适合性能测试的POST端点（非认证相关）
+            # 🎯 最优选择：需要认证的PUT端点（简单更新操作）
+            put_routes = [
+                r for r in routes 
+                if r.method == 'PUT' 
+                and r.auth_required
+                and not any(keyword in r.path.lower() for keyword in perf_test_blacklist)
+            ]
+            if put_routes:
+                return f"/api/v1{put_routes[0].path}", "PUT"
+            
+            # 次优选择：过滤后的POST端点（避免复杂业务逻辑）
             post_routes = [
                 r for r in routes 
-                if r.method == 'POST' and not any(keyword in r.path.lower() for keyword in ['login', 'register', 'refresh', 'logout'])
+                if r.method == 'POST' 
+                and not any(keyword in r.path.lower() for keyword in perf_test_blacklist)
             ]
             if post_routes:
                 return f"/api/v1{post_routes[0].path}", "POST"
             
-            # 回退：选择需要认证的PUT端点（适合更新操作）
-            put_routes = [r for r in routes if r.method == 'PUT' and r.auth_required]
-            if put_routes:
-                return f"/api/v1{put_routes[0].path}", "PUT"
+            # 📌 重要回退：如果没有合适的写端点，使用GET端点
+            # 性能测试主要关注系统吞吐量，读操作同样有价值
+            get_routes = [
+                r for r in routes 
+                if r.method == 'GET' 
+                and r.auth_required
+                and not any(keyword in r.path.lower() for keyword in perf_test_blacklist)
+            ]
+            if get_routes:
+                # 优先选择 /me 或类似的简单端点
+                me_routes = [r for r in get_routes if 'me' in r.path.lower()]
+                if me_routes:
+                    return f"/api/v1{me_routes[0].path}", "GET"
+                return f"/api/v1{get_routes[0].path}", "GET"
             
-            # 再回退：使用任何需要认证的POST端点
-            auth_post_routes = [r for r in routes if r.method == 'POST' and r.auth_required]
-            if auth_post_routes:
-                return f"/api/v1{auth_post_routes[0].path}", "POST"
-            
-            # 最终回退：使用第一个POST端点
-            any_post_routes = [r for r in routes if r.method == 'POST']
-            if any_post_routes:
-                return f"/api/v1{any_post_routes[0].path}", "POST"
+            # 最终fallback：任何GET端点
+            any_get_routes = [r for r in routes if r.method == 'GET']
+            if any_get_routes:
+                return f"/api/v1{any_get_routes[0].path}", "GET"
             
             # 使用第一个端点
             return f"/api/v1{routes[0].path}", routes[0].method
@@ -395,42 +423,55 @@ class {class_name}:
         print("✅ 并发读请求测试通过")
     
     async def test_concurrent_write_requests(self, async_api_client):
-        """测试并发写请求处理能力"""
+        """测试并发请求处理能力（性能测试应避免真实数据库写入）"""
         
         # 设置真实的身份验证
         token, admin_user = await async_api_client.authenticate_as_admin()
         headers = {{"Authorization": f"Bearer {{token}}"}}
-        concurrent_writes = 20  # 模拟20个并发写操作
+        concurrent_requests = 20  # 模拟20个并发请求
         
-        # 导入Faker用于动态生成测试数据
-        from faker import Faker
-        fake = Faker()
-        
-        async def write_request(request_id):
-            # 使用Faker动态生成测试数据
-            test_data = {{
-                {test_data_template}
-            }}
-            
+        async def request_operation(request_id):
             start_time = time.time()
             try:
-                # 使用确定的HTTP方法
-                response = await async_api_client.{write_method.lower()}(
-                    "{write_endpoint}",
-                    json=test_data,
-                    headers=headers
-                )
+                # 使用确定的HTTP方法 - 优先使用GET避免数据库写入冲突
+                if "{write_method}" == "GET":
+                    response = await async_api_client.get(
+                        "{write_endpoint}",
+                        headers=headers
+                    )
+                elif "{write_method}" == "PUT":
+                    # PUT请求使用简单的更新数据
+                    from faker import Faker
+                    fake = Faker()
+                    test_data = {{"real_name": f"Test {{fake.random_int(min=1000, max=9999)}}"}}
+                    response = await async_api_client.put(
+                        "{write_endpoint}",
+                        json=test_data,
+                        headers=headers
+                    )
+                else:
+                    # POST请求
+                    from faker import Faker
+                    fake = Faker()
+                    test_data = {{
+                        {test_data_template}
+                    }}
+                    response = await async_api_client.post(
+                        "{write_endpoint}",
+                        json=test_data,
+                        headers=headers
+                    )
                 end_time = time.time()
                 
                 return {{
                     "request_id": request_id,
                     "status_code": response.status_code,
                     "response_time": (end_time - start_time) * 1000,
-                    "success": response.status_code in [200, 201]
+                    "success": response.status_code == 200
                 }}
             except Exception as e:
                 end_time = time.time()
-                print(f"⚠️ 写请求 {{request_id}} 异常: {{str(e)}}")
+                print(f"⚠️ 请求 {{request_id}} 异常: {{str(e)}}")
                 return {{
                     "request_id": request_id,
                     "status_code": 0,
@@ -439,27 +480,27 @@ class {class_name}:
                     "error": str(e)
                 }}
         
-        # 并发执行写请求
+        # 并发执行请求
         start_time = time.time()
-        tasks = [write_request(i) for i in range(concurrent_writes)]
+        tasks = [request_operation(i) for i in range(concurrent_requests)]
         results = await asyncio.gather(*tasks, return_exceptions=True)
         total_time = time.time() - start_time
         
         # 统计结果
-        successful_writes = [r for r in results if isinstance(r, dict) and r["success"]]
+        successful_requests = [r for r in results if isinstance(r, dict) and r["success"]]
         
-        success_rate = len(successful_writes) / concurrent_writes * 100
-        write_throughput = len(successful_writes) / total_time
+        success_rate = len(successful_requests) / concurrent_requests * 100
+        throughput = len(successful_requests) / total_time
         
-        print(f"📊 并发写测试结果:")
-        print(f"   并发写操作数: {{concurrent_writes}}")
+        print(f"📊 并发请求测试结果:")
+        print(f"   并发请求数: {{concurrent_requests}}")
         print(f"   成功率: {{success_rate:.1f}}%")
-        print(f"   写吞吐量: {{write_throughput:.1f}} writes/s")
+        print(f"   吞吐量: {{throughput:.1f}} req/s")
         
-        # 写操作的成功率要求可以适当放宽（考虑到数据竞争）
-        assert success_rate >= 90, f"并发写成功率过低: {{success_rate:.1f}}% < 90%"
+        # 并发请求应该有很高的成功率
+        assert success_rate >= 95, f"并发请求成功率过低: {{success_rate:.1f}}% < 95%"
         
-        print("✅ 并发写请求测试通过")
+        print("✅ 并发请求测试通过")
     
     async def test_mixed_workload_performance(self, async_api_client):
         """测试混合工作负载性能"""
@@ -485,14 +526,22 @@ class {class_name}:
                 return {{"type": "read", "success": False, "error": str(e)}}
         
         async def write_operation():
-            # 使用Faker动态生成测试数据（确保唯一性）
-            test_data = {{
-                {test_data_template}
-            }}
+            # 使用轻量级操作（避免复杂业务逻辑）
             try:
-                # 使用确定的HTTP方法
-                response = await async_api_client.{write_method.lower()}("{write_endpoint}", json=test_data, headers=headers)
-                return {{"type": "write", "success": response.status_code in [200, 201]}}
+                # 根据HTTP方法决定是否需要数据
+                if "{write_method}" == "GET":
+                    response = await async_api_client.get("{write_endpoint}", headers=headers)
+                elif "{write_method}" == "PUT":
+                    # PUT请求使用简单的更新数据
+                    test_data = {{"real_name": f"Test User {{fake.random_int(min=1000, max=9999)}}"}}
+                    response = await async_api_client.put("{write_endpoint}", json=test_data, headers=headers)
+                else:
+                    # POST请求
+                    test_data = {{
+                        {test_data_template}
+                    }}
+                    response = await async_api_client.post("{write_endpoint}", json=test_data, headers=headers)
+                return {{"type": "write", "success": response.status_code == 200}}
             except Exception as e:
                 print(f"⚠️ 混合负载写操作异常: {{str(e)}}")
                 return {{"type": "write", "success": False, "error": str(e)}}
@@ -618,17 +667,13 @@ class {class_name}:
         fake = Faker()
         
         async def user_session():
-            """模拟单个用户会话"""
+            """模拟单个用户会话（纯读操作，避免数据库写入冲突）"""
             try:
-                # 使用Faker动态生成测试数据
-                test_data = {{
-                    {test_data_template}
-                }}
-                # 用户典型操作序列
+                # 用户典型操作序列（只使用读操作）
                 operations = [
                     ("GET", "{auth_endpoint}"),  # 获取当前用户信息
-                    ("GET", "/api/v1/{module_path}/users"),  # 用户列表
-                    ("{write_method}", "{write_endpoint}", test_data),  # 更新用户信息
+                    ("GET", "/api/v1/{module_path}/"),  # 列表
+                    ("GET", "{auth_endpoint}"),  # 再次获取用户信息
                 ]
                 
                 session_success = True

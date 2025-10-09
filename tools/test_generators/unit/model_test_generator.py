@@ -136,8 +136,6 @@ from app.modules.{module_name}.models import (
     
     def _generate_single_model_test(self, model_info: ModelInfo) -> str:
         """为单个模型生成测试类 - 100% Mock策略"""
-        from typing import List
-        
         model_name = model_info.name
 
         test_methods = []
@@ -172,7 +170,6 @@ class Test{model_name}Model:
     
     def _generate_mock_field_tests(self, model_info: ModelInfo):
         """生成Mock字段测试方法 - 纯逻辑验证"""
-        from typing import List
         tests = []
 
         for field in model_info.fields:
@@ -266,7 +263,6 @@ class Test{model_name}Model:
 
     def _generate_model_method_tests(self, model_info: ModelInfo):
         """生成模型方法测试"""
-        from typing import List
         tests = []
         
         # 生成__str__方法测试
@@ -286,7 +282,6 @@ class Test{model_name}Model:
 
     def _generate_mock_relationship_tests(self, model_info: ModelInfo):
         """生成Mock关系测试"""
-        from typing import List
         tests = []
         
         for rel_info in model_info.relationships:

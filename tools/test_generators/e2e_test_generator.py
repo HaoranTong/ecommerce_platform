@@ -24,6 +24,7 @@ E2E Test Generator
 更新时间: 2025-10-07 (完整实现E2E测试生成)
 """
 
+import re
 from typing import Dict, List
 from .base_generator import BaseTestGenerator, ModelInfo, RouterInfo
 
@@ -222,7 +223,6 @@ class {class_name}:
         if put_routes and post_routes:
             route = put_routes[0]
             # 提取路径参数名（如 {brand_id}, {product_id}）
-            import re
             path_params = re.findall(r'\{(\w+)\}', route.path)
             
             if path_params:
@@ -274,7 +274,6 @@ class {class_name}:
         if delete_routes and post_routes:
             route = delete_routes[0]
             # 提取路径参数名
-            import re
             path_params = re.findall(r'\{(\w+)\}', route.path)
             
             if path_params:

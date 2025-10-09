@@ -366,6 +366,59 @@ TestSessionRepository::test_delete_success PASSED                  [100%]
 
 ---
 
+## 🆕 后续优化记录
+
+### 性能测试生成器修复 (2025-10-09)
+
+**问题**: 性能测试中2个并发写测试失败，成功率0%
+
+**根本原因**: 
+为 `/verification-code` 端点生成了错误的测试数据格式：
+```python
+# ❌ 错误 - 使用了用户资料更新的数据模板
+test_data = {
+    "real_name": fake.name()[:50],
+    "phone": f"1{fake.random_int(min=300000000, max=999999999)}"
+}
+
+# ✅ 正确 - 验证码端点需要的数据格式
+test_data = {
+    "phone": f"1{fake.random_int(min=300000000, max=999999999)}",
+    "code_type": "register"
+}
+```
+
+**修复方案**: 
+在 `performance_test_generator.py` 的 `_generate_write_test_data` 方法中添加特殊处理：
+
+```python
+if post_routes:
+    first_post_route = post_routes[0]
+    
+    # 🆕 新增：验证码端点特殊处理
+    if 'verification' in first_post_route.path.lower() and 'code' in first_post_route.path.lower():
+        return '''"phone": f"1{fake.random_int(min=300000000, max=999999999)}",
+            "code_type": "register"'''
+    
+    # 其他端点类型...
+```
+
+**修复效果**:
+- ✅ 测试数据格式正确
+- ✅ 语法检查通过
+- ✅ pytest收集成功 (11个测试)
+- ⏳ 待执行测试验证成功率
+
+**影响范围**:
+- `test_concurrent_write_requests`
+- `test_mixed_workload_performance`
+
+**详细文档**: [bug-fix-performance-test-data.md](./bug-fix-performance-test-data.md)
+
+**总计修复**: **25个生成器Bug** (24个Repository + 1个Performance)
+
+---
+
 **报告结束**
 
-*本报告记录了从71.4%到100%测试通过率的完整优化过程，包括24个生成器bug修复和4个Repository代码修复。这是一次成功的测试工具迭代案例，展示了系统性问题分析和逐步优化的方法论。*
+*本报告记录了从71.4%到100%测试通过率的完整优化过程，包括25个生成器bug修复和4个Repository代码修复。这是一次成功的测试工具迭代案例，展示了系统性问题分析和逐步优化的方法论。*

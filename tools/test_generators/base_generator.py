@@ -487,12 +487,28 @@ class BaseTestGenerator(ABC):
             fields_info = {}
             for field_name, field_info in model_fields.items():
                 # 提取字段的类型信息而非生成测试值
-                fields_info[field_name] = {
+                field_data = {
                     'type': field_info.annotation,  # 类型注解 (如 Optional[int], str, bool)
                     'default': field_info.default if hasattr(field_info, 'default') else None,
                     'required': field_info.is_required() if hasattr(field_info, 'is_required') else True,
                     'field_name': field_name
                 }
+                
+                # 提取 Pydantic Field 约束信息（pattern, max_length, min_length 等）
+                if hasattr(field_info, 'metadata') and field_info.metadata:
+                    for metadata in field_info.metadata:
+                        if hasattr(metadata, 'pattern'):
+                            field_data['pattern'] = metadata.pattern
+                        if hasattr(metadata, 'max_length'):
+                            field_data['max_length'] = metadata.max_length
+                        if hasattr(metadata, 'min_length'):
+                            field_data['min_length'] = metadata.min_length
+                        if hasattr(metadata, 'ge'):  # greater than or equal
+                            field_data['ge'] = metadata.ge
+                        if hasattr(metadata, 'le'):  # less than or equal
+                            field_data['le'] = metadata.le
+                
+                fields_info[field_name] = field_data
             
             return fields_info
             
@@ -585,3 +601,171 @@ class BaseTestGenerator(ABC):
             }
         else:
             return {"data": fake.word()}
+    
+    def _convert_to_dynamic_code(self, field: str, value: Any) -> str:
+        """
+        将Schema字段信息转换为动态Faker生成代码
+        
+        这是一个通用工具方法，供所有测试生成器使用，用于将Pydantic Schema字段
+        转换为相应的Faker代码字符串，支持类型推断和智能字段名匹配。
+        
+        Args:
+            field: 字段名称（用于推断生成策略）
+            value: 字段值信息（dict包含type和default，或直接值）
+            
+        Returns:
+            str: Faker代码字符串（如 'fake.email()' 或 'fake.name()[:50]'）
+            
+        Examples:
+            >>> _convert_to_dynamic_code('email', {'type': str, 'default': None})
+            'fake.email()'
+            
+            >>> _convert_to_dynamic_code('phone', {'type': Optional[str]})
+            'f"1{fake.random_int(min=3, max=9)}{fake.random_int(min=100000000, max=999999999)}"'
+            
+            >>> _convert_to_dynamic_code('code_type', {'type': Literal["register", "login"], 'default': 'register'})
+            '"register"'
+        """
+        import typing
+        from typing_extensions import Literal, get_origin, get_args
+        
+        # 获取字段类型信息
+        if isinstance(value, dict) and 'type' in value:
+            field_type = value['type']
+            field_name_lower = field.lower()
+            field_default = value.get('default')
+            
+            # 优先检查 pattern 约束（如 Field(pattern='^(register|login)$')）
+            if 'pattern' in value and value['pattern']:
+                pattern = value['pattern']
+                # 尝试从 pattern 中提取枚举值（如 ^(register|login|reset_password)$ -> ['register', 'login', 'reset_password']）
+                # 匹配模式：^(value1|value2|value3)$ 或 (value1|value2|value3)
+                match = re.search(r'\^?\(([^)]+)\)\$?', pattern)
+                if match:
+                    enum_values = [v.strip() for v in match.group(1).split('|')]
+                    if enum_values:
+                        # 如果有默认值且在枚举中，使用默认值
+                        if field_default is not None and field_default in enum_values:
+                            return f'"{field_default}"'
+                        # 否则使用第一个选项
+                        return f'"{enum_values[0]}"'
+            
+            # 检查Literal类型
+            if hasattr(field_type, '__origin__'):
+                origin = get_origin(field_type) if hasattr(typing, 'get_origin') else getattr(field_type, '__origin__', None)
+                
+                # 处理Literal类型
+                if origin is Literal or (hasattr(typing, 'Literal') and origin is getattr(typing, 'Literal', None)):
+                    literal_values = get_args(field_type) if hasattr(typing, 'get_args') else getattr(field_type, '__args__', ())
+                    if literal_values:
+                        # 如果有默认值且在Literal选项中，使用默认值
+                        if field_default is not None and field_default in literal_values:
+                            return f'"{field_default}"'
+                        # 否则使用第一个选项
+                        return f'"{literal_values[0]}"'
+            
+            # 解析Optional类型
+            is_optional = False
+            actual_type = field_type
+            if hasattr(field_type, '__origin__'):
+                if field_type.__origin__ is typing.Union:
+                    # Optional[T] 等价于 Union[T, None]
+                    args = field_type.__args__
+                    if type(None) in args:
+                        is_optional = True
+                        # 获取非None的类型
+                        actual_type = next((arg for arg in args if arg is not type(None)), str)
+                elif field_type.__origin__ in (list, typing.List):
+                    actual_type = list
+                elif field_type.__origin__ in (dict, typing.Dict):
+                    actual_type = dict
+            
+            # 根据字段名称和类型生成代码
+            # 字符串类型
+            if actual_type in (str, type(str)):
+                if any(keyword in field_name_lower for keyword in ['phone', 'mobile', 'tel']):
+                    return 'f"1{fake.random_int(min=3, max=9)}{fake.random_int(min=100000000, max=999999999)}"'
+                elif any(keyword in field_name_lower for keyword in ['verification_code', 'code', 'verify']):
+                    return 'fake.numerify("######")'
+                elif any(keyword in field_name_lower for keyword in ['email', 'mail']):
+                    return 'fake.email()'
+                elif any(keyword in field_name_lower for keyword in ['username', 'user_name']):
+                    return 'fake.user_name().replace(".", "_")[:20]'
+                elif any(keyword in field_name_lower for keyword in ['password', 'pwd']):
+                    return 'fake.password(length=12)'
+                elif any(keyword in field_name_lower for keyword in ['name']) and 'username' not in field_name_lower:
+                    return 'fake.name()[:50]'
+                elif any(keyword in field_name_lower for keyword in ['address', 'addr']):
+                    return 'fake.address()'
+                else:
+                    return 'fake.text(max_nb_chars=50)'
+            
+            # 整数类型
+            elif actual_type in (int, type(int)):
+                # 外键ID字段 - 使用创建的实体ID
+                if field_name_lower.endswith('_id') and field_name_lower not in ['user_id']:
+                    if is_optional:
+                        return 'None'
+                    else:
+                        # 推断实体变量名（去掉_id后缀）
+                        entity_name = field.replace('_id', '')
+                        entity_var = f"test_{entity_name}"
+                        return f'{entity_var}.id'
+                # 排序字段
+                elif any(keyword in field_name_lower for keyword in ['sort', 'order', 'sequence']):
+                    return 'fake.random_int(min=0, max=100)'
+                else:
+                    return 'fake.random_int(min=1, max=999999)'
+            
+            # 浮点数类型
+            elif actual_type in (float, type(float)):
+                return 'round(fake.random.uniform(0.0, 999.99), 2)'
+            
+            # Decimal类型（价格、金额等）
+            elif hasattr(actual_type, '__name__') and actual_type.__name__ == 'Decimal':
+                # 根据字段名生成合理的Decimal值
+                if any(keyword in field_name_lower for keyword in ['price', 'cost', 'amount', 'fee']):
+                    return 'round(fake.random.uniform(10.0, 999.99), 2)'
+                elif any(keyword in field_name_lower for keyword in ['weight']):
+                    return 'round(fake.random.uniform(0.1, 10.0), 2)'
+                elif any(keyword in field_name_lower for keyword in ['volume']):
+                    return 'round(fake.random.uniform(0.01, 1.0), 3)'
+                else:
+                    return 'round(fake.random.uniform(0.0, 999.99), 2)'
+            
+            # 布尔类型
+            elif actual_type in (bool, type(bool)):
+                return 'True'
+            
+            # 列表类型
+            elif actual_type is list:
+                return '[]' if is_optional else '["test_item"]'
+            
+            # 字典类型
+            elif actual_type is dict:
+                return 'None' if is_optional else '{}'
+            
+            # 其他类型
+            else:
+                return 'None'
+        
+        # 兼容旧的基于值的调用（向后兼容）
+        elif isinstance(value, str):
+            if any(keyword in field.lower() for keyword in ['phone', 'mobile', 'tel']):
+                return 'f"1{fake.random_int(min=3, max=9)}{fake.random_int(min=100000000, max=999999999)}"'
+            elif any(keyword in field.lower() for keyword in ['email', 'mail']):
+                return 'fake.email()'
+            elif any(keyword in field.lower() for keyword in ['name']):
+                return 'fake.name()[:50]'
+            else:
+                return 'fake.text(max_nb_chars=50)'
+        elif isinstance(value, int):
+            if any(keyword in field.lower() for keyword in ['parent_id', 'category_id', 'brand_id']):
+                return 'None'
+            return 'fake.random_int(min=1, max=999999)'
+        elif isinstance(value, bool):
+            return 'True'
+        
+        # 其他情况保持原样
+        else:
+            return repr(value)
