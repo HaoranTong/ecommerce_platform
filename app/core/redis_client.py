@@ -21,6 +21,14 @@ async def get_redis_connection() -> redis.Redis:
     global redis_pool
     if redis_pool is None:
         redis_pool = redis.from_url(REDIS_URL, decode_responses=True)
+        # 确保连接建立
+        try:
+            await redis_pool.ping()
+            print(f"✅ Redis连接成功: {REDIS_URL}")
+        except Exception as e:
+            print(f"❌ Redis连接失败: {e}")
+            redis_pool = None
+            raise
     return redis_pool
 
 

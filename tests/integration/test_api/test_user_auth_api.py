@@ -30,6 +30,7 @@ from app.core.auth import get_password_hash, create_access_token
 from tests.conftest import api_client
 from tests.factories.data_factory import StandardTestDataFactory
 
+@pytest.mark.integration
 class TestUserAuthPostAPI:
     """用户认证模块POST方法API测试"""
     
@@ -466,7 +467,7 @@ class TestUserAuthPostAPI:
 
 
 
-
+@pytest.mark.integration
 class TestUserAuthGetAPI:
     """用户认证模块GET方法API测试"""
     
@@ -576,7 +577,7 @@ class TestUserAuthGetAPI:
 
 
 
-
+@pytest.mark.integration
 class TestUserAuthPutAPI:
     """用户认证模块PUT方法API测试"""
     
@@ -677,7 +678,7 @@ class TestUserAuthPutAPI:
 
 
 
-
+@pytest.mark.integration
 class TestUserAuthAPIIntegration:
     """用户认证模块API集成测试 - 测试完整业务流程"""
     

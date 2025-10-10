@@ -68,12 +68,27 @@ class VerificationCodeService:
         try:
             redis_client = await get_redis_connection()
             key = VerificationCodeService._get_code_key(email, code_type)
-            await redis_client.setex(
+            
+            # 调试日志
+            print(f"📝 存储验证码:")
+            print(f"   Email: {email}")
+            print(f"   Code: {code}")
+            print(f"   Code Type: {code_type}")
+            print(f"   Redis Key: {key}")
+            print(f"   Expiry: {VerificationCodeService.CODE_EXPIRY}s")
+            
+            result = await redis_client.setex(
                 key,
                 VerificationCodeService.CODE_EXPIRY,
                 code
             )
+            print(f"   ✅ 存储结果: {result}")
+            
+            # 验证存储
+            verify_stored = await redis_client.get(key)
+            print(f"   🔍 立即读取验证: {verify_stored}")
         except Exception as e:
+            print(f"   ❌ 存储失败: {e}")
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f"验证码存储失败: {str(e)}"
@@ -102,18 +117,31 @@ class VerificationCodeService:
             # 获取存储的验证码
             stored_code = await redis_client.get(key)
             
+            # 调试日志
+            print(f"🔍 验证码验证调试:")
+            print(f"   Email: {email}")
+            print(f"   Code Type: {code_type}")
+            print(f"   Redis Key: {key}")
+            print(f"   Stored Code: {stored_code} (type: {type(stored_code)})")
+            print(f"   Input Code: {code} (type: {type(code)})")
+            print(f"   Match: {stored_code == code}")
+            
             if not stored_code:
+                print(f"   ❌ 验证码不存在")
                 return False
             
             # 验证码匹配
             if stored_code == code:
                 # 验证成功后删除验证码，防止重复使用
                 await redis_client.delete(key)
+                print(f"   ✅ 验证码验证成功")
                 return True
             
+            print(f"   ❌ 验证码不匹配")
             return False
-        except Exception:
+        except Exception as e:
             # Redis连接失败时，不阻塞业务流程，返回False
+            print(f"   ❌ 验证码验证异常: {e}")
             return False
 
     @staticmethod
