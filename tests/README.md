@@ -21,23 +21,24 @@
 
 ```
 tests/
-├── README.md                       # 测试目录说明文档
-├── conftest.py                     # pytest全局配置 (主配置)
-├── conftest_e2e.py                 # 简化测试配置 (应急备用)
-├── smoke_test.db                   # 烟雾测试数据库文件
-├── unit/                           # 单元测试目录 - 70%覆盖率
-│   ├── test_models/                # 模型单元测试
-│   ├── test_services/              # 服务单元测试
-│   └── test_*_standalone.py        # 独立业务测试
-├── integration/                    # 集成测试目录 - 20%覆盖率
-│   ├── test_api/                   # API集成测试
-│   └── test_*.py                   # 模块间集成测试
-├── smoke/                          # 烟雾测试目录 - 2%覆盖率
-├── e2e/                           # 端到端测试目录 - 6%覆盖率
-├── performance/                    # 性能测试目录 - 1%覆盖率
-├── security/                       # 安全测试目录 - 1%覆盖率
-├── factories/                      # 测试数据工厂目录
-└── _archive/                       # 测试文件存档目录
+├── README.md                      # 测试目录说明文档
+├── conftest.py                    # pytest 全局配置（主配置）
+├── conftest_e2e.py                # 简化测试配置（应急备用）
+├── unit/                          # 单元测试 - 70% 覆盖率
+│   ├── test_models/               # 模型层测试
+│   ├── test_repositories/         # 数据访问层测试
+│   ├── test_services/             # 服务层测试
+│   └── *_standalone.py            # 独立业务场景测试
+├── integration/                   # 集成测试 - 20% 覆盖率
+│   ├── test_api/                  # API 接口集成测试
+│   └── test_*.py                  # 模块间协作测试
+├── smoke/                         # 烟雾测试 - 2% 覆盖率
+├── e2e/                           # 端到端测试 - 6% 覆盖率
+├── performance/                   # 性能测试 - 1% 覆盖率
+├── security/                      # 安全测试 - 1% 覆盖率
+├── factories/                     # 测试数据工厂
+├── utils/                         # 测试工具脚本
+└── _archive/                      # 已废弃测试文件存档（如存在）
 ```
 
 ## 🔧 测试配置文件说明

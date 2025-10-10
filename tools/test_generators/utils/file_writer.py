@@ -73,7 +73,24 @@ class TestFileWriter:
             file_info = self._parse_file_key(file_key)
             
             # 构造目标路径
-            if file_key.startswith("tests/"):
+            # 修正路径：将简短key转换为完整路径
+            if file_key.startswith("test_models/"):
+                # test_models/test_user_auth_models -> tests/unit/test_models/test_user_auth_models.py
+                filename = file_key.split("/")[-1]
+                target_path = f"tests/unit/test_models/{filename}.py"
+            elif file_key.startswith("test_repositories/"):
+                # test_repositories/test_user_auth_repositories -> tests/unit/test_repositories/test_user_auth_repositories.py
+                filename = file_key.split("/")[-1]
+                target_path = f"tests/unit/test_repositories/{filename}.py"
+            elif file_key.startswith("test_services/"):
+                # test_services/test_user_auth_services -> tests/unit/test_services/test_user_auth_services.py
+                filename = file_key.split("/")[-1]
+                target_path = f"tests/unit/test_services/{filename}.py"
+            elif file_key.endswith("_standalone"):
+                # user_auth_standalone -> tests/unit/test_user_auth_standalone.py
+                module_name = file_key.replace("_standalone", "")
+                target_path = f"tests/unit/test_{module_name}_standalone.py"
+            elif file_key.startswith("tests/"):
                 target_path = file_key
             else:
                 target_path = self._construct_target_path(

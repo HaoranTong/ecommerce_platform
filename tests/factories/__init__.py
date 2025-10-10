@@ -15,6 +15,24 @@ from .user_auth_factories import (
     UserAuthFactoryManager
 )
 
+# 从product_catalog_factories导入特定工厂（如果存在）
+try:
+    from .product_catalog_factories import (
+        ProductFactory, CategoryFactory, BrandFactory, SKUFactory,
+        ProductCatalogFactoryManager
+    )
+except ImportError:
+    pass  # product_catalog模块尚未生成
+
+# 从shopping_cart_factories导入特定工厂（如果存在）
+try:
+    from .shopping_cart_factories import (
+        CartFactory, CartItemFactory,
+        ShoppingCartFactoryManager
+    )
+except ImportError:
+    pass  # shopping_cart模块尚未生成
+
 # 为兼容性提供别名映射
 TestDataFactory = StandardTestDataFactory  # 别名映射
 
@@ -29,4 +47,12 @@ __all__ = [
     "UserRoleFactory",
     "RolePermissionFactory",
     "UserAuthFactoryManager",
+    "ProductFactory",
+    "CategoryFactory",
+    "BrandFactory",
+    "SKUFactory",
+    "ProductCatalogFactoryManager",
+    "CartFactory",
+    "CartItemFactory",
+    "ShoppingCartFactoryManager",
 ]
