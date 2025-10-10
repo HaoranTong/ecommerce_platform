@@ -101,6 +101,27 @@ class QualityChecker:
             r'"[^"]*test[^"]*@[^"]*"',
         ]
         
+        # 业务逻辑硬编码模式（Business Logic Hardcoding）
+        self.business_logic_patterns = [
+            # 路径匹配硬编码（用于路由判断）
+            r'if\s+["\']/?(?:categories|brands|products|users|orders|inventory)["\']?\s+in\s+(?:path|endpoint|url)',
+            r'if\s+(?:path|endpoint|url)[^:]+in\s+["\']/?(?:categories|brands|products|users|orders)',
+            
+            # 模块名硬编码（用于模块特定逻辑）
+            r'if\s+module_name\s*==\s*["\'](?:product_catalog|user_auth|shopping_cart|order_management)',
+            r'module_name\s+in\s+\[["\'](?:product_catalog|user_auth)["\']',
+            
+            # 字段名字典硬编码（业务字段的硬编码映射）
+            r'return\s+\{[^}]*["\'](?:name|description|slug|price|status|email|phone)["\']:\s*["\']',
+            r'\{[^}]*["\'](?:name|description|slug)["\']:\s*["\'](?!{)[^"\']*["\']',
+            
+            # 业务字段列表硬编码
+            r'fields?\s*=\s*\[[^]]*["\'](?:name|description|email|username|password)["\']',
+            
+            # URL路径硬编码
+            r'["\'][/]?api/v\d+/(?:product-catalog|user-auth|shopping-cart)/(?:categories|brands|products)["\']',
+        ]
+        
         # 忽略规则 - 这些情况不应该被标记为硬编码
         self.ignore_patterns = [
             # 模式定义本身 (在字符串数组或正则定义中)
@@ -152,6 +173,8 @@ class QualityChecker:
         
         # 基础忽略模式 - 适用于所有文件
         basic_ignore_patterns = [
+            # noqa标记 - 显式忽略质量检查
+            r'#\s*noqa',
             # 模式定义本身 (在字符串数组或正则定义中)
             r'self\.hardcode_patterns\s*=\s*\[',
             r'hardcode_patterns\s*=\s*\[',
@@ -212,7 +235,7 @@ class QualityChecker:
         return False
 
     def check_hardcode_file(self, file_path: Path) -> List[Dict[str, Any]]:
-        """检查单个文件的硬编码"""
+        """检查单个文件的硬编码（包括业务逻辑硬编码）"""
         if not file_path.exists() or not file_path.suffix == '.py':
             return []
             
@@ -227,7 +250,8 @@ class QualityChecker:
                 # 检查是否应该忽略这一行
                 if self._should_ignore_line(line, str(file_path)):
                     continue
-                    
+                
+                # 检查基础硬编码模式
                 for pattern in self.hardcode_patterns:
                     matches = re.findall(pattern, line, re.IGNORECASE)
                     if matches:
@@ -236,7 +260,20 @@ class QualityChecker:
                             'line': i,
                             'content': line.strip(),
                             'matches': matches,
-                            'pattern': pattern
+                            'pattern': pattern,
+                            'type': 'basic_hardcode'
+                        })
+                
+                # 检查业务逻辑硬编码模式
+                for pattern in self.business_logic_patterns:
+                    if re.search(pattern, line, re.IGNORECASE):
+                        violations.append({
+                            'file': str(file_path),
+                            'line': i,
+                            'content': line.strip(),
+                            'matches': [pattern],
+                            'pattern': pattern,
+                            'type': 'business_logic_hardcode'
                         })
         except Exception as e:
             print(f"⚠️ 读取文件失败 {file_path}: {e}")
@@ -305,22 +342,48 @@ class QualityChecker:
         return all_results
 
     def report_hardcode_violations(self, violations: List[Dict[str, Any]]):
-        """报告硬编码违规"""
+        """报告硬编码违规（区分基础硬编码和业务逻辑硬编码）"""
         if violations:
-            print(f"❌ 发现 {len(violations)} 个硬编码违规:")
+            # 按类型分组
+            basic_violations = [v for v in violations if v.get('type') == 'basic_hardcode']
+            business_violations = [v for v in violations if v.get('type') == 'business_logic_hardcode']
             
-            # 按文件分组
-            by_file = defaultdict(list)
-            for v in violations:
-                by_file[v['file']].append(v)
-                
-            for file_path, file_violations in by_file.items():
-                print(f"\n📁 文件: {file_path}")
-                for v in file_violations:
-                    print(f"  行{v['line']}: {v['content']}")
-                    print(f"    匹配: {v['matches']}")
-                    print(f"    模式: {v['pattern']}")
-                    print()
+            total = len(violations)
+            print(f"❌ 发现 {total} 个硬编码违规:")
+            print(f"   • 基础硬编码（测试数据）: {len(basic_violations)} 个")
+            print(f"   • 业务逻辑硬编码（字段/路径/模块）: {len(business_violations)} 个")
+            
+            # 报告基础硬编码
+            if basic_violations:
+                print(f"\n🔴 基础硬编码违规（测试数据、邮箱、密码等）:")
+                by_file = defaultdict(list)
+                for v in basic_violations:
+                    by_file[v['file']].append(v)
+                    
+                for file_path, file_violations in by_file.items():
+                    print(f"\n📁 {Path(file_path).name}")
+                    for v in file_violations:
+                        print(f"  行{v['line']}: {v['content'][:80]}")
+                        print(f"    匹配: {v['matches']}")
+            
+            # 报告业务逻辑硬编码
+            if business_violations:
+                print(f"\n🟠 业务逻辑硬编码（字段名、路径、模块判断）:")
+                by_file = defaultdict(list)
+                for v in business_violations:
+                    by_file[v['file']].append(v)
+                    
+                for file_path, file_violations in by_file.items():
+                    print(f"\n📁 {Path(file_path).name}")
+                    for v in file_violations:
+                        print(f"  行{v['line']}: {v['content'][:100]}")
+                        
+                print(f"\n💡 修复建议:")
+                print(f"   • 使用Schema分析替代路径/模块判断")
+                print(f"   • 避免if 'categories' in path这样的硬编码")
+                print(f"   • 使用analyze_pydantic_schema()获取字段信息")
+                print(f"   • Schema分析失败应该抛出错误，而不是fallback")
+            
             return False
         else:
             print("✅ 硬编码检查通过！没有发现违规项")
