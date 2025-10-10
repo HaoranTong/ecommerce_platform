@@ -32,9 +32,52 @@
 - 支持性能基准比较
 - 集成性能监控报告
 
-版本: v1.0.0
+版本: v1.1.0
 作者: AI Assistant
 创建时间: 2025-10-01
+最后修复: 2025-10-10
+
+⚠️ 关键设计决策与常见陷阱（请勿重复犯错！）
+================================================================================
+
+🔴 陷阱1: success判断只接受200，忽略201
+   错误代码: response.status_code == 200
+   后果: 所有POST创建操作测试失败（返回201 Created）
+   正确做法: response.status_code in [200, 201]
+   修复日期: 2025-10-10
+   影响模块: product_catalog及所有使用POST的并发测试
+
+🔴 陷阱2: 选择有路径参数的endpoint进行并发测试
+   错误代码: 选择 PUT /brands/{brand_id} 但不提供brand_id
+   后果: 并发20个请求无法动态创建和传递ID
+   正确做法: 过滤条件添加 '{' not in r.path
+   修复日期: 2025-10-10
+   示例:
+     ✅ PUT /user-auth/me (无参数，可直接并发)
+     ❌ PUT /brands/{brand_id} (需要参数，无法并发)
+
+🔴 陷阱3: 通过简化测试来"解决"问题
+   错误思路: 看到POST失败就改成GET，避免写入操作
+   后果: 失去真实性能测试的意义
+   正确做法: 修复测试逻辑错误，保持真实并发写入测试
+   原则: 性能测试是为了发现问题，不是为了"通过测试"
+
+🔴 陷阱4: 假设所有模块都有无参数PUT endpoint
+   错误假设: 每个模块都有类似 /me 的endpoint
+   现实: 大多数CRUD模块的PUT都需要资源ID
+   正确策略: PUT (无参) > POST (无参) > GET (回退)
+
+📚 Endpoint选择优先级（_select_write_endpoint方法）
+================================================================================
+1. 无路径参数的PUT endpoint (幂等更新，最安全)
+2. 无路径参数的POST endpoint (创建操作，注意唯一约束)
+3. 需要认证的GET endpoint (读操作回退方案)
+4. 任意GET endpoint (最终回退)
+
+🛡️ 必须过滤的条件
+- 路径参数: '{' not in r.path
+- 黑名单关键字: login, register, verification, email, sms, payment等
+- 需要外部服务: 验证码、邮件、支付
 """
 
 import asyncio
@@ -142,20 +185,30 @@ class PerformanceTestGenerator(BaseTestGenerator):
         ]
         
         if routes:
-            # 🎯 最优选择：需要认证的PUT端点（简单更新操作）
+            # 🎯 最优选择：需要认证的PUT端点（简单更新操作，且无路径参数）
+            # ⚠️  关键约束：性能测试需要并发执行20+请求
+            #    - 有路径参数的endpoint（如 /brands/{brand_id}）需要先创建资源ID
+            #    - 无法在并发场景中动态创建和传递ID
+            #    - 示例：PUT /user-auth/me ✅  PUT /brands/{brand_id} ❌
             put_routes = [
                 r for r in routes 
                 if r.method == 'PUT' 
                 and r.auth_required
+                and '{' not in r.path  # 🔑 排除路径参数：检查路径中是否有{变量名}
                 and not any(keyword in r.path.lower() for keyword in perf_test_blacklist)
             ]
             if put_routes:
                 return f"/api/v1{put_routes[0].path}", "PUT"
             
-            # 次优选择：过滤后的POST端点（避免复杂业务逻辑）
+            # 次优选择：过滤后的POST端点（避免复杂业务逻辑，且无路径参数）
+            # ⚠️  POST创建操作的风险：
+            #    - 可能有唯一约束（如name字段）导致并发冲突
+            #    - 可能需要外部资源（如验证码、邮件）
+            #    - 优先级低于PUT和GET
             post_routes = [
                 r for r in routes 
                 if r.method == 'POST' 
+                and '{' not in r.path  # 排除路径参数
                 and not any(keyword in r.path.lower() for keyword in perf_test_blacklist)
             ]
             if post_routes:
@@ -467,7 +520,12 @@ class {class_name}:
                     "request_id": request_id,
                     "status_code": response.status_code,
                     "response_time": (end_time - start_time) * 1000,
-                    "success": response.status_code == 200
+                    # ⚠️ 关键：success判断必须接受200和201
+                    #    - GET/PUT成功返回: 200 OK
+                    #    - POST创建成功返回: 201 Created
+                    #    - 常见错误：只判断 == 200，导致所有POST测试失败
+                    #    - 修复历史：2025-10-10 发现Product Catalog并发测试0%成功率
+                    "success": response.status_code in [200, 201]
                 }}
             except Exception as e:
                 end_time = time.time()
@@ -541,7 +599,8 @@ class {class_name}:
                         {test_data_template}
                     }}
                     response = await async_api_client.post("{write_endpoint}", json=test_data, headers=headers)
-                return {{"type": "write", "success": response.status_code == 200}}
+                # ⚠️ 关键：success判断必须接受200和201（参见test_concurrent_write_requests注释）
+                return {{"type": "write", "success": response.status_code in [200, 201]}}
             except Exception as e:
                 print(f"⚠️ 混合负载写操作异常: {{str(e)}}")
                 return {{"type": "write", "success": False, "error": str(e)}}
