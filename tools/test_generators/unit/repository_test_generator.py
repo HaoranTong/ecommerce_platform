@@ -851,8 +851,8 @@ from app.modules.{module_name}.models import (
         符合标准: testing-standards.md 第2.3节 - 只更新一个字段，验证其他字段不变
         """
         # 准备测试数据
-        from tests.factories.{module_name}_factories import {model_name}Factory
-        {model_name}Factory._meta.sqlalchemy_session = unit_test_db
+        from tests.factories.{module_name}_factories import {model_name}Factory, {module_name.title().replace('_', '')}FactoryManager
+        {module_name.title().replace('_', '')}FactoryManager.setup_factories(unit_test_db)
         entity = {model_name}Factory.create()
         original_{second_update_field} = entity.{second_update_field}
         
@@ -877,8 +877,8 @@ from app.modules.{module_name}.models import (
         
         符合标准: testing-standards.md 第2.3节 - 同时更新多个字段
         """
-        from tests.factories.{module_name}_factories import {model_name}Factory
-        {model_name}Factory._meta.sqlalchemy_session = unit_test_db
+        from tests.factories.{module_name}_factories import {model_name}Factory, {module_name.title().replace('_', '')}FactoryManager
+        {module_name.title().replace('_', '')}FactoryManager.setup_factories(unit_test_db)
         entity = {model_name}Factory.create()
         
         # 执行Repository方法（同时更新多个字段）
@@ -903,8 +903,8 @@ from app.modules.{module_name}.models import (
         
         符合标准: testing-standards.md 第2.5节 - 验证更新真正写入数据库
         """
-        from tests.factories.{module_name}_factories import {model_name}Factory
-        {model_name}Factory._meta.sqlalchemy_session = unit_test_db
+        from tests.factories.{module_name}_factories import {model_name}Factory, {module_name.title().replace('_', '')}FactoryManager
+        {module_name.title().replace('_', '')}FactoryManager.setup_factories(unit_test_db)
         entity = {model_name}Factory.create()
         
         update_data = {{"{update_field}": "事务测试数据"}}
@@ -1064,10 +1064,10 @@ from app.modules.{module_name}.models import (
         
         符合标准: testing-standards.md 第2.4节 - 验证is_deleted标记和deleted_at时间戳
         """
-        from tests.factories.{module_name}_factories import {model_name}Factory
+        from tests.factories.{module_name}_factories import {model_name}Factory, {module_name.title().replace('_', '')}FactoryManager
         from datetime import datetime
         
-        {model_name}Factory._meta.sqlalchemy_session = unit_test_db
+        {module_name.title().replace('_', '')}FactoryManager.setup_factories(unit_test_db)
         entity = {model_name}Factory.create()
         entity_id = entity.id
         
@@ -1125,9 +1125,9 @@ from app.modules.{module_name}.models import (
         
         符合标准: testing-standards.md 第2.4节 - 验证数据真正从数据库删除
         """
-        from tests.factories.{module_name}_factories import {model_name}Factory
+        from tests.factories.{module_name}_factories import {model_name}Factory, {module_name.title().replace('_', '')}FactoryManager
         
-        {model_name}Factory._meta.sqlalchemy_session = unit_test_db
+        {module_name.title().replace('_', '')}FactoryManager.setup_factories(unit_test_db)
         entity = {model_name}Factory.create()
         entity_id = entity.id
         
@@ -1391,16 +1391,6 @@ class Test{repo_name}:
     
     测试策略: SQLite内存数据库 + Factory Boy
     """
-    
-    def setup_method(self, unit_test_db: Session):
-        """测试准备 - 初始化Factory Manager"""
-        from tests.factories.{module_name}_factories import {module_name.title().replace('_', '')}FactoryManager
-        self.factory_manager = {module_name.title().replace('_', '')}FactoryManager()
-        self.factory_manager.setup_factories(unit_test_db)
-        
-    def teardown_method(self):
-        """测试清理"""
-        pass
         
 {chr(10).join(test_methods)}
 '''
@@ -1551,8 +1541,10 @@ class Test{repo_name}:
             # 添加Factory import（后续在方法开始处理）
             imports.append(f'from tests.factories.{module_name}_factories import {fk_model_name}Factory')
             
-            # 创建外键依赖实体（使用_meta.sqlalchemy_session）
-            lines.append(f'{fk_model_name}Factory._meta.sqlalchemy_session = unit_test_db')
+            # 创建外键依赖实体（使用FactoryManager统一设置session）
+            if not lines:  # 只在第一个外键时添加setup_factories调用
+                imports.append(f'from tests.factories.{module_name}_factories import {module_name.title().replace("_", "")}FactoryManager')
+                lines.append(f'{module_name.title().replace("_", "")}FactoryManager.setup_factories(unit_test_db)')
             lines.append(f'{fk_var_name} = {fk_model_name}Factory.create()')
             fk_var_names[field.name] = f'{fk_var_name}.id'
         
