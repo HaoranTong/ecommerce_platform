@@ -43,7 +43,7 @@
 ## 快速开始
 
 ### API端点
-- **基础路径**: `/api/v1/cart/`
+- **基础路径**: `/api/v1/shopping-cart/`
 - **认证方式**: JWT Bearer Token
 - **主要接口**: 
   - `POST /items` - 添加商品到购物车

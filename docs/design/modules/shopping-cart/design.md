@@ -119,7 +119,7 @@ CREATE TABLE cart_items (
 ## API设计
 
 ### API架构
-- **基础路径**: `/api/v1/cart/`
+- **基础路径**: `/api/v1/shopping-cart/`
 - **认证方式**: JWT Bearer Token
 - **数据格式**: JSON
 - **幂等性**: PUT/DELETE操作保证幂等性
@@ -127,12 +127,12 @@ CREATE TABLE cart_items (
 ### 端点设计
 | 方法 | 路径 | 功能 | 请求参数 | 响应格式 |
 |------|------|------|----------|----------|
-| POST | `/api/v1/cart/items` | 添加商品到购物车 | `{sku_id, quantity}` | `CartResponse` |
-| GET | `/api/v1/cart` | 获取购物车内容 | 无 | `CartResponse` |
-| PUT | `/api/v1/cart/items/{item_id}` | 更新商品数量 | `{quantity}` | `CartResponse` |
-| DELETE | `/api/v1/cart/items/{item_id}` | 删除单个商品 | 无 | `SuccessResponse` |
-| DELETE | `/api/v1/cart/items` | 批量删除商品 | `{item_ids: []}` | `SuccessResponse` |
-| DELETE | `/api/v1/cart` | 清空购物车 | 无 | `SuccessResponse` |
+| POST | `/api/v1/shopping-cart/items` | 添加商品到购物车 | `{sku_id, quantity}` | `CartResponse` |
+| GET | `/api/v1/shopping-cart/cart` | 获取购物车内容 | 无 | `CartResponse` |
+| PUT | `/api/v1/shopping-cart/items/{item_id}` | 更新商品数量 | `{quantity}` | `CartResponse` |
+| DELETE | `/api/v1/shopping-cart/items/{item_id}` | 删除单个商品 | 无 | `SuccessResponse` |
+| DELETE | `/api/v1/shopping-cart/items` | 批量删除商品 | `{item_ids: []}` | `SuccessResponse` |
+| DELETE | `/api/v1/shopping-cart/cart` | 清空购物车 | 无 | `SuccessResponse` |
 
 ### 错误处理设计
 ```json

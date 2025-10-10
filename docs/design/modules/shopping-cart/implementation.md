@@ -64,7 +64,7 @@ from .schemas import (
 from .service import CartService
 from .dependencies import get_cart_service
 
-router = APIRouter(prefix="/api/v1/cart", tags=["购物车"])
+router = APIRouter(prefix="/api/v1/shopping-cart", tags=["购物车"])
 
 @router.post("/items", response_model=CartResponse)
 async def add_item_to_cart(

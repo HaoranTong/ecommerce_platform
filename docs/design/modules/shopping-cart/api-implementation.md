@@ -24,12 +24,12 @@
 
 | 接口 | 方法 | 路径 | 实施日期 | 开发者 | 状态 | 测试状态 |
 |------|------|------|----------|--------|------|----------|
-| 添加商品到购物车 | POST | `/api/v1/cart/items` | - | - | ⏳ 待开发 | ❌ 未测试 |
-| 获取购物车内容 | GET | `/api/v1/cart` | - | - | ⏳ 待开发 | ❌ 未测试 |
-| 更新商品数量 | PUT | `/api/v1/cart/items/{item_id}` | - | - | ⏳ 待开发 | ❌ 未测试 |
-| 删除单个商品 | DELETE | `/api/v1/cart/items/{item_id}` | - | - | ⏳ 待开发 | ❌ 未测试 |
-| 批量删除商品 | DELETE | `/api/v1/cart/items` | - | - | ⏳ 待开发 | ❌ 未测试 |
-| 清空购物车 | DELETE | `/api/v1/cart` | - | - | ⏳ 待开发 | ❌ 未测试 |
+| 添加商品到购物车 | POST | `/api/v1/shopping-cart/items` | - | - | ⏳ 待开发 | ❌ 未测试 |
+| 获取购物车内容 | GET | `/api/v1/shopping-cart/cart` | - | - | ⏳ 待开发 | ❌ 未测试 |
+| 更新商品数量 | PUT | `/api/v1/shopping-cart/items/{item_id}` | - | - | ⏳ 待开发 | ❌ 未测试 |
+| 删除单个商品 | DELETE | `/api/v1/shopping-cart/items/{item_id}` | - | - | ⏳ 待开发 | ❌ 未测试 |
+| 批量删除商品 | DELETE | `/api/v1/shopping-cart/items` | - | - | ⏳ 待开发 | ❌ 未测试 |
+| 清空购物车 | DELETE | `/api/v1/shopping-cart/cart` | - | - | ⏳ 待开发 | ❌ 未测试 |
 
 ### 开发计划
 
@@ -63,7 +63,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from typing import List
 
-router = APIRouter(prefix="/api/v1/cart", tags=["购物车"])
+router = APIRouter(prefix="/api/v1/shopping-cart", tags=["购物车"])
 
 # API端点实现将在开发过程中添加
 ```
@@ -93,7 +93,7 @@ from typing import Optional
 
 ### 接口实现记录
 
-#### 1. POST /api/v1/cart/items - 添加商品到购物车
+#### 1. POST /api/v1/shopping-cart/items - 添加商品到购物车
 **实施状态**: ⏳ 待开发  
 **预计完成**: 第1周  
 **技术要点**:
@@ -108,7 +108,7 @@ from typing import Optional
 - 库存验证的性能优化
 - 缓存与数据库的双写一致性
 
-#### 2. GET /api/v1/cart - 获取购物车内容
+#### 2. GET /api/v1/shopping-cart/cart - 获取购物车内容
 **实施状态**: ⏳ 待开发  
 **预计完成**: 第1周  
 **技术要点**:
@@ -122,7 +122,7 @@ from typing import Optional
 - 批量查询商品信息
 - 响应数据压缩
 
-#### 3. PUT /api/v1/cart/items/{item_id} - 更新商品数量
+#### 3. PUT /api/v1/shopping-cart/items/{item_id} - 更新商品数量
 **实施状态**: ⏳ 待开发  
 **预计完成**: 第1周  
 **技术要点**:
@@ -131,7 +131,7 @@ from typing import Optional
 - 乐观锁防止并发冲突
 - 价格重新计算
 
-#### 4. DELETE /api/v1/cart/items/{item_id} - 删除单个商品
+#### 4. DELETE /api/v1/shopping-cart/items/{item_id} - 删除单个商品
 **实施状态**: ⏳ 待开发  
 **预计完成**: 第2周  
 **技术要点**:
@@ -139,7 +139,7 @@ from typing import Optional
 - 缓存同步更新
 - 审计日志记录
 
-#### 5. DELETE /api/v1/cart/items - 批量删除商品
+#### 5. DELETE /api/v1/shopping-cart/items - 批量删除商品
 **实施状态**: ⏳ 待开发  
 **预计完成**: 第2周  
 **技术要点**:
@@ -147,7 +147,7 @@ from typing import Optional
 - 部分失败处理策略
 - 批量缓存更新
 
-#### 6. DELETE /api/v1/cart - 清空购物车
+#### 6. DELETE /api/v1/shopping-cart/cart - 清空购物车
 **实施状态**: ⏳ 待开发  
 **预计完成**: 第2周  
 **技术要点**:

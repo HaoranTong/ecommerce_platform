@@ -241,16 +241,16 @@ erDiagram
 ### 接口列表
 | 接口 | 方法 | 路径 | 描述 | 状态 |
 |------|------|------|------|------|
-| 添加商品到购物车 | POST | /api/v1/cart/items | 添加商品到购物车或更新数量 | ⏳ 待开发 |
-| 获取购物车 | GET | /api/v1/cart | 获取当前用户的购物车内容 | ⏳ 待开发 |
-| 更新商品数量 | PUT | /api/v1/cart/items/{item_id} | 修改购物车中商品的数量 | ⏳ 待开发 |
-| 删除商品 | DELETE | /api/v1/cart/items/{item_id} | 从购物车删除指定商品 | ⏳ 待开发 |
-| 批量删除 | DELETE | /api/v1/cart/items | 批量删除购物车商品 | ⏳ 待开发 |
-| 清空购物车 | DELETE | /api/v1/cart | 清空整个购物车 | ⏳ 待开发 |
+| 添加商品到购物车 | POST | /api/v1/shopping-cart/items | 添加商品到购物车或更新数量 | ⏳ 待开发 |
+| 获取购物车 | GET | /api/v1/shopping-cart/cart | 获取当前用户的购物车内容 | ⏳ 待开发 |
+| 更新商品数量 | PUT | /api/v1/shopping-cart/items/{item_id} | 修改购物车中商品的数量 | ⏳ 待开发 |
+| 删除商品 | DELETE | /api/v1/shopping-cart/items/{item_id} | 从购物车删除指定商品 | ⏳ 待开发 |
+| 批量删除 | DELETE | /api/v1/shopping-cart/items | 批量删除购物车商品 | ⏳ 待开发 |
+| 清空购物车 | DELETE | /api/v1/shopping-cart/cart | 清空整个购物车 | ⏳ 待开发 |
 
 ### 接口详情示例
 ```yaml
-/api/v1/cart/items:
+/api/v1/shopping-cart/items:
   post:
     summary: 添加商品到购物车
     requestBody:
