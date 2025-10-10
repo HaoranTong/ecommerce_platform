@@ -332,6 +332,12 @@ class BaseTestGenerator(ABC):
         if cache_key in self._schema_cache:
             return self._schema_cache[cache_key]
         
+        # 优先尝试从路由参数中提取Schema类型（避免推断错误）
+        schema_from_params = self._extract_schema_from_parameters(route)
+        if schema_from_params:
+            print(f"✅ 从参数提取Schema: {schema_from_params}")
+            # 继续使用这个Schema名称进行后续分析
+        
         try:
             # 添加警告过滤器，避免SQLAlchemy表重定义警告
             import warnings
@@ -366,8 +372,8 @@ class BaseTestGenerator(ABC):
             try:
                 spec.loader.exec_module(schema_module)
                 
-                # 根据路由功能推断Schema类名
-                schema_class_name = self._infer_schema_class(route)
+                # 优先使用从参数提取的Schema名称，其次才推断
+                schema_class_name = schema_from_params or self._infer_schema_class(route)
                 if not schema_class_name:
                     # 检查是否是正常不需要Schema的情况
                     if self._should_have_schema(route):
@@ -420,6 +426,43 @@ class BaseTestGenerator(ABC):
         
         # 其他POST、PUT、PATCH请求通常需要Schema
         return route.method in ['POST', 'PUT', 'PATCH']
+    
+    def _extract_schema_from_parameters(self, route: RouterInfo) -> Optional[str]:
+        """从路由参数中提取Schema类型信息
+        
+        优先从路由定义的参数类型中获取Schema类名，避免使用硬编码推断。
+        
+        Args:
+            route: 路由信息对象
+            
+        Returns:
+            Schema类名（如果找到），否则返回None
+        """
+        if not route.parameters:
+            return None
+        
+        # 遍历参数列表，查找Pydantic Schema类型
+        for param in route.parameters:
+            # 参数类型通常在 'type' 字段中
+            param_type = param.get('type')
+            if not param_type:
+                continue
+            
+            # 提取类名（可能是字符串或类型对象）
+            schema_name = None
+            if isinstance(param_type, str):
+                # 如果是字符串形式，提取最后一个点号后的类名
+                schema_name = param_type.split('.')[-1] if '.' in param_type else param_type
+            elif hasattr(param_type, '__name__'):
+                # 如果是类型对象，直接获取名称
+                schema_name = param_type.__name__
+            
+            # 验证是否是有效的Schema类名（通常以Create/Update/Base等结尾）
+            if schema_name and any(suffix in schema_name for suffix in 
+                ['Create', 'Update', 'Base', 'Request', 'Send', 'Reset', 'Verify', 'Refresh']):
+                return schema_name
+        
+        return None
     
     def _infer_schema_class(self, route: RouterInfo) -> Optional[str]:
         """根据路由功能推断Schema类名 - 动态推断，无硬编码"""
