@@ -135,20 +135,31 @@ INTEGRATION_TEST_DATABASE_URL = (
 
 # ========== Mock框架配置 [CHECK:TEST-001] ==========
 @pytest.fixture(autouse=True)
-def mock_setup(mocker):
+def mock_setup(request, mocker):
     """
     全局Mock配置，为所有测试提供统一的Mock环境
     符合testing-standards.md第113-200行pytest-mock统一使用标准
+    
+    重要：集成测试（@pytest.mark.integration）不使用Mock，使用真实服务
+    单元测试使用AsyncMock支持异步操作
     """
-    # 设置Mock的默认行为和最佳实践
+    # 检测是否是集成测试
+    is_integration_test = any(marker.name == "integration" for marker in request.node.iter_markers())
+    
+    if is_integration_test:
+        # 集成测试：不使用Mock，直接返回
+        return mocker
+    
+    # 单元测试：设置Mock的默认行为和最佳实践
     # 确保Mock对象有明确的spec，避免AttributeError
     # 注意：不直接修改__defaults__，而是在使用时指定autospec
 
-    # 为常用的外部依赖创建Mock
+    # 为常用的外部依赖创建AsyncMock（支持异步操作）
     # Redis Mock（避免测试时依赖外部Redis）
-    mock_redis = mocker.Mock()
+    mock_redis = mocker.AsyncMock()
     mock_redis.get.return_value = None
     mock_redis.set.return_value = True
+    mock_redis.setex.return_value = True  # 支持验证码服务的setex操作
     mock_redis.delete.return_value = 1
     mocker.patch("app.core.redis_client.get_redis_connection", return_value=mock_redis)
 
