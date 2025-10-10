@@ -9,4 +9,4 @@ from app.core.auth import get_current_admin_user
 
 def require_admin():
     """依赖注入：仅管理员可访问"""
-    return Depends(get_current_admin_user)
+    return get_current_admin_user  # 返回函数本身，不是Depends对象

@@ -34,7 +34,7 @@ router = APIRouter()
 async def create_category(
     payload: CategoryCreate,
     db: Session = Depends(get_db),
-    admin: Any = Depends(require_admin),
+    admin: Any = Depends(require_admin()),
 ):
     """创建新分类（需要管理员权限）"""
     return CategoryService.create_category(
@@ -77,7 +77,7 @@ async def list_categories(
 async def create_brand(
     payload: BrandCreate,
     db: Session = Depends(get_db),
-    admin: Any = Depends(require_admin),
+    admin: Any = Depends(require_admin()),
 ):
     """创建新品牌（需要管理员权限）"""
     return BrandService.create_brand(db, payload.model_dump())
@@ -123,7 +123,7 @@ async def update_brand(
     brand_id: int,
     payload: BrandUpdate,
     db: Session = Depends(get_db),
-    admin: Any = Depends(require_admin)
+    admin: Any = Depends(require_admin())
 ):
     """更新品牌信息（需要管理员权限）"""
     return BrandService.update_brand(db, brand_id, payload.model_dump(exclude_unset=True))
@@ -138,7 +138,7 @@ async def update_brand(
 async def delete_brand(
     brand_id: int,
     db: Session = Depends(get_db),
-    admin: Any = Depends(require_admin)
+    admin: Any = Depends(require_admin())
 ):
     """软删除品牌（需要管理员权限）"""
     BrandService.delete_brand(db, brand_id)
@@ -158,7 +158,7 @@ async def delete_brand(
 async def create_product(
     payload: ProductCreate,
     db: Session = Depends(get_db),
-    admin: Any = Depends(require_admin),
+    admin: Any = Depends(require_admin()),
 ):
     """创建新商品（需要管理员权限）"""
     return ProductService.create_product(
@@ -224,7 +224,7 @@ async def get_product(product_id: int, db: Session = Depends(get_db)):
     description="根据商品ID更新商品信息，需要管理员权限"
 )
 async def update_product(product_id: int, payload: ProductUpdate, db: Session = Depends(get_db),
-        admin: Any = Depends(require_admin)):
+        admin: Any = Depends(require_admin())):
     """更新商品信息（需要管理员权限）"""
     return ProductService.update_product(
         db,
@@ -242,7 +242,7 @@ async def update_product(product_id: int, payload: ProductUpdate, db: Session = 
 async def delete_product(
     product_id: int,
     db: Session = Depends(get_db),
-    admin: Any = Depends(require_admin),
+    admin: Any = Depends(require_admin()),
 ):
     """软删除指定商品（需管理员权限）"""
     ProductService.delete_product(db, product_id)
@@ -262,7 +262,7 @@ async def delete_product(
 async def create_sku(
     payload: SKUCreate,
     db: Session = Depends(get_db),
-    admin: Any = Depends(require_admin),
+    admin: Any = Depends(require_admin()),
 ):
     """创建SKU（需要管理员权限）"""
     return SKUService.create_sku(db, payload.model_dump())
@@ -291,13 +291,13 @@ async def get_sku(sku_id: int, db: Session = Depends(get_db)):
 
 
 @router.put("/product-catalog/skus/{sku_id}", response_model=SKURead)
-async def update_sku(sku_id: int, payload: SKUUpdate, db: Session = Depends(get_db), admin: Any = Depends(require_admin)):
+async def update_sku(sku_id: int, payload: SKUUpdate, db: Session = Depends(get_db), admin: Any = Depends(require_admin())):
     """更新SKU信息"""
     return SKUService.update_sku(db, sku_id, payload.model_dump(exclude_unset=True))
 
 
 @router.delete("/product-catalog/skus/{sku_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_sku(sku_id: int, db: Session = Depends(get_db), admin: Any = Depends(require_admin)):
+async def delete_sku(sku_id: int, db: Session = Depends(get_db), admin: Any = Depends(require_admin())):
     """软删除SKU"""
     SKUService.delete_sku(db, sku_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)

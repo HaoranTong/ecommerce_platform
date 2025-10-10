@@ -360,6 +360,16 @@ class IntelligentTestGenerator:
             generated_files.update(performance_tests)
             
             print(f"✅ 生成专项测试: 安全测试 + 性能测试")
+        
+        if test_type == "performance":
+            # 仅生成性能测试
+            from tools.test_generators import PerformanceTestGenerator
+            
+            performance_generator = PerformanceTestGenerator(self.project_root, self.config)
+            performance_tests = performance_generator.generate_tests(module_name, models)
+            generated_files.update(performance_tests)
+            
+            print(f"✅ 生成性能测试")
 
         # 3. 写入文件（如果不是试运行）
         if not dry_run:
@@ -797,10 +807,12 @@ def main():
         epilog="示例: python tools/generate_test_template.py user_auth --type all --validate",
     )
 
-    parser.add_argument("module_name", help="模块名称 (如: user_auth, shopping_cart)")
+    parser.add_argument("module_name", nargs="?", help="模块名称 (如: user_auth, shopping_cart)")
+    parser.add_argument("--module", dest="module_opt", help="模块名称（可选参数形式）")
     parser.add_argument(
-        "--type",
-        choices=["all", "unit", "integration", "api", "e2e", "smoke", "specialized"],
+        "--type", "--test-type",
+        dest="test_type",
+        choices=["all", "unit", "integration", "api", "e2e", "smoke", "specialized", "performance"],
         default="all",
         help="生成的测试类型",
     )
@@ -811,15 +823,21 @@ def main():
         "--validate", action="store_true", default=True, help="验证生成的代码"
     )
     parser.add_argument("--detailed", action="store_true", help="显示详细的分析信息")
+    parser.add_argument("--force", action="store_true", help="强制覆盖已存在的测试文件")
 
     args = parser.parse_args()
+    
+    # 合并位置参数和可选参数
+    module_name = args.module_opt or args.module_name
+    if not module_name:
+        parser.error("必须提供模块名称（位置参数或 --module）")
 
     try:
         generator = IntelligentTestGenerator()
 
         if args.detailed:
             # 显示详细分析信息
-            models = generator.analyze_module_models(args.module_name)
+            models = generator.analyze_module_models(module_name)
             for model_name, model_info in models.items():
                 print(f"\n📊 {model_name} 模型:")
                 print(f"   表名: {model_info.tablename}")
@@ -831,7 +849,7 @@ def main():
         else:
             # 生成测试
             result = generator.generate_tests(
-                args.module_name, args.type, args.dry_run, args.validate
+                module_name, args.test_type, args.dry_run, args.validate
             )
 
             # 处理返回值（兼容单返回值和双返回值）
