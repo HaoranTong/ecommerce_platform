@@ -113,12 +113,6 @@ class TestUserAuthPostAPI:
             json=test_data
         )
         
-        # 调试：打印响应内容
-        if response.status_code != status.HTTP_201_CREATED:
-            print(f"\n❌ 注册失败: {response.status_code}")
-            print(f"📋 Response: {response.json()}")
-            print(f"📋 Test Data: {test_data}")
-        
         # 验证响应
         assert response.status_code == status.HTTP_201_CREATED
         
