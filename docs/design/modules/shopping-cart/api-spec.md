@@ -10,7 +10,7 @@
 
 ### 基础信息
 - **模块名**: shopping-cart  
-- **API前缀**: `/api/v1/cart/`
+- **API前缀**: `/api/v1/shopping-cart/`
 - **认证方式**: JWT Bearer Token
 - **数据格式**: JSON
 - **字符编码**: UTF-8
@@ -25,12 +25,12 @@
 
 | 方法 | 路径 | 功能描述 | 状态 |
 |------|------|----------|------|
-| POST | `/api/v1/cart/items` | 添加商品到购物车 | 待实现 |
-| GET | `/api/v1/cart` | 获取购物车内容 | 待实现 |
-| PUT | `/api/v1/cart/items/{item_id}` | 更新商品数量 | 待实现 |
-| DELETE | `/api/v1/cart/items/{item_id}` | 删除单个商品 | 待实现 |
-| DELETE | `/api/v1/cart/items` | 批量删除商品 | 待实现 |
-| DELETE | `/api/v1/cart` | 清空购物车 | 待实现 |
+| POST | `/api/v1/shopping-cart/items` | 添加商品到购物车 | 待实现 |
+| GET | `/api/v1/shopping-cart/cart` | 获取购物车内容 | 待实现 |
+| PUT | `/api/v1/shopping-cart/items/{item_id}` | 更新商品数量 | 待实现 |
+| DELETE | `/api/v1/shopping-cart/items/{item_id}` | 删除单个商品 | 待实现 |
+| DELETE | `/api/v1/shopping-cart/items` | 批量删除商品 | 待实现 |
+| DELETE | `/api/v1/shopping-cart/cart` | 清空购物车 | 待实现 |
 
 ## 通用规范
 
@@ -94,7 +94,7 @@ User-Agent: {client_info}
 
 #### 端点信息
 ```
-POST /api/v1/cart/items
+POST /api/v1/shopping-cart/items
 ```
 
 #### 功能描述
@@ -167,7 +167,7 @@ POST /api/v1/cart/items
 
 #### 端点信息
 ```
-GET /api/v1/cart
+GET /api/v1/shopping-cart/cart
 ```
 
 #### 功能描述
@@ -241,7 +241,7 @@ GET /api/v1/cart
 
 #### 端点信息
 ```
-PUT /api/v1/cart/items/{item_id}
+PUT /api/v1/shopping-cart/items/{item_id}
 ```
 
 #### 功能描述
@@ -307,7 +307,7 @@ PUT /api/v1/cart/items/{item_id}
 
 #### 端点信息
 ```
-DELETE /api/v1/cart/items/{item_id}
+DELETE /api/v1/shopping-cart/items/{item_id}
 ```
 
 #### 功能描述
@@ -360,7 +360,7 @@ DELETE /api/v1/cart/items/{item_id}
 
 #### 端点信息
 ```
-DELETE /api/v1/cart/items
+DELETE /api/v1/shopping-cart/items
 ```
 
 #### 功能描述
@@ -403,7 +403,7 @@ DELETE /api/v1/cart/items
 
 #### 端点信息
 ```
-DELETE /api/v1/cart
+DELETE /api/v1/shopping-cart/cart
 ```
 
 #### 功能描述

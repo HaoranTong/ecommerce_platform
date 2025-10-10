@@ -32,6 +32,7 @@ from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 from .models import Cart, CartItem
+from .repository import CartRepository, CartItemRepository
 from .schemas import AddItemRequest, CartItemResponse, CartResponse
 
 logger = logging.getLogger(__name__)
@@ -94,6 +95,9 @@ class CartService:
         """
         self.db = db
         self.redis_client = redis_client
+        # 初始化Repository层
+        self.cart_repo = CartRepository(db)
+        self.cart_item_repo = CartItemRepository(db)
 
     async def add_item(self, user_id: int, request: AddItemRequest) -> CartResponse:
         """
@@ -132,15 +136,13 @@ class CartService:
             # ================== 购物车初始化 ==================
             # 获取用户购物车，不存在则自动创建
             # 确保每个用户都有唯一的购物车实例
-            cart = self._get_or_create_cart(user_id)
+            cart = self.cart_repo.get_or_create(user_id)
 
             # ================== 商品去重检查 ==================
             # 检查商品是否已在购物车中，避免重复添加
             # 如果存在则进行数量合并操作
-            existing_item = (
-                self.db.query(CartItem)
-                .filter(CartItem.cart_id == cart.id, CartItem.sku_id == request.sku_id)
-                .first()
+            existing_item = self.cart_item_repo.find_by_cart_and_sku(
+                cart.id, request.sku_id
             )
 
             if existing_item:
@@ -163,9 +165,7 @@ class CartService:
             else:
                 # ================== 新商品添加逻辑 ==================
                 # 验证购物车商品种类限制，防止购物车过度膨胀
-                item_count = (
-                    self.db.query(CartItem).filter(CartItem.cart_id == cart.id).count()
-                )
+                item_count = self.cart_item_repo.count_by_cart_id(cart.id)
                 MAX_ITEMS_IN_CART = 50
                 if item_count >= MAX_ITEMS_IN_CART:
                     raise HTTPException(
@@ -181,11 +181,11 @@ class CartService:
                     quantity=request.quantity,
                     unit_price=Decimal("99.99"),  # 模拟价格，实际应从商品服务获取
                 )
-                self.db.add(new_item)
+                self.cart_item_repo.create(new_item)
 
             # ================== 购物车状态更新 ==================
             # 更新购物车的最后修改时间，用于缓存失效和前端显示
-            cart.updated_at = datetime.utcnow()
+            self.cart_repo.update_timestamp(cart)
 
             # ================== 数据持久化 ==================
             # 提交所有数据库更改，确保数据一致性
@@ -253,7 +253,7 @@ class CartService:
             # ================== 购物车查询 ==================
             # 根据用户ID查询购物车主记录
             # 如果不存在则返回空购物车，而不是创建新的
-            cart = self.db.query(Cart).filter(Cart.user_id == user_id).first()
+            cart = self.cart_repo.find_by_user_id(user_id)
             if not cart:
                 # ================== 空购物车处理 ==================
                 # 返回标准的空购物车结构，保持API响应一致性
@@ -270,9 +270,7 @@ class CartService:
 
             # ================== 购物车商品查询 ==================
             # 获取购物车中的所有商品项，用于构建完整响应
-            cart_items = (
-                self.db.query(CartItem).filter(CartItem.cart_id == cart.id).all()
-            )
+            cart_items = self.cart_item_repo.find_by_cart_id(cart.id)
 
             # ================== 商品信息构建 ==================
             # 初始化统计变量，用于计算购物车总计信息
@@ -367,12 +365,7 @@ class CartService:
             # ================== 权限验证 ==================
             # 验证商品项是否存在且属于当前用户
             # 使用JOIN查询确保数据一致性和权限安全
-            cart_item = (
-                self.db.query(CartItem)
-                .join(Cart)
-                .filter(CartItem.id == item_id, Cart.user_id == user_id)
-                .first()
-            )
+            cart_item = self.cart_item_repo.find_by_id_and_user(item_id, user_id)
 
             if not cart_item:
                 raise HTTPException(
@@ -391,11 +384,11 @@ class CartService:
             # ================== 数据更新 ==================
             # 更新商品项数量和时间戳
             cart_item.quantity = quantity
-            cart_item.updated_at = datetime.utcnow()
+            self.cart_item_repo.update(cart_item)
 
             # 更新购物车主记录的时间戳
-            cart = self.db.query(Cart).filter(Cart.id == cart_item.cart_id).first()
-            cart.updated_at = datetime.utcnow()
+            cart = self.cart_repo.find_by_id(cart_item.cart_id)
+            self.cart_repo.update_timestamp(cart)
 
             # ================== 数据持久化 ==================
             # 提交数据库更改
@@ -423,17 +416,12 @@ class CartService:
     async def delete_item(self, user_id: int, item_id: int) -> bool:
         """删除商品项"""
         try:
-            cart_item = (
-                self.db.query(CartItem)
-                .join(Cart)
-                .filter(CartItem.id == item_id, Cart.user_id == user_id)
-                .first()
-            )
+            cart_item = self.cart_item_repo.find_by_id_and_user(item_id, user_id)
 
             if not cart_item:
                 return False
 
-            self.db.delete(cart_item)
+            self.cart_item_repo.delete(cart_item)
             self.db.commit()
             return True
 
@@ -445,18 +433,9 @@ class CartService:
     async def batch_delete_items(self, user_id: int, item_ids: List[int]) -> bool:
         """批量删除商品"""
         try:
-            cart_items = (
-                self.db.query(CartItem)
-                .join(Cart)
-                .filter(CartItem.id.in_(item_ids), Cart.user_id == user_id)
-                .all()
-            )
-
-            for item in cart_items:
-                self.db.delete(item)
-
+            deleted_count = self.cart_item_repo.delete_by_ids(item_ids, user_id)
             self.db.commit()
-            return len(cart_items) > 0
+            return deleted_count > 0
 
         except Exception as e:
             self.db.rollback()
@@ -466,12 +445,12 @@ class CartService:
     async def clear_cart(self, user_id: int) -> bool:
         """清空购物车"""
         try:
-            cart = self.db.query(Cart).filter(Cart.user_id == user_id).first()
+            cart = self.cart_repo.find_by_user_id(user_id)
             if not cart:
                 return False
 
-            self.db.query(CartItem).filter(CartItem.cart_id == cart.id).delete()
-            cart.updated_at = datetime.utcnow()
+            self.cart_item_repo.delete_by_cart_id(cart.id)
+            self.cart_repo.update_timestamp(cart)
             self.db.commit()
             return True
 
@@ -479,12 +458,3 @@ class CartService:
             self.db.rollback()
             logger.error(f"清空购物车失败: {e}")
             return False
-
-    def _get_or_create_cart(self, user_id: int) -> Cart:
-        """获取或创建购物车"""
-        cart = self.db.query(Cart).filter(Cart.user_id == user_id).first()
-        if not cart:
-            cart = Cart(user_id=user_id)
-            self.db.add(cart)
-            self.db.flush()
-        return cart
