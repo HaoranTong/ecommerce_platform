@@ -200,7 +200,7 @@ class {class_name}:
             # 特殊处理phone_login：使用test_user.phone而不是test_data中的phone
             if 'phone_login' in function_name_lower or 'phone-login' in route.path.lower():
                 verification_setup_after_data = f'''
-        # 准备真实验证码（完整流程：调用API发送验证码 + 从Redis读取）
+        # 准备真实验证码（完整流程：调用API发送验证码）
         # 符合集成测试0% Mock原则，使用真实的验证码服务
         
         # 步骤1: 调用发送验证码API（phone_login使用phone字段）
@@ -211,17 +211,10 @@ class {class_name}:
         }})
         assert send_code_response.status_code == 200, f"发送验证码失败: {{send_code_response.json()}}"
         
-        # 步骤2: 从Redis读取验证码（使用docker命令，避免asyncio事件循环冲突）
-        import subprocess
-        redis_key = f"verification_code:{code_type}:{{phone_for_code}}"
-        result = subprocess.run(
-            ["docker", "exec", "ecommerce_platform-redis", "redis-cli", "GET", redis_key],
-            capture_output=True,
-            text=True,
-            check=False
-        )
-        test_verification_code = result.stdout.strip()
-        assert test_verification_code, f"Redis中没有找到验证码，key: {{redis_key}}"
+        # 步骤2: 从response中获取验证码（开发环境返回验证码）
+        response_data = send_code_response.json()
+        test_verification_code = response_data.get("data", {{}}).get("code")
+        assert test_verification_code, f"Response中没有返回验证码: {{response_data}}"
         
         # 步骤3: 更新测试数据中的验证码字段
         test_data["verification_code"] = test_verification_code
@@ -229,7 +222,7 @@ class {class_name}:
             elif 'reset_password' in function_name_lower or 'reset-password' in route.path.lower():
                 # reset_password使用test_user.email
                 verification_setup_after_data = f'''
-        # 准备真实验证码（完整流程：调用API发送验证码 + 从Redis读取）
+        # 准备真实验证码（完整流程：调用API发送验证码）
         # 符合集成测试0% Mock原则，使用真实的验证码服务
         
         # 步骤1: 调用发送验证码API（reset_password使用test_user.email）
@@ -240,17 +233,10 @@ class {class_name}:
         }})
         assert send_code_response.status_code == 200, f"发送验证码失败: {{send_code_response.json()}}"
         
-        # 步骤2: 从Redis读取验证码（使用docker命令，避免asyncio事件循环冲突）
-        import subprocess
-        redis_key = f"verification_code:{code_type}:{{email_for_code}}"
-        result = subprocess.run(
-            ["docker", "exec", "ecommerce_platform-redis", "redis-cli", "GET", redis_key],
-            capture_output=True,
-            text=True,
-            check=False
-        )
-        test_verification_code = result.stdout.strip()
-        assert test_verification_code, f"Redis中没有找到验证码，key: {{redis_key}}"
+        # 步骤2: 从response中获取验证码（开发环境返回验证码）
+        response_data = send_code_response.json()
+        test_verification_code = response_data.get("data", {{}}).get("code")
+        assert test_verification_code, f"Response中没有返回验证码: {{response_data}}"
         
         # 步骤3: 更新测试数据中的验证码字段
         test_data["verification_code"] = test_verification_code
@@ -258,7 +244,7 @@ class {class_name}:
             else:
                 # register等其他场景：使用test_data中的email/phone
                 verification_setup_after_data = f'''
-        # 准备真实验证码（完整流程：调用API发送验证码 + 从Redis读取）
+        # 准备真实验证码（完整流程：调用API发送验证码）
         # 符合集成测试0% Mock原则，使用真实的验证码服务
         
         # 步骤1: 调用发送验证码API
@@ -269,17 +255,10 @@ class {class_name}:
         }})
         assert send_code_response.status_code == 200, f"发送验证码失败: {{send_code_response.json()}}"
         
-        # 步骤2: 从Redis读取验证码（使用docker命令，避免asyncio事件循环冲突）
-        import subprocess
-        redis_key = f"verification_code:{code_type}:{{email_for_code}}"
-        result = subprocess.run(
-            ["docker", "exec", "ecommerce_platform-redis", "redis-cli", "GET", redis_key],
-            capture_output=True,
-            text=True,
-            check=False
-        )
-        test_verification_code = result.stdout.strip()
-        assert test_verification_code, f"Redis中没有找到验证码，key: {{redis_key}}"
+        # 步骤2: 从response中获取验证码（开发环境返回验证码）
+        response_data = send_code_response.json()
+        test_verification_code = response_data.get("data", {{}}).get("code")
+        assert test_verification_code, f"Response中没有返回验证码: {{response_data}}"
         
         # 步骤3: 更新测试数据中的验证码字段
         test_data["verification_code"] = test_verification_code
