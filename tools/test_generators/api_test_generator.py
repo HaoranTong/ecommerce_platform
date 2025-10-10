@@ -134,6 +134,7 @@ from tests.factories.data_factory import StandardTestDataFactory
         methods_str = "\n\n".join(test_methods)
         
         return f'''
+@pytest.mark.integration
 class {class_name}:
     """{business_domain}模块{method}方法API测试"""
     
@@ -855,6 +856,7 @@ class {class_name}:
         
         return f'''
 
+@pytest.mark.integration
 class {class_name}:
     """{business_domain}模块API集成测试 - 测试完整业务流程"""
     
