@@ -31,6 +31,7 @@ from typing import List, Optional
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
+from .exceptions import CartLimitExceededError, QuantityExceededError, CartItemNotFoundError, CartDatabaseError
 from .models import Cart, CartItem
 from .repository import CartRepository, CartItemRepository
 from .schemas import AddItemRequest, CartItemResponse, CartResponse
@@ -154,9 +155,9 @@ class CartService:
                 # 防止恶意或错误的大量添加操作
                 MAX_QUANTITY_PER_ITEM = 999
                 if new_quantity > MAX_QUANTITY_PER_ITEM:
-                    raise HTTPException(
-                        status_code=status.HTTP_400_BAD_REQUEST,
-                        detail=f"单个商品数量不能超过{MAX_QUANTITY_PER_ITEM}个",
+                    raise QuantityExceededError(
+                        max_quantity=MAX_QUANTITY_PER_ITEM,
+                        current_quantity=new_quantity,
                     )
 
                 # 更新现有商品项的数量和时间戳
@@ -168,9 +169,8 @@ class CartService:
                 item_count = self.cart_item_repo.count_by_cart_id(cart.id)
                 MAX_ITEMS_IN_CART = 50
                 if item_count >= MAX_ITEMS_IN_CART:
-                    raise HTTPException(
-                        status_code=status.HTTP_400_BAD_REQUEST,
-                        detail=f"购物车商品种类不能超过{MAX_ITEMS_IN_CART}个",
+                    raise CartLimitExceededError(
+                        limit=MAX_ITEMS_IN_CART, current=item_count
                     )
 
                 # 创建新的购物车商品项
@@ -195,7 +195,7 @@ class CartService:
             # 返回最新的购物车完整信息，包含所有商品和统计数据
             return await self.get_cart(user_id)
 
-        except HTTPException:
+        except (QuantityExceededError, CartLimitExceededError):
             # 重新抛出业务异常，保持错误信息完整性
             raise
         except Exception as e:
@@ -205,10 +205,7 @@ class CartService:
             logger.error(
                 f"添加商品到购物车异常: user_id={user_id}, sku_id={request.sku_id}, error={str(e)}"
             )
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="添加商品失败，请稍后重试",
-            )
+            raise CartDatabaseError("添加商品失败，请稍后重试")
 
     async def get_cart(self, user_id: int) -> CartResponse:
         """
@@ -322,10 +319,7 @@ class CartService:
             # ================== 异常处理 ==================
             # 记录详细错误信息，便于问题排查
             logger.error(f"获取购物车异常: user_id={user_id}, error={str(e)}")
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="获取购物车失败，请稍后重试",
-            )
+            raise CartDatabaseError("获取购物车失败，请稍后重试")
 
     async def update_quantity(
         self, user_id: int, item_id: int, quantity: int
@@ -368,18 +362,12 @@ class CartService:
             cart_item = self.cart_item_repo.find_by_id_and_user(item_id, user_id)
 
             if not cart_item:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail="商品项不存在或无权限访问",
-                )
+                raise CartItemNotFoundError(item_id=item_id)
 
             # ================== 数量验证 ==================
             # 验证新数量的有效性
             if quantity < 1 or quantity > 999:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="商品数量必须在1-999之间",
-                )
+                raise QuantityExceededError(max_quantity=999, current_quantity=quantity)
 
             # ================== 数据更新 ==================
             # 更新商品项数量和时间戳
@@ -398,7 +386,7 @@ class CartService:
             # 返回更新后的完整购物车信息
             return await self.get_cart(user_id)
 
-        except HTTPException:
+        except (CartItemNotFoundError, QuantityExceededError):
             # 重新抛出业务异常
             raise
         except Exception as e:
@@ -408,10 +396,7 @@ class CartService:
             logger.error(
                 f"更新商品数量异常: user_id={user_id}, item_id={item_id}, quantity={quantity}, error={str(e)}"
             )
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="更新商品数量失败，请稍后重试",
-            )
+            raise CartDatabaseError("更新商品数量失败，请稍后重试")
 
     async def delete_item(self, user_id: int, item_id: int) -> bool:
         """删除商品项"""
