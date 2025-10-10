@@ -39,7 +39,7 @@ class TestProductCatalogPostAPI:
         """测试创建新分类 - 使用统一工厂和真实JWT认证"""
         
         # 使用新的JWT认证方式创建用户并获取token
-        access_token, test_user, _ = api_client.authenticate_as_user()
+        access_token, test_user = api_client.authenticate_as_admin()
         api_client.set_auth_headers(access_token)
         
         
@@ -82,7 +82,7 @@ class TestProductCatalogPostAPI:
         """测试创建新品牌 - 使用统一工厂和真实JWT认证"""
         
         # 使用新的JWT认证方式创建用户并获取token
-        access_token, test_user, _ = api_client.authenticate_as_user()
+        access_token, test_user = api_client.authenticate_as_admin()
         api_client.set_auth_headers(access_token)
         
         
@@ -125,7 +125,7 @@ class TestProductCatalogPostAPI:
         """测试创建新商品 - 使用统一工厂和真实JWT认证"""
         
         # 使用新的JWT认证方式创建用户并获取token
-        access_token, test_user, _ = api_client.authenticate_as_user()
+        access_token, test_user = api_client.authenticate_as_admin()
         api_client.set_auth_headers(access_token)
         
         
@@ -171,7 +171,7 @@ class TestProductCatalogPostAPI:
         """测试创建SKU - 使用统一工厂和真实JWT认证"""
         
         # 使用新的JWT认证方式创建用户并获取token
-        access_token, test_user, _ = api_client.authenticate_as_user()
+        access_token, test_user = api_client.authenticate_as_admin()
         api_client.set_auth_headers(access_token)
         
         
@@ -228,7 +228,7 @@ class TestProductCatalogGetAPI:
         """测试获取分类列表 - 使用统一工厂和真实JWT认证"""
         
         # 使用新的JWT认证方式创建用户并获取token
-        access_token, test_user, _ = api_client.authenticate_as_user()
+        access_token, test_user = api_client.authenticate_as_admin()
         api_client.set_auth_headers(access_token)
         
         
@@ -263,7 +263,7 @@ class TestProductCatalogGetAPI:
         """测试获取品牌列表 - 使用统一工厂和真实JWT认证"""
         
         # 使用新的JWT认证方式创建用户并获取token
-        access_token, test_user, _ = api_client.authenticate_as_user()
+        access_token, test_user = api_client.authenticate_as_admin()
         api_client.set_auth_headers(access_token)
         
         
@@ -298,7 +298,7 @@ class TestProductCatalogGetAPI:
         """测试获取品牌详情 - 使用统一工厂和真实JWT认证"""
         
         # 使用新的JWT认证方式创建用户并获取token
-        access_token, test_user, _ = api_client.authenticate_as_user()
+        access_token, test_user = api_client.authenticate_as_admin()
         api_client.set_auth_headers(access_token)
         
         
@@ -340,7 +340,7 @@ class TestProductCatalogGetAPI:
         """测试获取商品列表 - 使用统一工厂和真实JWT认证"""
         
         # 使用新的JWT认证方式创建用户并获取token
-        access_token, test_user, _ = api_client.authenticate_as_user()
+        access_token, test_user = api_client.authenticate_as_admin()
         api_client.set_auth_headers(access_token)
         
         
@@ -375,7 +375,7 @@ class TestProductCatalogGetAPI:
         """测试获取商品详情 - 使用统一工厂和真实JWT认证"""
         
         # 使用新的JWT认证方式创建用户并获取token
-        access_token, test_user, _ = api_client.authenticate_as_user()
+        access_token, test_user = api_client.authenticate_as_admin()
         api_client.set_auth_headers(access_token)
         
         
@@ -417,7 +417,7 @@ class TestProductCatalogGetAPI:
         """测试list_skus - 使用统一工厂和真实JWT认证"""
         
         # 使用新的JWT认证方式创建用户并获取token
-        access_token, test_user, _ = api_client.authenticate_as_user()
+        access_token, test_user = api_client.authenticate_as_admin()
         api_client.set_auth_headers(access_token)
         
         
@@ -452,7 +452,7 @@ class TestProductCatalogGetAPI:
         """测试get_sku - 使用统一工厂和真实JWT认证"""
         
         # 使用新的JWT认证方式创建用户并获取token
-        access_token, test_user, _ = api_client.authenticate_as_user()
+        access_token, test_user = api_client.authenticate_as_admin()
         api_client.set_auth_headers(access_token)
         
         
@@ -500,7 +500,7 @@ class TestProductCatalogPutAPI:
         """测试更新品牌信息 - 使用统一工厂和真实JWT认证"""
         
         # 使用新的JWT认证方式创建用户并获取token
-        access_token, test_user, _ = api_client.authenticate_as_user()
+        access_token, test_user = api_client.authenticate_as_admin()
         api_client.set_auth_headers(access_token)
         
         
@@ -548,7 +548,7 @@ class TestProductCatalogPutAPI:
         """测试更新商品信息 - 使用统一工厂和真实JWT认证"""
         
         # 使用新的JWT认证方式创建用户并获取token
-        access_token, test_user, _ = api_client.authenticate_as_user()
+        access_token, test_user = api_client.authenticate_as_admin()
         api_client.set_auth_headers(access_token)
         
         
@@ -599,7 +599,7 @@ class TestProductCatalogPutAPI:
         """测试update_sku - 使用统一工厂和真实JWT认证"""
         
         # 使用新的JWT认证方式创建用户并获取token
-        access_token, test_user, _ = api_client.authenticate_as_user()
+        access_token, test_user = api_client.authenticate_as_admin()
         api_client.set_auth_headers(access_token)
         
         
@@ -654,7 +654,7 @@ class TestProductCatalogDeleteAPI:
         """测试删除品牌 - 使用统一工厂和真实JWT认证"""
         
         # 使用新的JWT认证方式创建用户并获取token
-        access_token, test_user, _ = api_client.authenticate_as_user()
+        access_token, test_user = api_client.authenticate_as_admin()
         api_client.set_auth_headers(access_token)
         
         
@@ -685,7 +685,7 @@ class TestProductCatalogDeleteAPI:
         """测试删除商品 - 使用统一工厂和真实JWT认证"""
         
         # 使用新的JWT认证方式创建用户并获取token
-        access_token, test_user, _ = api_client.authenticate_as_user()
+        access_token, test_user = api_client.authenticate_as_admin()
         api_client.set_auth_headers(access_token)
         
         
@@ -716,7 +716,7 @@ class TestProductCatalogDeleteAPI:
         """测试delete_sku - 使用统一工厂和真实JWT认证"""
         
         # 使用新的JWT认证方式创建用户并获取token
-        access_token, test_user, _ = api_client.authenticate_as_user()
+        access_token, test_user = api_client.authenticate_as_admin()
         api_client.set_auth_headers(access_token)
         
         
