@@ -25,8 +25,11 @@ from typing import Any, Dict, List
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
+from app.shared.response import ApiResponse, success_response
+
 from .dependencies import (get_cart_service, get_user_id_from_token,
                            validate_cart_business_rules)
+from .exceptions import CartException
 from .schemas import (AddItemRequest, BatchDeleteRequest, CartResponse,
                       CartUpdateResponse, SuccessResponse,
                       UpdateQuantityRequest)
@@ -41,7 +44,7 @@ router = APIRouter(tags=["购物车"])
 
 @router.post(
     "/shopping-cart/items",
-    response_model=CartResponse,
+    response_model=ApiResponse[CartResponse],
     status_code=status.HTTP_200_OK,
     summary="添加商品到购物车",
     description="将指定的商品添加到当前用户的购物车中，如果商品已存在则增加数量",
@@ -50,7 +53,7 @@ async def add_item_to_cart(
     request: AddItemRequest,
     user_id: int = Depends(get_user_id_from_token),
     cart_service: CartService = Depends(get_cart_service),
-) -> CartResponse:
+) -> ApiResponse[CartResponse]:
     """
     添加商品到购物车
 
@@ -95,9 +98,10 @@ async def add_item_to_cart(
         logger.info(
             f"成功添加商品到购物车: user_id={user_id}, cart_id={cart_response.cart_id}"
         )
-        return cart_response
+        return success_response(data=cart_response, message="添加商品成功")
 
-    except HTTPException:
+    except CartException:
+        # 业务异常直接抛出，由FastAPI异常处理器处理
         raise
     except Exception as e:
         logger.error(f"添加商品到购物车异常: user_id={user_id}, error={str(e)}")
@@ -108,14 +112,14 @@ async def add_item_to_cart(
 
 @router.get(
     "/shopping-cart/cart",
-    response_model=CartResponse,
+    response_model=ApiResponse[CartResponse],
     summary="获取购物车内容",
     description="获取当前用户购物车的完整内容，包括商品详情和价格计算",
 )
 async def get_cart(
     user_id: int = Depends(get_user_id_from_token),
     cart_service: CartService = Depends(get_cart_service),
-) -> CartResponse:
+) -> ApiResponse[CartResponse]:
     """
     获取购物车内容
 
@@ -156,9 +160,9 @@ async def get_cart(
         logger.info(
             f"成功获取购物车: user_id={user_id}, total_items={cart_response.total_items}"
         )
-        return cart_response
+        return success_response(data=cart_response, message="获取购物车成功")
 
-    except HTTPException:
+    except CartException:
         raise
     except Exception as e:
         logger.error(f"获取购物车异常: user_id={user_id}, error={str(e)}")
@@ -169,7 +173,7 @@ async def get_cart(
 
 @router.put(
     "/shopping-cart/items/{item_id}",
-    response_model=CartResponse,
+    response_model=ApiResponse[CartResponse],
     summary="更新商品数量",
     description="更新购物车中指定商品的数量",
 )
@@ -178,7 +182,7 @@ async def update_item_quantity(
     request: UpdateQuantityRequest,
     user_id: int = Depends(get_user_id_from_token),
     cart_service: CartService = Depends(get_cart_service),
-) -> CartResponse:
+) -> ApiResponse[CartResponse]:
     """
     更新购物车商品数量
 
@@ -212,9 +216,9 @@ async def update_item_quantity(
         )
 
         logger.info(f"成功更新商品数量: user_id={user_id}, item_id={item_id}")
-        return cart_response
+        return success_response(data=cart_response, message="更新商品数量成功")
 
-    except HTTPException:
+    except CartException:
         raise
     except Exception as e:
         logger.error(
@@ -227,7 +231,7 @@ async def update_item_quantity(
 
 @router.delete(
     "/shopping-cart/items/{item_id}",
-    response_model=SuccessResponse,
+    response_model=ApiResponse[Dict[str, Any]],
     summary="删除单个商品",
     description="从购物车删除指定的商品项",
 )
@@ -235,7 +239,7 @@ async def delete_cart_item(
     item_id: int,
     user_id: int = Depends(get_user_id_from_token),
     cart_service: CartService = Depends(get_cart_service),
-) -> SuccessResponse:
+) -> ApiResponse[Dict[str, Any]]:
     """
     删除购物车商品项
 
@@ -254,13 +258,16 @@ async def delete_cart_item(
 
         if success:
             logger.info(f"成功删除购物车商品: user_id={user_id}, item_id={item_id}")
-            return SuccessResponse(message="商品已从购物车中删除")
+            return success_response(
+                data={"item_id": item_id, "deleted": True},
+                message="商品已从购物车中删除"
+            )
         else:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND, detail="商品项不存在"
             )
 
-    except HTTPException:
+    except (HTTPException, CartException):
         raise
     except Exception as e:
         logger.error(
@@ -273,7 +280,7 @@ async def delete_cart_item(
 
 @router.delete(
     "/shopping-cart/items",
-    response_model=SuccessResponse,
+    response_model=ApiResponse[Dict[str, Any]],
     summary="批量删除商品",
     description="批量删除购物车中的多个商品项",
 )
@@ -281,7 +288,7 @@ async def batch_delete_items(
     request: BatchDeleteRequest,
     user_id: int = Depends(get_user_id_from_token),
     cart_service: CartService = Depends(get_cart_service),
-) -> SuccessResponse:
+) -> ApiResponse[Dict[str, Any]]:
     """
     批量删除购物车商品
 
@@ -308,11 +315,17 @@ async def batch_delete_items(
             logger.info(
                 f"成功批量删除购物车商品: user_id={user_id}, count={len(request.item_ids)}"
             )
-            return SuccessResponse(message=f"已删除{len(request.item_ids)}个商品")
+            return success_response(
+                data={"deleted_count": len(request.item_ids), "item_ids": request.item_ids},
+                message=f"已删除{len(request.item_ids)}个商品"
+            )
         else:
-            return SuccessResponse(message="未找到要删除的商品")
+            return success_response(
+                data={"deleted_count": 0, "item_ids": []},
+                message="未找到要删除的商品"
+            )
 
-    except HTTPException:
+    except (HTTPException, CartException):
         raise
     except Exception as e:
         logger.error(f"批量删除购物车商品异常: user_id={user_id}, error={str(e)}")
@@ -323,14 +336,14 @@ async def batch_delete_items(
 
 @router.delete(
     "/shopping-cart/cart",
-    response_model=SuccessResponse,
+    response_model=ApiResponse[Dict[str, Any]],
     summary="清空购物车",
     description="清空当前用户的整个购物车",
 )
 async def clear_cart(
     user_id: int = Depends(get_user_id_from_token),
     cart_service: CartService = Depends(get_cart_service),
-) -> SuccessResponse:
+) -> ApiResponse[Dict[str, Any]]:
     """
     清空购物车
 
@@ -350,11 +363,17 @@ async def clear_cart(
 
         if success:
             logger.info(f"成功清空购物车: user_id={user_id}")
-            return SuccessResponse(message="购物车已清空")
+            return success_response(
+                data={"cleared": True},
+                message="购物车已清空"
+            )
         else:
-            return SuccessResponse(message="购物车已为空")
+            return success_response(
+                data={"cleared": False},
+                message="购物车已为空"
+            )
 
-    except HTTPException:
+    except (HTTPException, CartException):
         raise
     except Exception as e:
         logger.error(f"清空购物车异常: user_id={user_id}, error={str(e)}")
