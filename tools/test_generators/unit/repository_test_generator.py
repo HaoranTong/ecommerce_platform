@@ -1767,16 +1767,24 @@ class Test{repo_name}:
                     # 无法推断实体,尝试从方法名推断字段
                     # get_by_username(username: str) -> entity.username
                     # get_by_email(email: str) -> entity.email
-                    if method_name.startswith('get_by_') and param_type == 'str':
+                    
+                    # 🔧 修复：去除Optional/List等包装，提取基础类型
+                    clean_type = param_type.replace('Optional[', '').replace(']', '').replace('List[', '').strip()
+                    
+                    if method_name.startswith('get_by_') and clean_type == 'str':
                         field_name = method_name[7:]  # 移除'get_by_'
                         if '_or_' in field_name:
                             field_name = field_name.split('_or_')[0]  # 使用第一个字段
                         param_parts.append(f'entity.{field_name}')
-                    elif param_type == 'int':
-                        param_parts.append('1')
-                    elif param_type == 'str':
+                    elif clean_type == 'int':
+                        # int类型参数：如果是_id结尾，使用None（Optional），否则使用1
+                        if param_name.endswith('_id') and 'Optional' in param_type:
+                            param_parts.append('None')
+                        else:
+                            param_parts.append('1')
+                    elif clean_type == 'str':
                         param_parts.append('"test_value"')
-                    elif param_type == 'bool':
+                    elif clean_type == 'bool':
                         param_parts.append('True')
                     else:
                         # 复杂类型,需要TODO
