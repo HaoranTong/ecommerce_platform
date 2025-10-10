@@ -102,7 +102,10 @@ class BrandRepository:
 
     @staticmethod
     def soft_delete(db: Session, brand: Brand) -> None:
-        # Perform soft delete if is_active field exists
+        """软删除品牌 - 设置is_deleted标记和deleted_at时间戳"""
+        from datetime import datetime
+        brand.is_deleted = True
+        brand.deleted_at = datetime.now()
         if hasattr(brand, 'is_active'):
             brand.is_active = False
         db.flush()

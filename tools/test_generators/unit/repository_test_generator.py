@@ -624,6 +624,9 @@ from app.modules.{module_name}.models import (
                         # 参数是字面量（如1, True, "test"），使用id作为验证字段
                         verify_field = 'id'
                 
+                # 生成not_found测试的参数
+                not_found_param = self._generate_not_found_param(query_param)
+                
                 return f'''    def test_{method_name}_found(self, unit_test_db: Session):
         """测试{method_name} - 查询到数据"""
         # 准备测试数据
@@ -640,7 +643,7 @@ from app.modules.{module_name}.models import (
     
     def test_{method_name}_not_found(self, unit_test_db: Session):
         """测试{method_name} - 数据不存在"""
-        result = {repo_name}.{method_name}(unit_test_db, "nonexistent_value_12345")
+        result = {repo_name}.{method_name}(unit_test_db, {not_found_param})
         
         assert result is None
 '''
@@ -1767,6 +1770,7 @@ class Test{repo_name}:
                     # 无法推断实体,尝试从方法名推断字段
                     # get_by_username(username: str) -> entity.username
                     # get_by_email(email: str) -> entity.email
+                    # find_by_name_and_parent(name: str, parent_id: Optional[int]) -> entity.name, None
                     
                     # 🔧 修复：去除Optional/List等包装，提取基础类型
                     clean_type = param_type.replace('Optional[', '').replace(']', '').replace('List[', '').strip()
@@ -1777,13 +1781,15 @@ class Test{repo_name}:
                             field_name = field_name.split('_or_')[0]  # 使用第一个字段
                         param_parts.append(f'entity.{field_name}')
                     elif clean_type == 'int':
-                        # int类型参数：如果是_id结尾，使用None（Optional），否则使用1
+                        # int类型参数：如果是_id结尾且Optional，使用None；否则使用1
                         if param_name.endswith('_id') and 'Optional' in param_type:
                             param_parts.append('None')
                         else:
                             param_parts.append('1')
                     elif clean_type == 'str':
-                        param_parts.append('"test_value"')
+                        # 🔧 修复：str参数应该使用entity的对应字段，而不是字面量
+                        # 尝试从参数名推断字段名（如name → entity.name）
+                        param_parts.append(f'entity.{param_name}')
                     elif clean_type == 'bool':
                         param_parts.append('True')
                     else:
