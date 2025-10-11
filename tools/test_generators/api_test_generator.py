@@ -268,19 +268,21 @@ class {class_name}:
         # 生成测试数据
         test_data = self._generate_test_data_for_route(route, models)
         
-        # 生成认证设置 - 根据数据依赖选择认证方式
+        # 生成认证设置 - 根据数据依赖和权限要求选择认证方式
         auth_setup = ""
         requires_auth = self._requires_authentication(route)
-        requires_admin = self._requires_admin_permission(route)
+        requires_admin = self._requires_admin_permission(route)  # 使用新的智能识别
         
         if requires_auth and route.function_name not in ['login_user', 'register_user'] and not needs_existing_user:
             if requires_admin:
+                print(f"  🔑 为 {route.function_name} 生成管理员认证代码")
                 auth_setup = '''
         # 使用管理员认证（因为这个API需要管理员权限）
         access_token, admin_user = api_client.authenticate_as_admin()
         api_client.set_auth_headers(access_token)
         '''
             else:
+                print(f"  🔑 为 {route.function_name} 生成普通用户认证代码")
                 auth_setup = '''
         # 使用新的JWT认证方式创建用户并获取token
         access_token, test_user, _ = api_client.authenticate_as_user()
@@ -308,17 +310,38 @@ class {class_name}:
 '''
     
     def _requires_admin_permission(self, route: RouterInfo) -> bool:
-        """检查API是否需要管理员权限"""
-        admin_patterns = ['/users']
-        path_lower = route.path.lower()
+        """
+        检查API是否需要管理员权限 - 基于依赖分析（无硬编码）
         
-        # 检查路径是否包含管理员模式
-        if any(pattern in path_lower for pattern in admin_patterns):
-            # 排除用户查看自己信息的API
-            if '/me' in path_lower:
-                return False
+        优先级顺序：
+        1. RouterInfo.require_admin 标记（最可靠）
+        2. 依赖列表中的管理员依赖
+        3. 参数名检查（兜底）
+        4. 路径模式检查（保护措施）
+        """
+        # 方式1：检查 RouterInfo 的管理员标记（AST分析结果）
+        if route.require_admin:
+            print(f"  🔐 检测到管理员权限要求: {route.function_name} (通过 require_admin 标记)")
             return True
-            
+        
+        # 方式2：检查依赖列表
+        for dep in route.dependencies:
+            if dep.get("is_admin_required", False):
+                print(f"  🔐 检测到管理员权限要求: {route.function_name} (通过依赖 {dep['dependency_name']})")
+                return True
+        
+        # 方式3：检查参数名（兜底逻辑）
+        for param in route.parameters:
+            if param.get("name") in ["admin_user", "admin", "current_admin"]:
+                print(f"  🔐 检测到管理员权限要求: {route.function_name} (通过参数名 {param['name']})")
+                return True
+        
+        # 方式4：检查路径模式（最后的保护措施，仅用于明确的管理路径）
+        path_lower = route.path.lower()
+        if '/admin/' in path_lower and '/me' not in path_lower:
+            print(f"  🔐 检测到管理员权限要求: {route.function_name} (通过路径模式 /admin/)")
+            return True
+        
         return False
     
     def _requires_authentication(self, route: RouterInfo) -> bool:

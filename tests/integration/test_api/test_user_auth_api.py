@@ -506,7 +506,7 @@ class TestUserAuthGetAPI:
         """测试获取用户列表 - 使用统一工厂和真实JWT认证"""
         
         # 使用管理员认证（因为这个API需要管理员权限）
-        access_token, admin_user = api_client.authenticate_as_admin()
+        access_token, admin_user, _ = api_client.authenticate_as_admin()
         api_client.set_auth_headers(access_token)
         
         
@@ -541,7 +541,7 @@ class TestUserAuthGetAPI:
         """测试通过ID获取用户信息 - 使用统一工厂和真实JWT认证"""
         
         # 使用管理员认证（因为这个API需要管理员权限）
-        access_token, admin_user = api_client.authenticate_as_admin()
+        access_token, admin_user, _ = api_client.authenticate_as_admin()
         api_client.set_auth_headers(access_token)
         
         

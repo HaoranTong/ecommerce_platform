@@ -635,7 +635,7 @@ def api_client(mysql_integration_db):
         with TestClient(app) as test_client:
             # 为测试客户端添加认证帮助方法
             def authenticate_as_admin():
-                """创建管理员用户并返回JWT token"""
+                """创建管理员用户并返回JWT token（统一返回3个值）"""
                 # 使用共同的辅助函数创建管理员用户
                 admin_user = create_test_admin_user()
                 admin_user.created_at = datetime.utcnow()
@@ -655,7 +655,9 @@ def api_client(mysql_integration_db):
                     user_id=admin_user.id,
                     expires_delta=timedelta(hours=1)
                 )
-                return access_token, admin_user
+                # 统一返回3个值：(token, user, password/None)
+                # 管理员不需要密码测试，返回 None
+                return access_token, admin_user, None
 
             def authenticate_as_user():
                 """创建普通用户并返回JWT token"""

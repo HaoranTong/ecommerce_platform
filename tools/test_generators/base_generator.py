@@ -111,6 +111,13 @@ class RouterInfo:
     description: Optional[str]
     tags: List[str]
     auth_required: bool
+    dependencies: List[Dict[str, Any]] = None  # 依赖注入信息
+    require_admin: bool = False  # 是否需要管理员权限
+    
+    def __post_init__(self):
+        """初始化默认值"""
+        if self.dependencies is None:
+            self.dependencies = []
 
 
 class BaseTestGenerator(ABC):
@@ -196,6 +203,8 @@ class BaseTestGenerator(ABC):
     
     def _parse_route_decorator(self, decorator: ast.Attribute, func_node: ast.FunctionDef, content: str) -> RouterInfo:
         """解析简单的路由装饰器"""
+        dependencies, require_admin = self._extract_function_dependencies(func_node)
+        
         return RouterInfo(
             path=f"/{func_node.name}",  # 默认路径
             method=decorator.attr.upper(),
@@ -205,7 +214,9 @@ class BaseTestGenerator(ABC):
             summary=None,
             description=ast.get_docstring(func_node),
             tags=[],
-            auth_required=self._check_auth_required(func_node)
+            auth_required=self._check_auth_required(func_node),
+            dependencies=dependencies,
+            require_admin=require_admin
         )
     
     def _parse_route_decorator_with_args(self, decorator: ast.Call, func_node: ast.FunctionDef, content: str) -> RouterInfo:
@@ -228,6 +239,9 @@ class BaseTestGenerator(ABC):
             elif keyword.arg == "tags" and isinstance(keyword.value, ast.List):
                 tags = [item.value for item in keyword.value.elts if isinstance(item, ast.Constant)]
         
+        # 提取依赖信息
+        dependencies, require_admin = self._extract_function_dependencies(func_node)
+        
         return RouterInfo(
             path=path,
             method=decorator.func.attr.upper(),
@@ -237,7 +251,9 @@ class BaseTestGenerator(ABC):
             summary=summary,
             description=ast.get_docstring(func_node),
             tags=tags,
-            auth_required=self._check_auth_required(func_node)
+            auth_required=self._check_auth_required(func_node),
+            dependencies=dependencies,
+            require_admin=require_admin
         )
     
     def _extract_function_parameters(self, func_node: ast.FunctionDef) -> List[Dict[str, Any]]:
@@ -262,6 +278,68 @@ class BaseTestGenerator(ABC):
             parameters.append(param_info)
         
         return parameters
+    
+    def _extract_function_dependencies(self, func_node: ast.FunctionDef) -> tuple[List[Dict[str, Any]], bool]:
+        """
+        提取函数的依赖注入信息
+        
+        Returns:
+            tuple: (dependencies列表, 是否需要管理员权限)
+        """
+        dependencies = []
+        require_admin = False
+        
+        for arg in func_node.args.args:
+            # 检查参数名是否指示管理员权限
+            if arg.arg in ['admin_user', 'admin', 'current_admin']:
+                require_admin = True
+            
+            # 检查类型注解中的 Depends() 表达式
+            if arg.annotation:
+                dep_info = self._analyze_depends_annotation(arg, arg.annotation)
+                if dep_info:
+                    dependencies.append(dep_info)
+                    # 检查依赖是否需要管理员权限
+                    if dep_info.get('is_admin_required', False):
+                        require_admin = True
+        
+        return dependencies, require_admin
+    
+    def _analyze_depends_annotation(self, arg, annotation) -> Optional[Dict[str, Any]]:
+        """分析 Depends() 注解"""
+        # 检查是否是 Depends() 调用
+        if isinstance(annotation, ast.Call):
+            if isinstance(annotation.func, ast.Name) and annotation.func.id == 'Depends':
+                # 提取 Depends 的参数
+                if annotation.args:
+                    dep_func = annotation.args[0]
+                    dep_name = self._get_dependency_name(dep_func)
+                    is_admin = self._is_admin_dependency(dep_func, dep_name)
+                    
+                    return {
+                        'param_name': arg.arg,
+                        'dependency_name': dep_name,
+                        'is_admin_required': is_admin
+                    }
+        
+        return None
+    
+    def _get_dependency_name(self, dep_expr) -> str:
+        """获取依赖函数名"""
+        if isinstance(dep_expr, ast.Call):
+            if isinstance(dep_expr.func, ast.Name):
+                return dep_expr.func.id
+        elif isinstance(dep_expr, ast.Name):
+            return dep_expr.id
+        elif isinstance(dep_expr, ast.Attribute):
+            return dep_expr.attr
+        return "unknown"
+    
+    def _is_admin_dependency(self, dep_expr, dep_name: str) -> bool:
+        """检查依赖是否需要管理员权限"""
+        # 检查依赖名称中是否包含 admin
+        admin_keywords = ['admin', 'require_admin', 'admin_only', 'admin_required']
+        return any(keyword in dep_name.lower() for keyword in admin_keywords)
     
     def _check_auth_required(self, func_node: ast.FunctionDef) -> bool:
         """检查函数是否需要认证"""
