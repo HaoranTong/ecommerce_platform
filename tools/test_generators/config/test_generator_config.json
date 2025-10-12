@@ -80,6 +80,17 @@
       "Category": ["product_catalog"],
       "Brand": ["product_catalog"]
     }
+    ,
+    "repository_priority_fields": [
+      "real_name",
+      "phone",
+      "status",
+      "role",
+      "description",
+      "remark",
+      "note",
+      "address"
+    ]
   },
   "error_handling": {
     "max_retries": 3,

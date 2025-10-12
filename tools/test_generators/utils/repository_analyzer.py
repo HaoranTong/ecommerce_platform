@@ -191,12 +191,18 @@ class RepositoryAnalyzer:
             'update_' in method_node.name
         )
         
+        # 检测是否为静态方法
+        is_static = any(
+            isinstance(decorator, ast.Name) and decorator.id == 'staticmethod'
+            for decorator in method_node.decorator_list
+        )
+        
         return RepositoryMethodInfo(
             name=method_node.name,
             method_type=method_type,
             parameters=params,
             return_type=return_type,
-            is_static=False,  # Python Repository通常不使用静态方法
+            is_static=is_static,
             docstring=ast.get_docstring(method_node),
             has_transaction=has_transaction,
             is_soft_delete=is_soft_delete,

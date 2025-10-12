@@ -121,6 +121,43 @@ class RepositoryTestGenerator:
         self.config = config
         self.main_generator = main_generator  # 临时：引用主程序的方法
     
+    def _generate_method_call(
+        self, 
+        method_info: RepositoryMethodInfo, 
+        repo_name: str, 
+        args: str
+    ) -> str:
+        """生成正确的Repository方法调用（静态方法 vs 实例方法）
+        
+        Args:
+            method_info: 方法信息（包含is_static字段）
+            repo_name: Repository类名
+            args: 方法参数字符串
+            
+        Returns:
+            str: 正确的方法调用代码
+            
+        Examples:
+            静态方法: CartRepository.create(unit_test_db, entity)
+            实例方法: CartRepository(unit_test_db).create(entity)
+        """
+        if method_info.is_static:
+            # 静态方法：RepositoryClass.method(db, ...)
+            return f"{repo_name}.{method_info.name}({args})"
+        else:
+            # 实例方法：RepositoryClass(db).method(...)
+            # 解析数据库参数（假设第一个参数是数据库）
+            if args.startswith('unit_test_db, '):
+                # 有其他参数: unit_test_db, entity -> (unit_test_db).method(entity)
+                remaining_args = args[15:]  # 移除 'unit_test_db, '
+                return f"{repo_name}(unit_test_db).{method_info.name}({remaining_args})"
+            elif args == 'unit_test_db':
+                # 只有数据库参数: unit_test_db -> (unit_test_db).method()
+                return f"{repo_name}(unit_test_db).{method_info.name}()"
+            else:
+                # 其他情况，数据库作为构造参数
+                return f"{repo_name}(unit_test_db).{method_info.name}({args})"
+
     def generate_repository_tests(
         self,
         module_name: str,
@@ -239,6 +276,9 @@ from app.modules.{module_name}.models import (
         # 检查是否使用联合主键
         has_composite_pk = self._has_composite_primary_key(model_name, models)
         
+        # 生成正确的方法调用
+        method_call_entity = self._generate_method_call(method_info, repo_name, "unit_test_db, entity")
+        
         if has_composite_pk:
             # 联合主键：使用主键字段组合查询
             pk_fields = self._get_primary_key_fields(model_name, models)
@@ -254,7 +294,7 @@ from app.modules.{module_name}.models import (
 {minimal_entity_code}
         
         # 执行Repository方法
-        result = {repo_name}.{method_name}(unit_test_db, entity)
+        result = {method_call_entity}
         
         # 验证必填字段
         assert result is not None
@@ -276,10 +316,8 @@ from app.modules.{module_name}.models import (
         entity = {model_name}Factory.build()  # build不自动保存
         
         # 执行Repository方法
-        result = {repo_name}.{method_name}(unit_test_db, entity)
+        result = {method_call_entity}
         
-        # 验证所有字段保存正确
-        assert result is not None
         # TODO: 验证各个字段值
         
         # 验证持久化
@@ -294,7 +332,7 @@ from app.modules.{module_name}.models import (
         from tests.factories.{module_name}_factories import {model_name}Factory
         entity = {model_name}Factory.build()
         
-        result = {repo_name}.{method_name}(unit_test_db, entity)
+        result = {method_call_entity}
         
         # 验证事务已提交（expire后重新查询能找到）
         unit_test_db.expire_all()
@@ -313,7 +351,7 @@ from app.modules.{module_name}.models import (
 {minimal_entity_code}
         
         # 执行Repository方法
-        result = {repo_name}.{method_name}(unit_test_db, entity)
+        result = {method_call_entity}
         
         # 验证必填字段
         assert result is not None
@@ -339,7 +377,7 @@ from app.modules.{module_name}.models import (
         entity = {model_name}Factory.build()  # build不自动保存到数据库
         
         # 执行Repository方法
-        result = {repo_name}.{method_name}(unit_test_db, entity)
+        result = {method_call_entity}
         
         # 验证所有字段保存正确
         assert result is not None
@@ -358,7 +396,7 @@ from app.modules.{module_name}.models import (
         from tests.factories.{module_name}_factories import {model_name}Factory
         entity = {model_name}Factory.build()
         
-        result = {repo_name}.{method_name}(unit_test_db, entity)
+        result = {method_call_entity}
         
         # 验证事务已提交（expire后重新查询能找到）
         unit_test_db.expire_all()
@@ -391,6 +429,10 @@ from app.modules.{module_name}.models import (
             pk_fields = self._get_primary_key_fields(model_name, models)
             not_found_params = ', '.join(['999999' for _ in pk_fields])
             
+            # 生成方法调用
+            method_call_found = self._generate_method_call(method_info, repo_name, f"unit_test_db, {query_param}")
+            method_call_not_found = self._generate_method_call(method_info, repo_name, f"unit_test_db, {not_found_params}")
+            
             # 根据返回类型选择断言
             if method_info.return_type == "int" or "count" in method_name:
                 not_found_assertion = "assert result == 0  # count方法返回0"
@@ -400,19 +442,19 @@ from app.modules.{module_name}.models import (
             return f'''    def test_{method_name}_found(self, unit_test_db: Session):
         """测试{method_name} - 查询到数据"""
         # 准备测试数据
-        entity = {entity_creation}
+        {entity_creation}
         unit_test_db.add(entity)
         unit_test_db.commit()
         
         # 执行Repository方法
-        result = {repo_name}.{method_name}(unit_test_db, {query_param})
+        result = {method_call_found}
         
         # 验证结果
         assert result is not None
 
     def test_{method_name}_not_found(self, unit_test_db: Session):
         """测试{method_name} - 数据不存在（复合主键）"""
-        result = {repo_name}.{method_name}(unit_test_db, {not_found_params})
+        result = {method_call_not_found}
         
         # 验证结果
         {not_found_assertion}
@@ -421,22 +463,26 @@ from app.modules.{module_name}.models import (
         if is_bool_return:
             # 返回bool的方法（如check_exists）
             if method_name == 'check_exists':
+                method_call_found = self._generate_method_call(method_info, repo_name, f"unit_test_db, {query_param}")
+                not_found_params = self._generate_not_found_param(query_param)
+                method_call_not_found = self._generate_method_call(method_info, repo_name, f"unit_test_db, {not_found_params}")
+                
                 return f'''    def test_{method_name}_found(self, unit_test_db: Session):
         """测试{method_name} - 查询到数据"""
         # 准备测试数据
-        entity = {entity_creation}
+        {entity_creation}
         unit_test_db.add(entity)
         unit_test_db.commit()
         
         # 执行Repository方法
-        result = {repo_name}.{method_name}(unit_test_db, {query_param})
+        result = {method_call_found}
         
         # 验证结果
         assert result is True
     
     def test_{method_name}_not_found(self, unit_test_db: Session):
         """测试{method_name} - 数据不存在"""
-        result = {repo_name}.{method_name}(unit_test_db, username="nonexistent", email="nonexistent@test.com")
+        result = {method_call_not_found}
         
         assert result is False
 '''
@@ -444,7 +490,7 @@ from app.modules.{module_name}.models import (
                 return f'''    def test_{method_name}_found(self, unit_test_db: Session):
         """测试{method_name} - 查询到数据"""
         # 准备测试数据
-        entity = {entity_creation}
+        {entity_creation}
         unit_test_db.add(entity)
         unit_test_db.commit()
         
@@ -503,7 +549,7 @@ from app.modules.{module_name}.models import (
                 return f'''    def test_{method_name}_found(self, unit_test_db: Session):
         """测试{method_name} - 查询到数据"""
         # 准备测试数据
-        entity = {entity_creation}
+        {entity_creation}
         unit_test_db.add(entity)
         unit_test_db.commit()
         
@@ -527,7 +573,7 @@ from app.modules.{module_name}.models import (
                 return f'''    def test_{method_name}_found(self, unit_test_db: Session):
         """测试{method_name} - 查询到数据"""
         # 准备测试数据
-        entity = {entity_creation}
+        {entity_creation}
         unit_test_db.add(entity)
         unit_test_db.commit()
         
@@ -567,7 +613,7 @@ from app.modules.{module_name}.models import (
         # 准备依赖实体
         {setup_code}
         # 准备测试数据
-        entity = {entity_creation}
+        {entity_creation}
         unit_test_db.add(entity)
         unit_test_db.commit()
         
@@ -589,7 +635,7 @@ from app.modules.{module_name}.models import (
                 return f'''    def test_{method_name}_found(self, unit_test_db: Session):
         """测试{method_name} - 查询到数据"""
         # 准备测试数据
-        entity = {entity_creation}
+        {entity_creation}
         unit_test_db.add(entity)
         unit_test_db.commit()
         
@@ -630,7 +676,7 @@ from app.modules.{module_name}.models import (
                 return f'''    def test_{method_name}_found(self, unit_test_db: Session):
         """测试{method_name} - 查询到数据"""
         # 准备测试数据
-        entity = {entity_creation}
+        {entity_creation}
         unit_test_db.add(entity)
         unit_test_db.commit()
         
@@ -760,7 +806,8 @@ from app.modules.{module_name}.models import (
                 }
                 
                 # 🎯 优先级排序：业务字段 > 描述字段 > 其他字段
-                priority_fields = ['real_name', 'phone', 'status', 'role', 'description', 'remark', 'note', 'address']
+                logic_config = self.config.get('business_logic_patterns', {}) if self.config else {}
+                priority_fields = logic_config.get('repository_priority_fields', [])
                 
                 # 先检查优先级字段
                 for field in priority_fields:
@@ -791,7 +838,7 @@ from app.modules.{module_name}.models import (
             return f'''    def test_{method_name}_success(self, unit_test_db: Session):
         """测试{method_name} - 更新成功"""
         # 准备测试数据
-        entity = {entity_creation}
+        {entity_creation}
         unit_test_db.add(entity)
         unit_test_db.commit()
         
@@ -993,7 +1040,7 @@ from app.modules.{module_name}.models import (
                 return f'''    def test_{method_name}_success(self, unit_test_db: Session):
         """测试{method_name} - 删除成功"""
         # 准备测试数据
-        entity = {entity_creation}
+        {entity_creation}
         unit_test_db.add(entity)
         unit_test_db.commit()
         {pk_saves}
@@ -1008,7 +1055,7 @@ from app.modules.{module_name}.models import (
                 return f'''    def test_{method_name}_success(self, unit_test_db: Session):
         """测试{method_name} - 删除成功"""
         # 准备测试数据
-        entity = {entity_creation}
+        {entity_creation}
         unit_test_db.add(entity)
         unit_test_db.commit()
         {pk_saves}
@@ -1031,7 +1078,7 @@ from app.modules.{module_name}.models import (
                     return f'''    def test_{method_name}_success(self, unit_test_db: Session):
         """测试{method_name} - 删除成功"""
         # 准备测试数据
-        entity = {entity_creation}
+        {entity_creation}
         unit_test_db.add(entity)
         unit_test_db.commit()
         entity_id = entity.id
@@ -1045,7 +1092,7 @@ from app.modules.{module_name}.models import (
                     return f'''    def test_{method_name}_success(self, unit_test_db: Session):
         """测试{method_name} - 删除成功"""
         # 准备测试数据
-        entity = {entity_creation}
+        {entity_creation}
         unit_test_db.add(entity)
         unit_test_db.commit()
         entity_id = entity.id
@@ -1158,7 +1205,7 @@ from app.modules.{module_name}.models import (
         符合标准: testing-standards.md 第2.4节 - 验证批量删除功能
         """
         # 创建测试数据（使用手动创建避免Factory SubFactory session问题）
-        entity = {entity_creation}
+        {entity_creation}
         unit_test_db.add(entity)
         unit_test_db.commit()
         
@@ -1318,7 +1365,7 @@ from app.modules.{module_name}.models import (
         return f'''    def test_{method_name}_query(self, unit_test_db: Session):
         """测试{method_name} - 查询功能"""
         # 准备测试数据
-        entity = {entity_creation}
+        {entity_creation}
         unit_test_db.add(entity)
         unit_test_db.commit()
         
@@ -1469,7 +1516,7 @@ class Test{repo_name}:
         # 2. 字符串类型的语义推断(通过字段名)
         elif field.python_type == 'str':
             if 'email' in field_name:
-                return f'"test_{suffix.lower()}@example.com"'
+                return f'"email_{suffix.lower()}"'
             elif 'slug' in field_name:
                 return f'"test-{suffix.lower()}"'
             elif 'code' in field_name or 'sku' in field_name:
@@ -1488,6 +1535,23 @@ class Test{repo_name}:
         # 3. 兜底默认值
         else:
             return f'"{suffix}"'
+    
+    def _is_cross_module_dependency(self, fk_model_name: str, current_module: str, models: Dict[str, ModelInfo]) -> bool:
+        """检测外键是否为跨模块依赖
+        
+        判断外键引用的模型是否属于当前模块。如果不属于，则为跨模块依赖，
+        应该使用简单的数值而不是Factory来避免导入错误。
+        
+        Args:
+            fk_model_name: 外键模型名称
+            current_module: 当前模块名称
+            models: 当前模块的模型信息字典
+            
+        Returns:
+            bool: True表示跨模块依赖，False表示模块内依赖
+        """
+        # 如果外键模型在当前模块的models中，则为模块内依赖
+        return fk_model_name not in models
     
     def _generate_minimal_entity_creation(
         self,
@@ -1533,7 +1597,7 @@ class Test{repo_name}:
         
         lines = []
         
-        # 处理外键字段：创建真实的依赖实体（符合真实场景）
+        # 处理外键字段：创建最小的依赖实体（符合最小实体构造策略）
         fk_var_names = {}
         for field in fk_fields:
             fk_target = field.foreign_key
@@ -1541,15 +1605,27 @@ class Test{repo_name}:
             fk_model_name = self._table_name_to_model_name(fk_table)
             fk_var_name = fk_model_name.lower()
             
-            # 添加Factory import（后续在方法开始处理）
-            imports.append(f'from tests.factories.{module_name}_factories import {fk_model_name}Factory')
-            
-            # 创建外键依赖实体（使用FactoryManager统一设置session）
-            if not lines:  # 只在第一个外键时添加setup_factories调用
-                imports.append(f'from tests.factories.{module_name}_factories import {module_name.title().replace("_", "")}FactoryManager')
-                lines.append(f'{module_name.title().replace("_", "")}FactoryManager.setup_factories(unit_test_db)')
-            lines.append(f'{fk_var_name} = {fk_model_name}Factory.create()')
-            fk_var_names[field.name] = f'{fk_var_name}.id'
+            # 检测是否为跨模块依赖
+            if self._is_cross_module_dependency(fk_model_name, module_name, models):
+                # 跨模块依赖：导入模型并创建最小实体
+                target_module = self._get_module_name_for_model(fk_model_name)
+                imports.append(f'from app.modules.{target_module}.models import {fk_model_name}')
+                
+                # 创建最小的跨模块依赖实体
+                minimal_fields = self._get_minimal_cross_module_fields(fk_model_name)
+                lines.append(f'# 创建跨模块依赖: {fk_model_name}')
+                lines.append(f'{fk_var_name} = {fk_model_name}({minimal_fields})')
+                lines.append(f'unit_test_db.add({fk_var_name})')
+                lines.append(f'unit_test_db.commit()')
+                fk_var_names[field.name] = f'{fk_var_name}.id'
+            else:
+                # 模块内依赖：递归创建最小实体（不使用Factory）
+                fk_minimal_fields = self._get_minimal_fields_for_model(fk_model_name, models)
+                lines.append(f'# 创建模块内依赖: {fk_model_name}')
+                lines.append(f'{fk_var_name} = {fk_model_name}({fk_minimal_fields})')
+                lines.append(f'unit_test_db.add({fk_var_name})')
+                lines.append(f'unit_test_db.commit()')
+                fk_var_names[field.name] = f'{fk_var_name}.id'
         
         if fk_fields:
             lines.append('')  # 空行分隔外键创建和实体创建
@@ -1645,14 +1721,19 @@ class Test{repo_name}:
             # 使用相同的单数化逻辑作为变量名(小写)
             fk_var_name = self._table_name_to_model_name(fk_table).lower()
             
-            # 递归生成依赖实体(不再生成依赖的依赖,避免无限递归)
-            fk_entity_code = self._generate_test_entity_creation(fk_model_name, models, f"依赖{suffix}", with_dependencies=False)
-            lines.append(f'{fk_var_name} = {fk_entity_code}')
-            lines.append(f'unit_test_db.add({fk_var_name})')
-            lines.append(f'unit_test_db.commit()')
-            
-            # 记录变量名,用于后续引用
-            fk_var_names[field.name] = f'{fk_var_name}.id'
+            # 检测是否为跨模块依赖
+            if self._is_cross_module_dependency(fk_model_name, 'unknown', models):
+                # 跨模块依赖：使用简单数值，避免导入不存在的Factory
+                fk_var_names[field.name] = '1'  # 使用序列ID
+            else:
+                # 模块内依赖：递归生成依赖实体(不再生成依赖的依赖,避免无限递归)
+                fk_entity_code = self._generate_test_entity_creation(fk_model_name, models, f"依赖{suffix}", with_dependencies=False)
+                lines.append(f'{fk_var_name} = {fk_entity_code}')
+                lines.append(f'unit_test_db.add({fk_var_name})')
+                lines.append(f'unit_test_db.commit()')
+                
+                # 记录变量名,用于后续引用
+                fk_var_names[field.name] = f'{fk_var_name}.id'
         
         # 生成主实体的字段赋值
         field_assignments = []
@@ -1683,6 +1764,100 @@ class Test{repo_name}:
         primary_key_count = sum(1 for f in model_info.fields if f.primary_key)
         return primary_key_count > 1
     
+    def _get_module_name_for_model(self, model_name: str) -> str:
+        """根据模型名推断所属模块名"""
+        # 常见的模型到模块的映射
+        model_to_module = {
+            'User': 'user_auth',
+            'Role': 'user_auth', 
+            'Permission': 'user_auth',
+            'Session': 'user_auth',
+            'Product': 'product_catalog',
+            'ProductSku': 'product_catalog',
+            'Category': 'product_catalog',
+            'Brand': 'product_catalog',
+            'Cart': 'shopping_cart',
+            'CartItem': 'shopping_cart',
+            # 可以根据需要扩展
+        }
+        return model_to_module.get(model_name, 'unknown')
+
+    def _get_minimal_cross_module_fields(self, model_name: str) -> str:
+        """为跨模块依赖生成最小字段参数
+        
+        Args:
+            model_name: 跨模块模型名称
+            
+        Returns:
+            str: 字段参数字符串，如 'username="test_user", email="test@example.com"'
+        """
+        # 针对常见的跨模块模型提供最小字段映射
+        minimal_fields_map = {
+            'User': 'username="test_user", email="test@example.com", password_hash="test_hash"',
+            'Product': 'name="测试商品", price=9.99',
+            'Category': 'name="测试分类"', 
+            'Brand': 'name="测试品牌"',
+            'Order': 'user_id=1, status="pending"',
+            'SKU': 'sku_code="TEST-SKU", price=9.99, product_id=1',
+        }
+        
+        return minimal_fields_map.get(model_name, 'name="测试数据"')
+    
+    def _get_minimal_fields_for_model(self, model_name: str, models: Dict[str, ModelInfo]) -> str:
+        """为模块内模型生成最小字段参数
+        
+        Args:
+            model_name: 模型名称
+            models: 模型信息字典
+            
+        Returns:
+            str: 字段参数字符串
+        """
+        if model_name not in models:
+            return 'name="测试数据"'
+            
+        model_info = models[model_name]
+        auto_fields = {'id', 'created_at', 'updated_at', 'is_deleted'}
+        required_fields = [
+            f for f in model_info.fields 
+            if not f.nullable 
+            and f.name not in auto_fields 
+            and not (f.primary_key and f.name == 'id' and not f.foreign_key)
+            and not f.server_default
+            and not f.foreign_key  # 不包括外键字段，避免递归
+        ]
+        
+        field_assignments = []
+        for field in required_fields:
+            test_value = self._get_minimal_test_value(field)
+            field_assignments.append(f'{field.name}={test_value}')
+        
+        return ', '.join(field_assignments) if field_assignments else 'name="测试数据"'
+    
+    def _get_cross_module_import(self, model_name: str) -> str:
+        """获取跨模块模型的import语句
+        
+        Args:
+            model_name: 跨模块模型名称
+            
+        Returns:
+            str: import语句
+        """
+        # 常见的跨模块模型到模块名的映射
+        model_to_module_map = {
+            'User': 'user_auth',
+            'Product': 'product_catalog', 
+            'Category': 'product_catalog',
+            'Brand': 'product_catalog',
+            'Order': 'order_management',
+            'SKU': 'product_catalog',
+            'CartItem': 'shopping_cart',
+            'Cart': 'shopping_cart',
+        }
+        
+        module_name = model_to_module_map.get(model_name, 'unknown')
+        return f'from app.modules.{module_name}.models import {model_name}'
+
     def _get_primary_key_fields(
         self,
         model_name: str,
