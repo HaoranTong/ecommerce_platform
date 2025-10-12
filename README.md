@@ -13,10 +13,12 @@
 
 ### **架构设计原则**
 - **模块化单体架构**: 垂直切片业务模块，清晰边界分离
+- **四层分层架构**: Router→Service→Repository→Model，职责分离
 - **异步优先**: 所有I/O密集操作使用async/await模式
 - **数据一致性优先**: 关键业务操作事务包装，宁可牺牲性能
 - **契约优先**: 接口、数据模型、状态机开发前冻结
 - **适配器抽象**: 第三方集成通过适配器接口实现
+- **事务在Service**: Service层负责事务边界管理，Repository层不控制事务
 
 ### **测试架构 (五层架构)**
 - **单元测试 (70%)**: Mock测试 + SQLite内存数据库
@@ -32,15 +34,26 @@
 - ❌ **禁止**: 自定义数据库连接 (必须用conftest.py)
 - ❌ **禁止**: 绕过ADR流程修改基础架构
 
-### **目录架构说明**
+### **目录架构说明 (四层分层架构)**
 ```
 app/modules/{模块名}/     # 业务模块 (垂直切片)
-├── router.py           # API路由定义
-├── service.py          # 业务逻辑层
-├── models.py           # 数据模型 (SQLAlchemy)
-├── schemas.py          # API模型 (Pydantic)
+├── router.py           # 第1层: API路由定义 (表现层)
+├── service.py          # 第2层: 业务逻辑层
+├── repository.py       # 第3层: 数据访问层 (推荐)
+├── models.py           # 第4层: 数据模型 (SQLAlchemy)
+├── schemas.py          # 数据传输对象 (Pydantic)
 └── dependencies.py     # 依赖注入
 ```
+
+### **四层架构职责说明**
+| 层次 | 职责 | 关键原则 |
+|------|------|----------|
+| **Router层** | API接口定义、请求验证、响应格式化 | 只处理HTTP协议相关 |
+| **Service层** | 业务逻辑实现、事务管理、流程编排 | **负责事务提交/回滚** |
+| **Repository层** | 数据访问封装、查询构建、ORM操作 | 不负责事务控制 |
+| **Model层** | 数据模型定义、实体关系映射 | 纯数据结构定义 |
+
+> **⚠️ 重要**: Service层负责事务边界管理，Repository层保持无状态
 
 ### **核心开发工具**
 - **环境工具**: setup_test_env.ps1, check_test_env.ps1 (环境配置验证)
@@ -79,6 +92,18 @@ pytest tests/unit/ -v
 ```
 ecommerce_platform/
 ├── 📂 app/                     # 应用程序源码
+│   ├── 📂 core/                # 核心基础设施 (数据库、认证、缓存)
+│   ├── 📂 shared/              # 共享组件 (通用模型、响应格式)
+│   ├── 📂 adapters/            # 第三方适配器 (支付、区块链、AI)
+│   ├── 📂 modules/             # 业务模块 (四层架构垂直切片)
+│   │   └── 📂 {模块名}/        # 单个业务模块
+│   │       ├── router.py       # 第1层: API路由 (表现层)
+│   │       ├── service.py      # 第2层: 业务逻辑
+│   │       ├── repository.py   # 第3层: 数据访问
+│   │       ├── models.py       # 第4层: 数据模型
+│   │       ├── schemas.py      # 数据传输对象
+│   │       └── dependencies.py # 依赖注入
+│   └── main.py                 # FastAPI应用入口
 ├── 📚 docs/                    # 技术文档体系
 ├── 🧪 tests/                   # 测试代码体系
 ├── 🛠️ tools/                   # 自动化工具脚本

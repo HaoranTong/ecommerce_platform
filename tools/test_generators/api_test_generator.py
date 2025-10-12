@@ -278,7 +278,7 @@ class {class_name}:
                 print(f"  🔑 为 {route.function_name} 生成管理员认证代码")
                 auth_setup = '''
         # 使用管理员认证（因为这个API需要管理员权限）
-        access_token, admin_user = api_client.authenticate_as_admin()
+        access_token, admin_user, _ = api_client.authenticate_as_admin()
         api_client.set_auth_headers(access_token)
         '''
             else:

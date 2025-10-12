@@ -113,6 +113,17 @@ class CategoryCreate(BaseSchema):
     description: Optional[str] = Field(None, max_length=500, description="分类描述")
     meta_data: Optional[Dict[str, Any]] = Field(None, description="元数据")
 
+    @field_validator('name', 'description')
+    @classmethod
+    def validate_no_control_chars(cls, v):
+        """验证字符串不包含控制字符"""
+        if v is not None:
+            # 检查是否包含控制字符（ASCII 0-31，除了换行符、制表符等常用字符）
+            for char in v:
+                if ord(char) < 32 and char not in '\t\n\r':
+                    raise ValueError(f'字符串不能包含控制字符（ASCII码 {ord(char)}）')
+        return v
+
 # Alias for test generator (路径 /categories → CategoriesCreate)
 CategoriesCreate = CategoryCreate
   
