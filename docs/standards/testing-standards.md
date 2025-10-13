@@ -1,10 +1,168 @@
-<!--version info: v2.0.0, created: 2025-09-23, updated: 2025-10-08, level: L2, dependencies: naming-conventions-standards.md,../../PROJECT-FOUNDATION.md,../architecture/overview.md-->
+<!--version info: v2.1.0, created: 2025-09-23, updated: 2025-10-13, level: L2, dependencies: naming-conventions-standards.md,../../PROJECT-FOUNDATION.md,../architecture/overview.md-->
 
 # 测试标准
 
 ## 概述
 
 本文档定义了电商平台项目的完整测试标准和规范，包括五层测试架构、四层架构测试策略、测试类型分布、环境配置、编写规范等。**确保代码质量和系统稳定性**。
+
+---
+
+## 🚀 快速参考：Repository层测试数据准备策略（核心要点）
+
+> ⚠️ **AI助手必读**：本节是Repository层测试的核心策略总结，优先阅读此节避免误解
+
+### 策略总览
+
+| 测试类型 | 被测实体构造方式 | 依赖实体构造方式 | 示例 |
+|---------|----------------|----------------|------|
+| **create测试** | 只填必填字段（nullable=False且无default） | **使用Factory Boy** | 见下方示例1 |
+| **查询/更新/删除测试** | **使用Factory Boy** | **使用Factory Boy** | 见下方示例2 |
+
+### 核心概念澄清
+
+1. **被测实体（Entity Under Test）**：当前要测试的实体/表记录
+   - 例：测试`CartItem`的create方法，`CartItem`就是被测实体
+
+2. **依赖实体（Dependency Entity）**：被测实体通过外键引用的其他表记录
+   - 例：`CartItem`引用了`Cart`和`Product`表，则`Cart`和`Product`是依赖实体
+   - 依赖实体可能在同模块内（如User→UserRole），也可能跨模块（如CartItem→Cart/Product）
+
+3. **最小必填字段构造**：
+   - ⚠️ 只对被测实体本身适用
+   - ⚠️ 不适用于依赖实体（依赖实体始终使用Factory Boy）
+   - 目的：验证被测实体的默认值是否正确应用
+
+### 示例1：Repository create测试（含跨模块外键依赖）
+
+```python
+def test_create_cart_item_minimal(unit_test_db):
+    """测试创建购物车项 - 最小必填字段
+    
+    被测实体：CartItem
+    依赖实体：Cart (同模块), Product (跨模块)
+    """
+    # 1. 准备依赖实体 - 使用Factory Boy
+    # 注意：即使在create测试中，依赖实体也使用Factory Boy
+    CartFactory._meta.sqlalchemy_session = unit_test_db
+    cart = CartFactory.create()  # Factory自动处理所有字段
+    
+    ProductFactory._meta.sqlalchemy_session = unit_test_db
+    product = ProductFactory.create()  # 跨模块依赖也用Factory
+    
+    # 2. 构造被测实体 - 只填必填字段
+    # 只填 nullable=False 且无 default 的字段
+    cart_item = CartItem(
+        cart_id=cart.id,           # 外键，必填
+        sku_id=product.id,         # 外键，必填
+        quantity=1,                # 必填，无默认值
+        unit_price=Decimal("10.00") # 必填，无默认值
+        # 不填 created_at (有default=datetime.now)
+        # 不填 updated_at (有default=datetime.now)
+    )
+    
+    # 3. 执行创建
+    result = CartItemRepository.create(unit_test_db, cart_item)
+    
+    # 4. 验证必填字段
+    assert result.id is not None
+    assert result.cart_id == cart.id
+    assert result.sku_id == product.id
+    assert result.quantity == 1
+    
+    # 5. 验证默认值是否正确应用
+    assert result.created_at is not None  # 验证default=datetime.now生效
+    assert result.updated_at is not None  # 验证default=datetime.now生效
+```
+
+### 示例2：Repository其他测试（查询/更新/删除）
+
+```python
+def test_update_cart_item_quantity(unit_test_db):
+    """测试更新购物车项数量
+    
+    被测实体：CartItem
+    依赖实体：Cart, Product
+    """
+    # 所有实体都使用Factory Boy
+    CartItemFactory._meta.sqlalchemy_session = unit_test_db
+    cart_item = CartItemFactory.create(quantity=1)  # Factory自动创建依赖
+    
+    # 执行更新
+    CartItemRepository.update(unit_test_db, cart_item, {"quantity": 5})
+    
+    # 验证结果
+    assert cart_item.quantity == 5
+
+def test_get_cart_items_by_cart(unit_test_db):
+    """测试查询购物车的所有商品项"""
+    # 使用Factory Boy创建测试数据
+    CartItemFactory._meta.sqlalchemy_session = unit_test_db
+    cart = CartFactory.create()
+    cart_item1 = CartItemFactory.create(cart_id=cart.id)
+    cart_item2 = CartItemFactory.create(cart_id=cart.id)
+    
+    # 执行查询
+    result = CartItemRepository.get_by_cart_id(unit_test_db, cart.id)
+    
+    # 验证结果
+    assert len(result) == 2
+```
+
+### 示例3：UserRole测试（标准证明）
+
+```python
+def test_create_user_role_minimal(unit_test_db):
+    """测试创建用户角色关联 - 最小必填字段
+    
+    被测实体：UserRole (关联表)
+    依赖实体：User, Role
+    """
+    # 1. 准备依赖实体 - 使用Factory Boy
+    UserFactory._meta.sqlalchemy_session = unit_test_db
+    user = UserFactory.create()  # ← 依赖实体用Factory
+    
+    RoleFactory._meta.sqlalchemy_session = unit_test_db
+    role = RoleFactory.create()  # ← 依赖实体用Factory
+    
+    # 2. 构造被测实体 - 只填必填字段
+    user_role = UserRole(
+        user_id=user.id,  # 外键，必填
+        role_id=role.id   # 外键，必填
+        # 不填 assigned_at (有default=datetime.now)
+    )
+    
+    # 3. 执行创建
+    result = UserRoleRepository.create(unit_test_db, user_role)
+    
+    # 4. 验证
+    assert result.user_id == user.id
+    assert result.role_id == role.id
+    assert result.assigned_at is not None  # 验证默认值生效
+```
+
+### 关键要点总结
+
+1. ✅ **依赖实体始终使用Factory Boy**
+   - 无论是create测试还是其他测试
+   - 无论是同模块依赖还是跨模块依赖
+   - Factory知道如何正确创建完整的依赖实体
+
+2. ✅ **被测实体在create测试中使用最小必填字段构造**
+   - 目的：验证默认值是否正确应用
+   - 只填`nullable=False`且无`default`的字段
+   - 有`default`的字段不填写，让ORM自动应用默认值
+
+3. ✅ **被测实体在其他测试中使用Factory Boy**
+   - 查询、更新、删除测试关注业务逻辑，不关注默认值
+   - 使用Factory快速创建完整数据
+
+4. ❌ **常见错误理解**
+   - ❌ "最小必填字段构造"适用于所有实体 → 只适用于被测实体的create测试
+   - ❌ 依赖实体也要用最小构造 → 依赖实体始终用Factory Boy
+   - ❌ 手动构造依赖实体 → 永远不要手动构造，用Factory
+
+---
 
 ## 🎯 核心测试原则（基于架构设计）
 
@@ -29,7 +187,7 @@
 | 测试层 | 测试职责 | Mock策略 | 数据准备 | 为什么这样设计 |
 |--------|---------|---------|---------|---------------|
 | **Model** | ORM定义 | 100% Mock | Mock对象 | 纯逻辑，无需数据库 |
-| **Repository** | 数据访问 | 0% Mock | 最小实体/Factory Boy | 验证SQL和持久化 |
+| **Repository** | 数据访问 | 0% Mock | 被测实体最小构造/依赖实体Factory | 验证SQL和持久化 |
 | **Service** | 业务逻辑 | Mock Repo | Mock返回值 | 隔离业务逻辑，SQL由Repo测试 |
 | **Standalone** | 完整流程 | 0% Mock | Factory Boy | 验证各层集成 |
 
@@ -168,7 +326,7 @@ def test_user_model_validation(mocker):
 **测试范围**：
 
 #### 2.1 创建操作测试
-- **最小必填字段创建**：只填写nullable=False且无default的字段，验证默认值
+- **最小必填字段构造**：被测实体只填写nullable=False且无default的字段，依赖实体使用Factory Boy
 - **完整字段创建**：填写所有字段（包括可选字段），验证保存正确
 - **字段验证测试**：验证字段长度、格式等约束
 - **关联创建测试**：验证外键关联创建
@@ -210,11 +368,48 @@ def test_user_model_validation(mocker):
   - ✅ 验证事务回滚场景（通过集成测试）
   - ✅ 验证多Repository调用的原子性
 
-**数据准备原则**：
+**数据准备原则（含跨模块外键依赖示例）**：
 ```python
-# 创建测试：只填必填字段
+# 示例1：创建测试 - 被测实体最小构造，依赖实体Factory Boy
+def test_create_cart_item_minimal(unit_test_db):
+    """测试创建购物车项 - 最小必填字段
+    
+    被测实体：CartItem
+    依赖实体：Cart (同模块), Product (跨模块-产品目录模块)
+    """
+    # 1. 准备依赖实体 - 使用Factory Boy
+    CartFactory._meta.sqlalchemy_session = unit_test_db
+    cart = CartFactory.create()
+    
+    ProductFactory._meta.sqlalchemy_session = unit_test_db
+    product = ProductFactory.create()
+    
+    # 2. 构造被测实体 - 只填必填字段
+    cart_item = CartItem(
+        cart_id=cart.id,
+        sku_id=product.id,
+        quantity=1,
+        unit_price=Decimal("10.00")
+        # 不填写有默认值的字段（created_at, updated_at等）
+    )
+    
+    result = CartItemRepository.create(unit_test_db, cart_item)
+    
+    # 3. 验证必填字段
+    assert result.id is not None
+    assert result.cart_id == cart.id
+    assert result.sku_id == product.id
+    
+    # 4. 验证默认值是否正确应用
+    assert result.created_at is not None  # default=datetime.now
+    assert result.updated_at is not None  # default=datetime.now
+
+# 示例2：创建测试 - 用户模块示例（无跨模块依赖）
 def test_create_user_minimal(unit_test_db):
-    """测试创建用户 - 最小必填字段"""
+    """测试创建用户 - 最小必填字段
+    
+    被测实体：User (无外键依赖)
+    """
     user = User(
         username="test_user",
         email="test@example.com",
@@ -228,25 +423,28 @@ def test_create_user_minimal(unit_test_db):
     assert result.username == "test_user"
     
     # 验证默认值
-    assert result.is_active == True  # Column(Boolean, default=True)
-    assert result.status == "active"  # Column(String, default="active")
-    assert result.email_verified == False  # Column(Boolean, default=False)
-    assert result.failed_login_attempts == 0  # Column(Integer, default=0)
+    assert result.is_active == True  # default=True
+    assert result.status == "active"  # default="active"
+    assert result.email_verified == False  # default=False
+    assert result.failed_login_attempts == 0  # default=0
 
-# 其他测试：使用Factory Boy
+# 示例3：查询测试 - 使用Factory Boy
 def test_get_by_username(unit_test_db):
     """测试按用户名查询"""
     # 使用Factory Boy创建完整测试数据
-    user = UserFactory(username="test_user", phone="12345678900")
+    UserFactory._meta.sqlalchemy_session = unit_test_db
+    user = UserFactory.create(username="test_user", phone="12345678900")
     
     # 测试查询
     result = UserRepository.get_by_username(unit_test_db, "test_user")
     assert result is not None
     assert result.username == "test_user"
 
+# 示例4：更新测试 - 使用Factory Boy
 def test_update_user_phone(unit_test_db):
     """测试更新用户手机号"""
-    user = UserFactory()
+    UserFactory._meta.sqlalchemy_session = unit_test_db
+    user = UserFactory.create()
     
     # 测试更新
     UserRepository.update(unit_test_db, user, {"phone": "13800138000"})
@@ -876,22 +1074,66 @@ Faker>=18.0.0
 
 | 工厂类型 | 文件位置 | 适用测试 | 主要特点 | 何时使用 |
 |---------|---------|---------|---------|---------|
-| **Factory Boy工厂** | `tests/factories/{module}_factories.py` | Repository测试<br/>Standalone测试 | 内存创建<br/>复杂关系<br/>智能推断 | Repository非创建测试<br/>Standalone完整流程 |
-| **最小实体构造** | 测试代码内直接构造 | Repository创建测试 | 只填必填字段<br/>验证默认值 | Repository的create测试 |
+| **Factory Boy工厂** | `tests/factories/{module}_factories.py` | Repository测试<br/>Standalone测试 | 内存创建<br/>复杂关系<br/>智能推断 | 1. Repository非创建测试<br/>2. Repository创建测试的依赖实体<br/>3. Standalone完整流程 |
+| **最小必填字段构造** | 测试代码内直接构造 | Repository创建测试 | 只填必填字段<br/>验证默认值 | 仅用于被测实体（Entity Under Test） |
 | **Mock对象** | Service测试 | Service测试 | Mock Repository返回 | Service业务逻辑测试 |
 | **统一工厂** | `tests/factories/data_factory.py` | 集成测试<br/>E2E测试 | 真实数据库<br/>跨模块链<br/>类型安全 | 集成测试和E2E测试 |
 
 ### 测试数据准备策略详解
 
-#### 策略1：最小实体构造（Repository创建测试）
+#### 策略1：最小必填字段构造（Repository创建测试）
+
+**适用对象**：
+- ✅ 被测实体（Entity Under Test）- 当前正在测试create方法的实体
+- ❌ 依赖实体（Dependency Entity）- 被测实体通过外键引用的其他实体（始终使用Factory Boy）
 
 **适用场景**：Repository的create方法测试
 
-**目的**：验证必填字段和默认值
+**目的**：验证被测实体的必填字段和默认值
+
+**关键概念**：
+- **被测实体**：当前要测试的实体（如测试CartItem.create，CartItem就是被测实体）
+- **依赖实体**：被测实体通过外键引用的其他表记录（如CartItem引用的Cart和Product）
+- **构造方式**：被测实体只填必填字段，依赖实体使用Factory Boy
 
 ```python
+def test_create_cart_item_minimal(unit_test_db):
+    """测试创建购物车项 - 最小必填字段
+    
+    被测实体：CartItem
+    依赖实体：Cart, Product (跨模块)
+    """
+    # 1. 准备依赖实体 - 使用Factory Boy
+    CartFactory._meta.sqlalchemy_session = unit_test_db
+    cart = CartFactory.create()  # Factory自动处理所有字段
+    
+    ProductFactory._meta.sqlalchemy_session = unit_test_db
+    product = ProductFactory.create()  # 跨模块依赖也用Factory
+    
+    # 2. 构造被测实体 - 只填 nullable=False 且无 default 的字段
+    cart_item = CartItem(
+        cart_id=cart.id,           # 外键，必填
+        sku_id=product.id,         # 外键，必填
+        quantity=1,                # 必填，无默认值
+        unit_price=Decimal("10.00") # 必填，无默认值
+        # 不填写有默认值的字段（让ORM自动应用默认值）
+    )
+    
+    result = CartItemRepository.create(unit_test_db, cart_item)
+    
+    # 3. 验证必填字段
+    assert result.id is not None
+    assert result.cart_id == cart.id
+    
+    # 4. 验证默认值是否正确应用
+    assert result.created_at is not None  # default=datetime.now
+    assert result.updated_at is not None  # default=datetime.now
+
 def test_create_user_minimal(unit_test_db):
-    """测试创建用户 - 最小必填字段"""
+    """测试创建用户 - 最小必填字段
+    
+    被测实体：User (无外键依赖)
+    """
     # 只填写 nullable=False 且无 default 的字段
     user = User(
         username="test_user",
@@ -921,11 +1163,14 @@ def test_create_user_minimal(unit_test_db):
 
 **目的**：快速创建完整、真实的测试数据
 
+**说明**：所有实体（被测实体和依赖实体）都使用Factory Boy
+
 ```python
 def test_get_by_username(unit_test_db):
     """测试按用户名查询 - 使用Factory Boy"""
     # 使用Factory Boy创建完整测试数据
-    user = UserFactory(
+    UserFactory._meta.sqlalchemy_session = unit_test_db
+    user = UserFactory.create(
         username="test_user",
         phone="13800138000",
         real_name="张三"
@@ -935,14 +1180,22 @@ def test_get_by_username(unit_test_db):
     assert result is not None
     assert result.phone == "13800138000"
 
+def test_update_cart_item_quantity(unit_test_db):
+    """测试更新购物车项数量 - 使用Factory Boy"""
+    CartItemFactory._meta.sqlalchemy_session = unit_test_db
+    cart_item = CartItemFactory.create(quantity=1)  # Factory自动创建依赖
+    
+    CartItemRepository.update(unit_test_db, cart_item, {"quantity": 5})
+    assert cart_item.quantity == 5
+
 def test_complete_user_workflow(unit_test_db):
     """测试完整用户流程 - 使用Factory Boy"""
     factory_manager = UserAuthFactoryManager()
     factory_manager.setup_factories(unit_test_db)
     
     # 创建测试数据
-    user = UserFactory()
-    role = RoleFactory(name="admin")
+    user = UserFactory.create()
+    role = RoleFactory.create(name="admin")
     
     # 测试完整流程
     UserService.assign_role(unit_test_db, user.id, role.id)
@@ -979,13 +1232,13 @@ def test_user_service_authenticate(mocker):
 
 ### 数据准备策略总结表
 
-| 测试层 | 数据准备方式 | 原因 | 示例 |
-|--------|------------|------|------|
-| **Repository创建测试** | 最小实体构造 | 验证必填字段和默认值 | `User(username="test", email="test@example.com", password_hash="hash")` |
-| **Repository其他测试** | Factory Boy | 快速创建完整测试数据 | `UserFactory(username="test", phone="13800138000")` |
-| **Service测试** | Mock对象 | Mock Repository返回值 | `mock_repo.get_by_username.return_value = User(...)` |
-| **Standalone测试** | Factory Boy | 创建完整业务场景数据 | `factory_manager.create_sample_data()` |
-| **集成测试** | 统一工厂 | 真实数据库跨模块数据 | `StandardTestDataFactory.create_complete_chain()` |
+| 测试层 | 被测实体 | 依赖实体 | 原因 | 示例 |
+|--------|---------|---------|------|------|
+| **Repository创建测试** | 最小必填字段构造 | Factory Boy | 验证被测实体默认值 | `CartItem(cart_id=cart.id, sku_id=product.id, quantity=1)` + `cart=CartFactory.create()` |
+| **Repository其他测试** | Factory Boy | Factory Boy | 快速创建完整数据 | `CartItemFactory.create(quantity=1)` |
+| **Service测试** | Mock对象 | Mock对象 | Mock Repository返回值 | `mock_repo.get_by_id.return_value = CartItem(...)` |
+| **Standalone测试** | Factory Boy | Factory Boy | 创建完整业务场景 | `factory_manager.create_sample_data()` |
+| **集成测试** | 统一工厂 | 统一工厂 | 真实数据库跨模块 | `StandardTestDataFactory.create_complete_chain()` |
 
 ### 📋 Factory Boy工厂标准 (单元测试专用)
 

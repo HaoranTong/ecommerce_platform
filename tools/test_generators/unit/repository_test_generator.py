@@ -266,6 +266,9 @@ from app.modules.{module_name}.models import (
         # 生成最小字段创建代码（只填必填字段）
         minimal_imports, minimal_entity_code = self._generate_minimal_entity_creation(model_name, models, module_name)
         
+        # 🔑 生成完整字段创建代码（填充所有字段）
+        full_imports, full_entity_code = self._generate_full_entity_creation(model_name, models, module_name)
+        
         # 组装import语句（放在方法开始）
         import_block = ''
         if minimal_imports:
@@ -273,66 +276,19 @@ from app.modules.{module_name}.models import (
             import_lines = ['        ' + imp for imp in unique_imports]
             import_block = '\n'.join(import_lines) + '\n        '
         
+        # 组装full_fields的import语句
+        full_import_block = ''
+        if full_imports:
+            unique_full_imports = list(dict.fromkeys(full_imports))
+            full_import_lines = ['        ' + imp for imp in unique_full_imports]
+            full_import_block = '\n'.join(full_import_lines) + '\n        '
+        
         # 检查是否使用联合主键
         has_composite_pk = self._has_composite_primary_key(model_name, models)
         
         # 智能生成方法参数：检查method_info.parameters来确定参数类型
         # 过滤掉self, db, cls等基础参数
         method_params = [p for p in method_info.parameters if p[0] not in ['self', 'db', 'cls']]
-        
-        # 用于factory测试的依赖实体创建代码
-        factory_deps_code = ""
-        factory_deps_imports = []
-        
-        # 🔥 获取所有跨模块依赖并创建实体（修复FK约束问题）
-        all_dependencies = self._get_all_dependencies(model_name, models, module_name)
-        cross_module_setup = []
-        cross_module_entity_creation = []
-        
-        for dep_model, dep_module, _ in all_dependencies:
-            if dep_module != module_name and dep_module != 'unknown':
-                manager_name = ''.join(word.capitalize() for word in dep_module.split('_')) + 'FactoryManager'
-                if f'{manager_name}.setup_factories' not in '\n'.join(cross_module_setup):
-                    cross_module_setup.append(f'from tests.factories.{dep_module}_factories import {manager_name}')
-                    cross_module_setup.append(f'{manager_name}.setup_factories(unit_test_db)')
-                
-                # 创建依赖实体（如User, Product）以满足FK约束
-                factory_name = f'{dep_model}Factory'
-                var_name = dep_model.lower()
-                if f'{var_name} = {factory_name}.create()' not in '\n'.join(cross_module_entity_creation):
-                    cross_module_entity_creation.append(f'from tests.factories.{dep_module}_factories import {factory_name}')
-                    cross_module_entity_creation.append(f'{var_name} = {factory_name}.create()')
-        
-        # 组装跨模块依赖代码
-        # 🔥 关键修复：对于有跨模块依赖的实体，使用create()而不是build()
-        # 这确保所有嵌套依赖都被正确创建并持久化，避免FK约束错误
-        has_cross_module_deps = bool(cross_module_entity_creation)
-        
-        if cross_module_setup or cross_module_entity_creation:
-            factory_deps_code_lines = []
-            if cross_module_setup:
-                factory_deps_code_lines.append('        # 准备跨模块依赖')
-                factory_deps_code_lines.extend(['        ' + line for line in cross_module_setup])
-            
-            # 🔥 如果使用create()，只需setup FactoryManager，不需要手动创建实体
-            # Factory Boy会自动处理所有依赖
-            if not has_cross_module_deps and cross_module_entity_creation:
-                factory_deps_code_lines.extend(['        ' + line for line in cross_module_entity_creation])
-            
-            factory_deps_code = '\n'.join(factory_deps_code_lines) + '\n'
-        else:
-            has_cross_module_deps = False
-        
-        # 决定使用create()还是build() - 有跨模块依赖时用create()避免FK错误
-        if has_cross_module_deps:
-            factory_method = 'create()'
-            factory_comment = '# 使用create()让Factory Boy自动处理所有跨模块依赖'
-            # 添加expunge()以从session中分离实体，避免重复插入
-            factory_expunge_code = '\n        unit_test_db.expunge(entity)  # 从session分离，允许Repository重新插入'
-        else:
-            factory_method = 'build()'
-            factory_comment = '# build不自动保存到数据库'
-            factory_expunge_code = ''
         
         if not method_params:
             # 无参数的create方法
@@ -410,14 +366,13 @@ from app.modules.{module_name}.models import (
         """测试{method_name} - 完整字段创建
         
         符合标准: testing-standards.md 第2.1节 - 填写所有字段，验证保存正确
-        数据准备策略: 使用Factory Boy
+        数据准备策略: 使用构造函数填充所有字段
         """
-{factory_deps_code}        # 使用Factory Boy创建完整实体
-        from tests.factories.{module_name}_factories import {model_name}Factory
-        entity = {model_name}Factory.{factory_method}  {factory_comment}
+{full_import_block}# 创建完整实体（填充所有字段）
+{full_entity_code}
         
         # 执行Repository方法
-        result = {method_call_factory}
+        result = {method_call_entity}
         
         # 验证所有字段保存正确
         assert result is not None
@@ -431,13 +386,12 @@ from app.modules.{module_name}.models import (
     def test_{method_name}_transaction_commit(self, unit_test_db: Session):
         """测试{method_name} - 事务提交验证
         
-        符合标准: testing-standards.md 第2.5节 - 验证数据真正写入数据库
+        符合标准: testing-standards.md 第2.1节 - 验证数据真正写入数据库
         """
-{factory_deps_code}        # 使用Factory Boy创建完整实体
-        from tests.factories.{module_name}_factories import {model_name}Factory
-        entity = {model_name}Factory.{factory_method}
+{full_import_block}# 创建完整实体（填充所有字段）
+{full_entity_code}
         
-        result = {method_call_factory}
+        result = {method_call_entity}
         
         # 验证事务已提交（expire后重新查询能找到）
         unit_test_db.expire_all()
@@ -475,14 +429,13 @@ from app.modules.{module_name}.models import (
         """测试{method_name} - 完整字段创建
         
         符合标准: testing-standards.md 第2.1节 - 填写所有字段，验证保存正确
-        数据准备策略: 使用Factory Boy
+        数据准备策略: 使用构造函数填充所有字段
         """
-{factory_deps_code}        # 使用Factory Boy创建完整实体
-        from tests.factories.{module_name}_factories import {model_name}Factory
-        entity = {model_name}Factory.{factory_method}  {factory_comment}
+{full_import_block}# 创建完整实体（填充所有字段）
+{full_entity_code}
         
         # 执行Repository方法
-        result = {method_call_factory}
+        result = {method_call_entity}
         
         # 验证所有字段保存正确
         assert result is not None
@@ -498,11 +451,10 @@ from app.modules.{module_name}.models import (
         
         符合标准: testing-standards.md 第2.1节 - 验证数据真正写入数据库
         """
-{factory_deps_code}        # 使用Factory Boy创建完整实体
-        from tests.factories.{module_name}_factories import {model_name}Factory
-        entity = {model_name}Factory.{factory_method}
+{full_import_block}# 创建完整实体（填充所有字段）
+{full_entity_code}
         
-        result = {method_call_factory}
+        result = {method_call_entity}
         
         # 验证事务已提交（expire后重新查询能找到）
         unit_test_db.expire_all()
@@ -914,8 +866,27 @@ from app.modules.{module_name}.models import (
         2. 多字段更新测试 - 同时更新多个字段
         3. 专用方法测试 - 如update_status, update_password等
         4. 批量更新测试 - 如update_many, bulk_update等
+        
+        智能识别两种update模式:
+        A. 参数模式: update(db, entity, update_data) - 需要传递更新数据字典
+        B. ORM跟踪模式: update(entity) - 依赖SQLAlchemy自动跟踪，只需修改属性
         """
         method_name = method_info.name
+        
+        # 🎯 关键改进：分析方法参数，识别update模式
+        # 过滤掉 self, db, cls 参数，获取业务参数
+        business_params = [p for p in method_info.parameters if p[0] not in ['self', 'db', 'cls']]
+        
+        # 判断update模式：
+        # - 如果只有1个参数(entity)且类型是模型类 → ORM跟踪模式
+        # - 如果有2个或更多参数(entity, update_data) → 参数模式
+        is_orm_tracking_mode = False
+        if len(business_params) == 1:
+            param_name, param_type = business_params[0]
+            # 检查参数类型是否是模型类（如 CartItem）
+            if model_name.lower() in param_type.lower():
+                is_orm_tracking_mode = True
+        
         entity_creation = self._generate_test_entity_creation(model_name, models, "原始数据", with_dependencies=True, module_name=module_name)
         
         # 🔥 智能选择可更新的字段（优先name，然后业务字段，最后才是其他字段）
@@ -1062,20 +1033,136 @@ from app.modules.{module_name}.models import (
             if cross_module_setup_code:
                 cross_module_setup_code += '\n'
             
-            return f'''    def test_{method_name}_single_field(self, unit_test_db: Session):
+            # 🔑 生成测试实体创建代码（使用构造函数而非Factory.create()）
+            minimal_imports, minimal_entity_code = self._generate_minimal_entity_creation(model_name, models, module_name)
+            entity_import_block = ''
+            if minimal_imports:
+                unique_imports = list(dict.fromkeys(minimal_imports))
+                import_lines = ['        ' + imp for imp in unique_imports]
+                entity_import_block = '\n'.join(import_lines) + '\n        '
+            
+            # 🎯 根据update模式生成不同的测试代码
+            if is_orm_tracking_mode:
+                # ORM跟踪模式：修改属性 + 调用update
+                method_call = self._generate_method_call(method_info, repo_name, "unit_test_db, entity")
+                
+                return f'''    def test_{method_name}_single_field(self, unit_test_db: Session):
         """测试{method_name} - 单字段更新
         
         符合标准: testing-standards.md 第2.3节 - 只更新一个字段，验证其他字段不变
+        模式: ORM自动跟踪 - 修改entity属性后调用update方法
         """
         # 准备测试数据
-{cross_module_setup_code}        from tests.factories.{module_name}_factories import {model_name}Factory, {module_name.title().replace('_', '')}FactoryManager
-        {module_name.title().replace('_', '')}FactoryManager.setup_factories(unit_test_db)
-        entity = {model_name}Factory.create()
+{entity_import_block}# 创建最小实体（用于更新测试）
+{minimal_entity_code}
+        unit_test_db.add(entity)
+        unit_test_db.commit()
+        original_{second_update_field} = entity.{second_update_field}
+        
+        # 修改实体属性
+        entity.{update_field} = {update_value1}
+        
+        # 执行Repository方法（ORM会自动跟踪变更）
+        {method_call}
+        unit_test_db.commit()
+        
+        # 验证目标字段已更新
+        assert entity.{update_field} == {update_value1}
+        
+        # ✅ 验证其他字段未变化
+        assert entity.{second_update_field} == original_{second_update_field}
+        
+        # 验证数据库已更新
+        unit_test_db.expire_all()
+        db_entity = unit_test_db.query({model_name}).filter_by(id=entity.id).first()
+        assert db_entity.{update_field} == {update_value1}
+        assert db_entity.{second_update_field} == original_{second_update_field}
+    
+    def test_{method_name}_multiple_fields(self, unit_test_db: Session):
+        """测试{method_name} - 多字段更新
+        
+        符合标准: testing-standards.md 第2.3节 - 同时更新多个字段
+        模式: ORM自动跟踪 - 修改多个entity属性后调用update方法
+        """
+{entity_import_block}# 创建最小实体（用于更新测试）
+{minimal_entity_code}
+        unit_test_db.add(entity)
+        unit_test_db.commit()
+        
+        # 修改多个字段
+        entity.{update_field} = {update_value2}
+        entity.{second_update_field} = {second_value}
+        
+        # 执行Repository方法（ORM会自动跟踪变更）
+        {method_call}
+        unit_test_db.commit()
+        
+        # 验证所有字段已更新
+        assert entity.{update_field} == {update_value2}
+        assert entity.{second_update_field} == {second_value}
+        
+        # 验证持久化
+        unit_test_db.expire_all()
+        db_entity = unit_test_db.query({model_name}).filter_by(id=entity.id).first()
+        assert db_entity.{update_field} == {update_value2}
+        assert db_entity.{second_update_field} == {second_value}
+    
+    def test_{method_name}_transaction_commit(self, unit_test_db: Session):
+        """测试{method_name} - 事务提交验证
+        
+        符合标准: testing-standards.md 第2.5节 - 验证更新真正写入数据库
+        模式: ORM自动跟踪 - 修改entity属性后调用update方法
+        """
+{entity_import_block}# 创建最小实体（用于更新测试）
+{minimal_entity_code}
+        unit_test_db.add(entity)
+        unit_test_db.commit()
+        
+        # 修改实体属性
+        entity.{update_field} = "事务测试数据"
+        
+        # 执行Repository方法
+        {method_call}
+        unit_test_db.commit()
+        
+        # 验证事务已提交
+        unit_test_db.expire_all()
+        db_entity = unit_test_db.query({model_name}).filter_by(id=entity.id).first()
+        assert db_entity.{update_field} == "事务测试数据"
+    
+    def test_{method_name}_specialized_method(self, unit_test_db: Session):
+        """测试{method_name} - 专用方法测试（如有）
+        
+        符合标准: testing-standards.md 第2.3节 - 测试特殊更新方法
+        示例: update_status, update_password, activate, deactivate等
+        """
+        # TODO: 如果有专用更新方法，在这里测试
+        # 例如:
+        # entity = {model_name}Factory.create(status='active')
+        # result = {repo_name}.update_status(unit_test_db, entity.id, 'inactive')
+        # assert result.status == 'inactive'
+        pass
+'''
+            else:
+                # 参数模式：update(db, entity, update_data)
+                method_call_with_data = self._generate_method_call(method_info, repo_name, "unit_test_db, entity, update_data")
+                
+                return f'''    def test_{method_name}_single_field(self, unit_test_db: Session):
+        """测试{method_name} - 单字段更新
+        
+        符合标准: testing-standards.md 第2.3节 - 只更新一个字段，验证其他字段不变
+        模式: 参数传递 - 通过update_data字典传递更新字段
+        """
+        # 准备测试数据
+{entity_import_block}# 创建最小实体（用于更新测试）
+{minimal_entity_code}
+        unit_test_db.add(entity)
+        unit_test_db.commit()
         original_{second_update_field} = entity.{second_update_field}
         
         # 执行Repository方法（只更新{update_field}）
         update_data = {{"{update_field}": {update_value1}}}
-        result = {repo_name}.{method_name}(unit_test_db, entity, update_data)  # TODO: 根据实际方法签名调整
+        result = {method_call_with_data}
         
         # 验证目标字段已更新
         assert result.{update_field} == {update_value1}
@@ -1093,17 +1180,19 @@ from app.modules.{module_name}.models import (
         """测试{method_name} - 多字段更新
         
         符合标准: testing-standards.md 第2.3节 - 同时更新多个字段
+        模式: 参数传递 - 通过update_data字典传递多个更新字段
         """
-{cross_module_setup_code}        from tests.factories.{module_name}_factories import {model_name}Factory, {module_name.title().replace('_', '')}FactoryManager
-        {module_name.title().replace('_', '')}FactoryManager.setup_factories(unit_test_db)
-        entity = {model_name}Factory.create()
+{entity_import_block}# 创建最小实体（用于更新测试）
+{minimal_entity_code}
+        unit_test_db.add(entity)
+        unit_test_db.commit()
         
         # 执行Repository方法（同时更新多个字段）
         update_data = {{
             "{update_field}": {update_value2},
             "{second_update_field}": {second_value}
         }}
-        result = {repo_name}.{method_name}(unit_test_db, entity, update_data)
+        result = {method_call_with_data}
         
         # 验证所有字段已更新
         assert result.{update_field} == {update_value2}
@@ -1119,13 +1208,15 @@ from app.modules.{module_name}.models import (
         """测试{method_name} - 事务提交验证
         
         符合标准: testing-standards.md 第2.5节 - 验证更新真正写入数据库
+        模式: 参数传递 - 通过update_data字典传递更新字段
         """
-{cross_module_setup_code}        from tests.factories.{module_name}_factories import {model_name}Factory, {module_name.title().replace('_', '')}FactoryManager
-        {module_name.title().replace('_', '')}FactoryManager.setup_factories(unit_test_db)
-        entity = {model_name}Factory.create()
+{entity_import_block}# 创建最小实体（用于更新测试）
+{minimal_entity_code}
+        unit_test_db.add(entity)
+        unit_test_db.commit()
         
         update_data = {{"{update_field}": "事务测试数据"}}
-        result = {repo_name}.{method_name}(unit_test_db, entity, update_data)
+        result = {method_call_with_data}
         
         # 验证事务已提交
         unit_test_db.expire_all()
@@ -1316,16 +1407,25 @@ from app.modules.{module_name}.models import (
                     # 生成正确的Repository方法调用
                     method_call = self._generate_method_call(method_info, repo_name, "unit_test_db, entity_id")
                     
+                    # 生成最小实体创建代码（使用构造器，不是Factory.create）
+                    minimal_imports, minimal_entity_code = self._generate_minimal_entity_creation(model_name, models, module_name)
+                    
+                    # 构建import语句块
+                    unique_imports = set(minimal_imports)
+                    unique_imports.add('from datetime import datetime')
+                    entity_import_block = '\n'.join(['        ' + imp for imp in sorted(unique_imports)])
+                    
                     return f'''    def test_{method_name}_soft_delete(self, unit_test_db: Session):
         """测试{method_name} - 软删除验证
         
         符合标准: testing-standards.md 第2.4节 - 验证is_deleted标记和deleted_at时间戳
         """
-{cross_module_setup_code}        from tests.factories.{module_name}_factories import {model_name}Factory, {module_name.title().replace('_', '')}FactoryManager
-        from datetime import datetime
+{entity_import_block}
         
-        {module_name.title().replace('_', '')}FactoryManager.setup_factories(unit_test_db)
-        entity = {model_name}Factory.create()
+        # 创建测试实体（使用构造器而不是Factory.create）
+{minimal_entity_code}
+        unit_test_db.add(entity)
+        unit_test_db.commit()
         entity_id = entity.id
         
         # 执行软删除
@@ -1377,19 +1477,57 @@ from app.modules.{module_name}.models import (
                     needs_id_param = len(delete_params) > 0
                     
                     if needs_id_param:
-                        # 方法需要ID参数（如 delete(db, id)）
-                        # 生成正确的Repository方法调用
-                        method_call = self._generate_method_call(method_info, repo_name, "unit_test_db, entity_id")
+                        # 🔑 智能构造参数：根据method_info.parameters生成正确的测试参数
+                        # 例如：delete(id) → entity_id
+                        #      delete_by_ids(item_ids: List[int], user_id: int) → [entity_id], user.id
+                        test_args = []
+                        additional_setup = []  # 额外的变量设置（如user）
+                        
+                        for param_name, param_type in delete_params:
+                            if 'list' in param_type.lower() or 'List' in param_type:
+                                # List类型参数，传入[entity_id]
+                                test_args.append(f"[entity_id]")
+                            elif 'user_id' in param_name.lower():
+                                # user_id参数，需要创建user
+                                test_args.append("user.id")
+                                if "user = " not in '\n'.join(additional_setup):
+                                    additional_setup.append("user = UserFactory.create()")
+                            elif param_name.endswith('_id') or param_name == 'id':
+                                # 单个ID参数
+                                test_args.append("entity_id")
+                            else:
+                                # 其他参数类型，尝试智能推断
+                                test_args.append(f"{param_name}_val")
+                        
+                        args_str = ", ".join(test_args)
+                        method_call = self._generate_method_call(method_info, repo_name, f"unit_test_db, {args_str}")
+                        
+                        # 生成最小实体创建代码（使用构造器，不是Factory.create）
+                        minimal_imports, minimal_entity_code = self._generate_minimal_entity_creation(model_name, models, module_name)
+                        
+                        # 构建import语句块
+                        unique_imports = set(minimal_imports)
+                        # 如果需要创建user，添加UserFactory导入
+                        if any('user = UserFactory' in setup for setup in additional_setup):
+                            unique_imports.add('from tests.factories.user_auth_factories import UserFactory, UserAuthFactoryManager')
+                            if "UserAuthFactoryManager.setup_factories" not in '\n'.join(additional_setup):
+                                additional_setup.insert(0, "UserAuthFactoryManager.setup_factories(unit_test_db)")
+                        
+                        entity_import_block = '\n'.join(['        ' + imp for imp in sorted(unique_imports)])
+                        additional_setup_code = '\n        '.join(additional_setup) if additional_setup else ""
                         
                         return f'''    def test_{method_name}_physical_delete(self, unit_test_db: Session):
         """测试{method_name} - 物理删除验证
         
         符合标准: testing-standards.md 第2.4节 - 验证数据真正从数据库删除
         """
-{cross_module_setup_code}        from tests.factories.{module_name}_factories import {model_name}Factory, {module_name.title().replace('_', '')}FactoryManager
+{entity_import_block}
         
-        {module_name.title().replace('_', '')}FactoryManager.setup_factories(unit_test_db)
-        entity = {model_name}Factory.create()
+        {additional_setup_code}
+        # 创建测试实体（使用构造器而不是Factory.create）
+{minimal_entity_code}
+        unit_test_db.add(entity)
+        unit_test_db.commit()
         entity_id = entity.id
         
         # 执行物理删除
@@ -1679,6 +1817,15 @@ class Test{repo_name}:
         # 直接使用已有的智能值生成方法
         return self._get_test_value_for_field(field)
     
+    def _get_full_test_value(self, field: FieldInfo) -> str:
+        """获取字段的完整测试值(用于full_fields测试)
+        
+        策略: 为可选字段也生成非None的值，确保测试覆盖所有字段
+        """
+        # 对于可选字段，也生成有意义的值（而不是None）
+        # 这样可以验证Repository正确保存所有字段数据
+        return self._get_test_value_for_field(field, suffix="完整测试")
+    
     def _get_test_value_for_field(self, field: FieldInfo, suffix: str = "测试") -> str:
         """为字段生成测试值
         
@@ -1891,6 +2038,124 @@ class Test{repo_name}:
         # 如果外键模型在当前模块的models中，则为模块内依赖
         return fk_model_name not in models
     
+    def _generate_full_entity_creation(
+        self,
+        model_name: str,
+        models: Dict[str, ModelInfo],
+        module_name: str
+    ) -> Tuple[List[str], str]:
+        """生成完整实体创建代码(填充所有字段)
+        
+        策略说明:
+        - 被测实体: 填充ALL字段（必填+可选）
+        - 依赖实体: 使用Factory Boy创建  
+        - 目的: 验证Repository能正确保存完整数据
+        
+        Args:
+            model_name: 模型名称
+            models: 模型信息字典
+            module_name: 模块名称
+            
+        Returns:
+            Tuple[List[str], str]: (import语句列表, 实体创建代码)
+        """
+        imports = []
+        
+        if model_name not in models:
+            return ([], f'        entity = {model_name}()  # TODO: 补充所有字段')
+        
+        model_info = models[model_name]
+        
+        # 🔑 关键差异：full_fields包含所有字段（除了自动生成的）
+        auto_fields = {'id', 'created_at', 'updated_at', 'is_deleted'}
+        all_fields = [
+            f for f in model_info.fields
+            if f.name not in auto_fields
+            and not (f.primary_key and f.name == 'id' and not f.foreign_key)  # 只排除非外键的自增主键
+        ]
+        
+        if not all_fields:
+            return ([], f'        entity = {model_name}()\n        # 注意: 该模型只有自动生成字段')
+        
+        # 分离外键和普通字段
+        fk_fields = [f for f in all_fields if f.foreign_key]
+        normal_fields = [f for f in all_fields if not f.foreign_key]
+        
+        lines = []
+        
+        # 处理外键字段：使用Factory Boy创建依赖实体
+        fk_var_names = {}
+        created_factories = set()
+        
+        # 递归获取所有依赖
+        all_dependencies = self._get_all_dependencies(model_name, models, module_name)
+        created_entities = {}
+        used_modules = set()
+        
+        # 按依赖层级创建
+        for dep_model_name, dep_module, dep_field_name in all_dependencies:
+            if dep_model_name in created_factories:
+                continue
+                
+            dep_var_name = dep_model_name.lower()
+            factory_name = f'{dep_model_name}Factory'
+            
+            imports.append(f'from tests.factories.{dep_module}_factories import {factory_name}')
+            
+            if dep_module != module_name and dep_module not in used_modules:
+                manager_name = f'{"".join(word.capitalize() for word in dep_module.split("_"))}FactoryManager'
+                imports.append(f'from tests.factories.{dep_module}_factories import {manager_name}')
+                lines.append(f'# 设置{dep_module}模块所有Factory的session')
+                lines.append(f'{manager_name}.setup_factories(unit_test_db)')
+                used_modules.add(dep_module)
+            
+            lines.append(f'# 准备依赖实体: {dep_model_name} ({"跨模块" if dep_module != module_name else "同模块"})')
+            
+            if dep_module == module_name:
+                lines.append(f'{factory_name}._meta.sqlalchemy_session = unit_test_db')
+            
+            factory_params = self._get_factory_params(dep_model_name, models, module_name, created_entities)
+            if factory_params:
+                lines.append(f'{dep_var_name} = {factory_name}.create({factory_params})')
+            else:
+                lines.append(f'{dep_var_name} = {factory_name}.create()')
+            
+            created_factories.add(dep_model_name)
+            created_entities[dep_model_name] = dep_var_name
+            
+            if dep_field_name:
+                fk_var_names[dep_field_name] = f'{dep_var_name}.id'
+        
+        if fk_fields:
+            lines.append('')
+        
+        # 🔑 构造被测实体 - 填充所有字段
+        field_assignments = []
+        for field in normal_fields:
+            test_value = self._get_full_test_value(field)  # 使用_get_full_test_value而非_get_minimal_test_value
+            field_assignments.append(f'{field.name}={test_value}')
+        
+        # 添加外键字段
+        for field in fk_fields:
+            field_assignments.append(f'{field.name}={fk_var_names[field.name]}')
+        
+        if field_assignments:
+            lines.append(f'# 构造被测实体: {model_name} - 填充所有字段')
+            lines.append(f'entity = {model_name}(')
+            for i, assignment in enumerate(field_assignments):
+                comma = ',' if i < len(field_assignments) - 1 else ''
+                lines.append(f'    {assignment}{comma}')
+            lines.append(')')
+        else:
+            lines.append(f'# 构造被测实体: {model_name} - 只有自动生成字段')
+            lines.append(f'entity = {model_name}()')
+        
+        # 添加缩进
+        indented_lines = ['        ' + line for line in lines]
+        code = '\n'.join(indented_lines)
+        
+        return (imports, code)
+
     def _generate_minimal_entity_creation(
         self,
         model_name: str,
