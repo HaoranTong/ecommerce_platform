@@ -316,12 +316,30 @@ class IntelligentTestGenerator:
         # 3. 生成测试文件
         generated_files = {}
 
-        # 添加工厂文件到生成结果
-        factory_file_path = f"tests/factories/{module_name}_factories.py"
-        generated_files[factory_file_path] = factory_code
+        # 生成Factory工厂代码（可单独指定）
+        if test_type in ["all", "factories"]:
+            factory_file_path = f"tests/factories/{module_name}_factories.py"
+            generated_files[factory_file_path] = factory_code
 
+        # 单元测试 - 支持细粒度选择
         if test_type in ["all", "unit"]:
             unit_files = self._generate_unit_tests(module_name, models, repositories)
+            generated_files.update(unit_files)
+        elif test_type == "models":
+            # 仅生成models测试
+            unit_files = self._generate_unit_tests(module_name, models, repositories, components=["models"])
+            generated_files.update(unit_files)
+        elif test_type == "repositories":
+            # 仅生成repositories测试
+            unit_files = self._generate_unit_tests(module_name, models, repositories, components=["repositories"])
+            generated_files.update(unit_files)
+        elif test_type == "services":
+            # 仅生成services测试
+            unit_files = self._generate_unit_tests(module_name, models, repositories, components=["services"])
+            generated_files.update(unit_files)
+        elif test_type == "standalone":
+            # 仅生成standalone测试
+            unit_files = self._generate_unit_tests(module_name, models, repositories, components=["standalone"])
             generated_files.update(unit_files)
 
         if test_type in ["all", "integration"]:
@@ -346,20 +364,28 @@ class IntelligentTestGenerator:
             # 烟雾测试使用通用脚本，不生成模块特定文件
             print(f"ℹ️  烟雾测试使用通用脚本 tools/smoke_test.ps1，跳过 {module_name} 模块特定生成")
 
-        if test_type in ["all", "specialized"]:
+        if test_type in ["all", "specialized", "security"]:
             # 生成专项测试（安全测试和性能测试）
             from tools.test_generators import SecurityTestGenerator, PerformanceTestGenerator
             
-            security_generator = SecurityTestGenerator(self.project_root, self.config)
-            performance_generator = PerformanceTestGenerator(self.project_root, self.config)
-            
-            security_tests = security_generator.generate_tests(module_name, models)
-            generated_files.update(security_tests)
-            
-            performance_tests = performance_generator.generate_tests(module_name, models)
-            generated_files.update(performance_tests)
-            
-            print(f"✅ 生成专项测试: 安全测试 + 性能测试")
+            if test_type == "security":
+                # 仅生成安全测试
+                security_generator = SecurityTestGenerator(self.project_root, self.config)
+                security_tests = security_generator.generate_tests(module_name, models)
+                generated_files.update(security_tests)
+                print(f"✅ 生成安全测试")
+            else:
+                # 生成完整专项测试
+                security_generator = SecurityTestGenerator(self.project_root, self.config)
+                performance_generator = PerformanceTestGenerator(self.project_root, self.config)
+                
+                security_tests = security_generator.generate_tests(module_name, models)
+                generated_files.update(security_tests)
+                
+                performance_tests = performance_generator.generate_tests(module_name, models)
+                generated_files.update(performance_tests)
+                
+                print(f"✅ 生成专项测试: 安全测试 + 性能测试")
         
         if test_type == "performance":
             # 仅生成性能测试
@@ -393,7 +419,7 @@ class IntelligentTestGenerator:
         return generated_files, validation_report
 
     def _generate_unit_tests(
-        self, module_name: str, models: Dict[str, ModelInfo], repositories: Dict[str, RepositoryInfo]
+        self, module_name: str, models: Dict[str, ModelInfo], repositories: Dict[str, RepositoryInfo], components: List[str] = None
     ) -> Dict[str, str]:
         """生成单元测试代码 - 四层架构测试生成
         
@@ -473,245 +499,51 @@ class IntelligentTestGenerator:
             - StandaloneTestGenerator: 业务流程测试生成器
         """
         files = {}
+        
+        # 如果没有指定组件，生成所有组件
+        if components is None:
+            components = ["models", "repositories", "services", "standalone"]
 
         # 1. 生成Mock模型测试
-        from tools.test_generators.unit import ModelTestGenerator
-        model_generator = ModelTestGenerator(self.project_root, self.config)
-        model_tests = model_generator.generate_model_tests(module_name, models)
-        files[f"test_models/test_{module_name}_models"] = model_tests
+        if "models" in components:
+            from tools.test_generators.unit import ModelTestGenerator
+            model_generator = ModelTestGenerator(self.project_root, self.config)
+            model_tests = model_generator.generate_model_tests(module_name, models)
+            files[f"tests/unit/test_models/test_{module_name}_models.py"] = model_tests
 
         # 2. 生成Repository测试
-        from tools.test_generators.unit import RepositoryTestGenerator
-        repo_generator = RepositoryTestGenerator(self.project_root, self.config, main_generator=self)
-        repository_tests = repo_generator.generate_repository_tests(module_name, models, repositories)
-        files[f"test_repositories/test_{module_name}_repositories"] = repository_tests
+        if "repositories" in components:
+            from tools.test_generators.unit import RepositoryTestGenerator
+            repo_generator = RepositoryTestGenerator(self.project_root, self.config, main_generator=self)
+            repository_tests = repo_generator.generate_repository_tests(module_name, models, repositories)
+            files[f"tests/unit/test_repositories/test_{module_name}_repositories.py"] = repository_tests
 
         # 3. 生成服务测试
-        from tools.test_generators.unit import ServiceTestGenerator
-        service_generator = ServiceTestGenerator(self.project_root, self.config)
-        service_tests = service_generator.generate_service_tests(module_name, models, repositories)
-        files[f"test_services/test_{module_name}_services"] = service_tests
+        if "services" in components:
+            from tools.test_generators.unit import ServiceTestGenerator
+            service_generator = ServiceTestGenerator(self.project_root, self.config)
+            service_tests = service_generator.generate_service_tests(module_name, models, repositories)
+            files[f"tests/unit/test_services/test_{module_name}_services.py"] = service_tests
 
         # 4. 生成业务流程测试
-        from tools.test_generators.unit.standalone_test_generator import StandaloneTestGenerator
-        workflow_generator = StandaloneTestGenerator(self.project_root, self.config)
-        workflow_tests = workflow_generator.generate_workflow_tests(module_name, models)
-        files[f"tests/unit/test_{module_name}_standalone.py"] = workflow_tests
+        if "standalone" in components:
+            from tools.test_generators.unit.standalone_test_generator import StandaloneTestGenerator
+            workflow_generator = StandaloneTestGenerator(self.project_root, self.config)
+            workflow_tests = workflow_generator.generate_workflow_tests(module_name, models)
+            files[f"tests/unit/test_{module_name}_standalone.py"] = workflow_tests
 
-        print(f"✅ 生成三个独立单元测试脚本:")
-        print(f"   📋 Mock模型测试: test_models/test_{module_name}_models.py")
-        print(f"   🔧 服务测试: test_services/test_{module_name}_services.py")
-        print(f"   🔄 业务流程测试: {module_name}_standalone.py")
+        print(f"✅ 生成单元测试脚本 (组件: {', '.join(components)}):")
+        for component in components:
+            if component == "models":
+                print(f"   📋 Mock模型测试: tests/unit/test_models/test_{module_name}_models.py")
+            elif component == "repositories":
+                print(f"   🗃️  Repository测试: tests/unit/test_repositories/test_{module_name}_repositories.py")
+            elif component == "services":
+                print(f"   🔧 服务测试: tests/unit/test_services/test_{module_name}_services.py")
+            elif component == "standalone":
+                print(f"   🔄 业务流程测试: tests/unit/test_{module_name}_standalone.py")
 
         return files
-    
-    def _generate_test_entity_creation(self, model_name: str, models: Dict[str, ModelInfo], suffix: str = "测试数据", with_dependencies: bool = False) -> str:
-        """生成测试实体创建代码，自动包含必填字段和外键依赖
-        
-        Args:
-            model_name: 模型名称
-            models: 模型信息字典
-            suffix: 名称后缀
-            with_dependencies: 是否生成外键依赖的完整代码（多行）
-            
-        Returns:
-            str: 实体创建代码（可能是多行的依赖创建+主实体创建）
-        """
-        if model_name not in models:
-            # 如果模型信息不存在，返回简单的创建代码并添加TODO
-            return f'{model_name}(name="{suffix}")  # TODO: 根据实际字段调整'
-        
-        model_info = models[model_name]
-        
-        # 提取所有非nullable的字段（排除id和自动字段）
-        auto_fields = {'id', 'created_at', 'updated_at', 'is_deleted'}
-        required_fields = [
-            f for f in model_info.fields 
-            # 🔥 修复：不排除作为外键的主键字段（如UserRole的联合主键）
-            # 只排除自增主键（field.name == 'id'）
-            if not f.nullable and f.name not in auto_fields and not (f.primary_key and f.name == 'id')
-        ]
-        
-        # 分离外键字段和普通字段
-        fk_fields = [f for f in required_fields if f.foreign_key]
-        normal_fields = [f for f in required_fields if not f.foreign_key]
-        
-        if not required_fields:
-            # 如果没有必填字段，使用简单形式
-            return f'{model_name}()'
-        
-        # 如果不需要生成依赖，或没有外键字段，生成简单单行形式
-        if not with_dependencies or not fk_fields:
-            field_assignments = []
-            for field in required_fields:
-                test_value = self._get_test_value_for_field(field, suffix)
-                field_assignments.append(f'{field.name}={test_value}')
-            # 返回不带变量赋值的表达式（用于单行赋值：entity = XXX()）
-            return f'{model_name}({", ".join(field_assignments)})'
-        
-        # 生成完整的依赖创建代码（多行）
-        lines = []
-        fk_var_names = {}
-        
-        # 为每个外键字段创建依赖实体
-        for field in fk_fields:
-            # 解析外键目标：'products.id' -> table='products', column='id'
-            fk_target = field.foreign_key
-            fk_table = fk_target.split('.')[0]
-            
-            # 推断模型名（表名转模型名：products -> Product, categories -> Category）
-            fk_model_name = self.test_utils.table_name_to_model_name(fk_table)
-            # 使用相同的单数化逻辑作为变量名（小写）
-            fk_var_name = self.test_utils.table_name_to_model_name(fk_table).lower()
-            
-            # 递归生成依赖实体（不再生成依赖的依赖，避免无限递归）
-            fk_entity_code = self._generate_test_entity_creation(fk_model_name, models, f"依赖{suffix}", with_dependencies=False)
-            lines.append(f'{fk_var_name} = {fk_entity_code}')
-            lines.append(f'unit_test_db.add({fk_var_name})')
-            lines.append(f'unit_test_db.commit()')
-            
-            # 记录变量名，用于后续引用
-            fk_var_names[field.name] = f'{fk_var_name}.id'
-        
-        # 生成主实体的字段赋值
-        field_assignments = []
-        for field in normal_fields:
-            test_value = self._get_test_value_for_field(field, suffix)
-            field_assignments.append(f'{field.name}={test_value}')
-        
-        # 添加外键字段赋值
-        for field in fk_fields:
-            field_assignments.append(f'{field.name}={fk_var_names[field.name]}')
-        
-        # 添加主实体创建
-        lines.append(f'entity = {model_name}({", ".join(field_assignments)})')
-        
-        return '\n        '.join(lines)
-    
-    def _has_composite_primary_key(self, model_name: str, models: Dict[str, ModelInfo]) -> bool:
-        """检查模型是否使用联合主键（多个primary_key字段）"""
-        if model_name not in models:
-            return False
-        return self.test_utils.has_composite_primary_key(models[model_name])
-    
-    def _get_primary_key_fields(self, model_name: str, models: Dict[str, ModelInfo]) -> List['FieldInfo']:
-        """获取模型的主键字段列表"""
-        if model_name not in models:
-            return []
-        return self.test_utils.get_primary_key_fields(models[model_name])
-    
-    # 注意：_infer_query_parameter等方法已废弃，RepositoryTestGenerator有自己的实现
-    
-    def _get_test_value_for_field(self, field: 'FieldInfo', suffix: str = "测试") -> str:
-        """推断自定义查询方法需要的参数（通用化改进版）
-        
-        通过分析方法签名自动推断参数：
-        - get_by_username -> entity.username
-        - get_user_roles(user_id: int) -> 需要创建User，传入user.id
-        - get_role_users(role_id: int) -> 需要创建Role，传入role.id
-        - get (联合主键) -> 需要所有主键字段
-        
-        Args:
-            method_info: 方法信息（包含参数签名）
-            model_name: 模型名称
-            models: 所有模型信息
-            
-        Returns:
-            tuple: (准备代码, 参数字符串, 是否需要TODO注释)
-                - setup_code: 创建依赖实体的代码（如创建User）
-                - param_str: 调用方法时的参数字符串（如user.id）
-                - needs_todo: 是否需要TODO注释
-        """
-        method_name = method_info.name
-        
-        # 🔥 提取方法参数（排除self, db, cls）
-        method_params = [p for p in method_info.parameters if p[0] not in ['self', 'db', 'cls']]
-        
-        # 特殊处理check_exists方法（可选参数组合）
-        if method_name == 'check_exists':
-            return ('', 'username=entity.username, email=entity.email', False)
-        
-        # 特殊处理联合主键的get方法
-        if method_name == 'get' and self._has_composite_primary_key(model_name, models):
-            pk_fields = self._get_primary_key_fields(model_name, models)
-            param_str = ', '.join([f'entity.{f.name}' for f in pk_fields])
-            return ('', param_str, False)
-        
-        # 特殊处理联合主键的delete方法
-        if method_name == 'delete' and self._has_composite_primary_key(model_name, models):
-            pk_fields = self._get_primary_key_fields(model_name, models)
-            param_str = ', '.join([f'entity.{f.name}' for f in pk_fields])
-            return ('', param_str, False)
-        
-        # 🔥 智能推断：分析方法参数，自动生成依赖实体
-        if method_params:
-            setup_code_lines = []
-            param_parts = []
-            
-            for param_name, param_type in method_params:
-                # 推断参数对应的实体类型
-                # user_id: int -> User
-                # role_id: int -> Role
-                # permission_id: int -> Permission
-                entity_name = self.test_utils.infer_entity_from_param(param_name, param_type, models)
-                
-                if entity_name and entity_name in models:
-                    # 生成创建实体的代码
-                    var_name = entity_name.lower()
-                    entity_creation = self._generate_test_entity_creation(entity_name, models, f"{entity_name}数据", with_dependencies=True)
-                    setup_code_lines.append(f"{var_name} = {entity_creation}")
-                    setup_code_lines.append(f"unit_test_db.add({var_name})")
-                    setup_code_lines.append(f"unit_test_db.commit()")
-                    setup_code_lines.append("")
-                    
-                    # 参数使用实体的ID
-                    if param_name.endswith('_id'):
-                        param_parts.append(f"{var_name}.id")
-                    else:
-                        param_parts.append(f"{var_name}")
-                else:
-                    # 无法推断实体，尝试从方法名推断字段
-                    # get_by_username(username: str) -> entity.username
-                    # get_by_email(email: str) -> entity.email
-                    if method_name.startswith('get_by_') and param_type == 'str':
-                        field_name = method_name[7:]  # 移除'get_by_'
-                        if '_or_' in field_name:
-                            field_name = field_name.split('_or_')[0]  # 使用第一个字段
-                        param_parts.append(f'entity.{field_name}')
-                    elif param_type == 'int':
-                        param_parts.append('1')
-                    elif param_type == 'str':
-                        param_parts.append('"test_value"')
-                    elif param_type == 'bool':
-                        param_parts.append('True')
-                    else:
-                        # 复杂类型，需要TODO
-                        return ('', '', True)
-            
-            setup_code = '\n        '.join(setup_code_lines) if setup_code_lines else ''
-            param_str = ', '.join(param_parts)
-            return (setup_code, param_str, False)
-        
-        # 提取方法名中的字段名（兼容老逻辑）
-        if method_name.startswith('get_by_'):
-            field_part = method_name[7:]  # 移除'get_by_'
-            # 特殊处理复合查询（如username_or_email）
-            if '_or_' in field_part:
-                # 使用第一个字段
-                field_name = field_part.split('_or_')[0]
-                return ('', f'entity.{field_name}', False)
-            else:
-                return ('', f'entity.{field_part}', False)
-        elif method_name == 'check_exists':
-            # check_exists通常接受多个可选参数
-            return ('', 'username=entity.username, email=entity.email', False)
-        else:
-            # 默认使用id（如果有的话）
-            has_composite_pk = self._has_composite_primary_key(model_name, models)
-            if has_composite_pk:
-                # 联合主键模型需要TODO
-                return ('', '', True)
-            return ('', 'entity.id', False)
     
     def _validate_generated_tests(self, files: Dict[str, str]) -> Dict[str, Any]:
         """验证生成的测试代码质量 - 多维度自动验证
@@ -812,9 +644,10 @@ def main():
     parser.add_argument(
         "--type", "--test-type",
         dest="test_type",
-        choices=["all", "unit", "integration", "api", "e2e", "smoke", "specialized", "performance"],
+        choices=["all", "unit", "integration", "api", "e2e", "smoke", "specialized", "performance", 
+                 "factories", "models", "repositories", "services", "standalone", "security"],
         default="all",
-        help="生成的测试类型",
+        help="生成的测试类型 (新增: factories, models, repositories, services, standalone, security)",
     )
     parser.add_argument(
         "--dry-run", action="store_true", help="试运行模式（不写入文件）"

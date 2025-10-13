@@ -83,11 +83,7 @@ class FactoryGenerator:
     from tests.factories.{module_name}_factories import *
     
     # 创建测试数据
-    user = UserFactory()
-    role = RoleFactory()
-    
-    # 创建关联数据
-    user_with_role = UserFactory(role=RoleFactory())
+    # (具体示例依据实际生成的Factory类)
 """
 
 import factory
@@ -312,7 +308,17 @@ from {module_import_path} import (
         if is_self_reference:
             return f"{field.name} = None  # 自引用字段，避免循环依赖"
         
-        # 检测前向引用
+        # 检测跨模块依赖
+        is_cross_module = self._is_cross_module_dependency(target_model, all_models)
+        
+        if is_cross_module:
+            # 跨模块依赖：使用None或序列ID，避免复杂的跨模块导入
+            if field.nullable:
+                return f"{field.name} = None  # 跨模块外键，使用None避免导入复杂性 (目标: {target_model})"
+            else:
+                return f"{field.name} = factory.Sequence(lambda n: n + 1)  # 跨模块外键，使用序列ID"
+        
+        # 检测前向引用（同模块内）
         is_forward_reference = (generated_factories is not None and 
                                target_model not in generated_factories)
         
@@ -324,6 +330,19 @@ from {module_import_path} import (
                 return f"{relation_field} = factory.SubFactory({target_model}Factory)"
             else:
                 return f"{field.name} = factory.SubFactory({target_model}Factory)"
+    
+    def _is_cross_module_dependency(self, target_model: str, all_models: Dict[str, ModelInfo]) -> bool:
+        """检测是否为跨模块依赖
+        
+        Args:
+            target_model: 目标模型名称
+            all_models: 当前模块的所有模型
+            
+        Returns:
+            True if target_model is not in current module
+        """
+        # 如果目标模型不在当前模块的模型列表中，则为跨模块依赖
+        return target_model not in all_models
     
     def _is_self_reference_field(self, field_name: str, target_table: str) -> bool:
         """判断是否为自引用字段"""
