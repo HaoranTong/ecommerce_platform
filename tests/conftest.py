@@ -794,9 +794,10 @@ async def async_api_client(mysql_integration_db):
                 
                 return access_token, normal_user
 
-            # 添加认证方法到客户端
+            # 添加认证方法和数据库会话到客户端
             async_client.authenticate_as_admin = authenticate_as_admin
             async_client.authenticate_as_user = authenticate_as_user
+            async_client.db = mysql_integration_db  # 添加db属性供性能测试使用
             yield async_client
     finally:
         app.dependency_overrides.clear()

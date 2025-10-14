@@ -18,46 +18,41 @@
 最后修改：2025-09-16
 """
 
-from typing import Any, Dict
+from typing import TYPE_CHECKING
 
 from fastapi import Depends, HTTPException, status
 from redis import Redis
 from sqlalchemy.orm import Session
 
-from app.core.auth import get_current_user
+from app.core.auth import get_current_active_user as core_get_current_active_user
 from app.core.database import get_db
 from app.core.redis_client import get_redis_connection
 
 from .service import CartService
 
+# 使用TYPE_CHECKING避免循环导入
+if TYPE_CHECKING:
+    from app.modules.user_auth.models import User
+
 
 async def get_current_active_user(
-    current_user: Dict[str, Any] = Depends(get_current_user),
-) -> Dict[str, Any]:
+    current_user: "User" = Depends(core_get_current_active_user),
+) -> "User":
     """
-    获取当前活跃用户
+    获取当前活跃用户（购物车模块专用）
+    
+    Note: 实际上直接使用core的get_current_active_user即可，
+    这里保留是为了模块独立性和未来可能的扩展。
 
     Args:
-        current_user: 当前用户信息
+        current_user: 当前用户对象（User ORM模型）
 
     Returns:
-        用户信息字典
+        User对象
 
     Raises:
         HTTPException: 当用户不存在或未激活时
     """
-    if not current_user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="用户未认证",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-
-    if not current_user.get("is_active", False):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="用户账号未激活"
-        )
-
     return current_user
 
 
@@ -116,13 +111,13 @@ def validate_cart_business_rules(total_items: int, quantity: int) -> None:
 
 
 def get_user_id_from_token(
-    current_user: Dict[str, Any] = Depends(get_current_active_user),
+    current_user: "User" = Depends(get_current_active_user),
 ) -> int:
     """
-    从JWT Token中提取用户ID
+    从当前用户对象中获取用户ID
 
     Args:
-        current_user: 当前用户信息
+        current_user: 当前用户对象（User ORM模型）
 
     Returns:
         用户ID
@@ -130,15 +125,9 @@ def get_user_id_from_token(
     Raises:
         HTTPException: 当用户ID不存在时
     """
-    user_id = current_user.get("sub") or current_user.get("user_id")
-    if not user_id:
+    if not current_user or not current_user.id:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="无效的用户令牌"
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="无效的用户信息"
         )
 
-    try:
-        return int(user_id)
-    except (ValueError, TypeError):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="用户ID格式错误"
-        )
+    return current_user.id

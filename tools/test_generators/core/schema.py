@@ -60,6 +60,7 @@ class ModelInfo:
     docstring: Optional[str]
     primary_keys: List[str]
     unique_constraints: List[List[str]]
+    module_name: Optional[str] = None  # 所属模块名（如product_catalog）
 
 
 @dataclass

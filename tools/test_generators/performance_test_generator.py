@@ -81,12 +81,274 @@
 """
 
 import asyncio
-from typing import Dict, List, Tuple, Any
+from typing import Dict, List, Tuple, Any, Optional
 from .base_generator import BaseTestGenerator, ModelInfo, RouterInfo
+from .utils.test_utils import TestUtils
 
 
 class PerformanceTestGenerator(BaseTestGenerator):
     """性能测试代码生成器"""
+
+    def _convert_to_dynamic_code(self, field: str, value: Any) -> str:
+        """
+        覆盖父类方法，为性能测试生成合适的测试数据代码
+        
+        关键差异：
+        - 父类（单元/集成测试）：必填外键 → test_entity.id（假设实体已创建）
+        - 性能测试：必填外键 → 随机ID范围（fake.random_int(1, 100)）
+          * 原因：并发测试需要避免唯一约束冲突（如cart_id + sku_id）
+          * 假设：测试前已在数据库中创建ID 1-100的基础实体
+        
+        Args:
+            field: 字段名
+            value: Schema中的字段值/类型
+            
+        Returns:
+            str: 用于生成测试数据的代码字符串
+        """
+        field_name_lower = field.lower()
+        
+        # 🎯 性能测试专用逻辑：外键ID字段使用随机值范围
+        if field_name_lower.endswith('_id') and field_name_lower not in ['user_id']:
+            # 检查是否是Optional类型
+            if hasattr(value, '__origin__'):
+                # Union类型（包括Optional）
+                import typing
+                if hasattr(typing, 'get_args'):
+                    args = typing.get_args(value)
+                    if type(None) in args:
+                        # Optional外键，返回None
+                        return 'None'
+            
+            # 检查字典中的约束信息判断是否Optional
+            if isinstance(value, dict):
+                if value.get('nullable') or value.get('default') is None:
+                    return 'None'
+            
+            # 必填外键：从预创建的fixture列表中随机选择
+            # 格式：random.choice(test_sku_fixtures).id
+            # 📝 优点：
+            #    1. 引用真实存在的实体，不会触发外键约束失败
+            #    2. 随机选择，避免唯一约束冲突
+            #    3. 100个实体足够20个并发请求使用
+            entity_name = field.replace('_id', '')
+            fixture_var = f"test_{entity_name}_fixtures"
+            return f'random.choice({fixture_var}).id'
+        
+        # 其他字段类型使用父类的默认逻辑
+        return super()._convert_to_dynamic_code(field, value)
+
+    def _detect_foreign_key_fields(self, module_name: str, route: RouterInfo, models: Dict[str, ModelInfo]) -> Dict[str, Tuple[str, str]]:
+        """
+        检测请求Schema中的外键字段（使用ModelAnalyzer提供的模型信息）
+        
+        Args:
+            module_name: 模块名称
+            route: 路由信息
+            models: 当前模块的模型信息字典
+            
+        Returns:
+            Dict[str, Tuple[str, str]]: 外键字段映射 {field_name: (target_model, target_module)}
+            例如: {"sku_id": ("Product", "product_catalog")}
+        """
+        foreign_keys = {}
+        
+        # 分析Schema获取字段信息
+        schema_data = self.analyze_pydantic_schema(module_name, route)
+        if not schema_data or not isinstance(schema_data, dict):
+            return foreign_keys
+        
+        # 遍历Schema字段，检查是否是必填外键
+        for field_name in schema_data.keys():
+            field_lower = field_name.lower()
+            
+            # 排除user_id（由认证系统处理）
+            if field_lower.endswith('_id') and field_lower not in ['user_id']:
+                # 检查是否是必填字段（非Optional）
+                field_value = schema_data[field_name]
+                is_optional = False
+                
+                if hasattr(field_value, '__origin__'):
+                    import typing
+                    if hasattr(typing, 'get_args'):
+                        args = typing.get_args(field_value)
+                        if type(None) in args:
+                            is_optional = True
+                
+                if isinstance(field_value, dict):
+                    if field_value.get('nullable') or field_value.get('default') is None:
+                        is_optional = True
+                
+                # 只处理必填外键
+                if not is_optional:
+                    # 从models中查找对应的外键关系（返回tuple: model_name, module_name）
+                    target_info = self._find_foreign_key_target(field_name, models, module_name)
+                    if target_info and target_info[1]:  # 确保找到了模块名
+                        foreign_keys[field_name] = target_info
+        
+        return foreign_keys
+    
+    def _find_foreign_key_target(self, field_name: str, models: Dict[str, ModelInfo], current_module: str) -> Optional[Tuple[str, str]]:
+        """
+        从模型信息中查找外键的目标模型和模块
+        
+        Args:
+            field_name: 外键字段名（如sku_id）
+            models: 当前模块的模型信息字典
+            current_module: 当前模块名（用于fallback）
+            
+        Returns:
+            Optional[Tuple[str, str]]: (目标模型名, 目标模块名)，如("Product", "product_catalog")
+        """
+        # 遍历当前模块的模型，查找包含该外键的模型
+        for model_name, model_info in models.items():
+            for field in model_info.fields:
+                if field.name == field_name and field.foreign_key:
+                    # 从外键字符串中提取目标表名
+                    # 格式1: "products.id" -> table=products
+                    # 格式2: "product_catalog.products.id" -> table=products
+                    fk_parts = field.foreign_key.split('.')
+                    if len(fk_parts) >= 2:
+                        # 取倒数第二部分作为表名（兼容两种格式）
+                        table_name = fk_parts[-2]  # products, carts等
+                        # 使用TestUtils通用工具转换表名到模型名
+                        target_model = TestUtils.table_name_to_model_name(table_name)
+                        
+                        # 通过表名查找所属模块（遍历所有模块）
+                        target_module = self._find_module_by_tablename(table_name, current_module)
+                        
+                        return (target_model, target_module)
+        
+        # 如果在models中找不到，使用启发式推断
+        # sku_id -> Sku, category_id -> Category
+        entity_name = field_name.replace('_id', '')
+        target_model = ''.join(word.capitalize() for word in entity_name.split('_'))
+        return (target_model, current_module)
+
+    def _generate_foreign_key_fixtures(self, module_name: str, routes: List[RouterInfo], models: Dict[str, ModelInfo], batch_size: int = 100) -> Tuple[str, str]:
+        """
+        生成外键依赖的import和fixture创建代码
+        
+        为并发性能测试预先创建必要的外键实体，避免：
+        1. 唯一约束冲突（多个请求引用同一个外键ID）
+        2. 外键约束失败（引用不存在的实体）
+        
+        Args:
+            module_name: 模块名称
+            routes: 路由列表
+            models: 模型信息字典
+            batch_size: 批量创建的实体数量（默认100个，足够并发测试使用）
+            
+        Returns:
+            Tuple[str, str]: (导入语句, fixture创建代码)
+        """
+        # 找到POST路由
+        post_routes = [r for r in routes if r.method == 'POST']
+        if not post_routes:
+            return ("", "")
+        
+        first_post_route = post_routes[0]
+        foreign_keys = self._detect_foreign_key_fields(module_name, first_post_route, models)
+        
+        if not foreign_keys:
+            return ("", "")
+        
+        # 收集所有需要导入的Factory
+        imports = []
+        fixture_creation = []
+        
+        for field_name, (target_model, target_module) in foreign_keys.items():
+            factory_name = f"{target_model}Factory"
+            entity_name = field_name.replace('_id', '')
+            
+            # 记录导入语句（导入整个模块的所有Factory）
+            import_statement = f"from tests.factories import {target_module}_factories"
+            if import_statement not in imports:
+                imports.append(import_statement)
+            
+            # 生成fixture创建代码
+            fixture_creation.append(f"        # 创建{batch_size}个{target_model}实例供外键引用")
+            fixture_creation.append(f"        # 设置整个模块所有Factory的session（处理SubFactory依赖）")
+            fixture_creation.append(f"        for factory_class in {target_module}_factories.__dict__.values():")
+            fixture_creation.append(f"            if hasattr(factory_class, '_meta') and hasattr(factory_class._meta, 'sqlalchemy_session'):")
+            fixture_creation.append(f"                factory_class._meta.sqlalchemy_session = async_api_client.db")
+            fixture_creation.append(f"        test_{entity_name}_fixtures = {target_module}_factories.{factory_name}.create_batch({batch_size})")
+            fixture_creation.append(f"        async_api_client.db.flush()  # 确保ID生成")
+            fixture_creation.append("")
+        
+        if not imports:
+            return ("", "")
+        
+        # 组合导入语句
+        import_code = '\n'.join(imports)
+        
+        # 组合fixture创建代码（带注释）
+        fixture_code_lines = ["        # 🔧 预先创建外键依赖的fixture数据（避免并发冲突）"]
+        fixture_code_lines.extend(fixture_creation)
+        fixture_code = '\n'.join(fixture_code_lines)
+        
+        return (import_code, fixture_code)
+
+    def _infer_module_from_model(self, model_name: str, current_module: str) -> str:
+        """
+        从模型名推断所属模块
+        
+        先将模型名转为表名，然后通过表名查找模块。
+        
+        Args:
+            model_name: 模型类名（如Product）
+            current_module: 当前模块名（作为默认值）
+            
+        Returns:
+            str: 模块名（如product_catalog）
+        """
+        # 使用TestUtils将模型名转为表名
+        tablename = TestUtils.model_name_to_table_name(model_name)
+        
+        # 通过表名查找模块
+        return self._find_module_by_tablename(tablename, current_module)
+    
+    def _find_module_by_tablename(self, tablename: str, current_module: str) -> str:
+        """
+        通过表名查找对应的模块名
+        
+        通过扫描项目中的所有模块，找到包含指定表名的模块。
+        
+        Args:
+            tablename: 表名（如products, carts）
+            current_module: 当前模块名（作为默认值）
+            
+        Returns:
+            str: 模块名（如product_catalog）
+        """
+        from pathlib import Path
+        
+        # 遍历所有模块目录
+        modules_dir = self.project_root / "app" / "modules"
+        if not modules_dir.exists():
+            return current_module
+        
+        for module_path in modules_dir.iterdir():
+            if not module_path.is_dir() or module_path.name.startswith('_'):
+                continue
+            
+            module_name = module_path.name
+            models_file = module_path / "models.py"
+            
+            if not models_file.exists():
+                continue
+            
+            try:
+                # 读取models.py文件，查找__tablename__
+                content = models_file.read_text(encoding='utf-8')
+                # 简单的文本匹配：查找 __tablename__ = "tablename" 或 __tablename__ = 'tablename'
+                if f'__tablename__ = "{tablename}"' in content or f"__tablename__ = '{tablename}'" in content:
+                    return module_name
+            except Exception:
+                continue
+        
+        # 未找到，返回当前模块
+        return current_module
 
     def _generate_write_test_data(self, routes: List[RouterInfo], module_name: str, request_id: str = "{{request_id}}") -> str:
         """
@@ -263,6 +525,7 @@ import pytest
 import asyncio
 import time
 import statistics
+import random
 from httpx import AsyncClient
 from fastapi import status
 from datetime import datetime, timedelta
@@ -409,7 +672,14 @@ class {class_name}:
         test_data_template = self._generate_write_test_data(routes, module_name)
         module_path = module_name.replace('_', '-')
         
-        return f'''
+        # 生成外键依赖的import和fixture创建代码
+        fk_imports, fk_fixtures = self._generate_foreign_key_fixtures(module_name, routes, models)
+        
+        # 如果有外键导入，添加到imports部分
+        extra_imports = f"\n{fk_imports}" if fk_imports else ""
+        
+        return f'''{extra_imports}
+
 class {class_name}:
     """{business_domain}模块并发性能测试"""
     
@@ -482,6 +752,8 @@ class {class_name}:
         token, admin_user = await async_api_client.authenticate_as_admin()
         headers = {{"Authorization": f"Bearer {{token}}"}}
         concurrent_requests = 20  # 模拟20个并发请求
+        
+{fk_fixtures}
         
         async def request_operation(request_id):
             start_time = time.time()

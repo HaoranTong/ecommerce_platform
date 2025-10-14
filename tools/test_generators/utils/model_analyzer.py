@@ -90,8 +90,8 @@ class ModelAnalyzer:
         ast_models = self._analyze_with_ast(models_file)
         runtime_models = self._analyze_with_runtime(module_name)
         
-        # 合并分析结果
-        merged_models = self._merge_analysis_results(ast_models, runtime_models)
+        # 合并分析结果（传递module_name）
+        merged_models = self._merge_analysis_results(ast_models, runtime_models, module_name)
         
         print(f"✅ 分析完成，共识别 {len(merged_models)} 个数据模型")
         return merged_models
@@ -394,9 +394,15 @@ class ModelAnalyzer:
         return model_data
     
     def _merge_analysis_results(
-        self, ast_models: Dict[str, Dict], runtime_models: Dict[str, Dict]
+        self, ast_models: Dict[str, Dict], runtime_models: Dict[str, Dict], module_name: str
     ) -> Dict[str, ModelInfo]:
-        """合并AST和运行时分析结果"""
+        """合并AST和运行时分析结果
+        
+        Args:
+            ast_models: AST分析结果
+            runtime_models: 运行时分析结果
+            module_name: 模块名称（如product_catalog）
+        """
         merged = {}
         
         # 获取所有模型名
@@ -447,7 +453,8 @@ class ModelAnalyzer:
                 mixins=runtime_data.get('mixins', ast_data.get('mixins', [])),
                 docstring=runtime_data.get('docstring') or ast_data.get('docstring'),
                 primary_keys=runtime_data.get('primary_keys', ast_data.get('primary_keys', [])),
-                unique_constraints=runtime_data.get('unique_constraints', ast_data.get('unique_constraints', []))
+                unique_constraints=runtime_data.get('unique_constraints', ast_data.get('unique_constraints', [])),
+                module_name=module_name  # 记录所属模块
             )
             
             merged[model_name] = model_info
