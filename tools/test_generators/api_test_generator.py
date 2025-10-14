@@ -52,12 +52,19 @@ API测试生成器 - 清理版本
 """
 
 import re
+from pathlib import Path
 from typing import Dict, List, Any
 from .base_generator import BaseTestGenerator, ModelInfo, RouterInfo
 
 
 class APITestGenerator(BaseTestGenerator):
     """API测试代码生成器 - 清理版本"""
+    
+    def __init__(self, project_root: Path, config: Dict[str, Any]):
+        super().__init__(project_root, config)
+        # 初始化跨模块依赖解析器
+        from .utils.cross_module_dependency_resolver import CrossModuleDependencyResolver
+        self.cross_module_resolver = CrossModuleDependencyResolver(project_root)
     
     def generate_tests(self, module_name: str, models: Dict[str, ModelInfo]) -> Dict[str, str]:
         """生成API测试代码"""
@@ -417,11 +424,16 @@ class {class_name}:
                     if factory_name:
                         # 生成实体创建代码（通过Manager统一设置session）
                         entity_var = f"test_{entity_name}"
-                        # 将module_name转换为PascalCase (如 product_catalog -> ProductCatalog)
-                        manager_name = ''.join(word.capitalize() for word in module_name.split('_')) + 'FactoryManager'
+                        
+                        # 使用跨模块依赖解析器获取正确的模块名
+                        model_name = factory_name.replace('Factory', '')
+                        factory_module = self.cross_module_resolver.get_module_for_model(model_name)
+                        
+                        # 将factory_module转换为PascalCase (如 product_catalog -> ProductCatalog)
+                        manager_name = ''.join(word.capitalize() for word in factory_module.split('_')) + 'FactoryManager'
                         foreign_key_setup.append(
                             f"        # 创建{entity_name}实体用于外键关联\n"
-                            f"        from tests.factories.{module_name}_factories import {factory_name}, {manager_name}\n"
+                            f"        from tests.factories.{factory_module}_factories import {factory_name}, {manager_name}\n"
                             f"        {manager_name}.setup_factories(mysql_integration_db)\n"
                             f"        {entity_var} = {factory_name}.create()"
                         )
@@ -732,16 +744,18 @@ class {class_name}:
                         # 使用Factory创建实体 - 处理SKU等特殊大小写
                         if entity_type.lower() == 'sku':
                             factory_class = "SKUFactory"
+                            model_name = "SKU"
                         else:
                             factory_class = f"{entity_type.capitalize()}Factory"
+                            model_name = entity_type.capitalize()
                         
-                        # 提取模块名并生成Manager名称
-                        module_name = self._extract_module_from_path(route.path)
-                        manager_name = ''.join(word.capitalize() for word in module_name.split('_')) + 'FactoryManager'
+                        # 使用跨模块依赖解析器获取正确的模块名
+                        factory_module = self.cross_module_resolver.get_module_for_model(model_name)
+                        manager_name = ''.join(word.capitalize() for word in factory_module.split('_')) + 'FactoryManager'
                         
                         create_entity_code = f'''
         # 先创建{entity_type}实体用于测试
-        from tests.factories.{module_name}_factories import {factory_class}, {manager_name}
+        from tests.factories.{factory_module}_factories import {factory_class}, {manager_name}
         {manager_name}.setup_factories(mysql_integration_db)
         {entity_var} = {factory_class}.create()
         '''
