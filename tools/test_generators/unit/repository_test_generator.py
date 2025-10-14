@@ -1634,34 +1634,79 @@ from app.modules.{module_name}.models import (
         module_name: str,
         models: Dict[str, ModelInfo]
     ) -> str:
-        """生成Repository count方法测试（智能处理参数）"""
+        """生成Repository count方法测试（智能处理参数）
+        
+        策略：
+        1. 无参数count()：创建实体，调用count()
+        2. 有参数count_by_xxx()：创建实体，从实体提取参数值
+        3. 特殊处理：
+           - List[int]类型：构造单元素列表 [entity.xxx_id]
+           - xxx_id类型：提取entity.xxx_id
+           - 其他：使用entity.xxx
+        """
         method_name = method_info.name
         
         # 分析方法参数（排除db: Session）
         params = [p for p in method_info.parameters if p[0] not in ['self', 'db', 'cls']]
         
-        # 生成5个不同的测试实体
-        entity_creations = []
-        for i in range(5):
-            entity_creation = self._generate_test_entity_creation(model_name, models, f"测试数据{i}", module_name=module_name)
-            entity_creations.append(f"        entity{i} = {entity_creation}\n        unit_test_db.add(entity{i})")
+        # 生成测试实体（包含依赖） - 与READ测试策略一致
+        entity_creation = self._generate_test_entity_creation(model_name, models, "测试数据", with_dependencies=True, module_name=module_name)
         
-        entities_code = "\n".join(entity_creations)
-        
-        # 如果有参数，使用第一个实体的属性作为参数值
+        # 如果有参数，使用实体的属性作为参数值
         if params:
-            # 假设第一个参数是关键查询参数（如category_id）
             param_name = params[0][0]
-            # 推断参数值：如果参数名包含_id，使用entity0.xxx_id；否则使用entity0的对应属性
-            if param_name.endswith('_id'):
-                # 例如：category_id -> entity0.id (假设是查询自身ID)
+            param_type = params[0][1] if len(params[0]) > 1 else None
+            
+            # 处理列表类型参数（如category_ids: List[int]）
+            if param_type and 'List' in param_type:
+                # 从entity提取外键字段，构造列表
+                # 例如：count_by_category_ids -> 需要Product.category_id -> [product.category_id]
+                # SKU有product_id外键，所以entity是SKU，但需要product.category_id
+                
+                # 检查参数名模式
+                if param_name.endswith('_ids'):
+                    # category_ids -> category_id
+                    singular_field = param_name[:-1]  # 移除s
+                    
+                    # 检查当前模型是否有这个外键
+                    model_info = models.get(model_name)
+                    if model_info:
+                        # 查找外键字段
+                        fk_field = None
+                        for field in model_info.fields:
+                            if field.name == singular_field:
+                                fk_field = field
+                                break
+                        
+                        if fk_field and fk_field.foreign_key:
+                            # 找到了直接的外键字段（如Product.category_id）
+                            param_value = f"[entity.{singular_field}]"
+                        else:
+                            # 没有直接外键，可能是跨表查询（如SKU查Product.category_id）
+                            # 尝试通过关系查找（如entity.product.category_id）
+                            for field in model_info.fields:
+                                if field.foreign_key and singular_field in field.name:
+                                    # 如果有product_id，尝试entity.product.category_id
+                                    relation_name = field.name[:-3]  # 移除_id
+                                    param_value = f"[entity.{relation_name}.{singular_field}]"
+                                    break
+                            else:
+                                # 找不到，使用默认值
+                                param_value = "[1]"
+                    else:
+                        param_value = "[1]"
+                else:
+                    param_value = "[entity.id]"
+            # 推断参数值：如果参数名包含_id，使用entity.xxx_id；否则使用entity的对应属性
+            elif param_name.endswith('_id'):
+                # 例如：category_id -> entity.id (假设是查询自身ID)
                 base_name = param_name[:-3]  # 移除_id
                 if base_name == model_name.lower():
-                    param_value = "entity0.id"
+                    param_value = "entity.id"
                 else:
-                    param_value = f"entity0.{param_name}"
+                    param_value = f"entity.{param_name}"
             else:
-                param_value = f"entity0.{param_name}"
+                param_value = f"entity.{param_name}"
             
             # 使用_generate_method_call生成正确的方法调用
             method_call = self._generate_method_call(method_info, repo_name, f"unit_test_db, {param_value}")
@@ -1672,7 +1717,8 @@ from app.modules.{module_name}.models import (
         return f'''    def test_{method_name}_count(self, unit_test_db: Session):
         """测试{method_name} - 计数功能"""
         # 准备测试数据
-{entities_code}
+        {entity_creation}
+        unit_test_db.add(entity)
         unit_test_db.commit()
         
         # 执行Repository方法
@@ -1793,9 +1839,7 @@ from app.modules.{module_name}.models import (
                 test_methods.append(self.generate_repository_update_test(method_info, model_name, repo_name, module_name, models))
             elif method_info.method_type == "delete":
                 test_methods.append(self.generate_repository_delete_test(method_info, model_name, repo_name, module_name, models))
-            elif method_info.method_type == "count":
-                test_methods.append(self.generate_repository_count_test(method_info, model_name, repo_name, module_name, models))
-            else:  # query, exists等其他类型
+            else:  # query, count, exists等其他类型
                 test_methods.append(self.generate_repository_query_test(method_info, model_name, repo_name, module_name, models))
         
         test_class = f'''

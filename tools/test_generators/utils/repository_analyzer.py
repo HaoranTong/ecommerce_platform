@@ -231,14 +231,7 @@ class RepositoryAnalyzer:
             str: 方法类型（create, read, update, delete, query, list, search, bulk, custom）
         """
         name_lower = method_name.lower()
-        
-        # 0. 特殊方法（最高优先级，避免被CRUD模式误判）
-        # 例如：get_user_count应该是count而不是read
-        if 'count' in name_lower and not name_lower.startswith('discount'):
-            return 'count'
-        if name_lower.startswith('exists') or name_lower.startswith('has'):
-            return 'exists'
-        
+
         # 1. 基于方法名的精确匹配
         create_patterns = ['create', 'add', 'insert', 'register', 'save']
         read_patterns = ['get', 'find', 'fetch', 'retrieve', 'load']

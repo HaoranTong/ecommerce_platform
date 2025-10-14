@@ -423,13 +423,17 @@ except Exception as e:
                         os.unlink(tmp_path)
 
             except Exception as e:
+                import traceback
+                error_traceback = traceback.format_exc()
                 execution_results["failed_executions"] += 1
                 execution_results["execution_details"][file_path] = {
                     "status": "fail",
                     "error": str(e),
+                    "traceback": error_traceback,
                     "message": f"执行失败: {e}",
                 }
                 print(f"  ❌ 基础执行测试失败: {file_path} - {e}")
+                print(f"完整错误:\n{error_traceback}")
 
         # 计算成功率
         if execution_results["executed_files"] > 0:

@@ -722,6 +722,9 @@ def main():
 
     except Exception as e:
         print(f"❌ 执行失败: {e}")
+        import traceback
+        print("\n完整错误堆栈:")
+        traceback.print_exc()
         sys.exit(1)
 
 
