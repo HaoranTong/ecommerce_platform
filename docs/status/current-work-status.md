@@ -12,26 +12,36 @@
 
 ### ✅ 已完成任务（2025-10-14）
 
-1. **测试生成器COUNT方法分类逻辑修复** - 已完成 ✅
-   - **问题发现**：user_auth重新生成后少了2个测试（91→89）
-   - **根本原因**：COUNT方法被错误分类为QUERY/READ
-   - **修复方案**：将特殊方法检查（count, exists）移到最高优先级
-   - **关键改进**：
-     * repository_analyzer.py: 特殊方法检查提前到CRUD模式之前
-     * 避免`get_user_count`被`get`模式误判为READ
-     * 避免`count`被方法体中的`query`误判为QUERY
+1. **测试生成器COUNT方法分类错误修复（第二次修复-正确版）** - 已完成 ✅
+   - **问题回顾**：
+     * 第一次修复（ccb3d96）错误地将count提升为独立的COUNT类型
+     * 未仔细阅读testing-standards.md，凭猜测修改代码
+     * 导致product_catalog模块出现外键依赖问题
+   - **根本原因**：
+     * count方法不是独立的CRUD类型
+     * 应归类为QUERY，遵循"2.2 读取操作测试"标准
+     * 测试数据应使用Factory Boy（与其他查询方法一致）
+   - **正确理解**（来自testing-standards.md）：
+     * 第2.2节"读取操作测试"涵盖所有查询方法（包括count）
+     * 查询测试统一使用Factory Boy创建完整测试数据
+     * count方法本质是READ/QUERY操作，只是返回int而已
+     * QUERY测试模板已有is_count_method逻辑，自动处理int返回值
+   - **修复内容**：
+     * repository_analyzer.py: 删除count的独立优先级分类（Line 237-239）
+     * repository_test_generator.py: 删除COUNT类型处理分支（Line 1843）
+     * count方法走QUERY测试路径（已有逻辑处理）
    - **验证结果**：
-     * user_auth: 90个Repository测试（100%通过）
-     * 完整测试：236个测试（100%通过，3分41秒）
-     * 覆盖：Unit + Integration + E2E + Security + Performance
-   - **测试数量变化说明**：
-     * 旧版本：count→QUERY(1个) + get_user_count→READ(2个) = 91个
-     * 新版本：count→COUNT(1个) + get_user_count→COUNT(1个) = 90个
-     * 减少1个是正确的修复结果，去除了重复/错误的测试
-   - **关键教训**：
-     * 不要盲目修改，要理解历史逻辑
-     * 查看git历史和旧版本代码
-     * 测试数量变化需要深入分析原因
+     * user_auth: 242/242测试通过（Repository 91个，增加1个count测试）
+     * product_catalog: 227/227测试通过（Repository 45个）
+     * 外键依赖全部使用Factory Boy，无硬编码
+     * 测试策略与testing-standards.md完全一致
+   - **严重教训**：
+     * ❌ 不要根据猜测修改代码
+     * ✅ 先仔细阅读测试标准文档
+     * ✅ 理解设计意图再修改
+     * ✅ 修改后全面验证影响范围（19个模块）
+     * ✅ 测试数量变化要深入分析原因
+   - **提交记录**：commit fefacfb "修复count方法分类错误"
 
 2. **check_exists方法分类验证** - 已完成 ✅
    - **验证结论**：check_exists应保持READ分类（因为有`.first()`）
