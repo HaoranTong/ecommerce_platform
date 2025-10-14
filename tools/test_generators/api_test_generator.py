@@ -503,7 +503,11 @@ class {class_name}:
     "size": 10
 }'''
         else:
-            # Schema分析失败，使用基类的fallback方法
+            # Schema分析返回None，说明不需要请求体
+            if schema_data is None:
+                return ''  # 不生成test_data
+            
+            # Schema分析失败但返回了空dict，使用fallback方法
             fallback_data = self._generate_fallback_data(route)
             return self._format_fallback_data_as_code(fallback_data)
     
@@ -772,10 +776,17 @@ class {class_name}:
         request_prefix = create_entity_code if create_entity_code else ""
         
         if route.method == 'GET':
-            params_part = "params=query_params if 'query_params' in locals() else None" if with_user_context else "params=query_params"
-            return f'''{request_prefix}response = api_client.get(
+            # 检查是否有test_data（即是否生成了query_params）
+            if test_data and 'query_params' in test_data:
+                params_part = "params=query_params"
+                return f'''{request_prefix}response = api_client.get(
             {path_str},
             {params_part}
+        )'''
+            else:
+                # 没有query_params，不传params
+                return f'''{request_prefix}response = api_client.get(
+            {path_str}
         )'''
         elif route.method in ['POST', 'PUT', 'PATCH']:
             # 检查是否需要请求体 - 根据是否有test_data判断
@@ -832,15 +843,21 @@ class {class_name}:
         if route.method == 'POST' and ('create' in route.function_name.lower() or 'register' in route.function_name.lower()):
             expected_status = 'status.HTTP_201_CREATED'
         elif route.method == 'DELETE':
-            expected_status = 'status.HTTP_204_NO_CONTENT'
+            # DELETE请求根据response_model判断状态码
+            # 如果有response_model且不是空响应，返回200；否则返回204
+            if route.response_model and route.response_model != 'None' and 'SuccessResponse' not in route.response_model:
+                expected_status = 'status.HTTP_200_OK'  # 有响应体的DELETE
+            else:
+                expected_status = 'status.HTTP_204_NO_CONTENT'  # 无响应体的DELETE
         else:
             expected_status = 'status.HTTP_200_OK'
         
         # 获取合理的响应时间限制
         time_limit = self._get_response_time_limit(route)
         
-        # DELETE请求返回204无内容，不需要验证响应数据
-        if route.method == 'DELETE':
+        # DELETE请求根据状态码决定是否验证响应数据
+        if route.method == 'DELETE' and expected_status == 'status.HTTP_204_NO_CONTENT':
+            # 204 No Content - 不验证响应体
             return f'''assert response.status_code == {expected_status}
         
         # 验证响应时间 (集成测试环境)

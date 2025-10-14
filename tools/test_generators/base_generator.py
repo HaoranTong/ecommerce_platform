@@ -232,12 +232,19 @@ class BaseTestGenerator(ABC):
         
         # 解析关键字参数
         for keyword in decorator.keywords:
-            if keyword.arg == "response_model" and isinstance(keyword.value, ast.Name):
-                response_model = keyword.value.id
+            if keyword.arg == "response_model":
+                # 提取response_model - 支持简单类型和泛型类型
+                if isinstance(keyword.value, ast.Name):
+                    response_model = keyword.value.id
+                elif isinstance(keyword.value, ast.Subscript):
+                    # 处理泛型类型如 ApiResponse[Dict[str, Any]]
+                    response_model = ast.unparse(keyword.value)  # 转换为字符串表示
+                elif isinstance(keyword.value, ast.Attribute):
+                    response_model = f"{keyword.value.value.id}.{keyword.value.attr}"
             elif keyword.arg == "summary" and isinstance(keyword.value, ast.Constant):
                 summary = keyword.value.value
             elif keyword.arg == "tags" and isinstance(keyword.value, ast.List):
-                tags = [item.value for item in keyword.value.elts if isinstance(item, ast.Constant)]
+                tags = [item.value for item in keyword.value.elts if isinstance(keyword.value.Constant)]
         
         # 提取依赖信息
         dependencies, require_admin = self._extract_function_dependencies(func_node)
@@ -453,20 +460,36 @@ class BaseTestGenerator(ABC):
                 # 优先使用从参数提取的Schema名称，其次才推断
                 schema_class_name = schema_from_params or self._infer_schema_class(route)
                 if not schema_class_name:
-                    # 检查是否是正常不需要Schema的情况
-                    if self._should_have_schema(route):
+                    # 检查路由定义中是否有请求体参数
+                    has_body_param = self._has_request_body_parameter(route)
+                    
+                    if has_body_param:
+                        # 有请求体参数但找不到Schema，使用fallback
                         print(f"⚠️ 无法推断Schema类名，使用fallback数据")
+                        result = self._generate_fallback_data(route)
                     else:
-                        print(f"📋 {route.function_name} 无需Schema (GET请求或无参数POST)")
-                    result = self._generate_fallback_data(route)
+                        # 没有请求体参数，说明不需要test_data
+                        print(f"📋 {route.function_name} 无需Schema (无请求体参数)")
+                        result = None
+                    
                     self._schema_cache[cache_key] = result
                     return result
                 
                 # 获取Schema类
                 schema_class = getattr(schema_module, schema_class_name, None)
                 if not schema_class:
-                    print(f"⚠️ Schema类 {schema_class_name} 不存在，使用fallback数据")
-                    result = self._generate_fallback_data(route)
+                    # 检查路由定义中是否有请求体参数
+                    has_body_param = self._has_request_body_parameter(route)
+                    
+                    if has_body_param:
+                        # 有请求体参数但找不到Schema类，使用fallback
+                        print(f"⚠️ Schema类 {schema_class_name} 不存在，使用fallback数据")
+                        result = self._generate_fallback_data(route)
+                    else:
+                        # 没有请求体参数，说明不需要test_data
+                        print(f"📋 {route.function_name} Schema类 {schema_class_name} 不存在但无请求体参数")
+                        result = None
+                    
                     self._schema_cache[cache_key] = result
                     return result
                 
@@ -489,6 +512,34 @@ class BaseTestGenerator(ABC):
             result = self._generate_fallback_data(route)
             self._schema_cache[cache_key] = result
             return result
+    
+    def _has_request_body_parameter(self, route: RouterInfo) -> bool:
+        """检查路由是否有请求体参数（非路径/查询参数）
+        
+        通过检查路由参数中是否存在Pydantic Schema类型来判断
+        """
+        if not route.parameters:
+            return False
+        
+        # 遍历参数，查找Pydantic Schema类型
+        for param in route.parameters:
+            param_type = param.get('type')
+            if not param_type:
+                continue
+            
+            # 检查是否是Schema类型（通常包含Request/Create/Update等后缀）
+            schema_name = None
+            if isinstance(param_type, str):
+                schema_name = param_type.split('.')[-1] if '.' in param_type else param_type
+            elif hasattr(param_type, '__name__'):
+                schema_name = param_type.__name__
+            
+            # 如果找到Schema类型参数，说明有请求体
+            if schema_name and any(suffix in schema_name for suffix in 
+                ['Create', 'Update', 'Base', 'Request', 'Send', 'Reset', 'Verify', 'Refresh']):
+                return True
+        
+        return False
     
     def _should_have_schema(self, route: RouterInfo) -> bool:
         """判断路由是否应该有Schema"""
@@ -975,7 +1026,16 @@ class BaseTestGenerator(ABC):
             
             # 列表类型
             elif actual_type is list:
-                return '[]' if is_optional else '["test_item"]'
+                if is_optional:
+                    return '[]'
+                # 检查是否有泛型参数信息来推断列表元素类型
+                # 检查字段名推断列表内容类型
+                if any(keyword in field_name_lower for keyword in ['id', 'ids']):
+                    # ID列表：生成整数列表
+                    return '[1, 2, 3]'
+                else:
+                    # 默认字符串列表
+                    return '["test_item"]'
             
             # 字典类型
             elif actual_type is dict:
