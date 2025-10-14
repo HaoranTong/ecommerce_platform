@@ -942,7 +942,16 @@ class BaseTestGenerator(ABC):
                 elif any(keyword in field_name_lower for keyword in ['sort', 'order', 'sequence']):
                     return 'fake.random_int(min=0, max=100)'
                 else:
-                    return 'fake.random_int(min=1, max=999999)'
+                    # 使用schema中定义的约束（如果有）
+                    min_val = value.get('ge', value.get('gt', 1)) if isinstance(value, dict) else 1
+                    max_val = value.get('le', value.get('lt', 999999)) if isinstance(value, dict) else 999999
+                    # gt (greater than) 和 lt (less than) 需要调整
+                    if isinstance(value, dict):
+                        if 'gt' in value:
+                            min_val = value['gt'] + 1
+                        if 'lt' in value:
+                            max_val = value['lt'] - 1
+                    return f'fake.random_int(min={min_val}, max={max_val})'
             
             # 浮点数类型
             elif actual_type in (float, type(float)):
