@@ -366,9 +366,8 @@ from app.modules.{module_name}.models import (
         """测试{method_name} - 完整字段创建
         
         符合标准: testing-standards.md 第2.1节 - 填写所有字段，验证保存正确
-        数据准备策略: 使用构造函数填充所有字段
         """
-{full_import_block}# 创建完整实体（填充所有字段）
+{full_import_block}# 使用Factory Boy创建完整实体
 {full_entity_code}
         
         # 执行Repository方法
@@ -376,8 +375,7 @@ from app.modules.{module_name}.models import (
         
         # 验证所有字段保存正确
         assert result is not None
-        assert result.id is not None
-        # TODO: 验证其他字段值正确保存
+        # TODO: 验证各个字段值
         
         # 验证持久化
         db_entity = unit_test_db.query({model_name}).filter_by({pk_filter}).first()
@@ -492,9 +490,12 @@ from app.modules.{module_name}.models import (
             method_call_not_found = self._generate_method_call(method_info, repo_name, f"unit_test_db, {not_found_params}")
             
             # 根据返回类型选择断言
-            if method_info.return_type == "int" or "count" in method_name:
+            is_count_method = method_info.return_type == "int" or "count" in method_name.lower()
+            if is_count_method:
+                found_assertion = "assert isinstance(result, int)\n        assert result >= 0  # count方法返回非负整数"
                 not_found_assertion = "assert result == 0  # count方法返回0"
             else:
+                found_assertion = "assert result is not None"
                 not_found_assertion = "assert result is None"
             
             return f'''    def test_{method_name}_found(self, unit_test_db: Session):
@@ -508,7 +509,7 @@ from app.modules.{module_name}.models import (
         result = {method_call_found}
         
         # 验证结果
-        assert result is not None
+        {found_assertion}
 
     def test_{method_name}_not_found(self, unit_test_db: Session):
         """测试{method_name} - 数据不存在（复合主键）"""
@@ -665,10 +666,13 @@ from app.modules.{module_name}.models import (
                 # 生成not_found测试的参数（使用不存在的值替代）
                 not_found_param = self._generate_not_found_param(query_param)
                 
-                # 🎯 根据返回类型选择not_found断言
-                if method_info.return_type == "int" or "count" in method_name:
+                # 🎯 根据返回类型选择断言
+                is_count_method = method_info.return_type == "int" or "count" in method_name.lower()
+                if is_count_method:
+                    found_assertion = "assert isinstance(result, int)\n        assert result >= 0  # count方法返回非负整数"
                     not_found_assertion = "assert result == 0  # count方法返回0"
                 else:
+                    found_assertion = "assert result is not None"
                     not_found_assertion = "assert result is None"
                 
                 # 生成方法调用
@@ -686,7 +690,7 @@ from app.modules.{module_name}.models import (
         result = {method_call_found}
         
         # 验证结果
-        assert result is not None
+        {found_assertion}
 
     def test_{method_name}_not_found(self, unit_test_db: Session):
         """测试{method_name} - 数据不存在"""
@@ -741,6 +745,15 @@ from app.modules.{module_name}.models import (
                 # 生成not_found测试的参数
                 not_found_param = self._generate_not_found_param(query_param)
                 
+                # 🎯 根据返回类型选择断言
+                is_count_method = method_info.return_type == "int" or "count" in method_name.lower()
+                if is_count_method:
+                    found_assertion = "assert isinstance(result, int)\n        assert result >= 0  # count方法返回非负整数"
+                    not_found_assertion = "assert result == 0  # count方法返回0"
+                else:
+                    found_assertion = f"assert result is not None\n        assert result.{verify_field} == entity.{verify_field}"
+                    not_found_assertion = "assert result is None"
+                
                 # 生成方法调用
                 method_call_found = self._generate_method_call(method_info, repo_name, f"unit_test_db, {query_param}")
                 method_call_not_found = self._generate_method_call(method_info, repo_name, f"unit_test_db, {not_found_param}")
@@ -756,14 +769,14 @@ from app.modules.{module_name}.models import (
         result = {method_call_found}
         
         # 验证结果
-        assert result is not None
-        assert result.{verify_field} == entity.{verify_field}
+        {found_assertion}
     
     def test_{method_name}_not_found(self, unit_test_db: Session):
         """测试{method_name} - 数据不存在"""
         result = {method_call_not_found}
         
-        assert result is None
+        # 验证结果
+        {not_found_assertion}
 '''
     
     def _generate_not_found_param(self, query_param: str) -> str:
@@ -1782,7 +1795,7 @@ from app.modules.{module_name}.models import (
                 test_methods.append(self.generate_repository_delete_test(method_info, model_name, repo_name, module_name, models))
             elif method_info.method_type == "count":
                 test_methods.append(self.generate_repository_count_test(method_info, model_name, repo_name, module_name, models))
-            else:  # query
+            else:  # query, exists等其他类型
                 test_methods.append(self.generate_repository_query_test(method_info, model_name, repo_name, module_name, models))
         
         test_class = f'''
@@ -2137,7 +2150,21 @@ class Test{repo_name}:
         
         # 添加外键字段
         for field in fk_fields:
-            field_assignments.append(f'{field.name}={fk_var_names[field.name]}')
+            if field.name in fk_var_names:
+                # 有对应的依赖实体
+                field_assignments.append(f'{field.name}={fk_var_names[field.name]}')
+            else:
+                # 同一个依赖模型的多个外键字段，使用第一个创建的依赖实体
+                # 例如：UserRole有user_id和assigned_by都指向User，assigned_by使用user.id
+                fk_target = field.foreign_key
+                fk_table = fk_target.split('.')[0]
+                fk_model_name = self._table_name_to_model_name(fk_table)
+                dep_var_name = fk_model_name.lower()
+                if fk_model_name in created_entities:
+                    field_assignments.append(f'{field.name}={created_entities[fk_model_name]}.id')
+                else:
+                    # 降级方案：使用整数值
+                    field_assignments.append(f'{field.name}=1')
         
         if field_assignments:
             lines.append(f'# 构造被测实体: {model_name} - 填充所有字段')
@@ -2336,8 +2363,8 @@ class Test{repo_name}:
             for field in required_fields:
                 test_value = self._get_test_value_for_field(field, suffix)
                 field_assignments.append(f'{field.name}={test_value}')
-            # 返回不带变量赋值的表达式(用于单行赋值: entity = XXX())
-            return f'{model_name}({", ".join(field_assignments)})'
+            # 返回带变量赋值的完整语句
+            return f'entity = {model_name}({", ".join(field_assignments)})'
         
         # 生成完整的依赖创建代码(多行) - 使用与create测试相同的策略
         lines = []

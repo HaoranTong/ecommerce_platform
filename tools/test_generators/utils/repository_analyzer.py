@@ -232,6 +232,13 @@ class RepositoryAnalyzer:
         """
         name_lower = method_name.lower()
         
+        # 0. 特殊方法（最高优先级，避免被CRUD模式误判）
+        # 例如：get_user_count应该是count而不是read
+        if 'count' in name_lower and not name_lower.startswith('discount'):
+            return 'count'
+        if name_lower.startswith('exists') or name_lower.startswith('has'):
+            return 'exists'
+        
         # 1. 基于方法名的精确匹配
         create_patterns = ['create', 'add', 'insert', 'register', 'save']
         read_patterns = ['get', 'find', 'fetch', 'retrieve', 'load']
@@ -241,7 +248,7 @@ class RepositoryAnalyzer:
         search_patterns = ['search', 'filter', 'query']
         bulk_patterns = ['bulk', 'batch', 'multi', 'mass']
         
-        # 批量操作（最高优先级）
+        # 批量操作（高优先级）
         for pattern in bulk_patterns:
             if pattern in name_lower:
                 return 'bulk'
@@ -295,13 +302,7 @@ class RepositoryAnalyzer:
                 return 'read'
             return 'query'
         
-        # 4. 特殊方法
-        if name_lower.startswith('count'):
-            return 'count'
-        if name_lower.startswith('exists') or name_lower.startswith('has'):
-            return 'exists'
-        
-        # 默认为自定义方法
+        # 4. 默认为自定义方法
         return 'custom'
     
     def _extract_query_parameters(
