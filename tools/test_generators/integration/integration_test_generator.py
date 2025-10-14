@@ -20,6 +20,7 @@
 from pathlib import Path
 from typing import Dict
 from ..core import ModelInfo, RepositoryInfo
+from ..utils.service_analyzer import ServiceAnalyzer
 
 
 class IntegrationTestGenerator:
@@ -36,6 +37,8 @@ class IntegrationTestGenerator:
         self.project_root = project_root
         self.config = config
         self.main_generator = main_generator
+        # 初始化ServiceAnalyzer用于获取真实Service类名
+        self.service_analyzer = ServiceAnalyzer(project_root)
     
     def generate_integration_tests(
         self,
@@ -351,6 +354,13 @@ class TestUserAuthIntegration:
         self, module_name: str, models: Dict[str, ModelInfo]
     ) -> str:
         """生成通用模块的集成测试模板"""
+        # 使用ServiceAnalyzer获取真实的Service类名
+        service_info = self.service_analyzer.detect_service_info(module_name)
+        service_class_name = service_info['class_name']
+        
+        # 生成测试类名
+        test_class_name = service_class_name.replace('Service', 'Integration')
+        
         return f'''"""
 {module_name.title().replace('_', '')} 集成测试套件
 
@@ -369,11 +379,11 @@ from tests.factories import UserFactory
 from tests.conftest import mysql_integration_db, api_client
 
 # 被测模块导入  
-from app.modules.{module_name}.service import {module_name.title().replace('_', '')}Service
+from app.modules.{module_name}.service import {service_class_name}
 
 
 @pytest.mark.integration
-class Test{module_name.title().replace('_', '')}Integration:
+class Test{test_class_name}:
     """{module_name.replace('_', ' ').title()}集成测试 - MySQL Docker环境"""
     
     def test_{module_name}_database_integration(self, mysql_integration_db: Session):
