@@ -573,6 +573,13 @@ class {class_name}:
         # 使用真实JWT身份验证
         token, admin_user = await async_api_client.authenticate_as_admin()
         headers = {{"Authorization": f"Bearer {{token}}"}}
+        
+        # 🔥 预热请求（排除冷启动影响）
+        warmup_count = 5
+        for _ in range(warmup_count):
+            await async_api_client.get("{auth_endpoint}", headers=headers)
+            await asyncio.sleep(0.01)
+        
         response_times = []
         
         # 执行100次请求测量响应时间
@@ -838,6 +845,8 @@ class {class_name}:
         # 设置真实的身份验证
         token, admin_user = await async_api_client.authenticate_as_admin()
         headers = {{"Authorization": f"Bearer {{token}}"}}
+        
+{fk_fixtures}
         
         # 导入Faker用于动态生成测试数据
         from faker import Faker
