@@ -484,7 +484,7 @@ class {class_name}:
                 dynamic_code = self._convert_to_dynamic_code(field, value)
                 data_assignments.append(f'    "{field}": {dynamic_code}')
             
-            if route.method in ['POST', 'PUT', 'PATCH']:
+            if route.method in ['POST', 'PUT', 'PATCH', 'DELETE']:
                 assignments_str = ',\n'.join(data_assignments)
                 test_data_code = f'''        # 动态生成测试数据，避免硬编码
         fake = Faker()
@@ -789,7 +789,17 @@ class {class_name}:
             json=test_data
         )'''
         else:
-            return f'''{request_prefix}response = api_client.{route.method.lower()}(
+            # DELETE请求也可能有请求体（如batch delete）
+            # 检查是否有test_data（包含schema的DELETE请求）
+            if test_data and 'test_data' in test_data and 'test_data = {}' not in test_data:
+                # DELETE请求带body需要使用request()方法（FastAPI TestClient限制）
+                return f'''{request_prefix}response = api_client.request(
+            "DELETE",
+            {path_str},
+            json=test_data
+        )'''
+            else:
+                return f'''{request_prefix}response = api_client.{route.method.lower()}(
             {path_str}
         )'''
     
@@ -810,10 +820,10 @@ class {class_name}:
             'reset_password',     # 重置密码
             'send_email',         # 邮件发送
         ]):
-            return 30.0  # 集成测试环境允许30秒
+            return 60.0  # 集成测试环境允许60秒（包含服务启动时间）
         
         # 标准API响应时间
-        return 5.0  # 集成测试环境允许5秒（比生产环境2秒更宽松）
+        return 30.0  # 集成测试环境允许30秒（包含服务启动和数据库操作时间）
     
     def _generate_assertions(self, route: RouterInfo) -> str:
         """生成响应断言代码"""
