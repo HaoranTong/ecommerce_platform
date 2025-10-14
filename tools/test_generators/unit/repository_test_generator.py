@@ -106,7 +106,7 @@ class RepositoryTestGenerator:
     - 阶段B: 逐步迁移方法实现到此类
     - 阶段C: 移除对主程序的依赖
     
-    当前阶段：A（框架完成，使用主程序方法）
+    当前阶段：B（开始使用CrossModuleDependencyResolver工具）
     """
     
     def __init__(self, project_root: Path, config: Dict, main_generator=None):
@@ -120,6 +120,10 @@ class RepositoryTestGenerator:
         self.project_root = project_root
         self.config = config
         self.main_generator = main_generator  # 临时：引用主程序的方法
+        
+        # 初始化跨模块依赖解析器
+        from ..utils.cross_module_dependency_resolver import CrossModuleDependencyResolver
+        self.dependency_resolver = CrossModuleDependencyResolver(project_root)
     
     def _generate_method_call(
         self, 
@@ -2482,22 +2486,15 @@ class Test{repo_name}:
         return primary_key_count > 1
     
     def _get_module_name_for_model(self, model_name: str) -> str:
-        """根据模型名推断所属模块名"""
-        # 常见的模型到模块的映射
-        model_to_module = {
-            'User': 'user_auth',
-            'Role': 'user_auth', 
-            'Permission': 'user_auth',
-            'Session': 'user_auth',
-            'Product': 'product_catalog',
-            'ProductSku': 'product_catalog',
-            'Category': 'product_catalog',
-            'Brand': 'product_catalog',
-            'Cart': 'shopping_cart',
-            'CartItem': 'shopping_cart',
-            # 可以根据需要扩展
-        }
-        return model_to_module.get(model_name, 'unknown')
+        """根据模型名推断所属模块名
+        
+        使用CrossModuleDependencyResolver自动解析模型所属模块。
+        """
+        module_name = self.dependency_resolver.get_module_for_model(model_name)
+        if module_name is None:
+            print(f"⚠️  警告: 未找到模型 {model_name} 所属模块，请检查models.py")
+            return 'unknown'
+        return module_name
 
     def _get_minimal_cross_module_fields(self, model_name: str) -> str:
         """为跨模块依赖生成最小字段参数
