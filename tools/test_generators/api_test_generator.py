@@ -844,8 +844,8 @@ class {class_name}:
             expected_status = 'status.HTTP_201_CREATED'
         elif route.method == 'DELETE':
             # DELETE请求根据response_model判断状态码
-            # 如果有response_model且不是空响应，返回200；否则返回204
-            if route.response_model and route.response_model != 'None' and 'SuccessResponse' not in route.response_model:
+            # 使用统一的响应模型解析器
+            if route.response_parser.has_response_body():
                 expected_status = 'status.HTTP_200_OK'  # 有响应体的DELETE
             else:
                 expected_status = 'status.HTTP_204_NO_CONTENT'  # 无响应体的DELETE
@@ -876,22 +876,29 @@ class {class_name}:
         assert response.elapsed.total_seconds() < {time_limit}'''
 
     def _generate_business_assertions(self, route: RouterInfo) -> str:
-        """根据response_model动态生成具体的断言"""
-        if not route.response_model:
+        """根据response_model动态生成具体的断言 - 使用统一解析器"""
+        parser = route.response_parser
+        
+        if parser.is_empty_response():
             return '''# 验证基本响应结构
         assert response_data is not None'''
         
-        # 完全动态的响应模型分析
-        if route.response_model.startswith('list['):
+        # 使用解析器统一判断响应类型
+        if parser.is_list_response():
             # 处理列表类型
-            inner_type = route.response_model[5:-1]
+            inner_type = parser.get_inner_type()
+            # 生成列表项的断言，注意缩进
+            item_assertions = self._generate_schema_assertions(inner_type)
+            # 为嵌套断言调整缩进（增加4个空格）
+            indented_item_assertions = '\n'.join('    ' + line if line.strip() else line 
+                                                  for line in item_assertions.split('\n'))
             return f'''# 验证列表响应 ({route.response_model})
         assert isinstance(response_data, list)
         assert len(response_data) >= 0
         if len(response_data) > 0:
             # 验证列表项结构
             item = response_data[0]
-            {self._generate_schema_assertions(inner_type)}'''
+{indented_item_assertions}'''
         
         else:
             # 其他响应模型 - 完全动态分析

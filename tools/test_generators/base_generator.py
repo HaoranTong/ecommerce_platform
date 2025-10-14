@@ -48,6 +48,112 @@
 更新时间: 2025-10-06 (添加通用模板格式化错误预防指南)
 """
 
+import re
+from typing import Optional, Literal
+
+
+class ResponseModelParser:
+    """
+    响应模型解析器 - 统一解析FastAPI路由的response_model
+    
+    解决response_model字符串表示不一致的问题：
+    - List[CategoryRead] vs list[CategoryRead]
+    - ApiResponse[Dict[str, Any]] vs dict
+    - SuccessResponse vs None
+    
+    提供统一的接口判断响应类型，避免到处使用字符串匹配
+    """
+    
+    def __init__(self, response_model_str: Optional[str]):
+        """
+        Args:
+            response_model_str: 从路由提取的response_model字符串
+                               如 "List[CategoryRead]", "ApiResponse[Dict]", "SuccessResponse", None
+        """
+        self.raw = response_model_str or ""
+        self.normalized = self.raw.lower() if self.raw else ""
+    
+    def is_list_response(self) -> bool:
+        """判断是否是列表响应 (List[...] 或 list[...])"""
+        return self.normalized.startswith('list[')
+    
+    def is_dict_response(self) -> bool:
+        """判断是否是字典响应 (Dict[...] 或 dict[...])"""
+        return self.normalized.startswith('dict[')
+    
+    def is_generic_response(self) -> bool:
+        """判断是否是泛型响应 (ApiResponse[...], SuccessResponse等)"""
+        generic_patterns = ['apiresponse[', 'successresponse', 'response[']
+        return any(pattern in self.normalized for pattern in generic_patterns)
+    
+    def is_empty_response(self) -> bool:
+        """判断是否无响应体 (None或空字符串)"""
+        return not self.raw or self.raw == 'None'
+    
+    def get_inner_type(self) -> Optional[str]:
+        """
+        提取泛型内部类型
+        
+        Examples:
+            List[CategoryRead] -> CategoryRead
+            ApiResponse[Dict[str, Any]] -> Dict[str, Any]
+            dict[str, int] -> str, int
+            
+        Returns:
+            内部类型字符串，如果无法提取返回None
+        """
+        if not self.raw or '[' not in self.raw:
+            return None
+        
+        # 提取第一层[]内的内容
+        start = self.raw.index('[')
+        end = self.raw.rindex(']')
+        return self.raw[start + 1:end]
+    
+    def has_response_body(self) -> bool:
+        """
+        判断是否有响应体
+        
+        用于DELETE请求状态码判断：
+        - 有响应体 -> 200
+        - 无响应体 -> 204
+        """
+        # SuccessResponse通常表示无实际数据响应
+        if 'successresponse' in self.normalized:
+            return False
+        
+        # None或空表示无响应
+        if self.is_empty_response():
+            return False
+        
+        # 其他情况认为有响应体
+        return True
+    
+    def get_python_type(self) -> Literal['list', 'dict', 'object', 'none']:
+        """
+        获取Python基础类型用于测试断言
+        
+        Returns:
+            'list': 列表类型
+            'dict': 字典类型  
+            'object': 其他对象类型
+            'none': 无响应
+        """
+        if self.is_empty_response():
+            return 'none'
+        if self.is_list_response():
+            return 'list'
+        if self.is_dict_response():
+            return 'dict'
+        return 'object'
+    
+    def __str__(self) -> str:
+        """返回原始字符串用于日志"""
+        return self.raw
+    
+    def __repr__(self) -> str:
+        return f"ResponseModelParser('{self.raw}')"
+
 import ast
 import os
 import re
@@ -118,6 +224,11 @@ class RouterInfo:
         """初始化默认值"""
         if self.dependencies is None:
             self.dependencies = []
+    
+    @property
+    def response_parser(self) -> 'ResponseModelParser':
+        """获取响应模型解析器 - 统一处理response_model判断"""
+        return ResponseModelParser(self.response_model)
 
 
 class BaseTestGenerator(ABC):
