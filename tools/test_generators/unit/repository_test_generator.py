@@ -982,6 +982,9 @@ from app.modules.{module_name}.models import (
             pk_fields = self._get_primary_key_fields(model_name, models)
             pk_filter = ', '.join([f'{f.name}=entity.{f.name}' for f in pk_fields])
             
+            # 🎯 正确生成方法调用，而不是硬编码TODO
+            method_call = self._generate_method_call(method_info, repo_name, "unit_test_db, entity, update_data")
+            
             return f'''    def test_{method_name}_success(self, unit_test_db: Session):
         """测试{method_name} - 更新成功"""
         # 准备测试数据
@@ -991,7 +994,7 @@ from app.modules.{module_name}.models import (
         
         # 执行Repository方法
         update_data = {{"{update_field}": "更新后数据"}}
-        result = {repo_name}.{method_name}(unit_test_db, entity, update_data)  # TODO: 根据实际方法签名调整参数
+        result = {method_call}
         
         # 验证结果
         assert result.{update_field} == "更新后数据"
