@@ -2716,9 +2716,16 @@ class Test{repo_name}:
                         param_parts.append(f'entity.{param_name}')
                     elif clean_type == 'bool':
                         param_parts.append('True')
+                    elif 'Optional' in param_type:
+                        # Optional类型参数，使用None
+                        param_parts.append('None')
                     else:
-                        # 复杂类型,需要TODO
-                        return ('', '', True)
+                        # 其他类型（如枚举OrderStatus），尝试使用None
+                        # 或者使用参数名推断字段
+                        if param_name.endswith('_id'):
+                            param_parts.append('entity.id')
+                        else:
+                            param_parts.append('None')
             
             setup_code = '\n        '.join(setup_code_lines) if setup_code_lines else ''
             param_str = ', '.join(param_parts)

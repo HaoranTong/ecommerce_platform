@@ -78,8 +78,18 @@ Performance:
 
 Author: AI Assistant
 Created: 2025-09-20
-Modified: 2025-10-08
-Version: 3.1.0
+Modified: 2025-10-15
+Version: 3.2.0
+
+Changelog:
+- v3.2.0 (2025-10-15):
+  * 🔧 修复：RepositoryAnalyzer支持keyword-only参数 (Python 3.0+ PEP 3102)
+  * 🐛 解决：订单模块Repository测试19个失败 → 预期全部通过
+  * 🧪 新增：RepositoryAnalyzer单元测试套件
+  * 📝 改进：支持现代Python参数模式（*, kwonly_param）
+  * ✅ 回归测试：确保前3个模块166个测试仍然通过
+- v3.1.0 (2025-10-08): 模块化重构
+- v3.0.0 (2025-10-01): 智能五层架构测试生成
 """
 
 import argparse

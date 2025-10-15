@@ -48,8 +48,16 @@ Repository分析器 - 数据访问层智能分析与方法提取
 
 Author: AI Assistant
 Created: 2025-10-08
-Modified: 2025-10-08
-Version: 1.0.0
+Modified: 2025-10-15
+Version: 1.1.0
+
+Changelog:
+- v1.1.0 (2025-10-15): 
+  * 🔧 修复：添加keyword-only参数支持 (Python 3.0+ PEP 3102)
+  * ✅ 现在正确提取位置参数 + keyword-only参数
+  * 📝 修复订单模块Repository测试失败问题
+  * 🧪 添加单元测试覆盖
+- v1.0.0 (2025-10-08): 初始版本
 """
 import ast
 import inspect
@@ -159,14 +167,23 @@ class RepositoryAnalyzer:
         Returns:
             RepositoryMethodInfo: 方法信息
         """
-        # 提取方法签名
+        # 提取方法签名（支持位置参数 + keyword-only参数）
         params: List[Tuple[str, str]] = []
+        
+        # 1. 提取位置参数
         for arg in method_node.args.args:
             if arg.arg != 'self' and arg.arg != 'db':
                 param_type = 'Any'
                 if arg.annotation:
                     param_type = self._extract_type_annotation(arg.annotation)
                 params.append((arg.arg, param_type))
+        
+        # 2. 提取keyword-only参数 (Python 3.0+ PEP 3102)
+        for arg in method_node.args.kwonlyargs:
+            param_type = 'Any'
+            if arg.annotation:
+                param_type = self._extract_type_annotation(arg.annotation)
+            params.append((arg.arg, param_type))
         
         # 推断返回类型
         return_type = 'Any'
