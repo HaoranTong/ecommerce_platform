@@ -12,8 +12,8 @@
 
 from enum import Enum
 
-from sqlalchemy import (Column, DateTime, ForeignKey, Integer, Numeric, String,
-                        Text)
+from sqlalchemy import (JSON, Column, DateTime, ForeignKey, Integer, Numeric,
+                        String, Text)
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
@@ -69,6 +69,8 @@ class Order(Base):
 
     # 收货信息
     shipping_address = Column(Text, nullable=True, comment="收货地址")
+    receiver_name = Column(String(100), nullable=True, comment="收货人姓名")
+    receiver_phone = Column(String(20), nullable=True, comment="收货人电话")
     shipping_method = Column(String(50), default="standard", comment="配送方式")
 
     # 备注信息
@@ -128,6 +130,8 @@ class OrderItem(Base):
     sku_code = Column(String(100), nullable=False, comment="SKU编码快照")
     product_name = Column(String(200), nullable=False, comment="商品名称快照")
     sku_name = Column(String(200), nullable=False, comment="SKU名称快照")
+    product_attributes = Column(JSON, nullable=True, comment="商品/规格属性快照")
+    product_image_url = Column(String(500), nullable=True, comment="商品图片快照")
 
     # 数量和价格信息
     quantity = Column(Integer, nullable=False, comment="商品数量")

@@ -38,26 +38,37 @@ from app.modules.user_auth.models import User
 
 from .models import Order
 # 模块内依赖
+from .repository import OrderRepository
 from .service import OrderService
+
+
+def _http_error(status_code: int, message: str, error_type: str, details=None) -> HTTPException:
+    return HTTPException(
+        status_code=status_code,
+        detail={
+            "success": False,
+            "code": status_code,
+            "message": message,
+            "error": {"type": error_type, "details": details or []},
+        },
+    )
+
 
 # ============ 基础服务依赖 ============
 
 
-def get_order_service(db: Session = Depends(get_db)) -> OrderService:
-    """
-    获取订单管理服务实例
+def get_order_repository(db: Session = Depends(get_db)) -> OrderRepository:
+    """获取订单数据访问层实例。"""
 
-    Args:
-        db (Session): 数据库会话实例
+    return OrderRepository(db)
 
-    Returns:
-        OrderService: 订单管理服务实例
 
-    Note:
-        此依赖会在每次API调用时创建新的服务实例
-        服务实例会自动注入数据库会话和库存服务
-    """
-    return OrderService(db)
+def get_order_service(
+    order_repository: OrderRepository = Depends(get_order_repository),
+) -> OrderService:
+    """获取订单管理服务实例。"""
+
+    return OrderService(order_repository=order_repository)
 
 
 # ============ 权限验证依赖 ============
@@ -135,12 +146,14 @@ async def validate_order_access(
     order = await order_service.get_order_by_id(order_id=order_id)
 
     if not order:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="订单不存在")
+        raise _http_error(status.HTTP_404_NOT_FOUND, "订单不存在", "OM_NOT_FOUND")
 
     # 权限验证：普通用户只能访问自己的订单
     if not _has_order_access_permission(order, current_user):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="权限不足，无法访问该订单"
+        raise _http_error(
+            status.HTTP_403_FORBIDDEN,
+            "权限不足，无法访问该订单",
+            "OM_PERMISSION_DENIED",
         )
 
     return order
@@ -306,7 +319,8 @@ async def validate_statistics_access_permission(
             "admin",
             "super_admin",
         ]:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="普通用户只能查看自己的统计信息",
+            raise _http_error(
+                status.HTTP_403_FORBIDDEN,
+                "普通用户只能查看自己的统计信息",
+                "OM_PERMISSION_DENIED",
             )

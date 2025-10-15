@@ -33,23 +33,20 @@
 最后修改：2025-09-15
 """
 
-import uuid
 from datetime import datetime, timezone
 from decimal import Decimal
+from random import randint
 from typing import Any, Dict, List, Optional
 
 from fastapi import HTTPException, status
-from sqlalchemy import func
-from sqlalchemy.exc import IntegrityError, SQLAlchemyError
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session
 
 from app.modules.inventory_management.schemas import ReservationItem
 from app.modules.inventory_management.service import InventoryService
-from app.modules.product_catalog.models import SKU, Product
-from app.modules.user_auth.models import User
 
 from .models import Order, OrderItem, OrderStatus, OrderStatusHistory
-from .schemas import ApiResponse, OrderCreateRequest, OrderItemRequest
+from .repository import OrderRepository
+from .schemas import OrderCreateRequest, OrderItemRequest
 
 
 class OrderService:
@@ -60,26 +57,54 @@ class OrderService:
     确保数据一致性和业务规则正确性。
     """
 
-    def __init__(self, db: Session):
+    def __init__(
+        self, db: Optional[Session] = None, *, order_repository: Optional[OrderRepository] = None
+    ) -> None:
         """
         初始化订单服务
 
         Args:
             db: 数据库会话实例
         """
-        self.db = db
-        self.inventory_service = InventoryService(db)
+        if order_repository is None:
+            if db is None:
+                raise ValueError("OrderService requires a Session or OrderRepository instance")
+            order_repository = OrderRepository(db)
+
+        self.order_repository = order_repository
+        self.inventory_service = InventoryService(order_repository.session)
+
+    @staticmethod
+    def _http_error(
+        status_code: int,
+        message: str,
+        error_type: str,
+        *,
+        details: Optional[List[Dict[str, Any]]] = None,
+    ) -> HTTPException:
+        """构建符合订单模块约定的 HTTP 异常响应。"""
+
+        return HTTPException(
+            status_code=status_code,
+            detail={
+                "success": False,
+                "code": status_code,
+                "message": message,
+                "error": {"type": error_type, "details": details or []},
+            },
+        )
 
     def _generate_order_number(self) -> str:
         """
-        生成订单号
+        生成订单号，遵循 OM + 时间戳 + 4位随机数格式。
 
         Returns:
-            str: 格式为 ORD{timestamp}{random} 的唯一订单号
+            str: 格式为 OM{timestamp}{random} 的唯一订单号
         """
-        timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
-        random_suffix = str(uuid.uuid4()).replace("-", "")[:8].upper()
-        return f"ORD{timestamp}{random_suffix}"
+
+        timestamp = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
+        random_suffix = f"{randint(0, 9999):04d}"
+        return f"OM{timestamp}{random_suffix}"
 
     async def create_order(self, order_data: OrderCreateRequest, user_id: int) -> Order:
         """
@@ -104,10 +129,12 @@ class OrderService:
         """
         try:
             # 1. 验证用户存在
-            user = self.db.query(User).filter(User.id == user_id).first()
+            user = self.order_repository.get_user_by_id(user_id)
             if not user:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND, detail="用户不存在"
+                raise self._http_error(
+                    status.HTTP_404_NOT_FOUND,
+                    "用户不存在",
+                    "OM_USER_NOT_FOUND",
                 )
 
             # 2. 验证并预占库存
@@ -129,13 +156,12 @@ class OrderService:
             return order
 
         except HTTPException:
-            # 重新抛出HTTP异常
             raise
-        except Exception as e:
-            # 记录未预期异常并包装为HTTP异常
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"订单创建失败: {str(e)}",
+        except Exception as exc:
+            raise self._http_error(
+                status.HTTP_500_INTERNAL_SERVER_ERROR,
+                f"订单创建失败: {str(exc)}",
+                "OM_INTERNAL_ERROR",
             )
 
     async def _validate_and_reserve_stock(
@@ -170,15 +196,17 @@ class OrderService:
 
             return reservation_result
 
-        except ValueError as e:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"库存验证失败: {str(e)}",
+        except ValueError as exc:
+            raise self._http_error(
+                status.HTTP_400_BAD_REQUEST,
+                f"库存验证失败: {str(exc)}",
+                "OM_INSUFFICIENT_STOCK",
             )
-        except Exception as e:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"库存操作失败: {str(e)}",
+        except Exception as exc:
+            raise self._http_error(
+                status.HTTP_500_INTERNAL_SERVER_ERROR,
+                f"库存操作失败: {str(exc)}",
+                "OM_DEPENDENCY_TIMEOUT",
             )
 
     async def _validate_products_and_calculate_amount(
@@ -197,36 +225,34 @@ class OrderService:
         order_items_data = []
 
         for item in items:
-            # 获取商品信息
-            product = (
-                self.db.query(Product).filter(Product.id == item.product_id).first()
-            )
+            product = self.order_repository.get_product_by_id(item.product_id)
             if not product:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail=f"商品ID {item.product_id} 不存在",
+                raise self._http_error(
+                    status.HTTP_404_NOT_FOUND,
+                    f"商品ID {item.product_id} 不存在",
+                    "OM_PRODUCT_NOT_FOUND",
                 )
 
-            # 获取SKU信息
-            sku = self.db.query(SKU).filter(SKU.id == item.sku_id).first()
+            sku = self.order_repository.get_sku_by_id(item.sku_id)
             if not sku:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail=f"SKU ID {item.sku_id} 不存在",
+                raise self._http_error(
+                    status.HTTP_404_NOT_FOUND,
+                    f"SKU ID {item.sku_id} 不存在",
+                    "OM_SKU_NOT_FOUND",
                 )
 
-            # 检查商品状态
             if product.status != "active":
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"商品 {product.name} 当前不可购买",
+                raise self._http_error(
+                    status.HTTP_400_BAD_REQUEST,
+                    f"商品 {product.name} 当前不可购买",
+                    "OM_PRODUCT_UNAVAILABLE",
                 )
 
-            # 检查SKU状态
             if not sku.is_active:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"SKU {sku.sku_code} 当前不可购买",
+                raise self._http_error(
+                    status.HTTP_400_BAD_REQUEST,
+                    f"SKU {sku.sku_code} 当前不可购买",
+                    "OM_SKU_UNAVAILABLE",
                 )
 
             # 使用SKU当前价格（防止价格篡改）
@@ -235,6 +261,34 @@ class OrderService:
             total_amount += total_price
 
             # 准备订单项数据
+            # 商品与SKU属性快照
+            product_attributes_snapshot = {
+                attr.attribute_name: attr.attribute_value
+                for attr in getattr(product, "attributes_rel", [])
+            }
+            sku_attributes_snapshot = {
+                attr.attribute_name: attr.attribute_value
+                for attr in getattr(sku, "attributes_rel", [])
+            }
+
+            # 图片快照优先取SKU主图，其次商品主图
+            sku_primary_image = next(
+                (
+                    image.image_url
+                    for image in getattr(sku, "images_rel", [])
+                    if getattr(image, "is_primary", False)
+                ),
+                None,
+            )
+            product_primary_image = next(
+                (
+                    image.image_url
+                    for image in getattr(product, "images_rel", [])
+                    if getattr(image, "is_primary", False)
+                ),
+                None,
+            )
+
             order_items_data.append(
                 {
                     "product_id": product.id,
@@ -245,6 +299,13 @@ class OrderService:
                     "quantity": item.quantity,
                     "unit_price": unit_price,
                     "total_price": total_price,
+                    "product_attributes": {
+                        "product": product_attributes_snapshot,
+                        "sku": sku_attributes_snapshot,
+                    },
+                    "product_image_url": sku_primary_image
+                    or product_primary_image
+                    or None,
                 }
             )
 
@@ -280,17 +341,18 @@ class OrderService:
                 discount_amount=Decimal("0.00"),  # 折扣金额
                 total_amount=total_amount
                 + Decimal("10.00"),  # 总金额 = 小计 + 运费 - 折扣
-                shipping_address=f"{order_data.shipping_address.recipient}, {order_data.shipping_address.phone}, {order_data.shipping_address.address}",
+                shipping_address=order_data.shipping_address.address,
+                receiver_name=order_data.shipping_address.recipient,
+                receiver_phone=order_data.shipping_address.phone,
                 notes=order_data.notes,
             )
 
-            self.db.add(order)
-            self.db.flush()  # 获取订单ID
+            self.order_repository.save_order(order)
 
             # 创建订单项
             for item_data in order_items_data:
                 order_item = OrderItem(order_id=order.id, **item_data)
-                self.db.add(order_item)
+                self.order_repository.save_order_item(order_item)
 
             # 记录状态变更历史
             status_history = OrderStatusHistory(
@@ -300,18 +362,19 @@ class OrderService:
                 remark="订单创建",
                 operator_id=user_id,
             )
-            self.db.add(status_history)
+            self.order_repository.save_status_history(status_history)
 
-            self.db.commit()
-            self.db.refresh(order)
+            self.order_repository.commit()
+            self.order_repository.refresh(order)
 
             return order
 
-        except Exception as e:
-            self.db.rollback()
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"订单数据创建失败: {str(e)}",
+        except Exception as exc:
+            self.order_repository.rollback()
+            raise self._http_error(
+                status.HTTP_500_INTERNAL_SERVER_ERROR,
+                f"订单数据创建失败: {str(exc)}",
+                "OM_INTERNAL_ERROR",
             )
 
     async def get_order_by_id(
@@ -328,20 +391,17 @@ class OrderService:
             Order: 订单对象或None
         """
         try:
-            query = self.db.query(Order).options(
-                joinedload(Order.order_items), joinedload(Order.status_history)
-            )
+            order = self.order_repository.get_order_by_id(order_id)
+            if order and user_id and order.user_id != user_id:
+                return None
 
-            if user_id:
-                query = query.filter(Order.user_id == user_id)
-
-            order = query.filter(Order.id == order_id).first()
             return order
 
-        except Exception as e:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"获取订单失败: {str(e)}",
+        except Exception as exc:
+            raise self._http_error(
+                status.HTTP_500_INTERNAL_SERVER_ERROR,
+                f"获取订单失败: {str(exc)}",
+                "OM_INTERNAL_ERROR",
             )
 
     async def get_orders_list(
@@ -350,7 +410,7 @@ class OrderService:
         status: Optional[OrderStatus] = None,
         skip: int = 0,
         limit: int = 100,
-    ) -> List[Order]:
+    ) -> tuple[List[Order], int]:
         """
         获取订单列表
 
@@ -364,23 +424,15 @@ class OrderService:
             List[Order]: 订单列表
         """
         try:
-            query = self.db.query(Order).options(joinedload(Order.order_items))
-
-            if user_id:
-                query = query.filter(Order.user_id == user_id)
-
-            if status:
-                query = query.filter(Order.status == status)
-
-            orders = (
-                query.order_by(Order.created_at.desc()).offset(skip).limit(limit).all()
+            return self.order_repository.list_orders(
+                user_id=user_id, status=status, skip=skip, limit=limit
             )
-            return orders
 
-        except Exception as e:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"获取订单列表失败: {str(e)}",
+        except Exception as exc:
+            raise self._http_error(
+                status.HTTP_500_INTERNAL_SERVER_ERROR,
+                f"获取订单列表失败: {str(exc)}",
+                "OM_INTERNAL_ERROR",
             )
 
     async def update_order_status(
@@ -412,51 +464,54 @@ class OrderService:
             HTTPException: 状态转换不合法或其他异常
         """
         try:
-            order = self.db.query(Order).filter(Order.id == order_id).first()
+            order = self.order_repository.get_order_with_items(order_id)
             if not order:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND, detail="订单不存在"
+                raise self._http_error(
+                    status.HTTP_404_NOT_FOUND,
+                    "订单不存在",
+                    "OM_NOT_FOUND",
                 )
 
+            target_status = (
+                new_status.value if isinstance(new_status, OrderStatus) else new_status
+            )
             old_status = order.status
 
-            # 验证状态转换合法性
-            if not self._is_valid_status_transition(old_status, new_status):
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"无法从状态 {old_status} 转换到 {new_status}",
+            if not self._is_valid_status_transition(old_status, target_status):
+                raise self._http_error(
+                    status.HTTP_400_BAD_REQUEST,
+                    f"无法从状态 {old_status} 转换到 {target_status}",
+                    "OM_INVALID_STATUS_TRANSITION",
                 )
 
-            # 执行状态相关的业务逻辑
             await self._handle_status_change_business_logic(
-                order, old_status, new_status
+                order, old_status, target_status
             )
 
-            # 更新订单状态
-            order.status = new_status  # 直接使用字符串值
+            order.status = target_status
 
-            # 记录状态变更历史
             status_history = OrderStatusHistory(
                 order_id=order.id,
-                old_status=old_status,  # 已经是字符串
-                new_status=new_status,  # 已经是字符串值
-                remark=remark or f"状态从 {old_status} 变更为 {new_status}",
+                old_status=old_status,
+                new_status=target_status,
+                remark=remark or f"状态从 {old_status} 变更为 {target_status}",
                 operator_id=operator_id,
             )
-            self.db.add(status_history)
+            self.order_repository.save_status_history(status_history)
 
-            self.db.commit()
-            self.db.refresh(order)
+            self.order_repository.commit()
+            self.order_repository.refresh(order)
 
             return order
 
         except HTTPException:
             raise
-        except Exception as e:
-            self.db.rollback()
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"更新订单状态失败: {str(e)}",
+        except Exception as exc:
+            self.order_repository.rollback()
+            raise self._http_error(
+                status.HTTP_500_INTERNAL_SERVER_ERROR,
+                f"更新订单状态失败: {str(exc)}",
+                "OM_INTERNAL_ERROR",
             )
 
     def _is_valid_status_transition(self, current_status: str, new_status: str) -> bool:
@@ -472,7 +527,7 @@ class OrderService:
         """
         valid_transitions = {
             "pending": ["paid", "cancelled"],
-            "paid": ["shipped", "cancelled"],
+            "paid": ["shipped"],
             "shipped": ["delivered", "returned"],
             "delivered": ["returned"],
             "cancelled": [],
@@ -508,24 +563,18 @@ class OrderService:
             order: 订单对象
         """
         try:
-            # 导入所需的模型
-            from app.modules.inventory_management.models import InventoryStock
-
             for item in order.order_items:
                 # 获取库存记录并释放数量
-                inventory = (
-                    self.db.query(InventoryStock)
-                    .filter(InventoryStock.sku_id == item.sku_id)
-                    .with_for_update()
-                    .first()
+                inventory = self.order_repository.get_inventory_stock_for_update(
+                    item.sku_id
                 )
 
                 if inventory:
                     inventory.release_quantity(item.quantity)
 
-            self.db.commit()
+            self.order_repository.commit()
         except Exception as e:
-            self.db.rollback()
+            self.order_repository.rollback()
             # 库存释放失败不应阻止订单状态变更，但需要记录
             # 可以考虑使用日志或消息队列进行异步处理
             pass
@@ -538,16 +587,10 @@ class OrderService:
             order: 订单对象
         """
         try:
-            # 导入所需的模型
-            from app.modules.inventory_management.models import InventoryStock
-
             for item in order.order_items:
                 # 获取库存记录并确认扣减
-                inventory = (
-                    self.db.query(InventoryStock)
-                    .filter(InventoryStock.sku_id == item.sku_id)
-                    .with_for_update()
-                    .first()
+                inventory = self.order_repository.get_inventory_stock_for_update(
+                    item.sku_id
                 )
 
                 if inventory:
@@ -555,13 +598,13 @@ class OrderService:
                     if not inventory.deduct_quantity(item.quantity, from_reserved=True):
                         raise Exception(f"SKU {item.sku_id} 预占库存不足，无法确认扣减")
 
-            self.db.commit()
-        except Exception as e:
-            self.db.rollback()
-            # 库存确认失败需要处理，可能需要回滚订单状态
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"库存确认失败: {str(e)}",
+            self.order_repository.commit()
+        except Exception as exc:
+            self.order_repository.rollback()
+            raise self._http_error(
+                status.HTTP_500_INTERNAL_SERVER_ERROR,
+                f"库存确认失败: {str(exc)}",
+                "OM_DEPENDENCY_TIMEOUT",
             )
 
     async def cancel_order(
@@ -578,16 +621,28 @@ class OrderService:
         Returns:
             bool: 取消成功返回True，失败返回False
         """
-        try:
-            order = await self.update_order_status(
-                order_id=order_id,
-                new_status="cancelled",
-                operator_id=operator_id,
-                remark=reason or "订单取消",
+        order = self.order_repository.get_order_with_items(order_id)
+        if not order:
+            raise self._http_error(
+                status.HTTP_404_NOT_FOUND,
+                "订单不存在",
+                "OM_NOT_FOUND",
             )
-            return order is not None
-        except Exception:
-            return False
+
+        if order.status != OrderStatus.PENDING.value:
+            raise self._http_error(
+                status.HTTP_400_BAD_REQUEST,
+                "订单状态不允许取消",
+                "OM_CANNOT_CANCEL",
+            )
+
+        updated_order = await self.update_order_status(
+            order_id=order_id,
+            new_status=OrderStatus.CANCELLED.value,
+            operator_id=operator_id,
+            remark=reason or "订单取消",
+        )
+        return updated_order is not None
 
     async def get_order_items(
         self, order_id: int, user_id: Optional[int] = None
@@ -603,22 +658,13 @@ class OrderService:
             List[OrderItem]: 订单项列表
         """
         try:
-            query = (
-                self.db.query(OrderItem)
-                .join(Order)
-                .filter(OrderItem.order_id == order_id)
-            )
+            return self.order_repository.get_order_items(order_id, user_id=user_id)
 
-            if user_id:
-                query = query.filter(Order.user_id == user_id)
-
-            items = query.all()
-            return items
-
-        except Exception as e:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"获取订单项失败: {str(e)}",
+        except Exception as exc:
+            raise self._http_error(
+                status.HTTP_500_INTERNAL_SERVER_ERROR,
+                f"获取订单项失败: {str(exc)}",
+                "OM_INTERNAL_ERROR",
             )
 
     async def get_order_status_history(self, order_id: int) -> List[OrderStatusHistory]:
@@ -632,19 +678,13 @@ class OrderService:
             List[OrderStatusHistory]: 状态变更历史列表
         """
         try:
-            history = (
-                self.db.query(OrderStatusHistory)
-                .filter(OrderStatusHistory.order_id == order_id)
-                .order_by(OrderStatusHistory.created_at.desc())
-                .all()
-            )
+            return self.order_repository.get_order_status_history(order_id)
 
-            return history
-
-        except Exception as e:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"获取状态历史失败: {str(e)}",
+        except Exception as exc:
+            raise self._http_error(
+                status.HTTP_500_INTERNAL_SERVER_ERROR,
+                f"获取状态历史失败: {str(exc)}",
+                "OM_INTERNAL_ERROR",
             )
 
     async def calculate_order_statistics(
@@ -660,66 +700,27 @@ class OrderService:
             dict: 包含各种统计信息的字典
         """
         try:
-            query = self.db.query(Order)
-            if user_id:
-                query = query.filter(Order.user_id == user_id)
+            stats = self.order_repository.calculate_order_statistics(user_id=user_id)
+            total_orders = stats.get("total_orders", 0) or 0
+            delivered_orders = stats.get("delivered_orders", 0) or 0
+            cancelled_orders = stats.get("cancelled_orders", 0) or 0
 
-            # 基础统计 - 使用枚举的值属性以支持SQLite
-            total_orders = query.count()
-            pending_orders = query.filter(
-                Order.status == OrderStatus.PENDING.value
-            ).count()
-            paid_orders = query.filter(Order.status == OrderStatus.PAID.value).count()
-            shipped_orders = query.filter(
-                Order.status == OrderStatus.SHIPPED.value
-            ).count()
-            delivered_orders = query.filter(
-                Order.status == OrderStatus.DELIVERED.value
-            ).count()
-            cancelled_orders = query.filter(
-                Order.status == OrderStatus.CANCELLED.value
-            ).count()
-            returned_orders = query.filter(
-                Order.status == OrderStatus.RETURNED.value
-            ).count()
-
-            # 计算总金额（已支付和已完成的订单）- 使用枚举的值属性
-            amount_query = self.db.query(func.sum(Order.total_amount)).filter(
-                Order.status.in_(
-                    [
-                        OrderStatus.PAID.value,
-                        OrderStatus.SHIPPED.value,
-                        OrderStatus.DELIVERED.value,
-                    ]
-                )
+            stats["completion_rate"] = round(
+                (delivered_orders / total_orders * 100) if total_orders > 0 else 0,
+                2,
             )
-            if user_id:
-                amount_query = amount_query.filter(Order.user_id == user_id)
-            total_amount = amount_query.scalar() or Decimal("0.00")
+            stats["cancellation_rate"] = round(
+                (cancelled_orders / total_orders * 100) if total_orders > 0 else 0,
+                2,
+            )
 
-            return {
-                "total_orders": total_orders,
-                "pending_orders": pending_orders,
-                "paid_orders": paid_orders,
-                "shipped_orders": shipped_orders,
-                "delivered_orders": delivered_orders,
-                "cancelled_orders": cancelled_orders,
-                "returned_orders": returned_orders,
-                "total_amount": float(total_amount),
-                "completion_rate": round(
-                    (delivered_orders / total_orders * 100) if total_orders > 0 else 0,
-                    2,
-                ),
-                "cancellation_rate": round(
-                    (cancelled_orders / total_orders * 100) if total_orders > 0 else 0,
-                    2,
-                ),
-            }
+            return stats
 
-        except Exception as e:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"计算统计信息失败: {str(e)}",
+        except Exception as exc:
+            raise self._http_error(
+                status.HTTP_500_INTERNAL_SERVER_ERROR,
+                f"计算统计信息失败: {str(exc)}",
+                "OM_INTERNAL_ERROR",
             )
 
     async def get_orders_by_status(
@@ -736,18 +737,11 @@ class OrderService:
             List[Order]: 订单列表
         """
         try:
-            orders = (
-                self.db.query(Order)
-                .filter(Order.status == status)
-                .order_by(Order.created_at.desc())
-                .limit(limit)
-                .all()
-            )
+            return self.order_repository.get_orders_by_status(status, limit=limit)
 
-            return orders
-
-        except Exception as e:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"获取订单列表失败: {str(e)}",
+        except Exception as exc:
+            raise self._http_error(
+                status.HTTP_500_INTERNAL_SERVER_ERROR,
+                f"获取订单列表失败: {str(exc)}",
+                "OM_INTERNAL_ERROR",
             )

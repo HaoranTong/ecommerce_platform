@@ -25,10 +25,10 @@
 最后修改：2025-09-15
 """
 
+from datetime import datetime, timezone
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
-from sqlalchemy.orm import Session
 
 from ..user_auth.models import User
 from .dependencies import (get_current_admin_user_validated,
@@ -39,12 +39,26 @@ from .dependencies import (get_current_admin_user_validated,
                            validate_statistics_access_permission)
 from .models import Order, OrderStatus
 from .schemas import (ApiResponse, OrderCreateRequest, OrderDetailResponse,
-                      OrderItemResponse, OrderListResponse, OrderResponse,
+                      OrderItemResponse, OrderResponse,
                       OrderStatisticsResponse, OrderStatusUpdateRequest,
                       PaginatedResponse)
 from .service import OrderService
 
 router = APIRouter()
+
+
+def _http_error(status_code: int, message: str, error_type: str, details=None) -> HTTPException:
+    """返回符合模块标准的 HTTP 异常结构。"""
+
+    return HTTPException(
+        status_code=status_code,
+        detail={
+            "success": False,
+            "code": status_code,
+            "message": message,
+            "error": {"type": error_type, "details": details or []},
+        },
+    )
 
 
 @router.post(
@@ -92,23 +106,27 @@ async def create_order(
         order_response = OrderResponse.model_validate(order)
 
         return ApiResponse[OrderResponse](
-            success=True, message="订单创建成功", data=order_response
+            success=True,
+            code=status.HTTP_201_CREATED,
+            message="订单创建成功",
+            data=order_response,
+            metadata={"tracking": {"order_number": order.order_number}},
         )
 
     except HTTPException:
         # 重新抛出HTTP异常（由服务层抛出的业务异常）
         raise
     except Exception as e:
-        # 捕获未处理的异常并包装
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"创建订单失败: {str(e)}",
+        raise _http_error(
+            status.HTTP_500_INTERNAL_SERVER_ERROR,
+            f"创建订单失败: {str(e)}",
+            "OM_INTERNAL_ERROR",
         )
 
 
 @router.get(
     "/order-management/orders",
-    response_model=ApiResponse[PaginatedResponse[OrderListResponse]],
+    response_model=ApiResponse[PaginatedResponse[OrderResponse]],
 )
 async def list_orders(
     status_filter: Optional[OrderStatus] = Query(None, description="订单状态筛选"),
@@ -136,7 +154,7 @@ async def list_orders(
         current_user: 当前登录用户
 
     Returns:
-        ApiResponse[PaginatedResponse[OrderListResponse]]: 分页的订单列表
+    ApiResponse[PaginatedResponse[OrderResponse]]: 分页的订单列表
 
     Raises:
         HTTPException:
@@ -162,31 +180,44 @@ async def list_orders(
         skip = (page - 1) * page_size
 
         # 获取订单列表
-        orders = await order_service.get_orders_list(
-            user_id=query_user_id, status=status_filter, skip=skip, limit=page_size
+        orders, total_count = await order_service.get_orders_list(
+            user_id=query_user_id,
+            status=status_filter,
+            skip=skip,
+            limit=page_size,
         )
 
         # 转换为响应模型
-        order_list = [OrderListResponse.model_validate(order) for order in orders]
+        order_list = [OrderResponse.model_validate(order) for order in orders]
 
         # 构造分页响应
-        paginated_response = PaginatedResponse[OrderListResponse](
+        paginated_response = PaginatedResponse[OrderResponse](
             items=order_list,
             page=page,
             page_size=page_size,
-            total_count=len(order_list),  # 简化实现，实际应该查询总数
+            total_count=total_count,
         )
 
-        return ApiResponse[PaginatedResponse[OrderListResponse]](
-            success=True, message="获取订单列表成功", data=paginated_response
+        return ApiResponse[PaginatedResponse[OrderResponse]](
+            success=True,
+            code=status.HTTP_200_OK,
+            message="获取订单列表成功",
+            data=paginated_response,
+            metadata={
+                "filters": {
+                    "status": status_filter.value if status_filter else None,
+                    "user_id": query_user_id,
+                }
+            },
         )
 
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"获取订单列表失败: {str(e)}",
+        raise _http_error(
+            status.HTTP_500_INTERNAL_SERVER_ERROR,
+            f"获取订单列表失败: {str(e)}",
+            "OM_INTERNAL_ERROR",
         )
 
 
@@ -217,13 +248,17 @@ async def get_order_detail(order: Order = Depends(validate_order_access)):
         order_response = OrderResponse.model_validate(order)
 
         return ApiResponse[OrderResponse](
-            success=True, message="获取订单详情成功", data=order_response
+            success=True,
+            code=status.HTTP_200_OK,
+            message="获取订单详情成功",
+            data=order_response,
         )
 
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"获取订单详情失败: {str(e)}",
+        raise _http_error(
+            status.HTTP_500_INTERNAL_SERVER_ERROR,
+            f"获取订单详情失败: {str(e)}",
+            "OM_INTERNAL_ERROR",
         )
 
 
@@ -281,6 +316,7 @@ async def update_order_status(
 
         return ApiResponse[OrderResponse](
             success=True,
+            code=status.HTTP_200_OK,
             message=f"订单状态已更新为 {status_update.status.value}",
             data=order_response,
         )
@@ -288,9 +324,10 @@ async def update_order_status(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"更新订单状态失败: {str(e)}",
+        raise _http_error(
+            status.HTTP_500_INTERNAL_SERVER_ERROR,
+            f"更新订单状态失败: {str(e)}",
+            "OM_INTERNAL_ERROR",
         )
 
 
@@ -327,27 +364,27 @@ async def cancel_order(
     """
     try:
         # 取消订单（权限验证已通过依赖注入完成）
-        success = await order_service.cancel_order(
+        await order_service.cancel_order(
             order_id=order.id, operator_id=current_user.id, reason="用户主动取消"
         )
 
-        if not success:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST, detail="订单无法取消"
-            )
-
         return ApiResponse[dict](
             success=True,
+            code=status.HTTP_200_OK,
             message="订单取消成功",
-            data={"order_id": order.id, "cancelled_at": "now"},
+            data={
+                "order_id": order.id,
+                "cancelled_at": datetime.now(timezone.utc).isoformat(),
+            },
         )
 
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"取消订单失败: {str(e)}",
+        raise _http_error(
+            status.HTTP_500_INTERNAL_SERVER_ERROR,
+            f"取消订单失败: {str(e)}",
+            "OM_INTERNAL_ERROR",
         )
 
 
@@ -392,15 +429,19 @@ async def get_order_items(
         ]
 
         return ApiResponse[List[OrderItemResponse]](
-            success=True, message="获取订单商品列表成功", data=items_response
+            success=True,
+            code=status.HTTP_200_OK,
+            message="获取订单商品列表成功",
+            data=items_response,
         )
 
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"获取订单商品列表失败: {str(e)}",
+        raise _http_error(
+            status.HTTP_500_INTERNAL_SERVER_ERROR,
+            f"获取订单商品列表失败: {str(e)}",
+            "OM_INTERNAL_ERROR",
         )
 
 
@@ -441,15 +482,19 @@ async def get_order_status_history(
         ]
 
         return ApiResponse[List[dict]](
-            success=True, message="获取状态变更历史成功", data=history_data
+            success=True,
+            code=status.HTTP_200_OK,
+            message="获取状态变更历史成功",
+            data=history_data,
         )
 
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"获取状态变更历史失败: {str(e)}",
+        raise _http_error(
+            status.HTTP_500_INTERNAL_SERVER_ERROR,
+            f"获取状态变更历史失败: {str(e)}",
+            "OM_INTERNAL_ERROR",
         )
 
 
@@ -492,13 +537,18 @@ async def get_order_statistics(
         stats_response = OrderStatisticsResponse.model_validate(statistics)
 
         return ApiResponse[OrderStatisticsResponse](
-            success=True, message="获取统计信息成功", data=stats_response
+            success=True,
+            code=status.HTTP_200_OK,
+            message="获取统计信息成功",
+            data=stats_response,
+            metadata={"user_id": query_user_id},
         )
 
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"获取统计信息失败: {str(e)}",
+        raise _http_error(
+            status.HTTP_500_INTERNAL_SERVER_ERROR,
+            f"获取统计信息失败: {str(e)}",
+            "OM_INTERNAL_ERROR",
         )

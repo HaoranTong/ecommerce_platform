@@ -11,6 +11,7 @@
 - 订单状态历史：状态变更审计模式
 """
 
+import json
 from typing import Any, Dict, Generic, List, Optional, TypeVar, Union
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -122,6 +123,8 @@ class OrderItemResponse(BaseSchema):
     sku_code: str
     product_name: str
     sku_name: str
+    product_attributes: Optional[Dict[str, Any]] = None
+    product_image_url: Optional[str] = None
 
     # 数量和价格
     quantity: int
@@ -131,6 +134,16 @@ class OrderItemResponse(BaseSchema):
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+    @field_validator("product_attributes", mode="before")
+    @classmethod
+    def _parse_attributes(cls, value):
+        if isinstance(value, str) and value:
+            try:
+                return json.loads(value)
+            except json.JSONDecodeError:
+                return {"raw": value}
+        return value
 
 
 # ============ 收货地址相关模式 ============
@@ -201,6 +214,8 @@ class OrderResponse(BaseSchema, TimestampMixin):
 
     # 收货信息
     shipping_address: Optional[str] = None
+    receiver_name: Optional[str] = None
+    receiver_phone: Optional[str] = None
     shipping_method: str = "standard"
 
     # 备注信息
@@ -212,8 +227,10 @@ class OrderResponse(BaseSchema, TimestampMixin):
 class OrderDetailResponse(OrderResponse):
     """订单详情响应模式，包含订单项和状态历史"""
 
-    items: List[OrderItemResponse] = []
-    status_history: List["OrderStatusHistoryResponse"] = []
+    items: List[OrderItemResponse] = Field(default_factory=list)
+    status_history: List["OrderStatusHistoryResponse"] = Field(
+        default_factory=list
+    )
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -277,18 +294,6 @@ class PaginationInfo(BaseModel):
     total_items: int
     has_next: bool
     has_prev: bool
-
-
-class OrderListResponse(BaseModel):
-    """订单列表响应模式"""
-
-    success: bool = True
-    code: int = 200
-    message: str = "查询成功"
-    data: Dict[str, Any] = Field(
-        default_factory=lambda: {"items": [], "pagination": {}}
-    )
-    metadata: Optional[Dict[str, Any]] = None
 
 
 class OrderStatisticsResponse(BaseModel):
