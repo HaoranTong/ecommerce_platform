@@ -69,7 +69,7 @@ class RepositoryMethodInfo:
     
     name: str
     method_type: str  # "create" | "read" | "update" | "delete" | "query" | "count"
-    parameters: List[Tuple[str, str]]  # [(name, type), ...]
+    parameters: List[Tuple[str, str, str]]  # [(name, type, kind), ...] kind: 'positional' | 'keyword-only'
     return_type: str
     is_static: bool
     docstring: Optional[str]

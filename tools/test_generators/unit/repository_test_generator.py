@@ -2610,6 +2610,44 @@ class Test{repo_name}:
         model_info = models[model_name]
         return [f for f in model_info.fields if f.primary_key]
     
+    def _build_param_string(self, param_parts: List[Tuple[str, str, str]]) -> str:
+        """根据参数类别生成正确的调用语法
+        
+        Args:
+            param_parts: 参数列表 [(param_kind, param_name, param_value), ...]
+                - param_kind: 'positional' | 'keyword-only'
+                - param_name: 参数名称
+                - param_value: 参数值表达式
+                
+        Returns:
+            str: 参数字符串，如 "arg1, arg2, kw1=value1, kw2=value2"
+            
+        Examples:
+            >>> self._build_param_string([
+            ...     ('positional', 'order_id', 'entity.id'),
+            ...     ('keyword-only', 'user_id', 'None')
+            ... ])
+            'entity.id, user_id=None'
+        """
+        if not param_parts:
+            return ''
+        
+        positional_parts = []
+        keyword_parts = []
+        
+        for param_kind, param_name, param_value in param_parts:
+            if param_kind == 'positional':
+                positional_parts.append(param_value)
+            elif param_kind == 'keyword-only':
+                keyword_parts.append(f"{param_name}={param_value}")
+            else:
+                # 向后兼容：如果没有param_kind，当作位置参数
+                positional_parts.append(param_value)
+        
+        # 拼接：位置参数在前，命名参数在后（符合Python语法）
+        all_parts = positional_parts + keyword_parts
+        return ', '.join(all_parts)
+    
     def _infer_query_parameter(
         self,
         method_info: RepositoryMethodInfo,
@@ -2640,6 +2678,7 @@ class Test{repo_name}:
         method_name = method_info.name
         
         # 提取方法参数(排除self, db, cls)
+        # 参数格式: (name, type, kind) - kind: 'positional' | 'keyword-only'
         method_params = [p for p in method_info.parameters if p[0] not in ['self', 'db', 'cls']]
         
         # 特殊处理check_exists方法(可选参数组合)
@@ -2658,12 +2697,23 @@ class Test{repo_name}:
             param_str = ', '.join([f'entity.{f.name}' for f in pk_fields])
             return ('', param_str, False)
         
+        # 辅助函数：添加参数（自动处理keyword-only参数的命名参数语法）
+        def add_param(kind: str, name: str, value: str):
+            """添加参数到param_parts列表
+            
+            Args:
+                kind: 参数类别 ('positional' | 'keyword-only')
+                name: 参数名称
+                value: 参数值表达式
+            """
+            param_parts.append((kind, name, value))
+        
         # 智能推断: 分析方法参数,自动生成依赖实体
         if method_params:
             setup_code_lines = []
-            param_parts = []
+            param_parts = []  # 存储 (param_kind, param_name, param_value) 元组
             
-            for param_name, param_type in method_params:
+            for param_name, param_type, param_kind in method_params:
                 # 推断参数对应的实体类型
                 # user_id: int -> User
                 # role_id: int -> Role
@@ -2673,7 +2723,7 @@ class Test{repo_name}:
                 # 特殊处理：如果参数是当前模型的ID（如Cart.find_by_id(cart_id)），使用entity.id
                 if entity_name == model_name:
                     # 查询当前模型的方法，参数应该使用测试数据的ID
-                    param_parts.append('entity.id')
+                    add_param(param_kind, param_name, 'entity.id')
                 elif entity_name and entity_name in models:
                     # 生成创建实体的代码（模块内实体）
                     var_name = entity_name.lower()
@@ -2685,9 +2735,9 @@ class Test{repo_name}:
                     
                     # 参数使用实体的ID
                     if param_name.endswith('_id'):
-                        param_parts.append(f"{var_name}.id")
+                        add_param(param_kind, param_name, f"{var_name}.id")
                     else:
-                        param_parts.append(f"{var_name}")
+                        add_param(param_kind, param_name, f"{var_name}")
                 elif entity_name:
                     # 跨模块实体（如Product, Sku等）- 使用Factory创建
                     var_name = entity_name.lower()
@@ -2707,15 +2757,15 @@ class Test{repo_name}:
                         
                         # 参数使用实体的ID
                         if param_name.endswith('_id'):
-                            param_parts.append(f"{var_name}.id")
+                            add_param(param_kind, param_name, f"{var_name}.id")
                         else:
-                            param_parts.append(f"{var_name}")
+                            add_param(param_kind, param_name, f"{var_name}")
                     else:
                         # 完全无法推断，使用默认值
                         if param_type and 'int' in param_type:
-                            param_parts.append('1')
+                            add_param(param_kind, param_name, '1')
                         else:
-                            param_parts.append(f'entity.{param_name}')
+                            add_param(param_kind, param_name, f'entity.{param_name}')
                 else:
                     # 无法推断实体,尝试从方法名推断字段
                     # get_by_username(username: str) -> entity.username
@@ -2729,32 +2779,33 @@ class Test{repo_name}:
                         field_name = method_name[7:]  # 移除'get_by_'
                         if '_or_' in field_name:
                             field_name = field_name.split('_or_')[0]  # 使用第一个字段
-                        param_parts.append(f'entity.{field_name}')
+                        add_param(param_kind, param_name, f'entity.{field_name}')
                     elif clean_type == 'int':
                         # int类型参数：如果是_id结尾且Optional，使用None；否则使用1
                         if param_name.endswith('_id') and 'Optional' in param_type:
-                            param_parts.append('None')
+                            add_param(param_kind, param_name, 'None')
                         else:
-                            param_parts.append('1')
+                            add_param(param_kind, param_name, '1')
                     elif clean_type == 'str':
                         # 🔧 修复：str参数应该使用entity的对应字段，而不是字面量
                         # 尝试从参数名推断字段名（如name → entity.name）
-                        param_parts.append(f'entity.{param_name}')
+                        add_param(param_kind, param_name, f'entity.{param_name}')
                     elif clean_type == 'bool':
-                        param_parts.append('True')
+                        add_param(param_kind, param_name, 'True')
                     elif 'Optional' in param_type:
                         # Optional类型参数，使用None
-                        param_parts.append('None')
+                        add_param(param_kind, param_name, 'None')
                     else:
                         # 其他类型（如枚举OrderStatus），尝试使用None
                         # 或者使用参数名推断字段
                         if param_name.endswith('_id'):
-                            param_parts.append('entity.id')
+                            add_param(param_kind, param_name, 'entity.id')
                         else:
-                            param_parts.append('None')
+                            add_param(param_kind, param_name, 'None')
             
+            # 生成参数字符串（根据参数类别生成正确的调用语法）
             setup_code = '\n        '.join(setup_code_lines) if setup_code_lines else ''
-            param_str = ', '.join(param_parts)
+            param_str = self._build_param_string(param_parts)
             return (setup_code, param_str, False)
         
         # 提取方法名中的字段名(兼容老逻辑)

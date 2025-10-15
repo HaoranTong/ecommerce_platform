@@ -168,7 +168,7 @@ class RepositoryAnalyzer:
             RepositoryMethodInfo: 方法信息
         """
         # 提取方法签名（支持位置参数 + keyword-only参数）
-        params: List[Tuple[str, str]] = []
+        params: List[Tuple[str, str, str]] = []
         
         # 1. 提取位置参数
         for arg in method_node.args.args:
@@ -176,14 +176,14 @@ class RepositoryAnalyzer:
                 param_type = 'Any'
                 if arg.annotation:
                     param_type = self._extract_type_annotation(arg.annotation)
-                params.append((arg.arg, param_type))
+                params.append((arg.arg, param_type, 'positional'))
         
         # 2. 提取keyword-only参数 (Python 3.0+ PEP 3102)
         for arg in method_node.args.kwonlyargs:
             param_type = 'Any'
             if arg.annotation:
                 param_type = self._extract_type_annotation(arg.annotation)
-            params.append((arg.arg, param_type))
+            params.append((arg.arg, param_type, 'keyword-only'))
         
         # 推断返回类型
         return_type = 'Any'
