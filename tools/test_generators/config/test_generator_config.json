@@ -79,6 +79,54 @@
       "Order": ["order_management"],
       "Category": ["product_catalog"],
       "Brand": ["product_catalog"]
+    },
+    "table_to_module_mapping": {
+      "_description": "表名到模块名的映射，用于跨模块依赖解析",
+      "users": "user_auth",
+      "roles": "user_auth",
+      "permissions": "user_auth",
+      "user_roles": "user_auth",
+      "role_permissions": "user_auth",
+      "sessions": "user_auth",
+      "products": "product_catalog",
+      "product_skus": "product_catalog",
+      "categories": "product_catalog",
+      "brands": "product_catalog",
+      "product_attributes": "product_catalog",
+      "sku_attributes": "product_catalog",
+      "product_images": "product_catalog",
+      "product_tags": "product_catalog",
+      "carts": "shopping_cart",
+      "cart_items": "shopping_cart",
+      "orders": "order_management",
+      "order_items": "order_management",
+      "order_status_history": "order_management",
+      "payments": "payment_service",
+      "refunds": "payment_service",
+      "inventory_stocks": "inventory_management",
+      "inventory_reservations": "inventory_management",
+      "inventory_transactions": "inventory_management",
+      "member_levels": "member_system",
+      "point_transactions": "member_system",
+      "member_profiles": "member_system",
+      "member_points": "member_system",
+      "certificates": "quality_control"
+    },
+    "cross_module_dependency_chains": {
+      "_description": "跨模块依赖链配置，定义创建实体时需要的完整依赖顺序",
+      "shopping_cart": {
+        "Cart": ["user_auth.User"],
+        "CartItem": ["user_auth.User", "product_catalog.Category", "product_catalog.Brand", "product_catalog.Product", "product_catalog.SKU"]
+      },
+      "order_management": {
+        "Order": ["user_auth.User"],
+        "OrderItem": ["user_auth.User", "product_catalog.Category", "product_catalog.Brand", "product_catalog.Product", "product_catalog.SKU"]
+      },
+      "inventory_management": {
+        "InventoryStock": ["product_catalog.Category", "product_catalog.Brand", "product_catalog.Product", "product_catalog.SKU"],
+        "InventoryReservation": ["user_auth.User", "product_catalog.Category", "product_catalog.Brand", "product_catalog.Product", "product_catalog.SKU"],
+        "InventoryTransaction": ["user_auth.User", "product_catalog.Category", "product_catalog.Brand", "product_catalog.Product", "product_catalog.SKU"]
+      }
     }
     ,
     "repository_priority_fields": [

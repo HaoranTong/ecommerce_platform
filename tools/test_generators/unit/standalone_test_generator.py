@@ -99,6 +99,8 @@ Created: 2025-10-08
 Modified: 2025-10-08
 Version: 1.0.0
 """
+import importlib
+import inspect
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict
@@ -137,15 +139,10 @@ class StandaloneTestGenerator:
         service_info = self._detect_service_info(module_name)
         service_class_name = service_info['class_name']
         
-        # 根据服务类型生成正确的初始化代码
-        if service_info.get('is_static', False):
-            # 静态方法：直接使用类名，不实例化
-            service_init_code = f"service = {service_class_name}"
-            service_init_comment = "# 静态方法服务，直接使用类名"
-        else:
-            # 实例方法：需要实例化
-            service_init_code = f"service = {service_class_name}()"
-            service_init_comment = "# 实例方法服务，需要创建实例"
+        # 根据服务类型生成正确的初始化代码（智能参数注入）
+        service_init_code, service_init_comment = self._build_service_initializer(
+            module_name, service_class_name, service_info
+        )
         
         workflow_tests = self._generate_workflow_scenarios(
             module_name, models, service_class_name, service_info, service_init_code, service_init_comment
@@ -280,6 +277,122 @@ class Test{module_name.title().replace('_', '')}Workflow:
             服务类信息字典
         """
         return self.service_analyzer.detect_service_info(module_name)
+    
+    def _build_service_initializer(
+        self, module_name: str, service_class_name: str, service_info: Dict[str, Any]
+    ) -> tuple[str, str]:
+        """根据Service类型生成初始化代码和注释
+        
+        Args:
+            module_name: 模块名称
+            service_class_name: Service类名
+            service_info: Service信息字典
+            
+        Returns:
+            tuple: (初始化代码, 注释)
+        """
+        if service_info.get('is_static', False):
+            return (
+                f"service = {service_class_name}",
+                "# 静态方法服务，直接使用类名",
+            )
+        
+        return self._build_instance_service_initializer(module_name, service_class_name)
+    
+    def _build_instance_service_initializer(
+        self, module_name: str, service_class_name: str
+    ) -> tuple[str, str]:
+        """生成实例化Service所需的代码，智能注入unit_test_db
+        
+        检查Service.__init__的签名，如果需要db/session参数则自动注入unit_test_db
+        
+        Args:
+            module_name: 模块名称
+            service_class_name: Service类名
+            
+        Returns:
+            tuple: (初始化代码, 注释)
+        """
+        base_comment = "# 实例方法服务，需要创建实例"
+        
+        try:
+            # 使用AST静态分析，避免import时重复定义表
+            import ast
+            service_file = self.project_root / "app" / "modules" / module_name / "service.py"
+            
+            if not service_file.exists():
+                return (f"service = {service_class_name}()", base_comment)
+            
+            with open(service_file, 'r', encoding='utf-8') as f:
+                tree = ast.parse(f.read())
+            
+            # 查找Service类的__init__方法
+            arg_lines = []
+            db_injected = False
+            unresolved_required = []
+            
+            for node in ast.walk(tree):
+                if isinstance(node, ast.ClassDef) and node.name == service_class_name:
+                    for item in node.body:
+                        if isinstance(item, ast.FunctionDef) and item.name == '__init__':
+                            args = item.args.args[1:]  # 跳过self
+                            defaults = item.args.defaults
+                            
+                            if not args:
+                                return (f"service = {service_class_name}()", base_comment)
+                            
+                            # 计算哪些参数有默认值
+                            num_defaults = len(defaults)
+                            num_required = len(args) - num_defaults
+                            
+                            # 遍历参数
+                            for idx, arg in enumerate(args):
+                                param_name = arg.arg
+                                lower_name = param_name.lower()
+                                has_default = idx >= num_required
+                                
+                                # 检测db/session相关参数
+                                if "db" in lower_name or "session" in lower_name:
+                                    arg_lines.append(f"{param_name}=unit_test_db")
+                                    db_injected = True
+                                    continue
+                                
+                                # 处理必需参数（没有默认值）
+                                if not has_default:
+                                    arg_lines.append(f"{param_name}=None  # TODO: 提供{param_name}参数")
+                                    unresolved_required.append(param_name)
+                            
+                            break
+                    break
+            
+            # 如果没有参数需要注入，返回空初始化
+            if not arg_lines:
+                return (f"service = {service_class_name}()", base_comment)
+            
+            # 生成初始化代码
+            if len(arg_lines) == 1:
+                init_code = f"service = {service_class_name}({arg_lines[0]})"
+            else:
+                joined_args = ",\n            ".join(arg_lines)
+                init_code = (
+                    f"service = {service_class_name}(\n"
+                    f"            {joined_args}\n"
+                    "        )"
+                )
+            
+            # 生成注释
+            comment = base_comment
+            if db_injected:
+                comment += " 并注入unit_test_db"
+            if unresolved_required:
+                comment += f"（请补充参数: {', '.join(unresolved_required)}）"
+            
+            return init_code, comment
+            
+        except Exception as e:
+            # 如果分析失败，回退到默认实现
+            print(f"⚠️ 无法分析 {service_class_name}.__init__ 签名: {e}")
+            return (f"service = {service_class_name}()", base_comment)
     
     def _generate_workflow_scenarios(
         self, module_name: str, models: Dict[str, ModelInfo], service_class_name: str, 

@@ -16,7 +16,7 @@ Factory生成器 - 测试数据工厂类
 创建时间: 2025-10-08
 """
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Tuple
 from ..core import ModelInfo, FieldInfo
 
 
@@ -389,7 +389,30 @@ from {module_import_path} import (
         if field.unique:
             return f"{field.name} = factory.Sequence(lambda n: n + 1)"
         else:
-            return f"{field.name} = factory.Faker('random_int', min=1, max=1000)"
+            # 检查是否有 CHECK 约束来确定范围
+            min_val, max_val = 1, 1000
+            
+            for constraint in field.constraints:
+                if constraint.get('type') == 'check':
+                    expression = constraint.get('expression', '').lower()
+                    # 解析类似 "quantity > 0 AND quantity <= 999" 的约束
+                    import re
+                    
+                    # 提取下限：field > min 或 field >= min
+                    min_match = re.search(rf'{field.name}\s*>=?\s*(\d+)', expression)
+                    if min_match:
+                        min_val = int(min_match.group(1))
+                        if '>' in expression and '>=' not in expression:
+                            min_val += 1  # > 转换为 >=
+                    
+                    # 提取上限：field < max 或 field <= max
+                    max_match = re.search(rf'{field.name}\s*<=?\s*(\d+)', expression)
+                    if max_match:
+                        max_val = int(max_match.group(1))
+                        if '<' in expression and '<=' not in expression:
+                            max_val -= 1  # < 转换为 <=
+            
+            return f"{field.name} = factory.Faker('random_int', min={min_val}, max={max_val})"
 
     def _generate_boolean_field_definition(self, field: FieldInfo) -> str:
         """生成布尔字段定义"""
@@ -506,9 +529,61 @@ from {module_import_path} import (
         data = {{}}
 '''
 
-        for model_name, _ in sorted_models:
+        # 检测所有模型的跨模块外键依赖
+        cross_module_deps = self._detect_cross_module_dependencies(models)
+        
+        # 生成跨模块依赖创建代码
+        if cross_module_deps:
+            manager_class += "        \n"
+            manager_class += "        # 导入所有跨模块依赖的Factory\n"
+            
+            # 按模块分组收集所有Factory
+            deps_by_module = {}
+            for dep_module, dep_factory, dep_key in cross_module_deps:
+                if dep_module not in deps_by_module:
+                    deps_by_module[dep_module] = []
+                deps_by_module[dep_module].append((dep_factory, dep_key))
+            
+            # 生成import语句
+            for dep_module, factories in deps_by_module.items():
+                factory_names = [f for f, _ in factories]
+                manager_class += f"        from tests.factories.{dep_module}_factories import {', '.join(factory_names)}\n"
+            
+            manager_class += "        \n"
+            manager_class += "        # 设置所有Factory的session\n"
+            for dep_module, factories in deps_by_module.items():
+                for factory_name, _ in factories:
+                    manager_class += f"        {factory_name}._meta.sqlalchemy_session = session\n"
+            
+            manager_class += "        \n"
+            manager_class += "        data = {}\n"
+            manager_class += "        \n"
+            
+            # 按依赖顺序生成创建代码
+            ordered_deps = self._order_dependencies_by_chain(cross_module_deps)
+            
+            for step_num, (dep_module, dep_factory, dep_key, params) in enumerate(ordered_deps, 1):
+                manager_class += f"        # {step_num}. 创建{dep_key.capitalize()}，满足外键约束\n"
+                if params:
+                    manager_class += f"        data['{dep_key}'] = {dep_factory}({params})\n"
+                else:
+                    manager_class += f"        data['{dep_key}'] = {dep_factory}()\n"
+            
+            manager_class += "        \n"
+
+        # 计算起始步骤号
+        start_step = len(cross_module_deps) + 1 if cross_module_deps else 1
+        
+        for idx, (model_name, _) in enumerate(sorted_models, start=start_step):
             factory_name = f"{model_name}Factory"
-            manager_class += f"        data['{model_name.lower()}'] = {factory_name}()  # 创建{model_name}实例\n"
+            # 检查是否需要传入跨模块外键ID或同模块依赖
+            fk_params = self._get_factory_fk_params(model_name, models, cross_module_deps)
+            
+            manager_class += f"        # {idx}. 创建{model_name}\n"
+            if fk_params:
+                manager_class += f"        data['{model_name.lower()}'] = {factory_name}({fk_params})\n"
+            else:
+                manager_class += f"        data['{model_name.lower()}'] = {factory_name}()\n"
 
         manager_class += '''        
         session.commit()
@@ -520,3 +595,176 @@ from {module_import_path} import (
         return ''' + f"{module_name.title().replace('_', '')}FactoryManager.create_sample_data(session)"
 
         return manager_class
+    
+    def _detect_cross_module_dependencies(self, models: Dict[str, ModelInfo]) -> List[Tuple[str, str, str]]:
+        """检测所有模块的跨模块外键依赖
+        
+        Returns:
+            List[Tuple[module_name, factory_name, data_key]]
+            例如: [('user_auth', 'UserFactory', 'user'), ('product_catalog', 'SKUFactory', 'sku')]
+        """
+        dependencies = []
+        seen_deps = set()
+        
+        # 从配置获取表→模块映射和依赖链配置
+        table_to_module = self.config.get('business_logic_patterns', {}).get('table_to_module_mapping', {})
+        dependency_chains = self.config.get('business_logic_patterns', {}).get('cross_module_dependency_chains', {})
+        
+        # 获取当前模块名（从models推断）
+        current_module = None
+        for model_name in models.keys():
+            # 简单推断：从第一个模型推断模块（shopping_cart有Cart模型）
+            # 更好的方式是从project_root推断
+            pass
+        
+        for model_name, model_info in models.items():
+            for field in model_info.fields:
+                if field.foreign_key:
+                    target_table = field.foreign_key.split('.')[0]
+                    target_model = self._infer_model_name_from_table(target_table, models)
+                    
+                    # 检查是否跨模块
+                    is_cross_module = self._is_cross_module_dependency(target_model, models)
+                    
+                    if is_cross_module:
+                        # 使用配置查找模块名
+                        dep_module = table_to_module.get(target_table)
+                        
+                        if not dep_module:
+                            # 如果配置中没有，尝试从表名推断
+                            print(f"⚠️ 警告: 表 '{target_table}' 未在配置中找到模块映射，跳过")
+                            continue
+                        
+                        # Factory名和data_key从target_model推断
+                        dep_factory = f"{target_model}Factory"
+                        dep_key = target_model.lower()
+                        
+                        dep_tuple = (dep_module, dep_factory, dep_key)
+                        if dep_tuple not in seen_deps:
+                            dependencies.append(dep_tuple)
+                            seen_deps.add(dep_tuple)
+        
+        # 扩展依赖链（例如：如果需要SKU，也需要Product、Brand、Category）
+        dependencies = self._expand_dependency_chain(dependencies, table_to_module)
+        
+        return dependencies
+    
+    def _expand_dependency_chain(self, dependencies: List[Tuple[str, str, str]], 
+                                 table_to_module: Dict[str, str]) -> List[Tuple[str, str, str]]:
+        """扩展依赖链，添加间接依赖
+        
+        例如：SKU需要Product，Product需要Category和Brand
+        """
+        expanded = list(dependencies)
+        seen = set(dependencies)
+        
+        # 定义依赖链规则
+        dependency_rules = {
+            'sku': ['product', 'category', 'brand'],  # SKU需要完整的Product链
+            'product': ['category', 'brand'],  # Product需要Category和Brand
+            'orderitem': ['user', 'sku', 'product', 'category', 'brand'],  # OrderItem需要完整链
+            'cartitem': ['user', 'sku', 'product', 'category', 'brand'],  # CartItem需要完整链
+        }
+        
+        # 检查每个依赖是否需要扩展
+        for dep_module, dep_factory, dep_key in dependencies:
+            if dep_key in dependency_rules:
+                required_deps = dependency_rules[dep_key]
+                
+                for required_key in required_deps:
+                    # 查找这个required_key对应的模块
+                    # 从table_to_module反向推断
+                    found = False
+                    for table_name, module_name in table_to_module.items():
+                        model_name = self._infer_model_name_from_table(table_name, {})
+                        if model_name.lower() == required_key:
+                            req_tuple = (module_name, f"{model_name}Factory", required_key)
+                            if req_tuple not in seen:
+                                expanded.append(req_tuple)
+                                seen.add(req_tuple)
+                            found = True
+                            break
+                    
+                    if not found:
+                        print(f"⚠️ 警告: 无法找到依赖 '{required_key}' 的模块")
+        
+        return expanded
+    
+    def _order_dependencies_by_chain(self, dependencies: List[Tuple[str, str, str]]) -> List[Tuple[str, str, str, str]]:
+        """按依赖链顺序排序依赖，并添加创建参数
+        
+        Returns:
+            List[Tuple[module, factory, key, params]]
+            例如: [('product_catalog', 'CategoryFactory', 'category', ''),
+                   ('product_catalog', 'BrandFactory', 'brand', ''),
+                   ('product_catalog', 'ProductFactory', 'product', 'category_id=data["category"].id, brand_id=data["brand"].id')]
+        """
+        # 定义创建顺序和参数依赖
+        creation_order = {
+            'user': (1, ''),
+            'category': (2, ''),
+            'brand': (3, ''),
+            'product': (4, 'category_id=data["category"].id, brand_id=data["brand"].id'),
+            'sku': (5, 'product_id=data["product"].id'),
+        }
+        
+        ordered = []
+        for dep_module, dep_factory, dep_key in dependencies:
+            order, params = creation_order.get(dep_key, (999, ''))
+            ordered.append((order, dep_module, dep_factory, dep_key, params))
+        
+        # 按order排序
+        ordered.sort(key=lambda x: x[0])
+        
+        # 返回时去掉order
+        return [(m, f, k, p) for _, m, f, k, p in ordered]
+    
+    def _get_factory_fk_params(self, model_name: str, models: Dict[str, ModelInfo], 
+                                cross_module_deps: List[Tuple[str, str, str]]) -> str:
+        """获取Factory创建时需要传入的外键参数
+        
+        Args:
+            model_name: 当前模型名
+            models: 所有模型信息
+            cross_module_deps: 跨模块依赖列表
+            
+        Returns:
+            参数字符串，如 "user_id=data['user'].id, sku_id=data['sku'].id"
+        """
+        if model_name not in models:
+            return ""
+        
+        model_info = models[model_name]
+        params = []
+        
+        for field in model_info.fields:
+            if field.foreign_key:
+                target_table = field.foreign_key.split('.')[0]
+                target_model = self._infer_model_name_from_table(target_table, models)
+                
+                # 检查是否跨模块
+                is_cross_module = self._is_cross_module_dependency(target_model, models)
+                
+                if is_cross_module:
+                    # 查找对应的依赖key（从target_model生成）
+                    dep_key = target_model.lower()
+                    
+                    # 验证这个key是否在依赖列表中
+                    found = False
+                    for dep_module, dep_factory, check_key in cross_module_deps:
+                        if check_key == dep_key:
+                            params.append(f"{field.name}=data['{dep_key}'].id")
+                            found = True
+                            break
+                    
+                    if not found:
+                        print(f"⚠️ 警告: 未找到 {target_model} 的依赖，字段 {field.name} 可能需要手动处理")
+                        
+                elif field.name.endswith('_id'):
+                    # 同模块内的外键，使用SubFactory或前置创建的实体
+                    relation_name = field.name[:-3]  # user_id -> user
+                    relation_model = relation_name.capitalize()
+                    if relation_model in [m.capitalize() for m in models.keys()]:
+                        params.append(f"{relation_name}=data['{relation_name.lower()}']")
+        
+        return ", ".join(params)

@@ -350,6 +350,9 @@ class ModelAnalyzer:
         # 提取字段信息
         if hasattr(model_class, '__table__'):
             table = model_class.__table__
+            
+            # 先创建字段信息字典（用于后续关联约束）
+            field_info_dict = {}
             for column in table.columns:
                 field_info = {
                     'name': column.name,
@@ -363,10 +366,29 @@ class ModelAnalyzer:
                     'server_default': column.server_default,
                     'constraints': []
                 }
+                field_info_dict[column.name] = field_info
                 model_data['fields'].append(field_info)
                 
                 if column.primary_key:
                     model_data['primary_keys'].append(column.name)
+            
+            # 提取表级约束（CHECK约束）
+            if hasattr(table, 'constraints'):
+                from sqlalchemy import CheckConstraint
+                for constraint in table.constraints:
+                    if isinstance(constraint, CheckConstraint):
+                        # 解析CHECK约束，提取字段和范围
+                        constraint_text = str(constraint.sqltext)
+                        constraint_info = {
+                            'type': 'check',
+                            'name': constraint.name,
+                            'expression': constraint_text
+                        }
+                        
+                        # 尝试将约束关联到对应的字段
+                        for field_name, field_info in field_info_dict.items():
+                            if field_name in constraint_text:
+                                field_info['constraints'].append(constraint_info)
         
         # 提取关系信息
         if hasattr(model_class, '__mapper__'):
