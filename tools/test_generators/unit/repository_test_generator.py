@@ -614,6 +614,18 @@ from app.modules.{module_name}.models import (
             elif has_composite_pk:
                 pk_fields = self._get_primary_key_fields(model_name, models)
                 pk_check = ' and '.join([f'item.{f.name} == entity.{f.name}' for f in pk_fields])
+                
+                # 🎯 正确使用推断的参数，而不是硬编码
+                if needs_todo or not query_param:
+                    # 无法推断参数时才使用硬编码
+                    method_call_found = f"{repo_name}.{method_name}(unit_test_db)  # TODO: 根据实际方法签名调整参数"
+                    method_call_not_found = f"{repo_name}.{method_name}(unit_test_db)  # TODO: 根据实际方法签名调整参数"
+                else:
+                    # 使用推断的参数
+                    method_call_found = self._generate_method_call(method_info, repo_name, f"unit_test_db, {query_param}" if query_param else "unit_test_db")
+                    not_found_param = self._generate_not_found_param(query_param)
+                    method_call_not_found = self._generate_method_call(method_info, repo_name, f"unit_test_db, {not_found_param}")
+                
                 return f'''    def test_{method_name}_found(self, unit_test_db: Session):
         """测试{method_name} - 查询到数据"""
         # 准备测试数据
@@ -622,7 +634,7 @@ from app.modules.{module_name}.models import (
         unit_test_db.commit()
         
         # 执行Repository方法
-        result = {repo_name}.{method_name}(unit_test_db)  # TODO: 根据实际方法签名调整参数
+        result = {method_call_found}
         
         # 验证结果
         assert isinstance(result, list)
@@ -632,12 +644,23 @@ from app.modules.{module_name}.models import (
     
     def test_{method_name}_not_found(self, unit_test_db: Session):
         """测试{method_name} - 数据不存在"""
-        result = {repo_name}.{method_name}(unit_test_db)  # TODO: 根据实际方法签名调整参数
+        result = {method_call_not_found}
         
         assert isinstance(result, list)
         # not_found测试不验证len(result)==0，因为数据库中可能有其他测试创建的数据
 '''
             else:
+                # 🎯 正确使用推断的参数，而不是硬编码
+                if needs_todo or not query_param:
+                    # 无法推断参数时才使用硬编码
+                    method_call_found = f"{repo_name}.{method_name}(unit_test_db)  # TODO: 根据实际方法签名调整参数"
+                    method_call_not_found = f"{repo_name}.{method_name}(unit_test_db)  # TODO: 根据实际方法签名调整参数"
+                else:
+                    # 使用推断的参数
+                    method_call_found = self._generate_method_call(method_info, repo_name, f"unit_test_db, {query_param}" if query_param else "unit_test_db")
+                    not_found_param = self._generate_not_found_param(query_param)
+                    method_call_not_found = self._generate_method_call(method_info, repo_name, f"unit_test_db, {not_found_param}")
+                
                 return f'''    def test_{method_name}_found(self, unit_test_db: Session):
         """测试{method_name} - 查询到数据"""
         # 准备测试数据
@@ -646,7 +669,7 @@ from app.modules.{module_name}.models import (
         unit_test_db.commit()
         
         # 执行Repository方法
-        result = {repo_name}.{method_name}(unit_test_db)  # TODO: 根据实际方法签名调整参数
+        result = {method_call_found}
         
         # 验证结果
         assert isinstance(result, list)
@@ -656,7 +679,7 @@ from app.modules.{module_name}.models import (
     
     def test_{method_name}_not_found(self, unit_test_db: Session):
         """测试{method_name} - 数据不存在"""
-        result = {repo_name}.{method_name}(unit_test_db)  # TODO: 根据实际方法签名调整参数
+        result = {method_call_not_found}
         
         assert isinstance(result, list)
         # not_found测试不验证len(result)==0，因为数据库中可能有其他测试创建的数据
