@@ -299,7 +299,7 @@ from app.modules.{module_name}.models import (
             method_call_args_minimal = "unit_test_db"
             method_call_args_factory = "unit_test_db"
         elif len(method_params) == 1:
-            param_name, param_type = method_params[0]
+            param_name, param_type, param_kind = method_params[0]
             # 检查是否是实体对象参数（参数类型包含模型名）
             if model_name.lower() in param_type.lower() or param_type.lower() == model_name.lower():
                 # 实体对象参数：传递entity (依赖已在上面创建)
@@ -922,7 +922,7 @@ from app.modules.{module_name}.models import (
         # - 如果有2个或更多参数(entity, update_data) → 参数模式
         is_orm_tracking_mode = False
         if len(business_params) == 1:
-            param_name, param_type = business_params[0]
+            param_name, param_type, param_kind = business_params[0]
             # 检查参数类型是否是模型类（如 CartItem）
             if model_name.lower() in param_type.lower():
                 is_orm_tracking_mode = True
@@ -2918,55 +2918,71 @@ class Test{repo_name}:
         Returns:
             str: 参数调用字符串，如 "unit_test_db, entity.id"
         """
-        params = [db_var]  # 第一个参数总是db
+        # db参数是第一个位置参数（特殊处理，不使用_build_param_string）
+        db_param = db_var
+        
+        # 存储其他参数：(param_kind, param_name, param_value)
+        param_parts = []
         
         # 遍历方法参数（跳过db参数）
-        for param_name, param_type in method_info.parameters:
+        for param_name, param_type, param_kind in method_info.parameters:
             if param_name == 'db':
                 continue
             
             # 🎯 智能参数推断策略
+            param_value = None
+            
             # 1. 如果参数是ID类型（user_id, role_id等）- 优先处理
             if param_name.endswith('_id'):
                 # 尝试从entity获取对应ID
-                params.append(f"{entity_var}.id")
+                param_value = f"{entity_var}.id"
             # 2. 如果参数是字典类型（data, update_data等）- 使用{} 占位
             elif 'dict' in param_type.lower() or param_name in ['data', 'update_data', 'filters']:
-                params.append("{}")
+                param_value = "{}"
             # 3. 如果context中有对应的值
             elif param_name in context:
-                params.append(context[param_name])
+                param_value = context[param_name]
             # 4. 根据参数类型生成默认值（优先匹配基础类型）
             elif param_type:
                 # 去除Optional等包装
                 clean_type = param_type.replace('Optional[', '').replace(']', '').replace('List[', '').strip()
                 
                 if 'int' in clean_type.lower():
-                    params.append("0")
+                    param_value = "0"
                 elif 'str' in clean_type.lower():
-                    params.append('""')
+                    param_value = '""'
                 elif 'bool' in clean_type.lower():
-                    params.append("None")  # Optional[bool]用None
+                    param_value = "None"  # Optional[bool]用None
                 elif 'dict' in clean_type.lower():
-                    params.append("{}")
+                    param_value = "{}"
                 # 5. 如果参数名匹配实体类型（如user: User），传入实体对象
                 elif clean_type == method_info.return_type.replace('Optional[', '').replace(']', '').replace('List[', ''):
-                    params.append(entity_var)
+                    param_value = entity_var
                 # 6. 如果是自定义实体类型（首字母大写且不是常见类型）
                 elif clean_type and clean_type[0].isupper() and clean_type not in ['Session', 'Any', 'Type', 'Union']:
-                    params.append(entity_var)
+                    param_value = entity_var
                 else:
-                    params.append("None")  # 其他类型用None
+                    param_value = "None"  # 其他类型用None
             else:
                 # 没有类型注解，根据参数名猜测
                 if 'skip' in param_name or 'limit' in param_name or 'count' in param_name:
-                    params.append("0")
+                    param_value = "0"
                 elif 'name' in param_name or 'email' in param_name or 'username' in param_name:
-                    params.append('""')
+                    param_value = '""'
                 else:
-                    params.append("None")
+                    param_value = "None"
+            
+            # 添加参数到列表（带参数类别和名称）
+            param_parts.append((param_kind, param_name, param_value))
         
-        return ', '.join(params)
+        # 使用_build_param_string生成正确的调用语法（支持keyword-only参数）
+        business_params = self._build_param_string(param_parts)
+        
+        # 拼接：db参数 + 业务参数
+        if business_params:
+            return f"{db_param}, {business_params}"
+        else:
+            return db_param
     
     def _generate_test_value_by_field_type(
         self,
