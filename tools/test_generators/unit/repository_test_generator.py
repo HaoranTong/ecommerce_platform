@@ -267,11 +267,30 @@ from app.modules.{module_name}.models import (
         """
         method_name = method_info.name
         
+        # 🎯 步骤1：智能推断实际要创建的实体类型
+        # 过滤掉self, db, cls等基础参数
+        method_params = [p for p in method_info.parameters if p[0] not in ['self', 'db', 'cls']]
+        
+        # 从参数类型推断实际要创建的实体类型
+        actual_model_name = model_name  # 默认使用Repository对应的模型
+        
+        if len(method_params) == 1:
+            param_name, param_type, param_kind = method_params[0]
+            
+            # 🔧 提取参数类型中的实体名称（如 "OrderItem" from "OrderItem"）
+            clean_param_type = param_type.replace('Optional[', '').replace(']', '').strip()
+            
+            # 检查是否是实体对象参数（参数类型是大写开头的类名）
+            if clean_param_type and clean_param_type[0].isupper() and clean_param_type in models:
+                # 🎯 核心修复：使用参数类型作为实际模型名称！
+                actual_model_name = clean_param_type
+        
+        # 🎯 步骤2：使用actual_model_name生成实体创建代码
         # 生成最小字段创建代码（只填必填字段）
-        minimal_imports, minimal_entity_code = self._generate_minimal_entity_creation(model_name, models, module_name)
+        minimal_imports, minimal_entity_code = self._generate_minimal_entity_creation(actual_model_name, models, module_name)
         
         # 🔑 生成完整字段创建代码（填充所有字段）
-        full_imports, full_entity_code = self._generate_full_entity_creation(model_name, models, module_name)
+        full_imports, full_entity_code = self._generate_full_entity_creation(actual_model_name, models, module_name)
         
         # 组装import语句（放在方法开始）
         import_block = ''
@@ -288,27 +307,27 @@ from app.modules.{module_name}.models import (
             full_import_block = '\n'.join(full_import_lines) + '\n        '
         
         # 检查是否使用联合主键
-        has_composite_pk = self._has_composite_primary_key(model_name, models)
+        has_composite_pk = self._has_composite_primary_key(actual_model_name, models)
         
-        # 智能生成方法参数：检查method_info.parameters来确定参数类型
-        # 过滤掉self, db, cls等基础参数
-        method_params = [p for p in method_info.parameters if p[0] not in ['self', 'db', 'cls']]
-        
+        # 🎯 步骤3：生成方法调用参数
         if not method_params:
             # 无参数的create方法
             method_call_args_minimal = "unit_test_db"
             method_call_args_factory = "unit_test_db"
         elif len(method_params) == 1:
             param_name, param_type, param_kind = method_params[0]
-            # 检查是否是实体对象参数（参数类型包含模型名）
-            if model_name.lower() in param_type.lower() or param_type.lower() == model_name.lower():
-                # 实体对象参数：传递entity (依赖已在上面创建)
+            
+            clean_param_type = param_type.replace('Optional[', '').replace(']', '').strip()
+            
+            # 检查是否是实体对象参数
+            if clean_param_type and clean_param_type[0].isupper() and clean_param_type in models:
+                # 实体对象参数：传递entity
                 method_call_args_minimal = "unit_test_db, entity"
                 method_call_args_factory = "unit_test_db, entity"
             else:
                 # 字段参数（如user_id: int）：使用已创建的依赖实体
                 # 检查是否是外键字段
-                model_info = models.get(model_name)
+                model_info = models.get(actual_model_name)
                 fk_field = None
                 if model_info:
                     fk_field = next((f for f in model_info.fields if f.name == param_name and f.foreign_key), None)
@@ -341,7 +360,7 @@ from app.modules.{module_name}.models import (
         
         if has_composite_pk:
             # 联合主键：使用主键字段组合查询
-            pk_fields = self._get_primary_key_fields(model_name, models)
+            pk_fields = self._get_primary_key_fields(actual_model_name, models)
             pk_filter = ', '.join([f'{f.name}=result.{f.name}' for f in pk_fields])
             
             return f'''    def test_{method_name}_minimal_fields(self, unit_test_db: Session):
