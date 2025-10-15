@@ -124,6 +124,10 @@ class RepositoryTestGenerator:
         # 初始化跨模块依赖解析器
         from ..utils.cross_module_dependency_resolver import CrossModuleDependencyResolver
         self.dependency_resolver = CrossModuleDependencyResolver(project_root)
+        
+        # 初始化ModelAnalyzer（用于获取跨模块模型信息）
+        from ..utils.model_analyzer import ModelAnalyzer
+        self.model_analyzer = ModelAnalyzer(project_root)
     
     def _generate_method_call(
         self, 
@@ -194,10 +198,21 @@ class RepositoryTestGenerator:
             test_class = self._generate_single_repository_test(repo_info, models, module_name)
             test_classes.append(test_class)
         
-        # 收集需要导入的模型
+        # 🔍 智能收集需要导入的模型（从生成的测试代码中提取）
         model_imports = set()
+        # 添加Repository的主模型
         for repo_info in repositories.values():
             model_imports.add(repo_info.model_name)
+        
+        # 从生成的测试代码中提取所有使用的模型名
+        import re
+        all_test_code = '\n'.join(test_classes)
+        # 匹配 "entity = ModelName(" 模式
+        entity_pattern = r'entity\s*=\s*([A-Z][a-zA-Z0-9_]*)\s*\('
+        found_models = re.findall(entity_pattern, all_test_code)
+        for model_name in found_models:
+            if model_name in models:  # 确保是本模块的模型
+                model_imports.add(model_name)
         
         # 收集需要导入的Repository
         repo_imports = [repo_info.name for repo_info in repositories.values()]
@@ -336,7 +351,8 @@ from app.modules.{module_name}.models import (
                     # 外键字段：从依赖实体获取ID (依赖已在上面的comprehensive loop中创建)
                     fk_target = fk_field.foreign_key
                     fk_table = fk_target.split('.')[0]
-                    fk_model_name = self._table_name_to_model_name(fk_table)
+                    # 使用resolver从表名查找模型名（零硬编码）
+                    fk_model_name = self.dependency_resolver.get_model_by_table(fk_table) or self._fallback_table_to_model(fk_table)
                     fk_var_name = fk_model_name.lower()
                     
                     # 使用已创建的依赖实体
@@ -493,14 +509,52 @@ from app.modules.{module_name}.models import (
     ) -> str:
         """生成Repository read方法测试（智能处理返回类型和参数）"""
         method_name = method_info.name
-        entity_creation = self._generate_test_entity_creation(model_name, models, "查询测试", with_dependencies=True, module_name=module_name)
+        
+        # 🔧 从返回类型推断实际要查询的模型（支持跨模块查询）
+        return_type = method_info.return_type
+        actual_model_name = self._extract_model_from_return_type(return_type, models)
+        if not actual_model_name:
+            actual_model_name = model_name  # 默认使用Repository的主模型
+        
+        entity_creation = self._generate_test_entity_creation(actual_model_name, models, "查询测试", with_dependencies=True, module_name=module_name)
+        
+        # 🔧 检查是否为跨模块模型，需要Factory setup
+        is_cross_module = actual_model_name not in models
+        if is_cross_module:
+            # 如果entity_creation已经包含多行代码（有依赖创建），则保留不覆盖
+            # 只有简单的单行代码（如"InventoryStockFactory.create()"）才需要添加setup
+            if '\n' not in entity_creation and 'FactoryManager' not in entity_creation:
+                # 跨模块模型：生成Factory setup代码
+                fk_model_module = self.dependency_resolver.get_module_for_model(actual_model_name)
+                if fk_model_module:
+                    factory_name = f'{actual_model_name}Factory'
+                    factory_manager = f'{fk_model_module.replace("_", " ").title().replace(" ", "")}FactoryManager'
+                    entity_creation = f'''from tests.factories.{fk_model_module}_factories import {factory_manager}
+        {factory_manager}.setup_factories(unit_test_db)
+        from tests.factories.{fk_model_module}_factories import {factory_name}
+        entity = {factory_name}.create()'''
         
         # 检查返回类型
         is_list_return = 'List[' in method_info.return_type or 'list[' in method_info.return_type.lower()
         is_bool_return = method_info.return_type == 'bool'
         
-        # 智能推断查询参数
-        setup_code, query_param, needs_todo = self._infer_query_parameter(method_info, model_name, models, module_name)
+        # 🔧 跨模块read测试：直接使用entity.id，不需要参数推断
+        if is_cross_module:
+            # 对于跨模块查询方法（如get_product_by_id），实体已创建，直接使用entity.id
+            method_params = [p for p in method_info.parameters if p[0] not in ['self', 'db', 'cls']]
+            if method_params and len(method_params) == 1:
+                param_name, param_type, param_kind = method_params[0]
+                if param_name.endswith('_id') or 'int' in param_type.lower():
+                    query_param = 'entity.id'
+                else:
+                    query_param = f'entity.{param_name}'
+            else:
+                query_param = 'entity.id'  # 默认使用entity.id
+            setup_code = ''
+            needs_todo = False
+        else:
+            # 同模块read测试：使用参数推断
+            setup_code, query_param, needs_todo = self._infer_query_parameter(method_info, model_name, models, module_name)
         has_composite_pk = self._has_composite_primary_key(model_name, models)
         
         # 🎯 特殊处理: 复合主键的get方法
@@ -1792,9 +1846,17 @@ from app.modules.{module_name}.models import (
         1. 智能识别返回类型（int, List, Optional等）
         2. 根据返回类型生成正确的断言
         3. 智能推断方法参数
+        4. 🔧 从返回类型推断要创建的实体（支持跨模块查询）
         """
         method_name = method_info.name
-        entity_creation = self._generate_test_entity_creation(model_name, models, "查询测试", with_dependencies=True, module_name=module_name)
+        
+        # 🔧 从返回类型推断实际要创建的模型
+        return_type = method_info.return_type
+        actual_model_name = self._extract_model_from_return_type(return_type, models)
+        if not actual_model_name:
+            actual_model_name = model_name  # 默认使用Repository的主模型
+        
+        entity_creation = self._generate_test_entity_creation(actual_model_name, models, "查询测试", with_dependencies=True, module_name=module_name)
         
         # 🎯 核心改进：根据返回类型生成正确的断言
         return_type = method_info.return_type
@@ -1802,6 +1864,7 @@ from app.modules.{module_name}.models import (
         # 分析返回类型
         is_none_return = return_type == 'None' or return_type == 'NoneType'
         is_count_method = 'count' in method_name.lower() or return_type == 'int'
+        is_tuple_return = 'Tuple[' in return_type or 'tuple[' in return_type  # 新增：Tuple返回类型检测
         is_list_method = 'List[' in return_type or 'list[' in return_type or method_info.method_type in ['list', 'search']
         is_optional = 'Optional[' in return_type or return_type.endswith('| None')
         
@@ -1816,6 +1879,10 @@ from app.modules.{module_name}.models import (
             # 返回None的方法（如 update/deactivate 等），只验证执行成功
             assertion = "# 方法返回None，验证执行成功即可"
             result_var = "result"
+        elif is_tuple_return:
+            # 返回Tuple的方法（如 list_orders返回Tuple[List[Order], int]）
+            assertion = "assert isinstance(results, list)  # 返回列表\n        assert isinstance(total_count, int)  # 返回总数"
+            result_var = "results, total_count"
         elif is_count_method:
             assertion = "assert result >= 0  # count方法返回int"
             result_var = "result"
@@ -1829,7 +1896,30 @@ from app.modules.{module_name}.models import (
             assertion = "assert result is not None"
             result_var = "result"
         
-        return f'''    def test_{method_name}_query(self, unit_test_db: Session):
+        # 🔧 检查是否为跨模块模型（需要使用Factory）
+        is_cross_module = actual_model_name not in models
+        
+        if is_cross_module:
+            # 跨模块模型：使用Factory创建
+            factory_import = self.dependency_resolver.get_factory_import(actual_model_name, module_name)
+            factory_manager_import = self.dependency_resolver.get_factory_manager_import(actual_model_name, module_name)
+            
+            test_code = f'''    def test_{method_name}_query(self, unit_test_db: Session):
+        """测试{method_name} - 查询功能"""
+        # 🔧 跨模块查询：使用Factory创建实体
+        {factory_manager_import}
+        {factory_import}
+        entity = {actual_model_name}Factory.create()
+        
+        # 执行Repository方法
+        {result_var} = {method_call}
+        
+        # 验证查询结果
+        {assertion}
+'''
+        else:
+            # 当前模块模型：直接创建
+            test_code = f'''    def test_{method_name}_query(self, unit_test_db: Session):
         """测试{method_name} - 查询功能"""
         # 准备测试数据
         {entity_creation}
@@ -1842,6 +1932,8 @@ from app.modules.{module_name}.models import (
         # 验证查询结果
         {assertion}
 '''
+        
+        return test_code
     
     # ========== 核心生成方法 ==========
     
@@ -2035,7 +2127,8 @@ class Test{repo_name}:
                 
             fk_target = field.foreign_key
             fk_table = fk_target.split('.')[0]
-            fk_model_name = self._table_name_to_model_name(fk_table)
+            # 使用resolver从表名查找模型名（零硬编码）
+            fk_model_name = self.dependency_resolver.get_model_by_table(fk_table) or self._fallback_table_to_model(fk_table)
             
             # 如果依赖实体已经创建，使用它的ID
             if fk_model_name in created_entities:
@@ -2092,7 +2185,21 @@ class Test{repo_name}:
                 
             fk_target = field.foreign_key
             fk_table = fk_target.split('.')[0]
-            fk_model_name = self._table_name_to_model_name(fk_table)
+            
+            # 🔧 步骤1：从当前模块的models字典中查找表名对应的模型名
+            fk_model_name = None
+            for m_name, m_info in models.items():
+                if m_info.tablename == fk_table:
+                    fk_model_name = m_name
+                    break
+            
+            # 🔧 步骤2：如果当前模块找不到，从dependency_resolver的全局映射查找
+            if fk_model_name is None:
+                fk_model_name = self.dependency_resolver.get_model_by_table(fk_table)
+            
+            # 🔧 步骤3：如果还是找不到，使用命名规则作为最后的后备方案
+            if fk_model_name is None:
+                fk_model_name = self._fallback_table_to_model(fk_table)
             
             # 确定依赖模型所属模块
             if self._is_cross_module_dependency(fk_model_name, module_name, models):
@@ -2251,7 +2358,8 @@ class Test{repo_name}:
                 # 例如：UserRole有user_id和assigned_by都指向User，assigned_by使用user.id
                 fk_target = field.foreign_key
                 fk_table = fk_target.split('.')[0]
-                fk_model_name = self._table_name_to_model_name(fk_table)
+                # 使用resolver从表名查找模型名（零硬编码）
+                fk_model_name = self.dependency_resolver.get_model_by_table(fk_table) or self._fallback_table_to_model(fk_table)
                 dep_var_name = fk_model_name.lower()
                 if fk_model_name in created_entities:
                     field_assignments.append(f'{field.name}={created_entities[fk_model_name]}.id')
@@ -2427,8 +2535,65 @@ class Test{repo_name}:
             str: 实体创建代码(可能是多行的依赖创建+主实体创建)
         """
         if model_name not in models:
-            # 如果模型信息不存在（通常是跨模块依赖），返回空构造调用
-            # 让用户根据实际情况填充必填字段
+            # 🔧 跨模块模型：使用Factory Boy创建（符合testing-standards.md第2.1节）
+            # 依赖实体（包括跨模块依赖）始终使用Factory Boy
+            fk_model_module = self.dependency_resolver.get_module_for_model(model_name)
+            if fk_model_module:
+                # 🔧 检测跨模块模型是否有跨模块外键依赖（如InventoryStock.sku_id → SKU）
+                # 使用ModelAnalyzer获取跨模块模型的完整信息
+                cross_module_model_info = self.model_analyzer.get_model_info(model_name)
+                if cross_module_model_info and with_dependencies:
+                    # 检测该跨模块模型是否有跨模块外键
+                    cross_module_fks = []
+                    for field in cross_module_model_info.fields:
+                        if field.foreign_key:
+                            # 解析外键目标表
+                            fk_parts = field.foreign_key.split('.')
+                            if len(fk_parts) == 2:
+                                target_table = fk_parts[0]
+                                # 查找目标模型
+                                target_model = self.dependency_resolver.get_model_by_table(target_table)
+                                if target_model:
+                                    target_module = self.dependency_resolver.get_module_for_model(target_model)
+                                    # 如果目标模型不在当前跨模块模型的模块中，则为跨模块外键
+                                    if target_module and target_module != fk_model_module:
+                                        cross_module_fks.append((field.name, target_model, target_module))
+                    
+                    # 如果有跨模块外键，生成完整的依赖创建代码
+                    if cross_module_fks:
+                        lines = []
+                        fk_params = []
+                        setup_modules = set()  # 记录已setup的模块，避免重复
+                        
+                        for fk_name, target_model, target_module in cross_module_fks:
+                            fk_var = target_model.lower()
+                            lines.append(f'# 准备依赖实体: {target_model}')
+                            
+                            # 为依赖模块设置FactoryManager（只设置一次）
+                            if target_module not in setup_modules:
+                                target_manager = f'{"".join(word.capitalize() for word in target_module.split("_"))}FactoryManager'
+                                lines.append(f'from tests.factories.{target_module}_factories import {target_manager}')
+                                lines.append(f'{target_manager}.setup_factories(unit_test_db)')
+                                setup_modules.add(target_module)
+                            
+                            lines.append(f'from tests.factories.{target_module}_factories import {target_model}Factory')
+                            lines.append(f'{fk_var} = {target_model}Factory.create()')
+                            fk_params.append(f'{fk_name}={fk_var}.id')
+                        
+                        # 最后创建跨模块实体，传入外键参数
+                        factory_name = f'{model_name}Factory'
+                        if fk_model_module not in setup_modules:
+                            fk_manager = f'{"".join(word.capitalize() for word in fk_model_module.split("_"))}FactoryManager'
+                            lines.append(f'from tests.factories.{fk_model_module}_factories import {fk_manager}')
+                            lines.append(f'{fk_manager}.setup_factories(unit_test_db)')
+                        lines.append(f'from tests.factories.{fk_model_module}_factories import {factory_name}')
+                        lines.append(f'entity = {factory_name}.create({", ".join(fk_params)})')
+                        return '\n        '.join(lines)
+                
+                # 简单情况：无跨模块外键或不需要生成依赖
+                factory_name = f'{model_name}Factory'
+                return f'{factory_name}.create()  # 跨模块依赖使用Factory'
+            # 无法识别的模型，返回TODO
             return f'{model_name}()  # TODO: 填充必填字段'
         
         model_info = models[model_name]
@@ -2517,6 +2682,48 @@ class Test{repo_name}:
         return '\n        '.join(lines)
     
     # 注意：_get_minimal_test_value 和 _get_test_value_for_field 已在上方实现（第350-430行）
+    
+    def _extract_model_from_return_type(
+        self,
+        return_type: str,
+        models: Dict[str, ModelInfo]
+    ) -> Optional[str]:
+        """从返回类型中提取模型名
+        
+        支持的格式：
+        - Optional[Product] -> Product
+        - List[Order] -> Order
+        - Product -> Product
+        - int, str等基础类型 -> None
+        
+        Args:
+            return_type: 方法返回类型字符串
+            models: 模型信息字典（用于验证模型存在）
+            
+        Returns:
+            模型名或None
+        """
+        import re
+        
+        # 移除Optional, List等包装
+        clean_type = return_type.replace('Optional[', '').replace('List[', '').replace(']', '').strip()
+        
+        # 移除 | None 语法
+        if '|' in clean_type:
+            clean_type = clean_type.split('|')[0].strip()
+        
+        # 检查是否是模型类（大写开头且在models中）
+        if clean_type and clean_type[0].isupper():
+            # 尝试从当前模块查找
+            if clean_type in models:
+                return clean_type
+            
+            # 尝试从dependency_resolver查找（跨模块模型）
+            module = self.dependency_resolver.get_module_for_model(clean_type)
+            if module:
+                return clean_type
+        
+        return None
     
     def _has_composite_primary_key(
         self,
@@ -2812,13 +3019,20 @@ class Test{repo_name}:
                     elif clean_type == 'bool':
                         add_param(param_kind, param_name, 'True')
                     elif 'Optional' in param_type:
-                        # Optional类型参数，使用None
-                        add_param(param_kind, param_name, 'None')
+                        # Optional类型参数：
+                        # 如果参数名对应实体字段（如status, name），使用entity.param_name
+                        # 否则使用None
+                        if param_name in ['status', 'name', 'type', 'category', 'priority']:
+                            add_param(param_kind, param_name, f'entity.{param_name}')
+                        else:
+                            add_param(param_kind, param_name, 'None')
                     else:
-                        # 其他类型（如枚举OrderStatus），尝试使用None
-                        # 或者使用参数名推断字段
+                        # 其他类型（如枚举OrderStatus），尝试使用参数名推断字段
+                        # 如果参数名对应实体字段，使用entity.param_name
                         if param_name.endswith('_id'):
                             add_param(param_kind, param_name, 'entity.id')
+                        elif param_name in ['status', 'name', 'type', 'category', 'priority']:
+                            add_param(param_kind, param_name, f'entity.{param_name}')
                         else:
                             add_param(param_kind, param_name, 'None')
             
@@ -2906,8 +3120,26 @@ class Test{repo_name}:
         
         return None
     
-    def _table_name_to_model_name(self, table_name: str) -> str:
-        """表名转模型名: products -> Product, categories -> Category"""
+    def _fallback_table_to_model(self, table_name: str) -> str:
+        """表名转模型名的后备方案（基于命名规则）
+        
+        仅当resolver.get_model_by_table()失败时使用。
+        
+        注意：此方法基于通用命名规则，可能不准确。
+        应该优先使用dependency_resolver.get_model_by_table()，
+        该方法从ModelAnalyzer获取准确的映射（如product_skus → SKU）。
+        
+        Args:
+            table_name: 数据库表名
+            
+        Returns:
+            推测的模型名
+            
+        Example:
+            products -> Product
+            categories -> Category
+            product_skus -> ProductSku（可能不准确，实际可能是SKU）
+        """
         # 移除复数s
         if table_name.endswith('ies'):
             singular = table_name[:-3] + 'y'  # categories -> category
@@ -2916,8 +3148,11 @@ class Test{repo_name}:
         else:
             singular = table_name
         
-        # 首字母大写
-        return singular.capitalize()
+        # 转驼峰命名
+        parts = singular.split('_')
+        model_name = ''.join(word.capitalize() for word in parts)
+        
+        return model_name
     
     def _generate_method_call_params(
         self,
@@ -2948,22 +3183,33 @@ class Test{repo_name}:
             if param_name == 'db':
                 continue
             
-            # 🎯 智能参数推断策略
+            # 🎯 简化的参数推断策略：优先从entity获取字段值
             param_value = None
             
-            # 1. 如果参数是ID类型（user_id, role_id等）- 优先处理
-            if param_name.endswith('_id'):
-                # 尝试从entity获取对应ID
-                param_value = f"{entity_var}.id"
-            # 2. 如果参数是字典类型（data, update_data等）- 使用{} 占位
-            elif 'dict' in param_type.lower() or param_name in ['data', 'update_data', 'filters']:
-                param_value = "{}"
-            # 3. 如果context中有对应的值
+            # 策略0: 如果参数名就是entity（如refresh(entity)），直接传入entity变量
+            if param_name == 'entity':
+                param_value = entity_var
+            
+            # 策略1: 如果参数名对应entity的字段（如status, user_id, id等），直接使用entity.字段名
+            # 这是最自然的映射：参数名 → 实体字段名
+            # 例如：status参数 → entity.status，user_id参数 → entity.user_id
+            elif param_name in ['id', 'status', 'name', 'email', 'username', 'phone'] or param_name.endswith('_id'):
+                param_value = f"{entity_var}.{param_name}"
+            
+            # 策略2: context中有显式提供的值
             elif param_name in context:
                 param_value = context[param_name]
-            # 4. 根据参数类型生成默认值（优先匹配基础类型）
+            
+            # 策略3: 特殊参数类型的默认值
+            elif param_name in ['data', 'update_data', 'filters'] or 'dict' in param_type.lower():
+                param_value = "{}"
+            elif param_name in ['skip', 'offset']:
+                param_value = "0"
+            elif param_name in ['limit', 'count']:
+                param_value = "100"
+            
+            # 策略4: 根据参数类型推断（仅作为后备）
             elif param_type:
-                # 去除Optional等包装
                 clean_type = param_type.replace('Optional[', '').replace(']', '').replace('List[', '').strip()
                 
                 if 'int' in clean_type.lower():
@@ -2971,25 +3217,14 @@ class Test{repo_name}:
                 elif 'str' in clean_type.lower():
                     param_value = '""'
                 elif 'bool' in clean_type.lower():
-                    param_value = "None"  # Optional[bool]用None
-                elif 'dict' in clean_type.lower():
-                    param_value = "{}"
-                # 5. 如果参数名匹配实体类型（如user: User），传入实体对象
-                elif clean_type == method_info.return_type.replace('Optional[', '').replace(']', '').replace('List[', ''):
-                    param_value = entity_var
-                # 6. 如果是自定义实体类型（首字母大写且不是常见类型）
+                    param_value = "False"
                 elif clean_type and clean_type[0].isupper() and clean_type not in ['Session', 'Any', 'Type', 'Union']:
+                    # 实体类型参数，传入整个entity
                     param_value = entity_var
-                else:
-                    param_value = "None"  # 其他类型用None
-            else:
-                # 没有类型注解，根据参数名猜测
-                if 'skip' in param_name or 'limit' in param_name or 'count' in param_name:
-                    param_value = "0"
-                elif 'name' in param_name or 'email' in param_name or 'username' in param_name:
-                    param_value = '""'
                 else:
                     param_value = "None"
+            else:
+                param_value = "None"
             
             # 添加参数到列表（带参数类别和名称）
             param_parts.append((param_kind, param_name, param_value))

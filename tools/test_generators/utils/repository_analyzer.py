@@ -272,9 +272,11 @@ class RepositoryAnalyzer:
             if pattern in name_lower:
                 return 'delete'
         
-        for pattern in update_patterns:
-            if pattern in name_lower:
-                return 'update'
+        # ⚠️ 排除SQL锁机制（for_update不是update操作）
+        if 'for_update' not in name_lower:
+            for pattern in update_patterns:
+                if pattern in name_lower:
+                    return 'update'
         
         # 查询操作（需要区分单个 vs 列表）
         for pattern in search_patterns:

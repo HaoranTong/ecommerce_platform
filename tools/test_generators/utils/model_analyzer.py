@@ -59,7 +59,18 @@ from ..core.schema import FieldInfo, RelationshipInfo, ModelInfo
 
 
 class ModelAnalyzer:
-    """SQLAlchemy模型分析器"""
+    """SQLAlchemy模型分析器
+    
+    提供单模块分析和全局分析两种模式：
+    - analyze_module_models(): 分析单个模块
+    - analyze_all_modules(): 分析所有模块并缓存结果
+    
+    全局查询接口：
+    - get_model_by_table(): 表名 → 模型名
+    - get_table_by_model(): 模型名 → 表名  
+    - get_module_for_model(): 模型名 → 模块名
+    - get_model_info(): 获取完整ModelInfo
+    """
     
     def __init__(self, project_root: Path):
         """初始化分析器
@@ -68,6 +79,7 @@ class ModelAnalyzer:
             project_root: 项目根目录
         """
         self.project_root = project_root
+        self._all_models_cache: Optional[Dict[str, Dict[str, ModelInfo]]] = None
     
     def analyze_module_models(self, module_name: str) -> Dict[str, ModelInfo]:
         """分析模块的所有模型类
@@ -487,3 +499,156 @@ class ModelAnalyzer:
             print(f"🔗 合并模型: {model_name} ({field_count}字段, {rel_count}关系)")
         
         return merged
+    
+    # ==================== 全局分析和查询接口 ====================
+    
+    def analyze_all_modules(self) -> Dict[str, Dict[str, ModelInfo]]:
+        """分析所有模块的模型，缓存结果
+        
+        扫描app/modules目录下所有模块，分析所有SQLAlchemy模型。
+        结果会被缓存，后续调用直接返回缓存。
+        
+        Returns:
+            Dict[模块名, Dict[模型名, ModelInfo]]: 
+                {
+                    "user_auth": {"User": ModelInfo(...), "Role": ModelInfo(...)},
+                    "product_catalog": {"Product": ModelInfo(...), "Category": ModelInfo(...)},
+                    ...
+                }
+        
+        Example:
+            analyzer = ModelAnalyzer(Path.cwd())
+            all_models = analyzer.analyze_all_modules()
+            print(f"共分析 {len(all_models)} 个模块")
+        """
+        if self._all_models_cache is not None:
+            return self._all_models_cache
+        
+        print("🌍 开始全局分析所有模块...")
+        
+        modules_dir = self.project_root / "app" / "modules"
+        if not modules_dir.exists():
+            print(f"⚠️ 模块目录不存在: {modules_dir}")
+            return {}
+        
+        all_models = {}
+        module_count = 0
+        total_model_count = 0
+        
+        # 扫描所有模块目录
+        for module_path in modules_dir.iterdir():
+            if not module_path.is_dir() or module_path.name.startswith('_'):
+                continue
+            
+            module_name = module_path.name
+            models_file = module_path / "models.py"
+            
+            if not models_file.exists():
+                continue
+            
+            # 分析该模块
+            module_models = self.analyze_module_models(module_name)
+            if module_models:
+                all_models[module_name] = module_models
+                module_count += 1
+                total_model_count += len(module_models)
+        
+        self._all_models_cache = all_models
+        print(f"✅ 全局分析完成：{module_count} 个模块，{total_model_count} 个模型")
+        
+        return all_models
+    
+    def get_model_by_table(self, table_name: str) -> Optional[str]:
+        """通过表名查找模型名
+        
+        Args:
+            table_name: 数据库表名（如 "product_skus", "users"）
+            
+        Returns:
+            Optional[str]: 模型名（如 "SKU", "User"），未找到返回None
+            
+        Example:
+            analyzer = ModelAnalyzer(Path.cwd())
+            model_name = analyzer.get_model_by_table("product_skus")
+            # model_name = "SKU"
+        """
+        if self._all_models_cache is None:
+            self.analyze_all_modules()
+        
+        for module_models in self._all_models_cache.values():
+            for model_name, model_info in module_models.items():
+                if model_info.tablename == table_name:
+                    return model_name
+        
+        return None
+    
+    def get_table_by_model(self, model_name: str) -> Optional[str]:
+        """通过模型名查找表名
+        
+        Args:
+            model_name: 模型类名（如 "SKU", "User"）
+            
+        Returns:
+            Optional[str]: 数据库表名（如 "product_skus", "users"），未找到返回None
+            
+        Example:
+            analyzer = ModelAnalyzer(Path.cwd())
+            table_name = analyzer.get_table_by_model("SKU")
+            # table_name = "product_skus"
+        """
+        if self._all_models_cache is None:
+            self.analyze_all_modules()
+        
+        for module_models in self._all_models_cache.values():
+            if model_name in module_models:
+                return module_models[model_name].tablename
+        
+        return None
+    
+    def get_module_for_model(self, model_name: str) -> Optional[str]:
+        """通过模型名查找所属模块
+        
+        Args:
+            model_name: 模型类名（如 "SKU", "User"）
+            
+        Returns:
+            Optional[str]: 模块名（如 "product_catalog", "user_auth"），未找到返回None
+            
+        Example:
+            analyzer = ModelAnalyzer(Path.cwd())
+            module = analyzer.get_module_for_model("SKU")
+            # module = "product_catalog"
+        """
+        if self._all_models_cache is None:
+            self.analyze_all_modules()
+        
+        for module_name, module_models in self._all_models_cache.items():
+            if model_name in module_models:
+                return module_name
+        
+        return None
+    
+    def get_model_info(self, model_name: str) -> Optional[ModelInfo]:
+        """获取模型的完整信息
+        
+        Args:
+            model_name: 模型类名（如 "SKU", "User"）
+            
+        Returns:
+            Optional[ModelInfo]: 模型的完整信息，未找到返回None
+            
+        Example:
+            analyzer = ModelAnalyzer(Path.cwd())
+            model_info = analyzer.get_model_info("SKU")
+            if model_info:
+                print(f"表名: {model_info.tablename}")
+                print(f"字段: {[f.name for f in model_info.fields]}")
+        """
+        if self._all_models_cache is None:
+            self.analyze_all_modules()
+        
+        for module_models in self._all_models_cache.values():
+            if model_name in module_models:
+                return module_models[model_name]
+        
+        return None

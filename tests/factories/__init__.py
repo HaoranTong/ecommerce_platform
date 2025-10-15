@@ -33,6 +33,15 @@ try:
 except ImportError:
     pass  # shopping_cart模块尚未生成
 
+# 从inventory_management_factories导入特定工厂（如果存在）
+try:
+    from .inventory_management_factories import (
+        InventoryStockFactory, InventoryTransactionFactory, InventoryReservationFactory,
+        InventoryManagementFactoryManager
+    )
+except ImportError:
+    pass  # inventory_management模块尚未生成
+
 # 为兼容性提供别名映射
 TestDataFactory = StandardTestDataFactory  # 别名映射
 
@@ -55,4 +64,8 @@ __all__ = [
     "CartFactory",
     "CartItemFactory",
     "ShoppingCartFactoryManager",
+    "InventoryStockFactory",
+    "InventoryTransactionFactory",
+    "InventoryReservationFactory",
+    "InventoryManagementFactoryManager",
 ]

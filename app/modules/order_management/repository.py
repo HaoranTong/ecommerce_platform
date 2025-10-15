@@ -39,16 +39,24 @@ class OrderRepository:
     # ========== 订单与相关实体操作 ==========
 
     def save_order(self, order: Order) -> Order:
+        """保存订单（不提交事务）"""
         self.session.add(order)
         self.session.flush()
+        self.session.refresh(order)
         return order
 
     def save_order_item(self, order_item: OrderItem) -> OrderItem:
+        """保存订单项（不提交事务）"""
         self.session.add(order_item)
+        self.session.flush()
+        self.session.refresh(order_item)
         return order_item
 
     def save_status_history(self, history: OrderStatusHistory) -> OrderStatusHistory:
+        """保存订单状态历史（不提交事务）"""
         self.session.add(history)
+        self.session.flush()
+        self.session.refresh(history)
         return history
 
     def get_order_by_id(self, order_id: int) -> Optional[Order]:

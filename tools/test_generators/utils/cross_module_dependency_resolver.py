@@ -1,14 +1,15 @@
 """
-跨模块依赖解析工具
+跨模块依赖解析工具（ModelAnalyzer的门面）
 
-提供统一的跨模块依赖检测和Factory导入生成功能，
-供Repository测试、API测试、E2E测试等生成器共享。
+作为ModelAnalyzer的便捷接口，提供：
+1. 跨模块依赖检测
+2. Factory导入语句生成
+3. 依赖树解析（包括传递依赖）
 
-主要功能：
-1. 自动扫描所有模块的models.py，构建模型→模块映射表
-2. 检测外键是否为跨模块依赖
-3. 生成正确的Factory导入语句
-4. 解析依赖树（包括传递依赖）
+设计原则：
+- 不再直接扫描模型，所有信息委托给ModelAnalyzer
+- 保持职责单一：只做依赖判断和Factory生成
+- 作为"门面"模式，简化其他生成器的使用
 
 使用示例：
     resolver = CrossModuleDependencyResolver()
@@ -16,27 +17,36 @@
     # 检测是否为跨模块依赖
     is_cross = resolver.is_cross_module_dependency('Product', 'shopping_cart')
     
-    # 获取模型所属模块
+    # 获取模型所属模块（委托给ModelAnalyzer）
     module = resolver.get_module_for_model('SKU')  # 返回 'product_catalog'
+    
+    # 通过表名查找模型（委托给ModelAnalyzer）
+    model = resolver.get_model_by_table('product_skus')  # 返回 'SKU'
     
     # 生成Factory导入语句
     import_stmt = resolver.get_factory_import('Product', 'product_catalog')
     # 返回: 'from tests.factories.product_catalog_factories import ProductFactory'
 
 创建时间：2025-10-14
+最后修改：2025-10-15（重构为ModelAnalyzer门面）
 """
 
-import ast
-import re
 from pathlib import Path
 from typing import Dict, List, Optional, Set, Tuple
 
 
 class CrossModuleDependencyResolver:
-    """跨模块依赖解析工具
+    """跨模块依赖解析工具（ModelAnalyzer的门面）
+    
+    职责：
+    - 判断依赖关系（is_cross_module_dependency）
+    - 生成Factory导入语句（get_factory_import）
+    - 提供便捷查询接口（委托给ModelAnalyzer）
+    
+    注意：本类不再直接扫描模型，所有信息来自ModelAnalyzer
     
     Attributes:
-        model_to_module: 模型名称到模块名称的映射 {模型名: 模块名}
+        model_analyzer: ModelAnalyzer实例，提供所有模型信息
         project_root: 项目根目录路径
     """
     
@@ -51,89 +61,18 @@ class CrossModuleDependencyResolver:
             project_root = Path(__file__).parent.parent.parent.parent
         
         self.project_root = Path(project_root)
-        self.model_to_module: Dict[str, str] = {}
-        self._build_model_module_mapping()
+        
+        # 使用ModelAnalyzer作为唯一信息来源
+        from .model_analyzer import ModelAnalyzer
+        self.model_analyzer = ModelAnalyzer(self.project_root)
+        
+        # 初始化时进行全局分析
+        self.model_analyzer.analyze_all_modules()
     
-    def _build_model_module_mapping(self) -> None:
-        """自动扫描所有模块的models.py，构建模型→模块映射表
-        
-        扫描 app/modules/*/models.py，提取所有的模型类定义，
-        建立模型名称到模块名称的映射关系。
-        """
-        modules_dir = self.project_root / 'app' / 'modules'
-        
-        if not modules_dir.exists():
-            print(f"⚠️  警告: 模块目录不存在: {modules_dir}")
-            return
-        
-        # 遍历所有模块目录
-        for module_path in modules_dir.iterdir():
-            if not module_path.is_dir():
-                continue
-            
-            module_name = module_path.name
-            models_file = module_path / 'models.py'
-            
-            if not models_file.exists():
-                continue
-            
-            # 解析models.py，提取模型类
-            try:
-                model_classes = self._extract_model_classes(models_file)
-                for model_class in model_classes:
-                    self.model_to_module[model_class] = module_name
-            except Exception as e:
-                print(f"⚠️  警告: 解析 {models_file} 失败: {e}")
-    
-    def _extract_model_classes(self, models_file: Path) -> List[str]:
-        """从models.py文件中提取所有模型类名
-        
-        Args:
-            models_file: models.py文件路径
-            
-        Returns:
-            模型类名列表
-        """
-        model_classes = []
-        
-        try:
-            with open(models_file, 'r', encoding='utf-8') as f:
-                content = f.read()
-            
-            # 使用AST解析
-            tree = ast.parse(content)
-            
-            for node in ast.walk(tree):
-                if isinstance(node, ast.ClassDef):
-                    # 检查是否继承自Base或BaseModel
-                    for base in node.bases:
-                        base_name = None
-                        if isinstance(base, ast.Name):
-                            base_name = base.id
-                        elif isinstance(base, ast.Attribute):
-                            base_name = base.attr
-                        
-                        # 如果继承自Base、BaseModel、SoftDeleteMixin等，认为是模型类
-                        if base_name in ['Base', 'BaseModel', 'TimestampMixin', 'SoftDeleteMixin']:
-                            model_classes.append(node.name)
-                            break
-        except Exception as e:
-            # 如果AST解析失败，尝试正则表达式
-            try:
-                with open(models_file, 'r', encoding='utf-8') as f:
-                    content = f.read()
-                
-                # 匹配 class ModelName(Base): 或 class ModelName(TimestampMixin, Base):
-                pattern = r'class\s+(\w+)\s*\([^)]*(?:Base|BaseModel|TimestampMixin)[^)]*\):'
-                matches = re.findall(pattern, content)
-                model_classes.extend(matches)
-            except Exception as e2:
-                print(f"⚠️  警告: 正则提取模型类失败: {e2}")
-        
-        return model_classes
+
     
     def get_module_for_model(self, model_name: str) -> Optional[str]:
-        """获取模型所属的模块名称
+        """获取模型所属的模块名称（委托给ModelAnalyzer）
         
         Args:
             model_name: 模型类名，如 'Product', 'User', 'SKU'
@@ -141,7 +80,18 @@ class CrossModuleDependencyResolver:
         Returns:
             模块名称，如 'product_catalog', 'user_auth'，如果未找到返回None
         """
-        return self.model_to_module.get(model_name)
+        return self.model_analyzer.get_module_for_model(model_name)
+    
+    def get_model_by_table(self, table_name: str) -> Optional[str]:
+        """通过表名获取模型名称（委托给ModelAnalyzer）
+        
+        Args:
+            table_name: 表名，如 'product_skus', 'users'
+            
+        Returns:
+            模型名称，如 'SKU', 'User'，如果未找到返回None
+        """
+        return self.model_analyzer.get_model_by_table(table_name)
     
     def is_cross_module_dependency(self, model_name: str, current_module: str) -> bool:
         """检测外键是否为跨模块依赖
