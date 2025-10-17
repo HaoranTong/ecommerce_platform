@@ -1392,12 +1392,16 @@ class {class_name}:
                 params.append(f'{user_var}.id')
                 continue
             
-            # 方法1：直接通过tablename在models中查找
+            # 方法1：先在当前模块models中查找
             actual_model_name = None
             for dep_model_name, dep_model_info in models.items():
                 if dep_model_info.tablename == target_table:
                     actual_model_name = dep_model_name
                     break
+            
+            # 方法2：如果当前模块找不到，使用CrossModuleDependencyResolver查询跨模块
+            if not actual_model_name:
+                actual_model_name = self.cross_module_resolver.get_model_by_table(target_table)
             
             # 使用实际模型名转snake_case作为变量名和工厂方法名
             if actual_model_name:
@@ -1410,7 +1414,12 @@ class {class_name}:
             factory_method = f"create_{dep_var_name}"
             
             # 递归处理依赖的依赖
+            # 先从当前模块models获取，如果是跨模块则从ModelAnalyzer获取
             dep_model_info = models.get(actual_model_name) if actual_model_name else None
+            if not dep_model_info and actual_model_name:
+                # 跨模块依赖，从ModelAnalyzer获取完整的ModelInfo
+                dep_model_info = self.cross_module_resolver.model_analyzer.get_model_info(actual_model_name)
+            
             if dep_model_info:
                 # 检查依赖是否还有依赖（fields是List[FieldInfo]）
                 has_nested_deps = any(
@@ -1421,18 +1430,25 @@ class {class_name}:
                     nested_code = self._generate_entity_creation_with_dependencies(
                         actual_model_name, dep_var_name, models, module_name, visited.copy(), route
                     )
+                    # 递归返回的是多行代码（包含依赖的依赖），直接添加
                     dependencies_code.append(nested_code.strip())
+                    # 递归生成的代码已经包含最终变量，直接使用该变量
+                    dependency_vars.append(dep_var_name)
+                    params.append(f"{dep_var_name}.id")
                 else:
+                    # 没有嵌套依赖，直接创建
                     dependencies_code.append(
                         f"{dep_var_name} = StandardTestDataFactory.{factory_method}(mysql_integration_db)"
                     )
+                    dependency_vars.append(dep_var_name)
+                    params.append(f"{dep_var_name}.id")
             else:
+                # 找不到模型信息，直接尝试创建
                 dependencies_code.append(
                     f"{dep_var_name} = StandardTestDataFactory.{factory_method}(mysql_integration_db)"
                 )
-            
-            dependency_vars.append(dep_var_name)
-            params.append(f"{dep_var_name}.id")
+                dependency_vars.append(dep_var_name)
+                params.append(f"{dep_var_name}.id")
         
         # 生成最终的创建代码
         factory_method = self._to_snake_case(normalized_model_name)

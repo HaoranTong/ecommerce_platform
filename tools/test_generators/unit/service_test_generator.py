@@ -327,11 +327,22 @@ class {test_class_name}:
         assert True
 '''
         
+        # 从Service源码中提取实际使用的模型（精确导入，避免冗余）
+        service_used_models = self.service_analyzer.extract_service_used_models(module_name)
+        
+        # 如果无法提取，则fallback到当前模块所有模型
+        if not service_used_models:
+            print(f"⚠️  无法从Service提取模型，使用当前模块所有模型")
+            service_used_models = [
+                model_name for model_name, model_info in models.items()
+                if model_info.module_name == module_name or model_info.module_name is None
+            ]
+        
         return template.format(
             module_title=module_name.title(),
             generation_time=datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
             module_name=module_name,
-            model_imports=', '.join(models.keys()) if models else '',
+            model_imports=', '.join(service_used_models) if service_used_models else '',
             service_class_name=service_class_name,
             test_class_name=test_class_name,
             repo_imports=', '.join(repo_imports) if repo_imports else '',

@@ -63,6 +63,51 @@ class ServiceAnalyzer:
         """
         self.project_root = project_root
     
+    def extract_service_used_models(self, module_name: str) -> list[str]:
+        """提取Service实际使用的模型列表
+        
+        通过AST分析Service文件的import语句，提取从.models导入的模型名称。
+        这确保Service测试只导入Service实际使用的模型，避免导入冗余模型。
+        
+        Args:
+            module_name: 模块名称
+            
+        Returns:
+            list[str]: Service使用的模型名称列表
+            
+        Example:
+            >>> analyzer = ServiceAnalyzer(Path.cwd())
+            >>> models = analyzer.extract_service_used_models('order_management')
+            >>> print(models)
+            ['Order', 'OrderItem', 'OrderStatus', 'OrderStatusHistory']
+        """
+        service_file_path = self.project_root / f"app/modules/{module_name}/service.py"
+        
+        if not service_file_path.exists():
+            print(f"⚠️  服务文件不存在: {service_file_path}")
+            return []
+        
+        try:
+            with open(service_file_path, 'r', encoding='utf-8') as f:
+                content = f.read()
+            
+            tree = ast.parse(content)
+            used_models = []
+            
+            for node in ast.walk(tree):
+                # 查找 "from .models import ..." 语句
+                if isinstance(node, ast.ImportFrom):
+                    if node.module == 'models' or node.module == '.models':
+                        for alias in node.names:
+                            if alias.name != '*':  # 排除 import *
+                                used_models.append(alias.name)
+            
+            return used_models
+        
+        except Exception as e:
+            print(f"⚠️  分析Service文件失败: {e}")
+            return []
+    
     def detect_service_info(self, module_name: str) -> Dict[str, Any]:
         """检测服务类的完整信息
         

@@ -627,10 +627,19 @@ class RepositoryTestGenerator:
             test_classes.append(test_class)
         
         # 🔍 智能收集需要导入的模型（从生成的测试代码中提取）
-        model_imports = set()
-        # 添加Repository的主模型
+        current_module_models = set()  # 当前模块的模型
+        cross_module_models = {}  # 跨模块的模型 {模型名: 模块名}
+        
+        # 添加Repository的主模型（通常是当前模块的）
         for repo_info in repositories.values():
-            model_imports.add(repo_info.model_name)
+            model_name = repo_info.model_name
+            if model_name in models:
+                model_info = models[model_name]
+                # 检查是否是当前模块的模型
+                if model_info.module_name == module_name:
+                    current_module_models.add(model_name)
+                else:
+                    cross_module_models[model_name] = model_info.module_name
         
         # 从生成的测试代码中提取所有使用的模型名
         import re
@@ -639,8 +648,13 @@ class RepositoryTestGenerator:
         entity_pattern = r'entity\s*=\s*([A-Z][a-zA-Z0-9_]*)\s*\('
         found_models = re.findall(entity_pattern, all_test_code)
         for model_name in found_models:
-            if model_name in models:  # 确保是本模块的模型
-                model_imports.add(model_name)
+            if model_name in models:
+                model_info = models[model_name]
+                # 区分当前模块和跨模块的模型
+                if model_info.module_name == module_name:
+                    current_module_models.add(model_name)
+                else:
+                    cross_module_models[model_name] = model_info.module_name
         
         # 收集需要导入的Repository
         repo_imports = [repo_info.name for repo_info in repositories.values()]
@@ -683,11 +697,35 @@ from app.modules.{module_name}.repository import (
     {', '.join(repo_imports)}
 )
 
-# 导入模型类
-from app.modules.{module_name}.models import (
-    {', '.join(sorted(model_imports))}
+# 导入当前模块的模型类
+'''
+        
+        # 生成当前模块模型的导入
+        if current_module_models:
+            imports += f'''from app.modules.{module_name}.models import (
+    {', '.join(sorted(current_module_models))}
 )
 
+'''
+        
+        # 生成跨模块模型的导入（按模块分组）
+        if cross_module_models:
+            imports += "# 导入跨模块依赖的模型\n"
+            # 按模块分组
+            module_models_map = {}
+            for model_name, model_module in cross_module_models.items():
+                if model_module not in module_models_map:
+                    module_models_map[model_module] = []
+                module_models_map[model_module].append(model_name)
+            
+            # 为每个模块生成导入语句
+            for model_module, model_names in sorted(module_models_map.items()):
+                imports += f'''from app.modules.{model_module}.models import (
+    {', '.join(sorted(model_names))}
+)
+'''
+        
+        imports += '''
 '''
         
         return imports + "\n\n".join(test_classes)

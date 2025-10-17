@@ -311,21 +311,21 @@ class IntelligentTestGenerator:
         
         # 1. 分析模块结构（四层架构）
         print(f"\n🏗️ 分析模块结构: {module_name}")
-        # 使用全局模型分析，支持跨模块依赖解析
-        all_modules_models = self.model_analyzer.analyze_all_modules()
-        models = {}
-        for module_models in all_modules_models.values():
-            models.update(module_models)  # 合并所有模块的模型
+        # 只分析当前模块的模型
+        # Repository测试生成器内部有ModelAnalyzer和CrossModuleDependencyResolver
+        # 可以自己查询跨模块信息，不需要外部传入global_models
+        models = self.analyze_module_models(module_name)
+        
         repositories = self.analyze_module_repositories(module_name)  # 强制要求Repository层
         
         print(f"\n📊 结构分析完成:")
-        print(f"   当前模块Models: {len(self.analyze_module_models(module_name))} 个")
-        print(f"   全局可用Models: {len(models)} 个 (支持跨模块依赖)")
+        print(f"   Models: {len(models)} 个")
         print(f"   Repositories: {len(repositories)} 个")
 
         # 2. 生成智能数据工厂
         from tools.test_generators.factories import FactoryGenerator
         factory_generator = FactoryGenerator(self.project_root, self.config)
+        # Factory生成器使用当前模块模型
         factory_code = factory_generator.generate_factories(module_name, models)
 
         # 3. 生成测试文件
@@ -338,6 +338,7 @@ class IntelligentTestGenerator:
 
         # 单元测试 - 支持细粒度选择
         if test_type in ["all", "unit"]:
+            # 使用当前模块模型
             unit_files = self._generate_unit_tests(module_name, models, repositories)
             generated_files.update(unit_files)
         elif test_type == "models":
@@ -366,7 +367,12 @@ class IntelligentTestGenerator:
         if test_type in ["all", "api"]:
             from tools.test_generators.api_test_generator import APITestGenerator
             api_generator = APITestGenerator(self.project_root, self.config)
-            api_files = api_generator.generate_tests(module_name, models)
+            # API测试生成器需要全局模型信息来处理跨模块依赖（如Product依赖Category、Brand）
+            all_modules_models = self.model_analyzer.analyze_all_modules()
+            global_models = {}
+            for module_models in all_modules_models.values():
+                global_models.update(module_models)
+            api_files = api_generator.generate_tests(module_name, global_models)
             generated_files.update(api_files)
         
         if test_type in ["all", "e2e"]:
@@ -403,11 +409,11 @@ class IntelligentTestGenerator:
                 print(f"✅ 生成专项测试: 安全测试 + 性能测试")
         
         if test_type == "performance":
-            # 仅生成性能测试
+            # 仅生成性能测试 - 使用全局模型
             from tools.test_generators import PerformanceTestGenerator
             
             performance_generator = PerformanceTestGenerator(self.project_root, self.config)
-            performance_tests = performance_generator.generate_tests(module_name, models)
+            performance_tests = performance_generator.generate_tests(module_name, global_models)
             generated_files.update(performance_tests)
             
             print(f"✅ 生成性能测试")
@@ -442,7 +448,10 @@ class IntelligentTestGenerator:
         分别测试Model层、Repository层、Service层和业务流程层。每层采用不同的测试策略。
         
         测试层次和策略:
-        1. Model层测试: 100% Mock，测试模型定义、字段约束、方法逻辑
+        1. Model层测试: 100% Mock，测试模型定义、字段约束、方法逻辑 (使用当前模块models)
+        2. Repository层测试: SQLite内存数据库，测试CRUD操作和SQL正确性 (使用global_models支持跨模块依赖)
+        3. Service层测试: Mock Repository，测试业务逻辑和异常处理 (使用global_models)
+        4. Workflow测试: SQLite内存数据库，测试完整业务流程 (使用global_models)
         2. Repository层测试: SQLite内存数据库，测试CRUD操作和SQL正确性
         3. Service层测试: Mock Repository，测试业务逻辑和异常处理
         4. Workflow测试: SQLite内存数据库，测试完整业务流程
@@ -527,6 +536,8 @@ class IntelligentTestGenerator:
             files[f"tests/unit/test_models/test_{module_name}_models.py"] = model_tests
 
         # 2. 生成Repository测试
+        # 传入当前模块models用于快速判断跨模块边界（if model_name not in models）
+        # Repository生成器内部有ModelAnalyzer和CrossModuleDependencyResolver处理跨模块依赖
         if "repositories" in components:
             from tools.test_generators.unit import RepositoryTestGenerator
             repo_generator = RepositoryTestGenerator(self.project_root, self.config, main_generator=self)
@@ -534,6 +545,7 @@ class IntelligentTestGenerator:
             files[f"tests/unit/test_repositories/test_{module_name}_repositories.py"] = repository_tests
 
         # 3. 生成服务测试
+        # Service生成器从Service源码提取实际使用的模型，不依赖models参数
         if "services" in components:
             from tools.test_generators.unit import ServiceTestGenerator
             service_generator = ServiceTestGenerator(self.project_root, self.config)
