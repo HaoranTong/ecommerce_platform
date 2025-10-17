@@ -825,7 +825,13 @@ class BaseTestGenerator(ABC):
         return "CreateSchema"
     
     def _extract_schema_fields(self, schema_class) -> Dict[str, Dict[str, Any]]:
-        """提取Pydantic Schema的字段信息（返回类型元信息而非默认值）"""
+        """提取Pydantic Schema的字段信息（返回类型元信息而非默认值）
+        
+        支持嵌套Schema递归解析：
+        - List[Schema] → 识别为嵌套Schema列表
+        - Schema对象 → 识别为嵌套Schema
+        - 递归提取嵌套Schema的字段信息
+        """
         try:
             # 获取模型字段
             model_fields = schema_class.model_fields if hasattr(schema_class, 'model_fields') else {}
@@ -839,6 +845,24 @@ class BaseTestGenerator(ABC):
                     'required': field_info.is_required() if hasattr(field_info, 'is_required') else True,
                     'field_name': field_name
                 }
+                
+                # 🔧 检测嵌套Schema（List[Schema]或直接Schema对象）
+                annotation = field_info.annotation
+                nested_schema = self._extract_nested_schema_type(annotation)
+                
+                if nested_schema:
+                    # 递归提取嵌套Schema的字段
+                    field_data['is_nested_schema'] = True
+                    field_data['nested_schema_class'] = nested_schema
+                    field_data['is_list'] = self._is_list_type(annotation)
+                    
+                    # 递归提取嵌套Schema的字段信息
+                    try:
+                        nested_fields = self._extract_schema_fields(nested_schema)
+                        field_data['nested_fields'] = nested_fields
+                    except Exception as e:
+                        print(f"⚠️ 递归提取嵌套Schema失败: {field_name} -> {e}")
+                        field_data['nested_fields'] = {}
                 
                 # 提取 Pydantic Field 约束信息（pattern, max_length, min_length 等）
                 if hasattr(field_info, 'metadata') and field_info.metadata:
@@ -861,6 +885,143 @@ class BaseTestGenerator(ABC):
         except Exception as e:
             print(f"⚠️ 字段提取失败: {e}")
             return {}
+    
+    def _extract_nested_schema_type(self, annotation) -> Optional[type]:
+        """从类型注解中提取嵌套的Pydantic Schema类型
+        
+        支持的模式：
+        - List[SchemaClass] → SchemaClass
+        - Optional[SchemaClass] → SchemaClass
+        - SchemaClass → SchemaClass
+        
+        Returns:
+            嵌套的Schema类，如果不是Schema则返回None
+        """
+        import typing
+        
+        try:
+            # 处理Optional[X]和Union[X, None]
+            origin = typing.get_origin(annotation)
+            args = typing.get_args(annotation)
+            
+            if origin is typing.Union:
+                # Optional[X] 或 Union[X, None]
+                # 取非None的类型
+                for arg in args:
+                    if arg is not type(None):
+                        return self._extract_nested_schema_type(arg)
+            
+            if origin is list or (hasattr(typing, 'List') and origin is typing.get_origin(typing.List)):
+                # List[X]
+                if args:
+                    inner_type = args[0]
+                    # 检查inner_type是否是Pydantic Schema
+                    if self._is_pydantic_schema(inner_type):
+                        return inner_type
+            
+            # 直接的Schema类
+            if self._is_pydantic_schema(annotation):
+                return annotation
+            
+            return None
+            
+        except Exception as e:
+            return None
+    
+    def _is_list_type(self, annotation) -> bool:
+        """判断类型注解是否是List类型"""
+        import typing
+        origin = typing.get_origin(annotation)
+        
+        # 处理Optional[List[X]]
+        if origin is typing.Union:
+            args = typing.get_args(annotation)
+            for arg in args:
+                if arg is not type(None):
+                    return self._is_list_type(arg)
+        
+        return origin is list or (hasattr(typing, 'List') and origin is typing.get_origin(typing.List))
+    
+    def _is_pydantic_schema(self, cls) -> bool:
+        """判断一个类是否是Pydantic Schema
+        
+        检查方式：
+        1. 有model_fields属性（Pydantic v2）
+        2. 有__fields__属性（Pydantic v1）
+        3. 继承自BaseModel
+        """
+        try:
+            if not isinstance(cls, type):
+                return False
+            
+            # Pydantic v2检测
+            if hasattr(cls, 'model_fields'):
+                return True
+            
+            # Pydantic v1检测
+            if hasattr(cls, '__fields__'):
+                return True
+            
+            # 检查是否继承自BaseModel
+            try:
+                from pydantic import BaseModel
+                return issubclass(cls, BaseModel)
+            except:
+                return False
+                
+        except Exception:
+            return False
+    
+    def _generate_nested_schema_code(self, field_info: Dict[str, Any]) -> str:
+        """为嵌套Schema生成测试数据代码
+        
+        Args:
+            field_info: 字段信息字典，包含:
+                - is_nested_schema: True
+                - is_list: 是否是List[Schema]
+                - nested_fields: 嵌套Schema的字段信息
+                - nested_schema_class: 嵌套Schema类
+                
+        Returns:
+            生成的测试数据代码字符串
+            
+        Examples:
+            # List[OrderItemRequest]
+            >>> _generate_nested_schema_code({
+            ...     'is_list': True,
+            ...     'nested_fields': {'product_id': {...}, 'sku_id': {...}, 'quantity': {...}}
+            ... })
+            '[{"product_id": 1, "sku_id": 1, "quantity": 2}]'
+            
+            # ShippingAddressRequest
+            >>> _generate_nested_schema_code({
+            ...     'is_list': False,
+            ...     'nested_fields': {'recipient': {...}, 'phone': {...}, 'address': {...}}
+            ... })
+            '{"recipient": fake.name(), "phone": "13800138000", "address": fake.address()}'
+        """
+        nested_fields = field_info.get('nested_fields', {})
+        is_list = field_info.get('is_list', False)
+        
+        if not nested_fields:
+            # 如果没有字段信息，返回空结构
+            return '[]' if is_list else '{}'
+        
+        # 生成嵌套对象的字段代码
+        nested_items = []
+        for nested_field_name, nested_field_info in nested_fields.items():
+            # 递归调用_convert_to_dynamic_code生成每个字段的代码
+            field_code = self._convert_to_dynamic_code(nested_field_name, nested_field_info)
+            nested_items.append(f'"{nested_field_name}": {field_code}')
+        
+        # 组装嵌套对象
+        nested_obj_code = '{' + ', '.join(nested_items) + '}'
+        
+        # 如果是列表类型，包装在列表中
+        if is_list:
+            return f'[{nested_obj_code}]'
+        else:
+            return nested_obj_code
     
     def _generate_field_value(self, field_name: str, field_info) -> Any:
         """根据字段信息生成测试值 - 动态生成"""
@@ -1058,6 +1219,10 @@ class BaseTestGenerator(ABC):
                         # 否则使用第一个选项
                         return f'"{literal_values[0]}"'
             
+            # 🔧 检查是否是嵌套Schema（优先处理）
+            if isinstance(value, dict) and value.get('is_nested_schema'):
+                return self._generate_nested_schema_code(value)
+            
             # 根据字段名称和类型生成代码
             # 字符串类型
             if actual_type in (str, type(str)):
@@ -1097,8 +1262,10 @@ class BaseTestGenerator(ABC):
                         return 'None'  # Optional外键可以为None
                     else:
                         # 推断实体变量名（去掉_id后缀）
+                        # 统一工厂使用简洁变量名（如product），不带test_前缀
                         entity_name = field.replace('_id', '')
-                        entity_var = f"test_{entity_name}"
+                        entity_var = entity_name  # 直接使用实体名作为变量名
+                        # 🔧 在嵌套Schema中，直接返回变量引用（不加引号）
                         return f'{entity_var}.id'
                 # 排序字段
                 elif any(keyword in field_name_lower for keyword in ['sort', 'order', 'sequence']):

@@ -49,9 +49,13 @@ class Order(Base):
         String(32), unique=True, nullable=False, index=True, comment="订单号"
     )
 
-    # 用户关联 - 外键关系
+    # 用户关联 - 外键关系（RESTRICT保护用户数据）
     user_id = Column(
-        Integer, ForeignKey("users.id"), nullable=False, index=True, comment="用户ID"
+        Integer, 
+        ForeignKey("users.id", ondelete="RESTRICT", onupdate="CASCADE"), 
+        nullable=False, 
+        index=True, 
+        comment="用户ID"
     )
 
     # 订单状态
@@ -115,15 +119,27 @@ class OrderItem(Base):
     # 主键
     id = Column(Integer, primary_key=True, autoincrement=True)
 
-    # 关联关系 - Product+SKU双重关联
+    # 关联关系 - Product+SKU双重关联（明确级联策略）
     order_id = Column(
-        Integer, ForeignKey("orders.id"), nullable=False, index=True, comment="订单ID"
+        Integer, 
+        ForeignKey("orders.id", ondelete="CASCADE", onupdate="CASCADE"), 
+        nullable=False, 
+        index=True, 
+        comment="订单ID"
     )
     product_id = Column(
-        Integer, ForeignKey("products.id"), nullable=False, index=True, comment="商品ID"
+        Integer, 
+        ForeignKey("products.id", ondelete="RESTRICT", onupdate="CASCADE"), 
+        nullable=False, 
+        index=True, 
+        comment="商品ID"
     )
     sku_id = Column(
-        Integer, ForeignKey("product_skus.id"), nullable=False, index=True, comment="SKU ID"
+        Integer, 
+        ForeignKey("product_skus.id", ondelete="RESTRICT", onupdate="CASCADE"), 
+        nullable=False, 
+        index=True, 
+        comment="SKU ID"
     )
 
     # 商品快照信息 - 防止后续商品信息变更影响历史订单
@@ -162,9 +178,13 @@ class OrderStatusHistory(Base):
     # 主键
     id = Column(Integer, primary_key=True, autoincrement=True)
 
-    # 订单关联
+    # 订单关联（明确级联策略）
     order_id = Column(
-        Integer, ForeignKey("orders.id"), nullable=False, index=True, comment="订单ID"
+        Integer, 
+        ForeignKey("orders.id", ondelete="CASCADE", onupdate="CASCADE"), 
+        nullable=False, 
+        index=True, 
+        comment="订单ID"
     )
 
     # 状态变更信息
@@ -172,9 +192,12 @@ class OrderStatusHistory(Base):
     new_status = Column(String(20), nullable=False, comment="新状态")
     remark = Column(Text, nullable=True, comment="状态变更备注")
 
-    # 操作人信息
+    # 操作人信息（明确级联策略）
     operator_id = Column(
-        Integer, ForeignKey("users.id"), nullable=True, comment="操作人ID"
+        Integer, 
+        ForeignKey("users.id", ondelete="SET NULL", onupdate="CASCADE"), 
+        nullable=True, 
+        comment="操作人ID"
     )
 
     # 审计字段

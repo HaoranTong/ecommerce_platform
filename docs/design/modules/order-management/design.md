@@ -285,14 +285,20 @@ graph LR
 
 **实现文件**: `app/modules/order_management/router.py`
 
-**主要端点**:
-- `POST /order-management/orders` - 创建订单
-- `GET /order-management/orders/{order_id}` - 获取订单详情
-- `GET /order-management/orders` - 订单列表查询
-- `PUT /order-management/orders/{order_id}` - 修改订单
-- `POST /order-management/orders/{order_id}/cancel` - 取消订单
-- `GET /order-management/orders/{order_id}/history` - 订单状态历史
-- `POST /order-management/orders/search` - 订单搜索
+**主要端点** (完整路径格式):
+- `POST /api/v1/order-management/orders` - 创建订单
+- `GET /api/v1/order-management/orders/{order_id}` - 获取订单详情
+- `GET /api/v1/order-management/orders` - 订单列表查询
+- `PUT /api/v1/order-management/orders/{order_id}` - 修改订单
+- `POST /api/v1/order-management/orders/{order_id}/cancel` - 取消订单
+- `GET /api/v1/order-management/orders/{order_id}/history` - 订单状态历史
+- `POST /api/v1/order-management/orders/search` - 订单搜索
+
+> **路径说明**: 
+> - 完整API路径格式: `/api/v1/{模块名}/{资源名}`
+> - 在代码实现中，router.py 定义的路径为 `/order-management/orders`
+> - 全局版本前缀 `/api/v1` 由 main.py 在路由注册时统一添加
+> - 这种设计遵循FastAPI的最佳实践，便于版本管理和路由组织
 
 **依赖注入**:
 ```python
@@ -300,14 +306,62 @@ from app.core.dependencies import get_current_user, get_db
 from app.modules.order_management.service import OrderService
 ```
 
-#### 2.3.2 Service层 (OrderService)
+#### 2.3.2 Repository层 (OrderRepository)
+
+**职责**:
+- 数据库操作封装（CRUD操作）
+- 复杂查询构建和优化
+- 数据访问抽象，隔离ORM具体实现
+- **不负责事务管理**（保持方法无状态）
+
+**实现文件**: `app/modules/order_management/repository.py`
+
+**核心方法**:
+```python
+class OrderRepository:
+    def create(self, order: Order) -> Order
+        """创建订单（不提交事务）"""
+        
+    def get_by_id(self, order_id: int) -> Optional[Order]
+        """根据ID查询订单"""
+        
+    def get_by_order_number(self, order_number: str) -> Optional[Order]
+        """根据订单号查询"""
+        
+    def list_by_user(self, user_id: int, status: Optional[str], skip: int, limit: int) -> tuple[List[Order], int]
+        """查询用户订单列表（带分页）"""
+        
+    def update(self, order: Order, data: dict) -> Order
+        """更新订单（不提交事务）"""
+        
+    def get_user_by_id(self, user_id: int) -> Optional[User]
+        """查询用户信息（跨模块数据访问）"""
+        
+    def get_product_by_id(self, product_id: int) -> Optional[Product]
+        """查询商品信息（跨模块数据访问）"""
+```
+
+**设计原则**:
+- ✅ **无状态设计**: Repository方法不持有状态，可在不同事务上下文中复用
+- ✅ **不控制事务**: 只执行 `db.add()`, `db.flush()`, `db.refresh()`，不执行 `db.commit()`
+- ✅ **数据访问抽象**: 为Service层提供清晰的数据访问接口，隔离ORM细节
+- ✅ **易于测试**: Repository可以轻松Mock，便于Service层单元测试
+
+**为什么Repository不负责事务？**
+- 业务原子性由Service层决定（如：创建订单+扣库存必须在同一事务）
+- Repository方法需要在不同事务上下文中复用
+- 测试隔离性要求Service可控制事务提交时机
+
+> **参考**: 详见 [docs/architecture/overview.md - Repository模式推广计划](../../architecture/overview.md)
+
+#### 2.3.3 Service层 (OrderService)
 
 **职责**:
 - 订单业务逻辑实现
 - 订单状态机管理
 - 商品快照创建和存储
 - 跨模块协作（调用其他模块服务）
-- 事务管理（数据库事务）
+- **事务边界管理（负责 commit/rollback）** ⚠️
 - 缓存策略（Redis缓存）
 - 异常处理和业务规则验证
 
@@ -325,9 +379,45 @@ class OrderService:
     async def get_order_history(self, order_id: int) -> List[OrderStatusHistory]
 ```
 
-**事务管理策略**:
-- 订单创建: 使用数据库事务（订单表+订单商品表+状态历史表+库存预占+购物车清空）
-- 订单取消: 使用数据库事务（订单状态更新+库存释放+状态历史记录）
+**事务管理策略** (Service层负责):
+
+Service层是事务边界的唯一管理者，负责：
+- ✅ **事务提交**: 所有业务操作成功后执行 `db.commit()`
+- ✅ **事务回滚**: 捕获异常时执行 `db.rollback()`
+- ✅ **事务编排**: 协调多个Repository调用形成完整的业务原子操作
+
+**典型事务场景**:
+
+1. **订单创建事务** (跨表、跨模块)：
+   ```python
+   try:
+       # 1. 创建订单主表 (Repository.create)
+       # 2. 创建订单明细 (Repository.create)  
+       # 3. 扣减库存 (调用InventoryService)
+       # 4. 记录状态历史 (Repository.create)
+       db.commit()  # Service层统一提交
+   except Exception:
+       db.rollback()  # Service层统一回滚
+       raise
+   ```
+
+2. **订单取消事务** (状态更新+库存释放)：
+   ```python
+   try:
+       # 1. 更新订单状态 (Repository.update)
+       # 2. 释放库存 (调用InventoryService)
+       # 3. 记录状态变更 (Repository.create)
+       db.commit()  # Service层统一提交
+   except Exception:
+       db.rollback()  # Service层统一回滚
+       raise
+   ```
+
+**为什么Service层管理事务？**
+- 🎯 **业务原子性**: 业务逻辑决定哪些操作必须在同一事务中
+- 🎯 **跨模块协调**: 订单+库存+购物车等跨模块操作需要统一事务边界
+- 🎯 **异常处理**: 业务异常和技术异常的统一处理和回滚策略
+- 🎯 **测试可控**: 测试可以控制事务的提交时机，验证完整业务流程
 
 **缓存策略** *(待实施)*:
 - 规划中的缓存键: `order:detail:{order_id}`、`order:list:user:{user_id}:page:{page}`
@@ -335,7 +425,7 @@ class OrderService:
 - 失效策略: 订单状态变更或取消时清除相关键
 - 当前状态: 代码尚未接入 Redis，记录为性能优化技术债务
 
-#### 2.3.3 Model层 (Order/OrderItem/OrderStatusHistory)
+#### 2.3.4 Model层 (Order/OrderItem/OrderStatusHistory)
 
 **职责**:
 - SQLAlchemy ORM映射
@@ -372,7 +462,7 @@ class OrderService:
     - 操作审计: `operator_id`, `remark`
     - 时间戳: `created_at`
 
-#### 2.3.4 Schema层 (Pydantic模型)
+#### 2.3.5 Schema层 (Pydantic模型)
 
 **职责**:
 - 请求参数验证（使用Pydantic 2.5.0）
@@ -500,6 +590,43 @@ erDiagram
         datetime created_at "创建时间"
     }
 ```
+
+### 3.1.1 外键级联策略设计
+
+**遵循标准**: [database-standards.md - 外键约束设计原则](../../standards/database-standards.md#外键约束设计原则)
+
+订单模块的外键级联策略遵循"保护核心数据、维护主从一致性"原则：
+
+| 外键字段 | 所在表 | 引用表 | ON DELETE 策略 | ON UPDATE 策略 | 设计理由 |
+|---------|--------|--------|---------------|---------------|---------|
+| `user_id` | orders | users | **RESTRICT** | CASCADE | 防止误删有订单的用户，保护订单历史数据 |
+| `order_id` | order_items | orders | **CASCADE** | CASCADE | 订单删除时自动删除订单项，维护主从数据一致性 |
+| `order_id` | order_status_history | orders | **CASCADE** | CASCADE | 订单删除时自动删除状态历史，避免孤儿数据 |
+| `product_id` | order_items | products | **RESTRICT** | CASCADE | 保留外键引用但禁止删除，确保历史数据可追溯 |
+| `sku_id` | order_items | product_skus | **RESTRICT** | CASCADE | 保留外键引用但禁止删除，确保历史数据可追溯 |
+| `operator_id` | order_status_history | users | **SET NULL** | CASCADE | 操作人删除时保留历史记录，但清除操作人信息 |
+
+**级联策略说明**:
+
+1. **RESTRICT（限制删除）**
+   - 用于保护核心业务数据
+   - orders.user_id: 防止误删有订单的用户
+   - order_items.product_id/sku_id: 保持商品快照的可追溯性
+   
+2. **CASCADE（级联删除）**
+   - 用于维护主从表数据一致性
+   - order_items.order_id: 订单删除时自动删除订单项
+   - order_status_history.order_id: 订单删除时自动删除状态历史
+   
+3. **SET NULL（置空）**
+   - 用于审计字段，允许删除但保留历史记录
+   - order_status_history.operator_id: 操作人删除时保留历史，但清除关联
+
+**设计决策** (DD-OM-009):
+- 订单模块采用混合级联策略，平衡数据完整性和历史可追溯性
+- 核心业务关联使用RESTRICT保护数据
+- 主从关系使用CASCADE维护一致性
+- 审计字段使用SET NULL保留历史
 
 ### 3.2 数据库表结构 (MySQL 8.0)
 
@@ -1365,14 +1492,14 @@ async def get_order_detail(
 
 | API端点 | 普通用户 | 管理员 | 系统服务 | 权限验证逻辑 |
 |---------|---------|-------|---------|-------------|
-| `POST /orders` | ✅ | ✅ | ❌ | 仅限已认证用户 |
-| `GET /orders/{order_id}` | ✅（仅自己的订单） | ✅（所有订单） | ❌ | 验证订单归属 |
-| `GET /orders` | ✅（仅自己的订单） | ✅（所有订单） | ❌ | 根据角色过滤数据 |
-| `PUT /orders/{order_id}` | ✅（仅自己的订单） | ✅ | ❌ | 验证订单归属+状态 |
-| `POST /orders/{order_id}/cancel` | ✅（仅自己的订单） | ✅ | ❌ | 验证订单归属+状态 |
-| `GET /orders/{order_id}/history` | ✅（仅自己的订单） | ✅（所有订单） | ❌ | 验证订单归属 |
-| `POST /orders/search` | ✅（仅自己的订单） | ✅（所有订单） | ❌ | 根据角色过滤数据 |
-| `POST /orders/{order_id}/status` | ❌ | ✅ | ✅ | 仅系统/管理员 |
+| `POST /api/v1/order-management/orders` | ✅ | ✅ | ❌ | 仅限已认证用户 |
+| `GET /api/v1/order-management/orders/{order_id}` | ✅（仅自己的订单） | ✅（所有订单） | ❌ | 验证订单归属 |
+| `GET /api/v1/order-management/orders` | ✅（仅自己的订单） | ✅（所有订单） | ❌ | 根据角色过滤数据 |
+| `PUT /api/v1/order-management/orders/{order_id}` | ✅（仅自己的订单） | ✅ | ❌ | 验证订单归属+状态 |
+| `POST /api/v1/order-management/orders/{order_id}/cancel` | ✅（仅自己的订单） | ✅ | ❌ | 验证订单归属+状态 |
+| `GET /api/v1/order-management/orders/{order_id}/history` | ✅（仅自己的订单） | ✅（所有订单） | ❌ | 验证订单归属 |
+| `POST /api/v1/order-management/orders/search` | ✅（仅自己的订单） | ✅（所有订单） | ❌ | 根据角色过滤数据 |
+| `POST /api/v1/order-management/orders/{order_id}/status` | ❌ | ✅ | ✅ | 仅系统/管理员 |
 
 **权限验证实现**:
 ```python

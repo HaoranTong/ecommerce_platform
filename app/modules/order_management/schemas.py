@@ -156,6 +156,38 @@ class ShippingAddressRequest(BaseSchema):
     phone: str = Field(..., max_length=20, description="联系电话")
     address: str = Field(..., max_length=500, description="详细地址")
 
+    @field_validator("phone")
+    @classmethod
+    def validate_phone(cls, v: str) -> str:
+        """验证手机号格式（中国大陆）"""
+        import re
+        if not v:
+            raise ValueError("联系电话不能为空")
+        phone_pattern = r'^1[3-9]\d{9}$'
+        if not re.match(phone_pattern, v):
+            raise ValueError("手机号格式不正确，必须是1开头的11位数字")
+        return v
+
+    @field_validator("recipient")
+    @classmethod
+    def validate_recipient(cls, v: str) -> str:
+        """验证收货人姓名"""
+        if not v or not v.strip():
+            raise ValueError("收货人姓名不能为空")
+        if len(v.strip()) < 2:
+            raise ValueError("收货人姓名至少2个字符")
+        return v.strip()
+
+    @field_validator("address")
+    @classmethod
+    def validate_address(cls, v: str) -> str:
+        """验证详细地址"""
+        if not v or not v.strip():
+            raise ValueError("详细地址不能为空")
+        if len(v.strip()) < 5:
+            raise ValueError("详细地址至少5个字符")
+        return v.strip()
+
 
 class ShippingAddressResponse(ShippingAddressRequest):
     """收货地址响应模式"""

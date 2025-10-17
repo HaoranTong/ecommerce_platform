@@ -53,7 +53,7 @@ API测试生成器 - 清理版本
 
 import re
 from pathlib import Path
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Optional
 from .base_generator import BaseTestGenerator, ModelInfo, RouterInfo
 
 
@@ -296,8 +296,8 @@ class {class_name}:
         api_client.set_auth_headers(access_token)
         '''
         
-        # 生成请求代码 - 支持用户上下文
-        request_code = self._generate_request_code(route, test_data, requires_auth, with_user_context=needs_existing_user)
+        # 生成请求代码 - 支持用户上下文和模型依赖分析
+        request_code = self._generate_request_code(route, test_data, requires_auth, with_user_context=needs_existing_user, models=models)
         
         # 生成断言代码
         assertions = self._generate_assertions(route)
@@ -399,60 +399,65 @@ class {class_name}:
             # 传统模式：依赖JWT认证fixture处理认证
             return ""
     
+    def _extract_foreign_keys_recursive(self, schema_data: Dict[str, Any], collected_keys: Optional[List[str]] = None) -> List[str]:
+        """递归提取Schema中的所有外键字段（包括嵌套Schema）
+        
+        修复Bug：原代码只检查顶层字段，导致OrderItemRequest中的product_id/sku_id未被检测
+        """
+        if collected_keys is None:
+            collected_keys = []
+        
+        for field_name, field_info in schema_data.items():
+            # 检测顶层外键
+            if field_name.endswith('_id') and field_name not in ['user_id']:
+                is_required = field_info.get('required', True) if isinstance(field_info, dict) else True
+                if is_required:
+                    entity_name = field_name.replace('_id', '')
+                    if entity_name not in collected_keys:
+                        collected_keys.append(entity_name)
+            
+            # 递归检测嵌套Schema（关键修复）
+            if isinstance(field_info, dict) and field_info.get('is_nested_schema'):
+                nested_fields = field_info.get('nested_fields', {})
+                self._extract_foreign_keys_recursive(nested_fields, collected_keys)
+        
+        return collected_keys
+    
     def _generate_foreign_key_entities(self, schema_data: Dict[str, Dict[str, Any]], module_name: str, method: str) -> str:
-        """检测外键字段并生成关联实体创建代码"""
+        """检测外键字段并生成关联实体创建代码（使用统一工厂，符合testing-standards.md第1241行）
+        
+        设计原则：
+        1. API集成测试使用StandardTestDataFactory（不使用Factory Boy）
+        2. 基于配置文件判断是否需要完整数据链（无硬编码）
+        3. 复杂实体使用create_complete_chain()
+        """
         if method not in ['POST', 'PUT', 'PATCH']:
             return ""
         
-        foreign_key_setup = []
+        # 使用递归方法提取所有外键（包括嵌套Schema）
+        foreign_keys = self._extract_foreign_keys_recursive(schema_data)
         
-        for field_name, field_info in schema_data.items():
-            # 检测外键字段模式（通常以_id结尾且是整数类型）
-            if field_name.endswith('_id') and field_name not in ['user_id']:
-                # 获取字段类型
-                field_type = field_info.get('type') if isinstance(field_info, dict) else None
-                is_required = field_info.get('required', True) if isinstance(field_info, dict) else True
-                
-                # 只为必填的外键创建实体（可选外键保持None）
-                if is_required:
-                    # 推断关联实体名称（去掉_id后缀）
-                    entity_name = field_name.replace('_id', '')
-                    
-                    # 转换为PascalCase的Factory名称
-                    factory_name = self._to_factory_name(entity_name, module_name)
-                    
-                    if factory_name:
-                        # 生成实体创建代码（通过Manager统一设置session）
-                        entity_var = f"test_{entity_name}"
-                        
-                        # 使用跨模块依赖解析器获取正确的模块名
-                        model_name = factory_name.replace('Factory', '')
-                        factory_module = self.cross_module_resolver.get_module_for_model(model_name)
-                        
-                        # 将factory_module转换为PascalCase (如 product_catalog -> ProductCatalog)
-                        manager_name = ''.join(word.capitalize() for word in factory_module.split('_')) + 'FactoryManager'
-                        foreign_key_setup.append(
-                            f"        # 创建{entity_name}实体用于外键关联\n"
-                            f"        from tests.factories.{factory_module}_factories import {factory_name}, {manager_name}\n"
-                            f"        {manager_name}.setup_factories(mysql_integration_db)\n"
-                            f"        {entity_var} = {factory_name}.create()"
-                        )
+        if not foreign_keys:
+            return ""
         
-        if foreign_key_setup:
-            return '\n'.join(foreign_key_setup)
-        return ""
-    
-    def _to_factory_name(self, entity_name: str, module_name: str) -> str:
-        """将实体名称转换为Factory类名"""
-        # 将snake_case转换为PascalCase
-        parts = entity_name.split('_')
-        pascal_name = ''.join(word.capitalize() for word in parts)
-        
-        # 特殊处理：sku -> SKU (全大写缩写)
-        if pascal_name.lower() == 'sku':
-            pascal_name = 'SKU'
-        
-        return f"{pascal_name}Factory"
+        # 基于配置判断：是否需要完整数据链
+        if self._needs_complete_chain_from_config(foreign_keys, module_name):
+            # 使用create_complete_chain创建完整数据链
+            return """        # 使用统一工厂创建完整数据链（符合testing-standards.md第1241行规范）
+        user, category, brand, product, sku = StandardTestDataFactory.create_complete_chain(mysql_integration_db)"""
+        else:
+            # 简单实体：逐个创建
+            entity_creation = []
+            created_entities = set()
+            for entity_name in foreign_keys:
+                if entity_name in created_entities:
+                    continue
+                created_entities.add(entity_name)
+                entity_creation.append(
+                    f"        # 使用统一工厂创建{entity_name}实体\n"
+                    f"        {entity_name} = StandardTestDataFactory.create_{entity_name}(mysql_integration_db)"
+                )
+            return '\n'.join(entity_creation)
     
     # 注意：_convert_to_dynamic_code 方法已移至 BaseTestGenerator
     # 所有生成器现在都可以直接使用基类的实现
@@ -536,7 +541,7 @@ class {class_name}:
         return any(api in function_name for api in dependency_apis)
     
     def _needs_foreign_key_entities(self, route: RouterInfo, models: Dict[str, ModelInfo]) -> bool:
-        """检测API是否需要创建外键实体"""
+        """检测API是否需要创建外键实体（使用递归检测）"""
         if route.method not in ['POST', 'PUT', 'PATCH']:
             return False
         
@@ -545,12 +550,9 @@ class {class_name}:
         schema_data = self.analyze_pydantic_schema(module_name, route)
         
         if schema_data and isinstance(schema_data, dict):
-            for field_name, field_info in schema_data.items():
-                # 检测必填的外键字段
-                if field_name.endswith('_id') and field_name not in ['user_id']:
-                    is_required = field_info.get('required', True) if isinstance(field_info, dict) else True
-                    if is_required:
-                        return True
+            # 使用递归方法检测所有外键（包括嵌套Schema）
+            foreign_keys = self._extract_foreign_keys_recursive(schema_data)
+            return len(foreign_keys) > 0
         
         return False
     
@@ -714,7 +716,7 @@ class {class_name}:
             return parts[0].replace('-', '_')
         return "unknown"
     
-    def _generate_request_code(self, route: RouterInfo, test_data: str, auth_required: bool, with_user_context: bool = False) -> str:
+    def _generate_request_code(self, route: RouterInfo, test_data: str, auth_required: bool, with_user_context: bool = False, models: Dict[str, ModelInfo] = None) -> str:
         """生成HTTP请求代码 - 支持用户上下文处理和实体创建"""
         
         # 添加API前缀，确保路径正确
@@ -735,45 +737,81 @@ class {class_name}:
                 else:
                     full_path = full_path.replace('{user_id}', '1')
                     path_str = f'"{full_path}"'
-            # 处理其他实体的路径参数（brand_id, product_id, category_id, sku_id等）
-            elif any(param in full_path for param in ['{brand_id}', '{product_id}', '{category_id}', '{sku_id}']):
-                # 提取实体类型
-                param_match = re.search(r'\{(\w+)_id\}', full_path)
-                if param_match:
-                    entity_type = param_match.group(1)  # 如 'brand', 'product'
-                    entity_var = f"test_{entity_type}"
-                    
-                    # 生成创建实体的代码（GET/PUT/DELETE操作需要先创建）
-                    if route.method in ['GET', 'PUT', 'PATCH', 'DELETE']:
-                        # 使用Factory创建实体 - 处理SKU等特殊大小写
-                        if entity_type.lower() == 'sku':
-                            factory_class = "SKUFactory"
-                            model_name = "SKU"
-                        else:
-                            factory_class = f"{entity_type.capitalize()}Factory"
-                            model_name = entity_type.capitalize()
-                        
-                        # 使用跨模块依赖解析器获取正确的模块名
-                        factory_module = self.cross_module_resolver.get_module_for_model(model_name)
-                        manager_name = ''.join(word.capitalize() for word in factory_module.split('_')) + 'FactoryManager'
-                        
-                        create_entity_code = f'''
-        # 先创建{entity_type}实体用于测试
-        from tests.factories.{factory_module}_factories import {factory_class}, {manager_name}
-        {manager_name}.setup_factories(mysql_integration_db)
-        {entity_var} = {factory_class}.create()
-        '''
-                    
-                    # 替换路径参数
-                    full_path = full_path.replace(f'{{{entity_type}_id}}', f'{{{entity_var}.id}}')
-                    path_str = f'f"{full_path}"'
+            # 处理其他实体的路径参数（使用统一工厂，符合testing-standards.md第1241行）
             else:
-                # 其他参数默认替换为1
-                full_path = re.sub(r'\{[^}]+\}', '1', full_path)
-                path_str = f'"{full_path}"'
+                # 提取所有路径参数中的实体ID
+                param_matches = re.findall(r'\{(\w+)_id\}', full_path)
+                entity_params = [p for p in param_matches if p != 'user']
+                
+                if entity_params and route.method in ['GET', 'PUT', 'PATCH', 'DELETE']:
+                    entity_type = entity_params[0]  # 取第一个实体参数（如 'item'）
+                    
+                    # 直接从response_model获取准确的模型名（不再推断）
+                    module_name = self._extract_module_from_path(route.path)
+                    model_name = self._extract_model_name_from_response(route, models)
+                    
+                    # 如果response_model为空（如DELETE请求），尝试从实体类型推断
+                    if not model_name:
+                        # entity_type: 'product' → 尝试查找 'Product'
+                        entity_type_pascal = ''.join(word.capitalize() for word in entity_type.split('_'))
+                        # 在models字典中查找（不区分大小写）
+                        for key in models.keys():
+                            if key.lower() == entity_type_pascal.lower():
+                                model_name = key
+                                break
+                    
+                    # 基于模型名检查配置是否需要完整数据链
+                    if model_name and self._needs_complete_chain_for_model(model_name, module_name):
+                        # 使用create_complete_chain创建完整数据链
+                        create_entity_code = '''
+        # 使用统一工厂创建完整数据链（符合testing-standards.md第1241行规范）
+        user, category, brand, product, sku = StandardTestDataFactory.create_complete_chain(mysql_integration_db)
+        '''
+                        # 推断工厂方法名（如 CartItem -> cart_item）
+                        factory_method_name = self._to_snake_case(model_name)
+                        
+                        # 特殊处理：CartItem的create_cart_item需要product_id而不是sku_id
+                        # 原因：虽然字段名叫sku_id，但实际引用products.id（设计遗留问题）
+                        if factory_method_name == 'cart_item':
+                            # 创建实体（传入product.id）
+                            create_entity_code += f'''{entity_type} = StandardTestDataFactory.create_{factory_method_name}(mysql_integration_db, user.id, product.id)
+        '''
+                        else:
+                            # 创建实体（默认传入sku.id）
+                            create_entity_code += f'''{entity_type} = StandardTestDataFactory.create_{factory_method_name}(mysql_integration_db, user.id, sku.id)
+        '''
+                        full_path = full_path.replace(f'{{{entity_type}_id}}', f'{{{entity_type}.id}}')
+                    elif model_name:
+                        # 使用models参数动态查询外键依赖，生成正确的创建代码
+                        factory_method_name = self._to_snake_case(model_name)
+                        entity_var = entity_type
+                        
+                        # 使用ModelInfo动态查询依赖关系
+                        create_entity_code = self._generate_entity_creation_with_dependencies(
+                            model_name, entity_var, models, module_name
+                        )
+                        
+                        full_path = full_path.replace(f'{{{entity_type}_id}}', f'{{{entity_var}.id}}')
+                    else:
+                        # 无法推断模型名，使用原有逻辑
+                        entity_var = entity_type
+                        create_entity_code = f'''
+        # 使用统一工厂创建{entity_type}实体
+        {entity_var} = StandardTestDataFactory.create_{entity_type}(mysql_integration_db)
+        '''
+                        full_path = full_path.replace(f'{{{entity_type}_id}}', f'{{{entity_var}.id}}')
+                    
+                    path_str = f'f"{full_path}"'
+                elif not entity_params:
+                    # 其他参数默认替换为1
+                    full_path = re.sub(r'\{[^}]+\}', '1', full_path)
+                    path_str = f'"{full_path}"'
         
         # 如果需要创建实体，将创建代码添加到请求之前
         request_prefix = create_entity_code if create_entity_code else ""
+        # 如果有request_prefix，确保后面有换行
+        if request_prefix and not request_prefix.endswith('\n'):
+            request_prefix += '\n        '
         
         if route.method == 'GET':
             # 检查是否有test_data（即是否生成了query_params）
@@ -977,3 +1015,330 @@ class {class_name}:
         # 基于路由分析自动生成工作流测试
         
         print("✅ {module_name}模块完整流程测试通过")'''
+    
+    def _needs_complete_chain_from_config(self, foreign_keys: List[str], module_name: str) -> bool:
+        """从配置文件判断是否需要完整数据链（无硬编码，符合检查点3）
+        
+        判断逻辑（基于配置）：
+        1. 检查当前模块在cross_module_dependency_chains配置中的实体定义
+        2. 检查外键是否包含product_catalog模块的模型（sku等）
+        3. 检查common_models配置
+        
+        Args:
+            foreign_keys: 外键字段列表（如['sku']，从'sku_id'提取）
+            module_name: 当前模块名（如'shopping_cart'）
+            
+        Returns:
+            bool: True表示需要完整数据链
+        """
+        # 获取配置
+        dependency_chains = self.config.get('business_logic_patterns', {}).get('cross_module_dependency_chains', {})
+        common_models = self.config.get('business_logic_patterns', {}).get('common_models', {})
+        
+        # 策略1：检查当前模块的依赖链配置
+        # 如果当前模块在配置中定义了依赖链，检查是否需要product_catalog
+        if module_name in dependency_chains:
+            module_chains = dependency_chains[module_name]
+            if isinstance(module_chains, dict):
+                # 检查该模块下的所有实体
+                for entity, deps in module_chains.items():
+                    if entity == '_description':
+                        continue
+                    # 如果实体的依赖链中包含product_catalog，说明需要完整链
+                    if isinstance(deps, list) and any('product_catalog' in str(dep) for dep in deps):
+                        return True
+        
+        # 策略2：检查外键是否指向product_catalog模块
+        # 如果外键列表中包含sku/product/category/brand等，说明需要完整链
+        product_catalog_entities = ['sku', 'product', 'category', 'brand']
+        for fk in foreign_keys:
+            if fk.lower() in product_catalog_entities:
+                return True
+        
+        # 策略3：检查common_models配置
+        # 如果外键对应的模型属于product_catalog模块
+        for fk in foreign_keys:
+            fk_pascal = fk.capitalize()
+            if fk.lower() == 'sku':
+                fk_pascal = 'SKU'
+            
+            if fk_pascal in common_models:
+                modules = common_models[fk_pascal]
+                if 'product_catalog' in modules:
+                    return True
+        
+        return False
+    
+    def _extract_model_name_from_response(self, route: RouterInfo, models: Dict[str, ModelInfo]) -> Optional[str]:
+        """从response_model直接提取模型名（不再推断）
+        
+        Args:
+            route: 路由信息，包含response_model
+            models: 所有模型信息字典
+            
+        Returns:
+            Optional[str]: 实际的模型名（如 'SKU', 'Product'）
+            
+        Examples:
+            response_model='SKURead' → 'SKU'
+            response_model='ProductResponse' → 'Product'
+            response_model='List[SKURead]' → 'SKU'
+        """
+        if not route.response_model:
+            return None
+        
+        response_model = route.response_model
+        
+        # 处理泛型类型 List[ModelRead]
+        if response_model.startswith('List[') and response_model.endswith(']'):
+            response_model = response_model[5:-1]  # 提取内部类型
+        
+        # 去掉常见的Schema后缀
+        for suffix in ['Read', 'Create', 'Update', 'Response', 'Detail', 'List']:
+            if response_model.endswith(suffix):
+                base_model = response_model[:-len(suffix)]
+                # 在models字典中查找（不区分大小写）
+                if base_model in models:
+                    return base_model
+                # 不区分大小写匹配
+                for key in models.keys():
+                    if key.lower() == base_model.lower():
+                        return key
+        
+        # 直接查找（可能response_model就是模型名）
+        if response_model in models:
+            return response_model
+        
+        # 不区分大小写查找
+        for key in models.keys():
+            if key.lower() == response_model.lower():
+                return key
+        
+        return None
+    
+    def _infer_model_name_from_path_param(self, param_name: str, module_name: str) -> Optional[str]:
+        """从路径参数名推断模型名
+        
+        Args:
+            param_name: 路径参数名（如 'item', 'product', 'category'）
+            module_name: 模块名（如 'shopping_cart', 'product_catalog'）
+            
+        Returns:
+            Optional[str]: 模型名（如 'CartItem', 'Product', 'Category'）
+            
+        Examples:
+            'item' + 'shopping_cart' -> 'CartItem'
+            'product' + 'product_catalog' -> 'Product'
+            'category' + 'product_catalog' -> 'Category'
+        """
+        # 策略1：直接转换为PascalCase
+        model_candidate = ''.join(word.capitalize() for word in param_name.split('_'))
+        
+        # 检查配置中是否有该模型
+        dependency_chains = self.config.get('business_logic_patterns', {}).get('cross_module_dependency_chains', {})
+        if module_name in dependency_chains:
+            module_chains = dependency_chains[module_name]
+            if isinstance(module_chains, dict) and model_candidate in module_chains:
+                return model_candidate
+        
+        # 策略2：检查模块特定的命名规则
+        # shopping_cart 模块中 'item' -> 'CartItem'
+        module_specific_mappings = {
+            'shopping_cart': {
+                'item': 'CartItem',
+                'cart': 'Cart'
+            },
+            'order_management': {
+                'item': 'OrderItem',
+                'order': 'Order'
+            }
+        }
+        
+        if module_name in module_specific_mappings:
+            if param_name in module_specific_mappings[module_name]:
+                return module_specific_mappings[module_name][param_name]
+        
+        # 策略3：返回直接转换的结果（如 product -> Product）
+        return model_candidate
+    
+    def _needs_complete_chain_for_model(self, model_name: str, module_name: str) -> bool:
+        """检查模型是否需要完整数据链
+        
+        Args:
+            model_name: 模型名（如 'CartItem', 'OrderItem'）
+            module_name: 模块名（如 'shopping_cart', 'order_management'）
+            
+        Returns:
+            bool: True表示需要完整数据链
+        """
+        dependency_chains = self.config.get('business_logic_patterns', {}).get('cross_module_dependency_chains', {})
+        
+        if module_name in dependency_chains:
+            module_chains = dependency_chains[module_name]
+            if isinstance(module_chains, dict) and model_name in module_chains:
+                deps = module_chains[model_name]
+                # 如果依赖链中包含product_catalog模块，说明需要完整链
+                if isinstance(deps, list) and any('product_catalog' in str(dep) for dep in deps):
+                    return True
+        
+        return False
+    
+    def _to_snake_case(self, pascal_case: str) -> str:
+        """将PascalCase转换为snake_case
+        
+        Args:
+            pascal_case: PascalCase字符串（如 'CartItem', 'OrderItem'）
+            
+        Returns:
+            str: snake_case字符串（如 'cart_item', 'order_item'）
+        """
+        # 在大写字母前插入下划线（但不在开头）
+        result = re.sub('(.)([A-Z][a-z]+)', r'\1_\2', pascal_case)
+        result = re.sub('([a-z0-9])([A-Z])', r'\1_\2', result)
+        return result.lower()
+    
+    def _generate_entity_creation_with_dependencies(
+        self, model_name: str, entity_var: str, models: Dict[str, ModelInfo], module_name: str, 
+        visited: set = None
+    ) -> str:
+        """动态生成实体创建代码，自动处理外键依赖
+        
+        Args:
+            model_name: 模型名（如 'Product', 'SKU', 'Sku'）
+            entity_var: 实体变量名（如 'product', 'sku'）
+            models: 所有模型信息字典
+            module_name: 当前模块名
+            visited: 已访问的模型集合（用于防止循环依赖）
+            
+        Returns:
+            str: 生成的创建代码
+        """
+        # 初始化visited集合
+        if visited is None:
+            visited = set()
+        
+        # 检查循环依赖
+        if model_name in visited:
+            # 循环依赖，直接返回简单创建代码（不处理依赖）
+            factory_method = self._to_snake_case(model_name)
+            return f"{entity_var} = StandardTestDataFactory.create_{factory_method}(mysql_integration_db)"
+        
+        # 标记当前模型为已访问
+        visited.add(model_name)
+        # 在models字典中查找模型信息（不区分大小写匹配）
+        model_info = None
+        normalized_model_name = model_name
+        
+        # 方式1：精确匹配
+        if model_name in models:
+            model_info = models[model_name]
+            normalized_model_name = model_name
+        else:
+            # 方式2：不区分大小写匹配
+            model_name_lower = model_name.lower()
+            for key, value in models.items():
+                if key.lower() == model_name_lower:
+                    model_info = value
+                    normalized_model_name = key  # 使用字典中的实际键名
+                    break
+        
+        if not model_info:
+            # 模型未找到，尝试直接创建
+            factory_method = self._to_snake_case(model_name)
+            return f'''
+        # 使用统一工厂创建{model_name}实体（未找到模型信息，尝试直接创建）
+        {entity_var} = StandardTestDataFactory.create_{factory_method}(mysql_integration_db)
+        '''
+        
+        # 分析外键依赖（model_info.fields是List[FieldInfo]）
+        foreign_keys = []
+        for field_info in model_info.fields:
+            if field_info.foreign_key:  # foreign_key字段存储外键信息（如'categories.id'）
+                fk_target = field_info.foreign_key
+                if fk_target:
+                    # 提取目标表名和字段名
+                    if '.' in fk_target:
+                        target_table, target_field = fk_target.split('.', 1)
+                        foreign_keys.append({
+                            'field': field_info.name,
+                            'target_table': target_table,
+                            'target_field': target_field
+                        })
+        
+        # 如果没有外键依赖，直接创建
+        if not foreign_keys:
+            factory_method = self._to_snake_case(normalized_model_name)
+            return f'''
+        # 使用统一工厂创建{normalized_model_name}实体
+        {entity_var} = StandardTestDataFactory.create_{factory_method}(mysql_integration_db)
+        '''
+        
+        # 生成依赖创建代码
+        dependencies_code = []
+        dependency_vars = []
+        params = []
+        
+        for fk in foreign_keys:
+            # 从外键目标表名查找实际的模型名
+            # 表名通常是snake_case复数形式，模型名是PascalCase单数形式
+            target_table = fk['target_table']
+            
+            # 跳过自引用外键（如Category.parent_id → categories）
+            current_model_table = model_info.tablename
+            if target_table == current_model_table:
+                # 自引用，跳过（工厂方法会自动设置为None）
+                continue
+            
+            # 方法1：直接通过tablename在models中查找
+            actual_model_name = None
+            for dep_model_name, dep_model_info in models.items():
+                if dep_model_info.tablename == target_table:
+                    actual_model_name = dep_model_name
+                    break
+            
+            # 使用实际模型名转snake_case作为变量名和工厂方法名
+            if actual_model_name:
+                dep_var_name = self._to_snake_case(actual_model_name)
+            else:
+                # 找不到模型，使用原表名去s（兜底逻辑）
+                dep_var_name = fk['target_table'].rstrip('s')
+                actual_model_name = None  # 确保后续逻辑知道没找到模型
+            
+            factory_method = f"create_{dep_var_name}"
+            
+            # 递归处理依赖的依赖
+            dep_model_info = models.get(actual_model_name) if actual_model_name else None
+            if dep_model_info:
+                # 检查依赖是否还有依赖（fields是List[FieldInfo]）
+                has_nested_deps = any(
+                    f.foreign_key is not None for f in dep_model_info.fields
+                )
+                if has_nested_deps:
+                    # 递归生成依赖（传入visited避免循环依赖）
+                    nested_code = self._generate_entity_creation_with_dependencies(
+                        actual_model_name, dep_var_name, models, module_name, visited.copy()
+                    )
+                    dependencies_code.append(nested_code.strip())
+                else:
+                    dependencies_code.append(
+                        f"{dep_var_name} = StandardTestDataFactory.{factory_method}(mysql_integration_db)"
+                    )
+            else:
+                dependencies_code.append(
+                    f"{dep_var_name} = StandardTestDataFactory.{factory_method}(mysql_integration_db)"
+                )
+            
+            dependency_vars.append(dep_var_name)
+            params.append(f"{dep_var_name}.id")
+        
+        # 生成最终的创建代码
+        factory_method = self._to_snake_case(normalized_model_name)
+        param_str = ", ".join(params)
+        
+        code_lines = [f"# 使用统一工厂创建{normalized_model_name}及其依赖"]
+        code_lines.extend(dependencies_code)
+        code_lines.append(
+            f"{entity_var} = StandardTestDataFactory.create_{factory_method}(mysql_integration_db, {param_str})"
+        )
+        
+        return "\n        ".join(code_lines)

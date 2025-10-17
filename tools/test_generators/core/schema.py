@@ -86,6 +86,7 @@ class RepositoryInfo:
     model_name: str  # Category
     methods: List[RepositoryMethodInfo]
     docstring: Optional[str]
+    import_aliases: Dict[str, str] = None  # {别名: 真实类名} 如 {"UserSession": "Session"}
     
     
 @dataclass

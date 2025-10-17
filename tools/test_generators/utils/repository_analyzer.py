@@ -78,6 +78,7 @@ class RepositoryAnalyzer:
             project_root: 项目根目录
         """
         self.project_root = project_root
+        self.import_aliases: Dict[str, str] = {}  # {别名: 真实类名} 如 {"UserSession": "Session"}
     
     def analyze_module_repositories(self, module_name: str) -> Dict[str, RepositoryInfo]:
         """分析模块中的所有Repository类
@@ -108,7 +109,12 @@ class RepositoryAnalyzer:
             
             tree = ast.parse(content)
             
-            # 查找所有Repository类
+            # 🔍 步骤1：提取import语句中的别名映射
+            self.import_aliases = self._extract_import_aliases(tree)
+            if self.import_aliases:
+                print(f"  📝 检测到import别名: {self.import_aliases}")
+            
+            # 🔍 步骤2：查找所有Repository类
             for node in ast.walk(tree):
                 if isinstance(node, ast.ClassDef):
                     if node.name.endswith('Repository'):
@@ -148,7 +154,8 @@ class RepositoryAnalyzer:
             name=class_node.name,
             model_name=self._infer_model_name(class_node.name),
             methods=methods,
-            docstring=ast.get_docstring(class_node)
+            docstring=ast.get_docstring(class_node),
+            import_aliases=self.import_aliases  # 传递别名映射
         )
     
     def _analyze_repository_method(
@@ -367,6 +374,38 @@ class RepositoryAnalyzer:
         if repo_class_name.endswith('Repository'):
             return repo_class_name[:-10]  # len('Repository') = 10
         return repo_class_name
+    
+    def _extract_import_aliases(self, tree: ast.AST) -> Dict[str, str]:
+        """提取import语句中的别名映射
+        
+        解析形如 `from .models import Session as UserSession` 的语句，
+        建立别名到真实类名的映射关系。
+        
+        Args:
+            tree: AST树
+            
+        Returns:
+            Dict[str, str]: {别名: 真实类名} 如 {"UserSession": "Session"}
+            
+        Example:
+            >>> # 源码: from .models import Session as UserSession
+            >>> aliases = self._extract_import_aliases(tree)
+            >>> aliases
+            {"UserSession": "Session"}
+        """
+        aliases = {}
+        
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ImportFrom):
+                # 检查是否从.models导入（可扩展到其他模块）
+                if node.module and 'models' in node.module:
+                    for alias in node.names:
+                        if alias.asname:  # 有别名: import X as Y
+                            # alias.name = 真实类名 (Session)
+                            # alias.asname = 别名 (UserSession)
+                            aliases[alias.asname] = alias.name
+                            
+        return aliases
     
     def _extract_type_annotation(self, annotation_node: ast.AST) -> str:
         """提取类型注解

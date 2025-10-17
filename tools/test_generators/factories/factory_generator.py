@@ -18,6 +18,7 @@ Factory生成器 - 测试数据工厂类
 from pathlib import Path
 from typing import Dict, List, Tuple
 from ..core import ModelInfo, FieldInfo
+from ..utils.model_analyzer import ModelAnalyzer
 
 
 class FactoryGenerator:
@@ -34,6 +35,11 @@ class FactoryGenerator:
         self.project_root = project_root
         self.config = config
         self.main_generator = main_generator
+        # 初始化ModelAnalyzer进行全局模型查询
+        self.model_analyzer = ModelAnalyzer(project_root)
+        print("🔍 初始化ModelAnalyzer，分析所有模块...")
+        self.model_analyzer.analyze_all_modules()
+        print("✅ ModelAnalyzer初始化完成")
     
     def generate_factories(
         self,
@@ -188,21 +194,37 @@ from {module_import_path} import (
         return foreign_key
     
     def _infer_model_name_from_table(self, table_name: str, models: Dict[str, ModelInfo] = None) -> str:
-        """从表名推导模型名 - 纯动态映射版本"""
-        # 优先使用动态映射：从models字典中查找表名对应的模型名
+        """从表名推导模型名 - 使用ModelAnalyzer获取真实类名
+        
+        优先级：
+        1. ModelAnalyzer全局查询（获取真实类名，如 product_skus → SKU）
+        2. 本地models字典查询（当前模块内）
+        3. 字符串推断（最后兜底）
+        """
+        # 1. 优先使用ModelAnalyzer全局查询 - 获取真实的类名！
+        if hasattr(self, 'model_analyzer'):
+            real_model_name = self.model_analyzer.get_model_by_table(table_name)
+            if real_model_name:
+                print(f"  ✅ ModelAnalyzer: {table_name} → {real_model_name}")
+                return real_model_name
+        
+        # 2. 从本地models字典查找（当前模块内的模型）
         if models:
             for model_name, model_info in models.items():
                 if model_info.tablename == table_name:
+                    print(f"  ✅ 本地查询: {table_name} → {model_name}")
                     return model_name
         
-        # 如果没有找到动态映射，使用通用推导逻辑
+        # 3. 最后使用字符串推断（兜底方案）
         if table_name.endswith('ies'):
             singular = table_name[:-3] + 'y'
         elif table_name.endswith('s'):
             singular = table_name[:-1]
         else:
             singular = table_name
-        return ''.join(word.capitalize() for word in singular.split('_'))
+        inferred_name = ''.join(word.capitalize() for word in singular.split('_'))
+        print(f"  ⚠️  推断: {table_name} → {inferred_name} (可能不准确)")
+        return inferred_name
     
     def _generate_single_factory(
         self, model_name: str, model_info: ModelInfo, all_models: Dict[str, ModelInfo],

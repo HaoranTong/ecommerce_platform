@@ -32,6 +32,107 @@ Repository测试生成器 - 数据访问层完整CRUD测试代码自动生成
 - 事务隔离: 每个测试独立事务，测试后自动回滚
 - 全场景覆盖: 正常/异常/边界/性能等多维度测试
 
+================================================================================
+📐 参数值解析设计决策 (2025-10-16)
+================================================================================
+
+🎯 核心问题：
+Repository方法参数如何生成正确的测试值？特别是：
+1. 字符串参数：identifier: str → 应该用entity.username还是"identifier_value"？
+2. 整数参数：user_id: int → 应该用entity.id还是1还是依赖实体？
+3. 列表参数：category_ids: List[int] → 应该用[entity.id]还是[1]？
+
+🔑 设计原则：
+1. **字段优先**：如果参数名是模型字段，直接用entity.param_name
+2. **逻辑映射**：如果不是字段但有逻辑关系（如identifier→username），使用映射
+3. **关联查询**：如果是外键关联（user_id但不是当前模型字段），需要依赖实体
+4. **后备策略**：以上都不满足时，使用类型默认值
+
+📋 方案选择：方案A（提取独立方法）⭐⭐⭐⭐⭐
+- ✅ 结构清晰：每个类型的参数有独立方法
+- ✅ 易于调试：出问题能快速定位到具体方法
+- ✅ 易于扩展：新增类型只需加新方法
+- ✅ 可测试性：每个方法可以独立测试
+
+🏗️ 实现架构：
+```
+_generate_test_params()  [统一入口]
+    ↓
+_resolve_param_value()  [参数值解析统一分发]
+    ↓
+    ├─ _resolve_string_param()    [字符串参数专门处理]
+    ├─ _resolve_integer_param()   [整数参数专门处理，含关联查询]
+    ├─ _resolve_list_param()      [列表参数专门处理]
+    └─ _get_default_value()       [类型后备默认值]
+```
+
+🔧 核心方法职责：
+
+1. _resolve_param_value(param_name, param_type, repo_info, models, entity_var)
+   职责：统一入口，根据参数类型分发到专门方法
+   输入：参数名、类型、仓库信息、模型字典、实体变量名
+   输出：参数值字符串（如"entity.username"）
+
+2. _resolve_string_param(param_name, model_info, entity_var)
+   职责：处理字符串参数的逻辑映射
+   策略：
+     a. 检查是否是模型字段 → entity.param_name
+     b. 逻辑参数映射（identifier→username/email/phone）
+     c. 后备：生成"param_name_value"
+   
+   逻辑映射配置：
+   LOGICAL_PARAM_MAPPINGS = {
+       'identifier': ['username', 'email', 'phone'],
+       'search_term': ['name', 'title', 'description'],
+       'keyword': ['name', 'title', 'content'],
+       'openid': ['wx_openid'],  # 微信openid参数映射
+   }
+
+3. _resolve_integer_param(param_name, param_type, repo_info, models, entity_var)
+   职责：处理整数参数，含关联查询判断
+   策略：
+     a. 检查是否是当前模型字段 → entity.param_name
+     b. 检查是否是外键关联（user_id, role_id等）→ 需要依赖实体
+     c. Optional类型 → None
+     d. 后备：1
+
+4. _resolve_list_param(param_name, param_type, repo_info, entity_var)
+   职责：处理列表参数
+   策略：
+     a. xxx_ids + 匹配当前模型 → [entity.id]
+     b. 提取元素类型生成默认列表（int→[1], str→["test"]）
+
+🐛 常见问题和解决方案：
+
+问题1：identifier参数生成"identifier_value"导致查询失败
+原因：策略7（类型后备）直接生成硬编码字符串
+解决：新增_resolve_string_param方法，检查逻辑映射
+
+问题2：user_id参数生成1但数据库没有对应User记录
+原因：未检查是否需要依赖实体
+解决：_resolve_integer_param中检查是否是外键关联
+
+问题3：Session.create参数类型混淆
+原因：Session类型被误判为entity类型
+解决：在策略1中明确检查param_name == 'entity'
+
+📊 修复历史：
+- 2025-10-16: 初始设计，提取独立方法，修复identifier参数问题
+- 预留：后续修复整数关联查询和Session类型混淆问题
+
+⚠️ 注意事项：
+1. TestUtils.infer_entity_from_param可用于辅助推断实体类型（user_id→User）
+2. 所有方法都是实例方法，可以访问self.models等上下文
+3. 逻辑映射配置可能需要根据项目实际情况调整
+4. 依赖实体创建暂未实现，需要返回特殊标记（如TODO注释）
+
+🔗 相关文档：
+- 测试标准：docs/standards/testing-standards.md
+- TestUtils工具：tools/test_generators/utils/test_utils.py
+- 问题追踪：此文档的"修复历史"章节
+
+================================================================================
+
 生成的测试结构（示例）:
 ```python
 class TestUserRepository:
@@ -90,8 +191,8 @@ Performance:
 
 Author: AI Assistant
 Created: 2025-10-08
-Modified: 2025-10-08
-Version: 1.0.1
+Modified: 2025-10-16 (添加参数值解析设计决策)
+Version: 1.0.2
 """
 from pathlib import Path
 from typing import Dict, List, Tuple, Optional
@@ -165,6 +266,333 @@ class RepositoryTestGenerator:
             else:
                 # 其他情况，数据库作为构造参数
                 return f"{repo_name}(unit_test_db).{method_info.name}({args})"
+
+    # ============================================================================
+    # 参数值解析方法组（新增 2025-10-16）
+    # ============================================================================
+    
+    def _resolve_param_value(
+        self,
+        param_name: str,
+        param_type: str,
+        repo_info: RepositoryInfo,
+        models: Dict[str, ModelInfo],
+        entity_var: str = "entity",
+        **context
+    ) -> str:
+        """参数值解析统一入口
+        
+        根据参数名、类型、模型信息等，智能解析应该生成的参数值。
+        这是参数值解析的统一分发方法，根据类型调用专门的解析方法。
+        
+        Args:
+            param_name: 参数名（如username, user_id, identifier）
+            param_type: 参数类型（如str, int, List[int], Optional[str]）
+            repo_info: Repository信息（包含model_name）
+            models: 所有模型信息字典
+            entity_var: entity变量名（默认"entity"）
+            context: 显式提供的参数值（最高优先级）
+            
+        Returns:
+            str: 参数值表达式（如"entity.username", "1", "[entity.id]"）
+        """
+        # 最高优先级：context显式提供的值
+        if param_name in context:
+            return context[param_name]
+        
+        # 特殊处理：entity参数直接传entity变量
+        if param_name == 'entity':
+            return entity_var
+        
+        # 🎯 关键修复：检查参数类型是否是模型类（如user: User, session: UserSession）
+        # 清理Optional包装，获取真实类型
+        clean_type = param_type.replace('Optional[', '').replace(']', '').strip()
+        
+        # 检查是否是模型类型（考虑别名，如UserSession→Session）
+        # 1. 直接匹配（clean_type在models中）
+        # 2. 移除前缀匹配（UserSession→Session, UserRole→UserRole等）
+        is_model_type = clean_type in models
+        if not is_model_type and clean_type.startswith('User'):
+            # 尝试移除User前缀（UserSession→Session）
+            alt_name = clean_type[4:]  # 移除"User"前缀
+            is_model_type = alt_name in models
+        
+        if is_model_type:
+            # 参数类型是模型类 → 直接传entity
+            # 例如：create(db, user: User) → create(unit_test_db, entity)
+            #      increment_failed_login(db, user: User) → increment_failed_login(unit_test_db, entity)
+            #      deactivate(db, session: UserSession) → deactivate(unit_test_db, entity)
+            return entity_var
+        
+        # 特殊处理：特殊参数名的固定默认值
+        if param_name in ['data', 'update_data', 'filters'] or 'dict' in param_type.lower():
+            return "{}"
+        elif param_name in ['skip', 'offset']:
+            return "0"
+        elif param_name in ['limit', 'count']:
+            return "100"
+        
+        # 获取当前模型信息
+        model_info = models.get(repo_info.model_name)
+        
+        # 根据类型分发到专门的解析方法
+        if 'List' in param_type:
+            return self._resolve_list_param(param_name, param_type, repo_info, model_info, entity_var)
+        elif 'int' in param_type.lower():
+            return self._resolve_integer_param(param_name, param_type, repo_info, model_info, models, entity_var)
+        elif 'str' in param_type.lower():
+            return self._resolve_string_param(param_name, param_type, model_info, entity_var)
+        elif 'bool' in param_type.lower():
+            return "False"
+        else:
+            # 未知类型，尝试作为字段处理
+            if model_info and param_name in [f.name for f in model_info.fields]:
+                return f"{entity_var}.{param_name}"
+            return f"{entity_var}.{param_name}"
+    
+    def _resolve_string_param(
+        self,
+        param_name: str,
+        param_type: str,
+        model_info: Optional[ModelInfo],
+        entity_var: str
+    ) -> str:
+        """解析字符串参数值
+        
+        处理字符串参数的逻辑映射，核心解决"identifier应该映射到username还是生成硬编码"的问题。
+        
+        策略：
+        1. 检查是否是模型字段 → entity.param_name
+        2. 逻辑参数映射（identifier → username/email/phone）
+        3. 后备：生成硬编码字符串
+        
+        Args:
+            param_name: 参数名
+            param_type: 参数类型
+            model_info: 模型信息
+            entity_var: entity变量名
+            
+        Returns:
+            str: 参数值表达式
+        """
+        # 1. 检查是否是模型字段
+        if model_info and param_name in [f.name for f in model_info.fields]:
+            return f"{entity_var}.{param_name}"
+        
+        # 2. 逻辑参数映射配置
+        LOGICAL_PARAM_MAPPINGS = {
+            'identifier': ['username', 'email', 'phone'],
+            'search_term': ['name', 'title', 'description'],
+            'keyword': ['name', 'title', 'content'],
+            'openid': ['wx_openid'],  # 微信openid参数映射
+        }
+        
+        # 尝试逻辑映射
+        if param_name in LOGICAL_PARAM_MAPPINGS and model_info:
+            model_field_names = [f.name for f in model_info.fields]
+            for candidate in LOGICAL_PARAM_MAPPINGS[param_name]:
+                if candidate in model_field_names:
+                    return f"{entity_var}.{candidate}"
+        
+        # 3. 后备：生成硬编码字符串
+        return f'"{param_name}_value"'
+    
+    def _resolve_integer_param(
+        self,
+        param_name: str,
+        param_type: str,
+        repo_info: RepositoryInfo,
+        model_info: Optional[ModelInfo],
+        models: Dict[str, ModelInfo],
+        entity_var: str
+    ) -> str:
+        """解析整数参数值
+        
+        处理整数参数，包括关联查询判断（user_id需要依赖实体）。
+        
+        策略：
+        1. xxx_id + 匹配当前模型 → entity.id
+        2. xxx_id + 是模型外键字段 → entity.param_name
+        3. xxx_id + Optional类型 → None
+        4. xxx_id + 必填但不是字段 → 1（关联查询，暂时简化处理）
+        5. 其他整数参数是字段 → entity.param_name
+        6. 后备：1
+        
+        Args:
+            param_name: 参数名
+            param_type: 参数类型
+            repo_info: Repository信息
+            model_info: 当前模型信息
+            models: 所有模型信息
+            entity_var: entity变量名
+            
+        Returns:
+            str: 参数值表达式
+        """
+        # 处理 xxx_id 格式的参数
+        if param_name.endswith('_id'):
+            base_name = param_name[:-3]
+            
+            # 1. 匹配当前模型：category_id in CategoryRepository → entity.id
+            if base_name.lower() == repo_info.model_name.lower():
+                return f"{entity_var}.id"
+            
+            # 2. 检查是否是模型的外键字段
+            if model_info and param_name in [f.name for f in model_info.fields]:
+                return f"{entity_var}.{param_name}"
+            
+            # 3. Optional类型的关联查询参数
+            if 'Optional' in param_type:
+                return "None"
+            
+            # 4. 必填但不是字段的关联查询（如role_id但当前模型是User）
+            # TODO: 未来需要创建依赖实体，当前简化为返回1
+            return "1"
+        
+        # 处理常见整数字段
+        if model_info and param_name in [f.name for f in model_info.fields]:
+            return f"{entity_var}.{param_name}"
+        
+        # 后备：返回1
+        return "1"
+    
+    def _resolve_list_param(
+        self,
+        param_name: str,
+        param_type: str,
+        repo_info: RepositoryInfo,
+        model_info: Optional[ModelInfo],
+        entity_var: str
+    ) -> str:
+        """解析列表参数值
+        
+        处理列表类型参数，特别是 xxx_ids: List[int] 的情况。
+        
+        策略：
+        1. xxx_ids + 匹配当前模型 → [entity.id]
+        2. 提取元素类型生成默认列表
+        
+        Args:
+            param_name: 参数名
+            param_type: 参数类型
+            repo_info: Repository信息
+            model_info: 当前模型信息
+            entity_var: entity变量名
+            
+        Returns:
+            str: 参数值表达式
+        """
+        # xxx_ids + 匹配当前模型
+        if param_name.endswith('_ids'):
+            base_name = param_name[:-4]  # category_ids → category
+            if base_name.lower() == repo_info.model_name.lower():
+                return f"[{entity_var}.id]"
+        
+        # 根据元素类型生成默认列表
+        if 'int' in param_type.lower():
+            return "[1]"
+        elif 'str' in param_type.lower():
+            return '["test"]'
+        else:
+            return "[]"
+    
+    # ============================================================================
+    # 参数生成主方法（使用上面的解析方法）
+    # ============================================================================
+    
+    def _generate_test_params(
+        self,
+        method_info: RepositoryMethodInfo,
+        repo_info: RepositoryInfo,
+        models: Dict[str, ModelInfo],
+        entity_var: str = "entity",
+        dependencies: Optional[List[str]] = None,
+        **context
+    ) -> str:
+        """统一的测试参数生成方法
+        
+        核心原则：RepositoryAnalyzer已经通过AST自动提取了完整的参数信息(name, type, kind)，
+        我们只需要根据这些信息决定如何在测试中构造参数值。
+        
+        自动获取的数据（无需推断）：
+        1. method_info.parameters: [(param_name, param_type, param_kind), ...]
+           - RepositoryAnalyzer从函数签名AST中直接提取
+           - 示例: ('category_id', 'int', 'positional'), ('status', 'Optional[str]', 'keyword-only')
+        
+        2. repo_info.model_name: str
+           - RepositoryAnalyzer从类名推断（CategoryRepository → Category）
+        
+        3. repo_info.import_aliases: Dict[str, str]
+           - RepositoryAnalyzer从import语句提取（import Session as UserSession）
+        
+        参数值生成策略（按优先级）：
+        1. entity参数 → 直接传entity变量
+        2. current_model_ids (List[int]) → [entity.id]
+        3. current_model_id (int) → entity.id  
+        4. other_model_id (int) → entity.xxx_id（假设entity有该外键字段）
+        5. context显式值 → 使用context提供的值
+        6. 常见字段名 → entity.field_name
+        7. 特殊参数 → 固定默认值（data={}, skip=0等）
+        8. 类型后备 → 根据param_type生成默认值
+        
+        Args:
+            method_info: 方法信息（RepositoryAnalyzer提供，包含完整参数）
+            repo_info: Repository信息（RepositoryAnalyzer提供，包含model_name）
+            entity_var: entity变量名（默认"entity"）
+            dependencies: 测试setup中创建的依赖变量（暂未使用）
+            context: 显式提供的参数值（优先级最高）
+            
+        Returns:
+            str: 完整的方法调用参数，如 "unit_test_db, entity.id, status='active'"
+            
+        示例：
+            # CategoryRepository.count_products(db, category_id: int)
+            # repo_info.model_name = "Category"
+            # method_info.parameters = [('category_id', 'int', 'positional')]
+            → "unit_test_db, entity.id"  # category_id匹配当前模型Category
+            
+            # CategoryRepository.count_by_category_ids(db, category_ids: List[int])
+            # repo_info.model_name = "Category"  
+            # method_info.parameters = [('category_ids', 'List[int]', 'positional')]
+            → "unit_test_db, [entity.id]"  # category_ids匹配当前模型，且是List
+            
+            # ProductRepository.get_products_by_category(db, category_id: int, *, status: str = None)
+            # repo_info.model_name = "Product"
+            # method_info.parameters = [('category_id', 'int', 'positional'), ('status', 'Optional[str]', 'keyword-only')]
+            → "unit_test_db, entity.category_id, status='active'"  # category_id是外键，status是keyword-only
+        """
+        positional_parts = []
+        keyword_parts = []
+        
+        for param_name, param_type, param_kind in method_info.parameters:
+            # db参数在外层特殊处理，跳过
+            if param_name == 'db':
+                continue
+            
+            # 🎯 使用新的参数值解析方法（统一入口）
+            param_value = self._resolve_param_value(
+                param_name=param_name,
+                param_type=param_type,
+                repo_info=repo_info,
+                models=models,
+                entity_var=entity_var,
+                **context
+            )
+            
+            # 根据参数种类生成调用语法
+            if param_kind == 'keyword-only':
+                keyword_parts.append(f"{param_name}={param_value}")
+            else:
+                positional_parts.append(param_value)
+        
+        # 拼接：位置参数在前，命名参数在后（符合Python语法）
+        all_parts = positional_parts + keyword_parts
+        
+        # 拼接完整参数（含db）
+        if all_parts:
+            return "unit_test_db, " + ", ".join(all_parts)
+        else:
+            return "unit_test_db"
 
     def generate_repository_tests(
         self,
@@ -295,8 +723,16 @@ from app.modules.{module_name}.models import (
             # 🔧 提取参数类型中的实体名称（如 "OrderItem" from "OrderItem"）
             clean_param_type = param_type.replace('Optional[', '').replace(']', '').strip()
             
-            # 检查是否是实体对象参数（参数类型是大写开头的类名）
-            if clean_param_type and clean_param_type[0].isupper() and clean_param_type in models:
+            # 检查是否是实体对象参数（参数类型是大写开头的类名，考虑别名）
+            is_entity_type = clean_param_type and clean_param_type[0].isupper() and clean_param_type in models
+            if not is_entity_type and clean_param_type and clean_param_type.startswith('User'):
+                # 尝试移除User前缀（UserSession→Session）
+                alt_name = clean_param_type[4:]  # 移除"User"前缀
+                if alt_name in models:
+                    is_entity_type = True
+                    clean_param_type = alt_name  # 使用实际的模型名
+            
+            if is_entity_type:
                 # 🎯 核心修复：使用参数类型作为实际模型名称！
                 actual_model_name = clean_param_type
         
@@ -334,8 +770,14 @@ from app.modules.{module_name}.models import (
             
             clean_param_type = param_type.replace('Optional[', '').replace(']', '').strip()
             
-            # 检查是否是实体对象参数
-            if clean_param_type and clean_param_type[0].isupper() and clean_param_type in models:
+            # 检查是否是实体对象参数（考虑别名，如UserSession→Session）
+            is_entity_type = clean_param_type and clean_param_type[0].isupper() and clean_param_type in models
+            if not is_entity_type and clean_param_type and clean_param_type.startswith('User'):
+                # 尝试移除User前缀（UserSession→Session）
+                alt_name = clean_param_type[4:]  # 移除"User"前缀
+                is_entity_type = alt_name in models
+            
+            if is_entity_type:
                 # 实体对象参数：传递entity
                 method_call_args_minimal = "unit_test_db, entity"
                 method_call_args_factory = "unit_test_db, entity"
@@ -502,6 +944,7 @@ from app.modules.{module_name}.models import (
     def generate_repository_read_test(
         self,
         method_info: RepositoryMethodInfo,
+        repo_info: RepositoryInfo,
         model_name: str,
         repo_name: str,
         module_name: str,
@@ -538,33 +981,43 @@ from app.modules.{module_name}.models import (
         is_list_return = 'List[' in method_info.return_type or 'list[' in method_info.return_type.lower()
         is_bool_return = method_info.return_type == 'bool'
         
-        # 🔧 跨模块read测试：直接使用entity.id，不需要参数推断
-        if is_cross_module:
-            # 对于跨模块查询方法（如get_product_by_id），实体已创建，直接使用entity.id
-            method_params = [p for p in method_info.parameters if p[0] not in ['self', 'db', 'cls']]
-            if method_params and len(method_params) == 1:
-                param_name, param_type, param_kind = method_params[0]
-                if param_name.endswith('_id') or 'int' in param_type.lower():
-                    query_param = 'entity.id'
-                else:
-                    query_param = f'entity.{param_name}'
-            else:
-                query_param = 'entity.id'  # 默认使用entity.id
-            setup_code = ''
-            needs_todo = False
-        else:
-            # 同模块read测试：使用参数推断
-            setup_code, query_param, needs_todo = self._infer_query_parameter(method_info, model_name, models, module_name)
+        # 🎯 使用新的参数生成方法（2025-10-16 重构）
+        # ⚠️ 关键修复：需要确定entity变量的实际类型来正确推断参数值
+        #
+        # 设计原则：
+        # - 参数值推断依赖于entity变量的类型
+        # - entity类型由entity_creation逻辑决定
+        # - 对于列表返回，entity是主模型；对于单对象返回，entity是返回类型
+        #
+        # 示例：
+        # 1. get_user_by_id(user_id: int) → User
+        #    entity_type = "User"（返回类型）
+        #    参数推断：user_id → entity.id（从User模型推断）
+        #
+        # 2. get_order_items(order_id: int) → List[OrderItem]
+        #    entity_type = "Order"（主模型）
+        #    参数推断：order_id → entity.id（从Order模型推断）
+        #
+        # 通用化设计：
+        # - 根据返回类型决定entity的类型（与entity_creation逻辑一致）
+        # - 列表返回 → 主模型（model_name）
+        # - 单对象返回 → 返回类型（actual_model_name）
+        entity_type_for_params = model_name if is_list_return else actual_model_name
+        
+        original_model_name = repo_info.model_name
+        repo_info.model_name = entity_type_for_params  # 临时覆盖为entity的实际类型
+        query_param = self._generate_test_params(method_info, repo_info, models, entity_var="entity")
+        repo_info.model_name = original_model_name  # 恢复原值
         has_composite_pk = self._has_composite_primary_key(model_name, models)
         
         # 🎯 特殊处理: 复合主键的get方法
         if method_name == 'get' and has_composite_pk:
             pk_fields = self._get_primary_key_fields(model_name, models)
-            not_found_params = ', '.join(['999999' for _ in pk_fields])
+            not_found_params = 'unit_test_db, ' + ', '.join(['999999' for _ in pk_fields])
             
             # 生成方法调用
-            method_call_found = self._generate_method_call(method_info, repo_name, f"unit_test_db, {query_param}")
-            method_call_not_found = self._generate_method_call(method_info, repo_name, f"unit_test_db, {not_found_params}")
+            method_call_found = self._generate_method_call(method_info, repo_name, query_param)
+            method_call_not_found = self._generate_method_call(method_info, repo_name, not_found_params)
             
             # 根据返回类型选择断言
             is_count_method = method_info.return_type == "int" or "count" in method_name.lower()
@@ -599,9 +1052,9 @@ from app.modules.{module_name}.models import (
         if is_bool_return:
             # 返回bool的方法（如check_exists）
             if method_name == 'check_exists':
-                method_call_found = self._generate_method_call(method_info, repo_name, f"unit_test_db, {query_param}")
+                method_call_found = self._generate_method_call(method_info, repo_name, query_param)
                 not_found_params = self._generate_not_found_param(query_param)
-                method_call_not_found = self._generate_method_call(method_info, repo_name, f"unit_test_db, {not_found_params}")
+                method_call_not_found = self._generate_method_call(method_info, repo_name, not_found_params)
                 
                 return f'''    def test_{method_name}_found(self, unit_test_db: Session):
         """测试{method_name} - 查询到数据"""
@@ -624,7 +1077,7 @@ from app.modules.{module_name}.models import (
 '''
             else:
                 # 生成方法调用
-                method_call_found = self._generate_method_call(method_info, repo_name, f"unit_test_db, {query_param}")
+                method_call_found = self._generate_method_call(method_info, repo_name, query_param)
                 method_call_not_found = self._generate_method_call(method_info, repo_name, "unit_test_db")
                 
                 return f'''    def test_{method_name}_found(self, unit_test_db: Session):
@@ -649,16 +1102,14 @@ from app.modules.{module_name}.models import (
         elif is_list_return:
             # 返回列表的方法（如list方法、get_user_roles等）
             
-            # 如果有setup_code，说明需要创建依赖实体
-            if setup_code:
-                # 方法需要额外的参数实体（如user_id需要User）
-                entity_creation_with_deps = self._generate_test_entity_creation(model_name, models, "关联数据", with_dependencies=True, module_name=module_name)
-                
-                # 生成方法调用
-                method_call_found = self._generate_method_call(method_info, repo_name, f"unit_test_db, {query_param}")
-                method_call_not_found = self._generate_method_call(method_info, repo_name, "unit_test_db, 999999")
-                
-                return f'''    def test_{method_name}_found(self, unit_test_db: Session):
+            # 生成包含依赖的实体创建代码
+            entity_creation_with_deps = self._generate_test_entity_creation(model_name, models, "关联数据", with_dependencies=True, module_name=module_name)
+            
+            # 生成方法调用
+            method_call_found = self._generate_method_call(method_info, repo_name, query_param)
+            method_call_not_found = self._generate_method_call(method_info, repo_name, "unit_test_db, 999999")
+            
+            return f'''    def test_{method_name}_found(self, unit_test_db: Session):
         """测试{method_name} - 查询到数据"""
         # 准备测试数据
         {entity_creation_with_deps}
@@ -682,104 +1133,27 @@ from app.modules.{module_name}.models import (
         assert isinstance(result, list)
         assert len(result) == 0
 '''
-            
-            # 联合主键的验证逻辑
-            elif has_composite_pk:
-                pk_fields = self._get_primary_key_fields(model_name, models)
-                pk_check = ' and '.join([f'item.{f.name} == entity.{f.name}' for f in pk_fields])
-                
-                # 🎯 正确使用推断的参数，而不是硬编码
-                if needs_todo or not query_param:
-                    # 无法推断参数时才使用硬编码
-                    method_call_found = f"{repo_name}.{method_name}(unit_test_db)  # TODO: 根据实际方法签名调整参数"
-                    method_call_not_found = f"{repo_name}.{method_name}(unit_test_db)  # TODO: 根据实际方法签名调整参数"
-                else:
-                    # 使用推断的参数
-                    method_call_found = self._generate_method_call(method_info, repo_name, f"unit_test_db, {query_param}" if query_param else "unit_test_db")
-                    not_found_param = self._generate_not_found_param(query_param)
-                    method_call_not_found = self._generate_method_call(method_info, repo_name, f"unit_test_db, {not_found_param}")
-                
-                return f'''    def test_{method_name}_found(self, unit_test_db: Session):
-        """测试{method_name} - 查询到数据"""
-        # 准备测试数据
-        {entity_creation}
-        unit_test_db.add(entity)
-        unit_test_db.commit()
         
-        # 执行Repository方法
-        result = {method_call_found}
-        
-        # 验证结果
-        assert isinstance(result, list)
-        # 注意：复杂join查询可能返回空列表（依赖完整的关联链），这里只验证方法正确执行并返回list类型即可
-        if result:
-            assert any({pk_check} for item in result)
-    
-    def test_{method_name}_not_found(self, unit_test_db: Session):
-        """测试{method_name} - 数据不存在"""
-        result = {method_call_not_found}
-        
-        assert isinstance(result, list)
-        # not_found测试不验证len(result)==0，因为数据库中可能有其他测试创建的数据
-'''
-            else:
-                # 🎯 正确使用推断的参数，而不是硬编码
-                if needs_todo or not query_param:
-                    # 无法推断参数时才使用硬编码
-                    method_call_found = f"{repo_name}.{method_name}(unit_test_db)  # TODO: 根据实际方法签名调整参数"
-                    method_call_not_found = f"{repo_name}.{method_name}(unit_test_db)  # TODO: 根据实际方法签名调整参数"
-                else:
-                    # 使用推断的参数
-                    method_call_found = self._generate_method_call(method_info, repo_name, f"unit_test_db, {query_param}" if query_param else "unit_test_db")
-                    not_found_param = self._generate_not_found_param(query_param)
-                    method_call_not_found = self._generate_method_call(method_info, repo_name, f"unit_test_db, {not_found_param}")
-                
-                return f'''    def test_{method_name}_found(self, unit_test_db: Session):
-        """测试{method_name} - 查询到数据"""
-        # 准备测试数据
-        {entity_creation}
-        unit_test_db.add(entity)
-        unit_test_db.commit()
-        
-        # 执行Repository方法
-        result = {method_call_found}
-        
-        # 验证结果
-        assert isinstance(result, list)
-        # 注意：复杂join查询可能返回空列表（依赖完整的关联链），这里只验证方法正确执行并返回list类型即可
-        if result:
-            assert any(item.id == entity.id for item in result)
-    
-    def test_{method_name}_not_found(self, unit_test_db: Session):
-        """测试{method_name} - 数据不存在"""
-        result = {method_call_not_found}
-        
-        assert isinstance(result, list)
-        # not_found测试不验证len(result)==0，因为数据库中可能有其他测试创建的数据
-        assert len(result) == 0
-'''
         else:
             # 返回单个对象的方法（如get_by_id, get_by_username）
             
-            # 如果有setup_code，说明需要创建依赖实体
-            if setup_code:
-                # 生成not_found测试的参数（使用不存在的值替代）
-                not_found_param = self._generate_not_found_param(query_param)
-                
-                # 🎯 根据返回类型选择断言
-                is_count_method = method_info.return_type == "int" or "count" in method_name.lower()
-                if is_count_method:
-                    found_assertion = "assert isinstance(result, int)\n        assert result >= 0  # count方法返回非负整数"
-                    not_found_assertion = "assert result == 0  # count方法返回0"
-                else:
-                    found_assertion = "assert result is not None"
-                    not_found_assertion = "assert result is None"
-                
-                # 生成方法调用
-                method_call_found = self._generate_method_call(method_info, repo_name, f"unit_test_db, {query_param}")
-                method_call_not_found = self._generate_method_call(method_info, repo_name, f"unit_test_db, {not_found_param}")
-                
-                return f'''    def test_{method_name}_found(self, unit_test_db: Session):
+            # 生成not_found测试的参数（使用不存在的值替代）
+            not_found_param = self._generate_not_found_param(query_param)
+            
+            # 🎯 根据返回类型选择断言
+            is_count_method = method_info.return_type == "int" or "count" in method_name.lower()
+            if is_count_method:
+                found_assertion = "assert isinstance(result, int)\n        assert result >= 0  # count方法返回非负整数"
+                not_found_assertion = "assert result == 0  # count方法返回0"
+            else:
+                found_assertion = "assert result is not None"
+                not_found_assertion = "assert result is None"
+            
+            # 生成方法调用
+            method_call_found = self._generate_method_call(method_info, repo_name, query_param)
+            method_call_not_found = self._generate_method_call(method_info, repo_name, not_found_param)
+            
+            return f'''    def test_{method_name}_found(self, unit_test_db: Session):
         """测试{method_name} - 查询到数据"""
         # 准备测试数据
         {entity_creation}
@@ -799,85 +1173,6 @@ from app.modules.{module_name}.models import (
         # 验证结果
         {not_found_assertion}
 '''
-            elif needs_todo or not query_param:
-                # 需要手动调整参数的方法
-                # 生成方法调用
-                method_call = self._generate_method_call(method_info, repo_name, "unit_test_db")
-                
-                return f'''    def test_{method_name}_found(self, unit_test_db: Session):
-        """测试{method_name} - 查询到数据"""
-        # 准备测试数据
-        {entity_creation}
-        unit_test_db.add(entity)
-        unit_test_db.commit()
-        
-        # 执行Repository方法
-        result = {method_call}  # TODO: 根据实际方法签名调整参数
-        
-        # 验证结果
-        assert result is not None
-        # TODO: 添加具体字段验证
-    
-    def test_{method_name}_not_found(self, unit_test_db: Session):
-        """测试{method_name} - 数据不存在"""
-        result = {method_call}  # TODO: 根据实际方法签名调整参数
-        
-        assert result is None or (isinstance(result, list) and len(result) == 0)
-'''
-            else:
-                # 可以自动推断参数的方法
-                # 提取字段名用于验证（避免数字字面量导致的语法错误）
-                if ',' in query_param:
-                    # 多个参数（如联合主键）- 使用第一个字段验证
-                    first_param = query_param.split(',')[0].strip()
-                    if '.' in first_param:
-                        verify_field = first_param.split('.')[-1]
-                    else:
-                        # 参数是字面量（如1），使用id作为验证字段
-                        verify_field = 'id'
-                else:
-                    if '.' in query_param:
-                        verify_field = query_param.split('.')[-1]
-                    else:
-                        # 参数是字面量（如1, True, "test"），使用id作为验证字段
-                        verify_field = 'id'
-                
-                # 生成not_found测试的参数
-                not_found_param = self._generate_not_found_param(query_param)
-                
-                # 🎯 根据返回类型选择断言
-                is_count_method = method_info.return_type == "int" or "count" in method_name.lower()
-                if is_count_method:
-                    found_assertion = "assert isinstance(result, int)\n        assert result >= 0  # count方法返回非负整数"
-                    not_found_assertion = "assert result == 0  # count方法返回0"
-                else:
-                    found_assertion = f"assert result is not None\n        assert result.{verify_field} == entity.{verify_field}"
-                    not_found_assertion = "assert result is None"
-                
-                # 生成方法调用
-                method_call_found = self._generate_method_call(method_info, repo_name, f"unit_test_db, {query_param}")
-                method_call_not_found = self._generate_method_call(method_info, repo_name, f"unit_test_db, {not_found_param}")
-                
-                return f'''    def test_{method_name}_found(self, unit_test_db: Session):
-        """测试{method_name} - 查询到数据"""
-        # 准备测试数据
-        {entity_creation}
-        unit_test_db.add(entity)
-        unit_test_db.commit()
-        
-        # 执行Repository方法
-        result = {method_call_found}
-        
-        # 验证结果
-        {found_assertion}
-    
-    def test_{method_name}_not_found(self, unit_test_db: Session):
-        """测试{method_name} - 数据不存在"""
-        result = {method_call_not_found}
-        
-        # 验证结果
-        {not_found_assertion}
-'''
     
     def _generate_not_found_param(self, query_param: str) -> str:
         """生成not_found测试的参数（将实际值替换为不存在的值）
@@ -885,13 +1180,29 @@ from app.modules.{module_name}.models import (
         🎯 核心改进：
         - 正确处理多参数（如entity.user_id, entity.role_id）
         - 区分字段类型（ID用99999，字符串用"nonexistent"）
+        - ✅ 保留unit_test_db前缀（修复参数缺失问题）
         """
+        # ✅ 修复：如果参数以unit_test_db开头，提取它并保留
+        db_prefix = ""
+        business_params = query_param
+        
+        if query_param.startswith("unit_test_db"):
+            # 分离db参数和业务参数
+            parts = query_param.split(',', 1)
+            db_prefix = parts[0].strip()  # "unit_test_db"
+            business_params = parts[1].strip() if len(parts) > 1 else ""
+        
+        # 如果没有业务参数，只返回db
+        if not business_params:
+            return db_prefix if db_prefix else "unit_test_db"
+        
+        # 处理业务参数
         # 如果参数中包含entity.xxx，替换为字面量
-        if 'entity.' in query_param:
+        if 'entity.' in business_params:
             # 提取字段名
-            if ',' in query_param:
+            if ',' in business_params:
                 # 多个参数（如entity.user_id, entity.role_id）
-                params = query_param.split(',')
+                params = business_params.split(',')
                 not_found_params = []
                 for param in params:
                     param = param.strip()
@@ -907,19 +1218,21 @@ from app.modules.{module_name}.models import (
                     else:
                         # 保留其他参数
                         not_found_params.append(param)
-                return ', '.join(not_found_params)
+                result = ', '.join(not_found_params)
+                return f"{db_prefix}, {result}" if db_prefix else result
             else:
                 # 单个参数
-                field_name = query_param.replace('entity.', '').strip()
+                field_name = business_params.replace('entity.', '').strip()
                 if field_name.endswith('_id') or field_name == 'id':
-                    return '999999'
+                    result = '999999'
                 else:
-                    return '"nonexistent_value"'
+                    result = '"nonexistent_value"'
+                return f"{db_prefix}, {result}" if db_prefix else result
         else:
             # 已经是字面量（如"cart.id, 1"），需要处理多参数
-            if ',' in query_param:
+            if ',' in business_params:
                 # 多个参数，替换每个参数为不存在的值
-                params = query_param.split(',')
+                params = business_params.split(',')
                 not_found_params = []
                 for param in params:
                     param = param.strip()
@@ -930,10 +1243,12 @@ from app.modules.{module_name}.models import (
                     else:
                         # 其他类型，使用字符串
                         not_found_params.append('"nonexistent_value"')
-                return ', '.join(not_found_params)
+                result = ', '.join(not_found_params)
+                return f"{db_prefix}, {result}" if db_prefix else result
             else:
                 # 单个参数，替换为不存在的值
-                return '"nonexistent_value_12345"'
+                result = '"nonexistent_value_12345"'
+                return f"{db_prefix}, {result}" if db_prefix else result
     
     def _generate_delete_verification(self, is_soft_delete: bool, model_name: str, filter_condition: str) -> str:
         """生成删除验证逻辑（通用方法）
@@ -1411,7 +1726,7 @@ from app.modules.{module_name}.models import (
         returns_none = method_info.return_type == 'None'
         
         # 🔥 检查delete方法的参数类型（接收对象还是ID）
-        # parameters: [(name, type), ...], 跳过'self', 'db', 'cls'
+        # parameters: [(name, type, kind), ...], 跳过'self', 'db', 'cls'
         delete_params = [p for p in method_info.parameters if p[0] not in ['self', 'db', 'cls']]
         # 如果第一个参数类型包含模型名（如Role），说明接收对象；否则接收ID
         accepts_entity = False
@@ -1599,7 +1914,7 @@ from app.modules.{module_name}.models import (
                         test_args = []
                         additional_setup = []  # 额外的变量设置（如user）
                         
-                        for param_name, param_type in delete_params:
+                        for param_name, param_type, param_kind in delete_params:
                             if 'list' in param_type.lower() or 'List' in param_type:
                                 # List类型参数，传入[entity_id]
                                 test_args.append(f"[entity_id]")
@@ -1835,6 +2150,7 @@ from app.modules.{module_name}.models import (
     def generate_repository_query_test(
         self,
         method_info: RepositoryMethodInfo,
+        repo_info: RepositoryInfo,
         model_name: str,
         repo_name: str,
         module_name: str,
@@ -1845,8 +2161,16 @@ from app.modules.{module_name}.models import (
         🎯 核心改进：
         1. 智能识别返回类型（int, List, Optional等）
         2. 根据返回类型生成正确的断言
-        3. 智能推断方法参数
+        3. 使用统一的参数生成方法（不再推断，直接使用RepositoryAnalyzer数据）
         4. 🔧 从返回类型推断要创建的实体（支持跨模块查询）
+        
+        Args:
+            method_info: 方法信息
+            repo_info: Repository信息（含model_name和import_aliases）
+            model_name: 模型名称
+            repo_name: Repository名称
+            module_name: 模块名称
+            models: 模型字典
         """
         method_name = method_info.name
         
@@ -1868,8 +2192,8 @@ from app.modules.{module_name}.models import (
         is_list_method = 'List[' in return_type or 'list[' in return_type or method_info.method_type in ['list', 'search']
         is_optional = 'Optional[' in return_type or return_type.endswith('| None')
         
-        # 生成参数调用（从方法签名智能推断）
-        param_call = self._generate_method_call_params(method_info, "unit_test_db")
+        # ✅ 使用统一的参数生成方法（不再推断，直接使用RepositoryAnalyzer数据）
+        param_call = self._generate_test_params(method_info, repo_info, models)
         
         # 生成正确的Repository方法调用
         method_call = self._generate_method_call(method_info, repo_name, param_call)
@@ -1975,13 +2299,13 @@ from app.modules.{module_name}.models import (
             if method_info.method_type == "create":
                 test_methods.append(self.generate_repository_create_test(method_info, model_name, repo_name, module_name, models))
             elif method_info.method_type == "read":
-                test_methods.append(self.generate_repository_read_test(method_info, model_name, repo_name, module_name, models))
+                test_methods.append(self.generate_repository_read_test(method_info, repo_info, model_name, repo_name, module_name, models))
             elif method_info.method_type == "update":
                 test_methods.append(self.generate_repository_update_test(method_info, model_name, repo_name, module_name, models))
             elif method_info.method_type == "delete":
                 test_methods.append(self.generate_repository_delete_test(method_info, model_name, repo_name, module_name, models))
             else:  # query, count, exists等其他类型
-                test_methods.append(self.generate_repository_query_test(method_info, model_name, repo_name, module_name, models))
+                test_methods.append(self.generate_repository_query_test(method_info, repo_info, model_name, repo_name, module_name, models))
         
         test_class = f'''
 @pytest.mark.unit
@@ -2751,24 +3075,39 @@ class Test{repo_name}:
     def _get_minimal_cross_module_fields(self, model_name: str) -> str:
         """为跨模块依赖生成最小字段参数
         
+        使用ModelAnalyzer自动获取模型信息，而非硬编码。
+        
         Args:
             model_name: 跨模块模型名称
             
         Returns:
             str: 字段参数字符串，如 'username="test_user", email="test@example.com"'
         """
-        # 针对常见的跨模块模型提供最小字段映射
-        minimal_fields_map = {
-            'User': 'username="test_user", email="test@example.com", password_hash="test_hash"',
-            'Product': 'name="测试商品", price=9.99',
-            'Category': 'name="测试分类"', 
-            'Brand': 'name="测试品牌"',
-            'Order': 'user_id=1, status="pending"',
-            'SKU': 'sku_code="TEST-SKU", price=9.99, product_id=1',
-            'Cart': 'user_id=1',  # Cart只需要user_id
-        }
+        # 🔍 使用ModelAnalyzer自动获取模型信息
+        model_info = self.model_analyzer.get_model_info(model_name)
         
-        return minimal_fields_map.get(model_name, 'name="测试数据"')
+        if model_info:
+            # 自动生成最小字段参数
+            required_fields = []
+            for field in model_info.fields:
+                if not field.nullable and not field.primary_key and not field.foreign_key:
+                    # 必填字段且不是主键、外键
+                    if field.python_type == 'str':
+                        required_fields.append(f'{field.name}="test_{field.name}"')
+                    elif field.python_type == 'int':
+                        required_fields.append(f'{field.name}=1')
+                    elif field.python_type == 'float':
+                        required_fields.append(f'{field.name}=9.99')
+                    elif field.python_type == 'bool':
+                        required_fields.append(f'{field.name}=True')
+                    elif field.python_type == 'Decimal':
+                        required_fields.append(f'{field.name}=Decimal("9.99")')
+            
+            if required_fields:
+                return ', '.join(required_fields)
+        
+        # 后备方案（如果ModelAnalyzer未找到模型）
+        return 'name="测试数据"'
     
     def _get_minimal_fields_for_model(self, model_name: str, models: Dict[str, ModelInfo]) -> str:
         """为模块内模型生成最小字段参数
@@ -2804,26 +3143,22 @@ class Test{repo_name}:
     def _get_cross_module_import(self, model_name: str) -> str:
         """获取跨模块模型的import语句
         
+        使用ModelAnalyzer自动查找模型所属模块，而非硬编码。
+        
         Args:
             model_name: 跨模块模型名称
             
         Returns:
             str: import语句
         """
-        # 常见的跨模块模型到模块名的映射
-        model_to_module_map = {
-            'User': 'user_auth',
-            'Product': 'product_catalog', 
-            'Category': 'product_catalog',
-            'Brand': 'product_catalog',
-            'Order': 'order_management',
-            'SKU': 'product_catalog',
-            'CartItem': 'shopping_cart',
-            'Cart': 'shopping_cart',
-        }
+        # 🔍 使用ModelAnalyzer自动查找模型所属模块
+        module_name = self.model_analyzer.get_module_for_model(model_name)
         
-        module_name = model_to_module_map.get(model_name, 'unknown')
-        return f'from app.modules.{module_name}.models import {model_name}'
+        if module_name:
+            return f'from app.modules.{module_name}.models import {model_name}'
+        else:
+            # 后备方案（如果ModelAnalyzer未找到模型）
+            return f'# TODO: 未找到模型 {model_name} 的模块，请手动添加import'
 
     def _get_primary_key_fields(
         self,
@@ -2874,18 +3209,19 @@ class Test{repo_name}:
         all_parts = positional_parts + keyword_parts
         return ', '.join(all_parts)
     
-    def _infer_query_parameter(
+    def _infer_entity_from_param(
         self,
-        method_info: RepositoryMethodInfo,
-        model_name: str,
-        models: Dict[str, ModelInfo],
-        module_name: str = 'unknown'
-    ) -> Tuple[str, str, bool]:
-        """推断自定义查询方法需要的参数(通用化改进版)
+        param_name: str,
+        param_type: str,
+        models: Dict[str, ModelInfo]
+    ) -> Optional[str]:
+        """从参数名和类型推断对应的实体类型(通用化推断)
         
-        通过分析方法签名自动推断参数:
-        - get_by_username -> entity.username
-        - get_user_roles(user_id: int) -> 需要创建User,传入user.id
+        推断规则:
+        1. user_id: int -> User (ID参数)
+        2. user: User -> User (对象参数)
+        3. role_id: int -> Role (ID参数)
+        4. role: Role -> Role (对象参数)
         - get_role_users(role_id: int) -> 需要创建Role,传入role.id
         - get (联合主键) -> 需要所有主键字段
         
@@ -2993,48 +3329,28 @@ class Test{repo_name}:
                         else:
                             add_param(param_kind, param_name, f'entity.{param_name}')
                 else:
-                    # 无法推断实体,尝试从方法名推断字段
-                    # get_by_username(username: str) -> entity.username
-                    # get_by_email(email: str) -> entity.email
-                    # find_by_name_and_parent(name: str, parent_id: Optional[int]) -> entity.name, None
+                    # 🎯 核心修复：无法通过_infer_entity_from_param推断实体时，
+                    # 使用_resolve_param_value统一处理（支持字段检查、逻辑映射等）
+                    # 这样可以复用所有参数解析逻辑，避免重复代码
                     
-                    # 🔧 修复：去除Optional/List等包装，提取基础类型
-                    clean_type = param_type.replace('Optional[', '').replace(']', '').replace('List[', '').strip()
+                    # 获取当前Repository对应的模型信息
+                    from ..utils.repository_info import RepositoryInfo
+                    repo_info = RepositoryInfo(
+                        name=f"{entity_name}Repository",  # 使用已推断的entity_name
+                        model_name=entity_name,
+                        methods=[]
+                    )
                     
-                    if method_name.startswith('get_by_') and clean_type == 'str':
-                        field_name = method_name[7:]  # 移除'get_by_'
-                        if '_or_' in field_name:
-                            field_name = field_name.split('_or_')[0]  # 使用第一个字段
-                        add_param(param_kind, param_name, f'entity.{field_name}')
-                    elif clean_type == 'int':
-                        # int类型参数：如果是_id结尾且Optional，使用None；否则使用1
-                        if param_name.endswith('_id') and 'Optional' in param_type:
-                            add_param(param_kind, param_name, 'None')
-                        else:
-                            add_param(param_kind, param_name, '1')
-                    elif clean_type == 'str':
-                        # 🔧 修复：str参数应该使用entity的对应字段，而不是字面量
-                        # 尝试从参数名推断字段名（如name → entity.name）
-                        add_param(param_kind, param_name, f'entity.{param_name}')
-                    elif clean_type == 'bool':
-                        add_param(param_kind, param_name, 'True')
-                    elif 'Optional' in param_type:
-                        # Optional类型参数：
-                        # 如果参数名对应实体字段（如status, name），使用entity.param_name
-                        # 否则使用None
-                        if param_name in ['status', 'name', 'type', 'category', 'priority']:
-                            add_param(param_kind, param_name, f'entity.{param_name}')
-                        else:
-                            add_param(param_kind, param_name, 'None')
-                    else:
-                        # 其他类型（如枚举OrderStatus），尝试使用参数名推断字段
-                        # 如果参数名对应实体字段，使用entity.param_name
-                        if param_name.endswith('_id'):
-                            add_param(param_kind, param_name, 'entity.id')
-                        elif param_name in ['status', 'name', 'type', 'category', 'priority']:
-                            add_param(param_kind, param_name, f'entity.{param_name}')
-                        else:
-                            add_param(param_kind, param_name, 'None')
+                    # 调用统一的参数值解析方法
+                    param_value = self._resolve_param_value(
+                        param_name=param_name,
+                        param_type=param_type,
+                        repo_info=repo_info,
+                        models=models,
+                        entity_var='entity'  # get测试的entity变量固定为'entity'
+                    )
+                    
+                    add_param(param_kind, param_name, param_value)
             
             # 生成参数字符串（根据参数类别生成正确的调用语法）
             setup_code = '\n        '.join(setup_code_lines) if setup_code_lines else ''
@@ -3062,6 +3378,66 @@ class Test{repo_name}:
                 return ('', '', True)
             return ('', 'entity.id', False)
     
+    def _extract_entity_type_from_creation(self, entity_creation: str) -> Optional[str]:
+        """从entity创建代码中提取entity的实际类型
+        
+        通用化设计：通过正则匹配entity创建表达式，提取类型名
+        
+        支持的模式：
+        1. Factory模式: entity = UserFactory.create()
+           提取：User（从UserFactory）
+        
+        2. 直接构造: entity = Order(...)
+           提取：Order
+        
+        3. 多行代码（带依赖创建）:
+           user = UserFactory.create()
+           entity = Order(..., user_id=user.id)
+           提取：Order（最后一行的entity赋值）
+        
+        Args:
+            entity_creation: entity创建代码字符串
+            
+        Returns:
+            str: entity的类型名（如"User", "Order"），如果无法提取则返回None
+            
+        示例：
+            >>> _extract_entity_type_from_creation("entity = UserFactory.create()")
+            "User"
+            >>> _extract_entity_type_from_creation("entity = Order(order_number='test')")
+            "Order"
+        """
+        import re
+        
+        # 模式1: entity = XxxFactory.create()
+        # 匹配：entity = UserFactory.create()
+        factory_pattern = r'entity\s*=\s*([A-Z][a-zA-Z0-9_]*)Factory\.create\('
+        match = re.search(factory_pattern, entity_creation)
+        if match:
+            return match.group(1)  # 返回 "User"
+        
+        # 模式2: entity = ModelName(...)
+        # 匹配：entity = Order(...)
+        # 注意：需要排除Factory模式，所以要求没有"Factory"字样
+        if 'Factory' not in entity_creation:
+            direct_pattern = r'entity\s*=\s*([A-Z][a-zA-Z0-9_]*)\s*\('
+            match = re.search(direct_pattern, entity_creation)
+            if match:
+                return match.group(1)  # 返回 "Order"
+        
+        # 模式3: 多行代码，提取最后一个entity赋值
+        # 分割成行，找最后一行的entity赋值
+        lines = entity_creation.split('\n')
+        for line in reversed(lines):
+            if 'entity' in line and '=' in line:
+                # 递归调用处理单行
+                entity_type = self._extract_entity_type_from_creation(line.strip())
+                if entity_type:
+                    return entity_type
+        
+        # 无法提取
+        return None
+    
     def _infer_entity_from_param(
         self,
         param_name: str,
@@ -3076,17 +3452,32 @@ class Test{repo_name}:
         3. role_id: int -> Role (ID参数)
         4. role: Role -> Role (对象参数)
         
+        注意：使用CrossModuleDependencyResolver支持跨模块推断
+        
         Args:
             param_name: 参数名(如user_id或user)
             param_type: 参数类型(如int或User)
-            models: 所有模型信息
+            models: 当前模块的模型信息（用于兼容性，优先使用全局ModelAnalyzer）
             
         Returns:
             str: 实体名称(如User),如果无法推断返回None
         """
+        # 🔧 优先使用dependency_resolver的ModelAnalyzer查找所有模块的模型
+        all_models_dict = {}
+        if hasattr(self, 'dependency_resolver') and self.dependency_resolver:
+            # 从ModelAnalyzer获取所有模块的所有模型
+            all_models_info = self.dependency_resolver.model_analyzer.get_all_models()
+            # all_models_info格式: {module_name: {model_name: ModelInfo}}
+            for module_models in all_models_info.values():
+                all_models_dict.update(module_models)
+        
+        # 如果没有dependency_resolver，回退到使用传入的models字典
+        if not all_models_dict:
+            all_models_dict = models
+        
         # 情况1: 对象类型参数(如user: User)
-        # 检查参数类型是否直接是模型名
-        if param_type in models:
+        # 检查参数类型是否直接是模型名（在所有模块中查找）
+        if param_type in all_models_dict:
             return param_type
         
         # 情况2: ID参数(如user_id: int)
@@ -3103,7 +3494,7 @@ class Test{repo_name}:
             ]
             
             for candidate in candidates:
-                if candidate in models:
+                if candidate in all_models_dict:
                     return candidate
         
         # 情况3: 对象参数但类型名不标准(如user: 'User'带引号)
@@ -3115,7 +3506,7 @@ class Test{repo_name}:
         ]
         
         for candidate in candidates:
-            if candidate in models:
+            if candidate in all_models_dict:
                 return candidate
         
         return None
@@ -3153,91 +3544,7 @@ class Test{repo_name}:
         model_name = ''.join(word.capitalize() for word in parts)
         
         return model_name
-    
-    def _generate_method_call_params(
-        self,
-        method_info: RepositoryMethodInfo,
-        db_var: str = "unit_test_db",
-        entity_var: str = "entity",
-        **context
-    ) -> str:
-        """智能生成方法调用参数列表
-        
-        Args:
-            method_info: 方法信息
-            db_var: 数据库session变量名
-            entity_var: 实体变量名（如果方法需要）
-            context: 额外上下文变量（如user_id, role_id等）
-            
-        Returns:
-            str: 参数调用字符串，如 "unit_test_db, entity.id"
-        """
-        # db参数是第一个位置参数（特殊处理，不使用_build_param_string）
-        db_param = db_var
-        
-        # 存储其他参数：(param_kind, param_name, param_value)
-        param_parts = []
-        
-        # 遍历方法参数（跳过db参数）
-        for param_name, param_type, param_kind in method_info.parameters:
-            if param_name == 'db':
-                continue
-            
-            # 🎯 简化的参数推断策略：优先从entity获取字段值
-            param_value = None
-            
-            # 策略0: 如果参数名就是entity（如refresh(entity)），直接传入entity变量
-            if param_name == 'entity':
-                param_value = entity_var
-            
-            # 策略1: 如果参数名对应entity的字段（如status, user_id, id等），直接使用entity.字段名
-            # 这是最自然的映射：参数名 → 实体字段名
-            # 例如：status参数 → entity.status，user_id参数 → entity.user_id
-            elif param_name in ['id', 'status', 'name', 'email', 'username', 'phone'] or param_name.endswith('_id'):
-                param_value = f"{entity_var}.{param_name}"
-            
-            # 策略2: context中有显式提供的值
-            elif param_name in context:
-                param_value = context[param_name]
-            
-            # 策略3: 特殊参数类型的默认值
-            elif param_name in ['data', 'update_data', 'filters'] or 'dict' in param_type.lower():
-                param_value = "{}"
-            elif param_name in ['skip', 'offset']:
-                param_value = "0"
-            elif param_name in ['limit', 'count']:
-                param_value = "100"
-            
-            # 策略4: 根据参数类型推断（仅作为后备）
-            elif param_type:
-                clean_type = param_type.replace('Optional[', '').replace(']', '').replace('List[', '').strip()
-                
-                if 'int' in clean_type.lower():
-                    param_value = "0"
-                elif 'str' in clean_type.lower():
-                    param_value = '""'
-                elif 'bool' in clean_type.lower():
-                    param_value = "False"
-                elif clean_type and clean_type[0].isupper() and clean_type not in ['Session', 'Any', 'Type', 'Union']:
-                    # 实体类型参数，传入整个entity
-                    param_value = entity_var
-                else:
-                    param_value = "None"
-            else:
-                param_value = "None"
-            
-            # 添加参数到列表（带参数类别和名称）
-            param_parts.append((param_kind, param_name, param_value))
-        
-        # 使用_build_param_string生成正确的调用语法（支持keyword-only参数）
-        business_params = self._build_param_string(param_parts)
-        
-        # 拼接：db参数 + 业务参数
-        if business_params:
-            return f"{db_param}, {business_params}"
-        else:
-            return db_param
-    
+
     def _generate_test_value_by_field_type(
         self,
         field_info: FieldInfo,

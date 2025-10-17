@@ -88,18 +88,21 @@ labels:
 
 ## 3. 接口列表
 
-| # | 接口名称 | 方法 | 路径 | 描述 | 角色权限 | 幂等性 |
+| # | 接口名称 | 方法 | 完整路径 | 描述 | 角色权限 | 幂等性 |
 |---|----------|------|------|------|----------|--------|
-| 1 | 创建订单 | POST | `/orders` | 创建新订单并预占库存 | `user` | ❌ 非幂等 |
-| 2 | 查询订单列表 | GET | `/orders` | 按状态/分页获取订单列表 | `user`（仅本人）/`admin` | ✅ 幂等 |
-| 3 | 获取订单详情 | GET | `/orders/{order_id}` | 获取单个订单的详细信息 | `user`（仅本人）/`admin` | ✅ 幂等 |
-| 4 | 更新订单状态 | PATCH | `/orders/{order_id}/status` | 管理端更新订单状态 | `admin`/`super_admin` | 🔁 条件幂等（同状态重复请求返回最新状态） |
-| 5 | 取消订单 | POST | `/orders/{order_id}/cancel` | 取消待支付订单并释放库存 | `user`（仅本人）/`admin` | ❌ 非幂等 |
-| 6 | 获取订单商品项 | GET | `/orders/{order_id}/items` | 获取订单内商品项快照 | `user`（仅本人）/`admin` | ✅ 幂等 |
-| 7 | 获取状态历史 | GET | `/orders/{order_id}/history` | 查询订单状态流转历史 | `user`（仅本人）/`admin` | ✅ 幂等 |
-| 8 | 获取订单统计 | GET | `/statistics` | 获取订单数量与金额统计 | `admin`/`super_admin`（可指定 user_id） | ✅ 幂等 |
+| 1 | 创建订单 | POST | `/api/v1/order-management/orders` | 创建新订单并预占库存 | `user` | ❌ 非幂等 |
+| 2 | 查询订单列表 | GET | `/api/v1/order-management/orders` | 按状态/分页获取订单列表 | `user`（仅本人）/`admin` | ✅ 幂等 |
+| 3 | 获取订单详情 | GET | `/api/v1/order-management/orders/{order_id}` | 获取单个订单的详细信息 | `user`（仅本人）/`admin` | ✅ 幂等 |
+| 4 | 更新订单状态 | PATCH | `/api/v1/order-management/orders/{order_id}/status` | 管理端更新订单状态 | `admin`/`super_admin` | 🔁 条件幂等（同状态重复请求返回最新状态） |
+| 5 | 取消订单 | POST | `/api/v1/order-management/orders/{order_id}/cancel` | 取消待支付订单并释放库存 | `user`（仅本人）/`admin` | ❌ 非幂等 |
+| 6 | 获取订单商品项 | GET | `/api/v1/order-management/orders/{order_id}/items` | 获取订单内商品项快照 | `user`（仅本人）/`admin` | ✅ 幂等 |
+| 7 | 获取状态历史 | GET | `/api/v1/order-management/orders/{order_id}/history` | 查询订单状态流转历史 | `user`（仅本人）/`admin` | ✅ 幂等 |
+| 8 | 获取订单统计 | GET | `/api/v1/order-management/statistics` | 获取订单数量与金额统计 | `admin`/`super_admin`（可指定 user_id） | ✅ 幂等 |
 
-> 所有路径均需在业务网关层加上前缀 `/api/v1/order-management`。
+> **路径组成说明**: 
+> - 完整API路径 = Base URL (`/api/v1/order-management`) + 资源路径 (`/orders`, `/statistics`)
+> - Base URL 由主应用在路由注册时统一添加，确保所有模块API路径的一致性
+> - 这种设计符合 RESTful 规范和项目命名标准
 
 ---
 

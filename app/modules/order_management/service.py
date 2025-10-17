@@ -44,6 +44,24 @@ from sqlalchemy.orm import Session
 from app.modules.inventory_management.schemas import ReservationItem
 from app.modules.inventory_management.service import InventoryService
 
+from .error_codes import (
+    OM_INTERNAL_ERROR,
+    OM_ORDER_ACCESS_DENIED,
+    OM_ORDER_ALREADY_PAID,
+    OM_ORDER_CANNOT_CANCEL,
+    OM_ORDER_CANNOT_PAY,
+    OM_ORDER_NOT_FOUND,
+    OM_ORDER_STATUS_INVALID,
+    OM_PRODUCT_NOT_FOUND,
+    OM_PRODUCT_UNAVAILABLE,
+    OM_SKU_NOT_FOUND,
+    OM_SKU_UNAVAILABLE,
+    OM_STOCK_DEDUCT_FAILED,
+    OM_STOCK_INSUFFICIENT,
+    OM_STOCK_RELEASE_FAILED,
+    OM_STOCK_RESERVE_FAILED,
+    OM_USER_NOT_FOUND,
+)
 from .models import Order, OrderItem, OrderStatus, OrderStatusHistory
 from .repository import OrderRepository
 from .schemas import OrderCreateRequest, OrderItemRequest
@@ -134,7 +152,7 @@ class OrderService:
                 raise self._http_error(
                     status.HTTP_404_NOT_FOUND,
                     "用户不存在",
-                    "OM_USER_NOT_FOUND",
+                    OM_USER_NOT_FOUND,
                 )
 
             # 2. 验证并预占库存
@@ -161,7 +179,7 @@ class OrderService:
             raise self._http_error(
                 status.HTTP_500_INTERNAL_SERVER_ERROR,
                 f"订单创建失败: {str(exc)}",
-                "OM_INTERNAL_ERROR",
+                OM_INTERNAL_ERROR,
             )
 
     async def _validate_and_reserve_stock(
@@ -200,13 +218,13 @@ class OrderService:
             raise self._http_error(
                 status.HTTP_400_BAD_REQUEST,
                 f"库存验证失败: {str(exc)}",
-                "OM_INSUFFICIENT_STOCK",
+                OM_STOCK_INSUFFICIENT,
             )
         except Exception as exc:
             raise self._http_error(
                 status.HTTP_500_INTERNAL_SERVER_ERROR,
                 f"库存操作失败: {str(exc)}",
-                "OM_DEPENDENCY_TIMEOUT",
+                OM_STOCK_RESERVE_FAILED,
             )
 
     async def _validate_products_and_calculate_amount(
@@ -230,7 +248,7 @@ class OrderService:
                 raise self._http_error(
                     status.HTTP_404_NOT_FOUND,
                     f"商品ID {item.product_id} 不存在",
-                    "OM_PRODUCT_NOT_FOUND",
+                    OM_PRODUCT_NOT_FOUND,
                 )
 
             sku = self.order_repository.get_sku_by_id(item.sku_id)
@@ -238,21 +256,21 @@ class OrderService:
                 raise self._http_error(
                     status.HTTP_404_NOT_FOUND,
                     f"SKU ID {item.sku_id} 不存在",
-                    "OM_SKU_NOT_FOUND",
+                    OM_SKU_NOT_FOUND,
                 )
 
             if product.status != "active":
                 raise self._http_error(
                     status.HTTP_400_BAD_REQUEST,
                     f"商品 {product.name} 当前不可购买",
-                    "OM_PRODUCT_UNAVAILABLE",
+                    OM_PRODUCT_UNAVAILABLE,
                 )
 
             if not sku.is_active:
                 raise self._http_error(
                     status.HTTP_400_BAD_REQUEST,
                     f"SKU {sku.sku_code} 当前不可购买",
-                    "OM_SKU_UNAVAILABLE",
+                    OM_SKU_UNAVAILABLE,
                 )
 
             # 使用SKU当前价格（防止价格篡改）
@@ -374,7 +392,7 @@ class OrderService:
             raise self._http_error(
                 status.HTTP_500_INTERNAL_SERVER_ERROR,
                 f"订单数据创建失败: {str(exc)}",
-                "OM_INTERNAL_ERROR",
+                OM_INTERNAL_ERROR,
             )
 
     async def get_order_by_id(
@@ -401,7 +419,7 @@ class OrderService:
             raise self._http_error(
                 status.HTTP_500_INTERNAL_SERVER_ERROR,
                 f"获取订单失败: {str(exc)}",
-                "OM_INTERNAL_ERROR",
+                OM_INTERNAL_ERROR,
             )
 
     async def get_orders_list(
@@ -432,7 +450,7 @@ class OrderService:
             raise self._http_error(
                 status.HTTP_500_INTERNAL_SERVER_ERROR,
                 f"获取订单列表失败: {str(exc)}",
-                "OM_INTERNAL_ERROR",
+                OM_INTERNAL_ERROR,
             )
 
     async def update_order_status(
@@ -469,7 +487,7 @@ class OrderService:
                 raise self._http_error(
                     status.HTTP_404_NOT_FOUND,
                     "订单不存在",
-                    "OM_NOT_FOUND",
+                    OM_ORDER_NOT_FOUND,
                 )
 
             target_status = (
@@ -481,7 +499,7 @@ class OrderService:
                 raise self._http_error(
                     status.HTTP_400_BAD_REQUEST,
                     f"无法从状态 {old_status} 转换到 {target_status}",
-                    "OM_INVALID_STATUS_TRANSITION",
+                    OM_ORDER_STATUS_INVALID,
                 )
 
             await self._handle_status_change_business_logic(
@@ -511,7 +529,7 @@ class OrderService:
             raise self._http_error(
                 status.HTTP_500_INTERNAL_SERVER_ERROR,
                 f"更新订单状态失败: {str(exc)}",
-                "OM_INTERNAL_ERROR",
+                OM_INTERNAL_ERROR,
             )
 
     def _is_valid_status_transition(self, current_status: str, new_status: str) -> bool:
@@ -604,7 +622,7 @@ class OrderService:
             raise self._http_error(
                 status.HTTP_500_INTERNAL_SERVER_ERROR,
                 f"库存确认失败: {str(exc)}",
-                "OM_DEPENDENCY_TIMEOUT",
+                OM_STOCK_DEDUCT_FAILED,
             )
 
     async def cancel_order(
@@ -626,14 +644,14 @@ class OrderService:
             raise self._http_error(
                 status.HTTP_404_NOT_FOUND,
                 "订单不存在",
-                "OM_NOT_FOUND",
+                OM_ORDER_NOT_FOUND,
             )
 
         if order.status != OrderStatus.PENDING.value:
             raise self._http_error(
                 status.HTTP_400_BAD_REQUEST,
                 "订单状态不允许取消",
-                "OM_CANNOT_CANCEL",
+                OM_ORDER_CANNOT_CANCEL,
             )
 
         updated_order = await self.update_order_status(
@@ -664,7 +682,7 @@ class OrderService:
             raise self._http_error(
                 status.HTTP_500_INTERNAL_SERVER_ERROR,
                 f"获取订单项失败: {str(exc)}",
-                "OM_INTERNAL_ERROR",
+                OM_INTERNAL_ERROR,
             )
 
     async def get_order_status_history(self, order_id: int) -> List[OrderStatusHistory]:
@@ -684,7 +702,7 @@ class OrderService:
             raise self._http_error(
                 status.HTTP_500_INTERNAL_SERVER_ERROR,
                 f"获取状态历史失败: {str(exc)}",
-                "OM_INTERNAL_ERROR",
+                OM_INTERNAL_ERROR,
             )
 
     async def calculate_order_statistics(
@@ -720,7 +738,7 @@ class OrderService:
             raise self._http_error(
                 status.HTTP_500_INTERNAL_SERVER_ERROR,
                 f"计算统计信息失败: {str(exc)}",
-                "OM_INTERNAL_ERROR",
+                OM_INTERNAL_ERROR,
             )
 
     async def get_orders_by_status(
@@ -743,5 +761,10 @@ class OrderService:
             raise self._http_error(
                 status.HTTP_500_INTERNAL_SERVER_ERROR,
                 f"获取订单列表失败: {str(exc)}",
-                "OM_INTERNAL_ERROR",
+                OM_INTERNAL_ERROR,
             )
+
+
+
+
+

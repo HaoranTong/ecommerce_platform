@@ -127,6 +127,12 @@
         "InventoryReservation": ["user_auth.User", "product_catalog.Category", "product_catalog.Brand", "product_catalog.Product", "product_catalog.SKU"],
         "InventoryTransaction": ["user_auth.User", "product_catalog.Category", "product_catalog.Brand", "product_catalog.Product", "product_catalog.SKU"]
       }
+    },
+    "api_test_business_rules": {
+      "_description": "API测试的业务规则配置，定义跨模块业务依赖（不是外键依赖）",
+      "sku_requires": ["inventory_management.InventoryStock"],
+      "order_creation_requires": ["inventory_management.InventoryStock"],
+      "cart_item_requires": []
     }
     ,
     "repository_priority_fields": [
