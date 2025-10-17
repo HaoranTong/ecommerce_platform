@@ -574,6 +574,8 @@ def clean_integration_test_data(request):
 
             # 按照依赖顺序清理数据
             cleanup_tables = [
+                "cart_items",  # 购物车项（依赖carts和products）
+                "carts",  # 购物车（依赖users）
                 "order_items",
                 "order_status_history",
                 "refunds",

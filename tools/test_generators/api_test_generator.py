@@ -52,6 +52,7 @@ API测试生成器 - 清理版本
 """
 
 import re
+import json
 from pathlib import Path
 from typing import Dict, List, Any, Optional
 from .base_generator import BaseTestGenerator, ModelInfo, RouterInfo
@@ -65,6 +66,38 @@ class APITestGenerator(BaseTestGenerator):
         # 初始化跨模块依赖解析器
         from .utils.cross_module_dependency_resolver import CrossModuleDependencyResolver
         self.cross_module_resolver = CrossModuleDependencyResolver(project_root)
+        
+        # 从主配置文件加载路由参数到模型的映射表
+        self.route_model_mapping = self._load_route_model_mapping()
+    
+    def _load_route_model_mapping(self) -> Dict[str, Dict[str, str]]:
+        """从主配置文件加载路由参数到模型名的映射
+        
+        优先级：
+        1. 主配置文件 test_generator_config.json 的 route_parameter_to_model_mapping
+        2. 独立映射文件 route_model_mapping.json (备用，向后兼容)
+        3. 空字典（生成时报错）
+        """
+        # 优先从主配置文件读取
+        if 'business_logic_patterns' in self.config:
+            patterns = self.config['business_logic_patterns']
+            if 'route_parameter_to_model_mapping' in patterns:
+                mapping = patterns['route_parameter_to_model_mapping']
+                # 过滤掉下划线开头的元数据字段
+                return {k: v for k, v in mapping.items() if not k.startswith('_')}
+        
+        # 备用：尝试从独立映射文件读取（向后兼容）
+        mapping_file = self.project_root / "tools" / "test_generators" / "config" / "route_model_mapping.json"
+        try:
+            with open(mapping_file, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+                return data.get('mappings', {})
+        except FileNotFoundError:
+            print(f"⚠️ 警告：未找到路由映射配置，生成器将在遇到路径参数时报错")
+            return {}
+        except Exception as e:
+            print(f"⚠️ 警告：加载映射文件失败: {e}")
+            return {}
     
     def generate_tests(self, module_name: str, models: Dict[str, ModelInfo]) -> Dict[str, str]:
         """生成API测试代码"""
@@ -823,13 +856,29 @@ class {class_name}:
                         
                         full_path = full_path.replace(f'{{{entity_type}_id}}', f'{{{entity_var}.id}}')
                     else:
-                        # 无法推断模型名，使用原有逻辑
-                        entity_var = entity_type
-                        create_entity_code = f'''
-        # 使用统一工厂创建{entity_type}实体
-        {entity_var} = StandardTestDataFactory.create_{entity_type}(mysql_integration_db)
-        '''
-                        full_path = full_path.replace(f'{{{entity_type}_id}}', f'{{{entity_var}.id}}')
+                        # 使用映射表获取模型名（唯一数据源）
+                        model_name = self._get_model_from_mapping(module_name, entity_type)
+                        
+                        if model_name:
+                            # 从映射表成功获取模型名
+                            factory_method_name = self._to_snake_case(model_name)
+                            entity_var = entity_type
+                            
+                            # 使用ModelInfo动态查询依赖关系
+                            create_entity_code = self._generate_entity_creation_with_dependencies(
+                                model_name, entity_var, models, module_name, route=route
+                            )
+                            
+                            full_path = full_path.replace(f'{{{entity_type}_id}}', f'{{{entity_var}.id}}')
+                        else:
+                            # 映射表中没有，立即报错（不再尝试推断）
+                            error_msg = (
+                                f"❌ 缺少路由映射：{module_name} 模块的 '{entity_type}' 参数未在映射表中定义\n"
+                                f"   路由: {route.method} {route.path}\n"
+                                f"   解决: 请在 tools/test_generators/config/route_model_mapping.json 中添加:\n"
+                                f'   "{module_name}": {{"{entity_type}": "YourModelName"}}'
+                            )
+                            raise ValueError(error_msg)
                     
                     path_str = f'f"{full_path}"'
                 elif not entity_params:
@@ -1190,6 +1239,20 @@ class {class_name}:
         
         # 策略3：返回直接转换的结果（如 product -> Product）
         return model_candidate
+    
+    def _get_model_from_mapping(self, module_name: str, entity_type: str) -> Optional[str]:
+        """从映射表获取模型名
+        
+        Args:
+            module_name: 模块名（如 'shopping_cart'）
+            entity_type: 实体类型（如 'item'）
+            
+        Returns:
+            模型名（如 'CartItem'），如果映射不存在返回None
+        """
+        if module_name in self.route_model_mapping:
+            return self.route_model_mapping[module_name].get(entity_type)
+        return None
     
     def _needs_complete_chain_for_model(self, model_name: str, module_name: str) -> bool:
         """检查模型是否需要完整数据链

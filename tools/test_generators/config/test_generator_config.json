@@ -80,6 +80,42 @@
       "Category": ["product_catalog"],
       "Brand": ["product_catalog"]
     },
+    "route_parameter_to_model_mapping": {
+      "_description": "路由路径参数到模型名的映射表 - API测试代码生成的唯一数据源",
+      "_usage": "用于解析 {entity_type}_id 路径参数对应的模型名，如 /items/{item_id} 在不同模块对应不同模型",
+      "shopping_cart": {
+        "item": "CartItem",
+        "cart": "Cart"
+      },
+      "order_management": {
+        "item": "OrderItem",
+        "order": "Order",
+        "history": "OrderStatusHistory"
+      },
+      "inventory_management": {
+        "stock": "InventoryStock",
+        "reservation": "InventoryReservation"
+      },
+      "product_catalog": {
+        "category": "Category",
+        "brand": "Brand",
+        "product": "Product",
+        "sku": "SKU"
+      },
+      "user_auth": {
+        "user": "User",
+        "role": "Role"
+      },
+      "payment_service": {
+        "payment": "Payment"
+      },
+      "quality_control": {
+        "cert": "QualityCertificate"
+      },
+      "member_system": {
+        "activity": "MemberActivity"
+      }
+    },
     "table_to_module_mapping": {
       "_description": "表名到模块名的映射，用于跨模块依赖解析",
       "users": "user_auth",

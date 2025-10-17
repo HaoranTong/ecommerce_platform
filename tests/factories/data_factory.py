@@ -324,22 +324,61 @@ class StandardTestDataFactory:
         return transaction
 
     @staticmethod
-    def create_cart_item(db: Session, user_id: int, sku_id: int, **kwargs) -> CartItem:
+    def create_cart(db: Session, user_id: int, **kwargs):
+        """创建或获取购物车
+        
+        Args:
+            db: 数据库会话
+            user_id: 用户ID（整数）
+            **kwargs: 额外的字段覆盖
+            
+        Returns:
+            Cart对象
+            
+        Note:
+            由于 Cart 表有 user_id 唯一约束（每个用户只能有一个购物车），
+            此方法会先尝试查询现有购物车，不存在时才创建新的。
+        """
+        from app.modules.shopping_cart.models import Cart
+        
+        # 先尝试查询现有购物车
+        existing_cart = db.query(Cart).filter(Cart.user_id == user_id).first()
+        if existing_cart:
+            return existing_cart
+        
+        # 不存在则创建新购物车
+        defaults = {
+            "user_id": user_id,
+        }
+        defaults.update(kwargs)
+        
+        cart = Cart(**defaults)
+        db.add(cart)
+        db.commit()
+        db.refresh(cart)
+        return cart
+
+    @staticmethod
+    def create_cart_item(db: Session, cart_id: int, sku_id: int, **kwargs) -> CartItem:
         """创建购物车项目
 
         Args:
-            user_id: 用户ID（整数）
-            sku_id: SKU的ID（整数，不是sku_code！）
+            db: 数据库会话
+            cart_id: 购物车ID（整数）
+            sku_id: 商品ID（整数，注意：由于历史原因字段名叫sku_id但实际引用products.id）
+            **kwargs: 额外的字段覆盖
+            
+        Returns:
+            CartItem对象
         """
         if not isinstance(sku_id, int):
             raise ValueError(f"sku_id必须是整数类型，当前类型: {type(sku_id)}")
 
         defaults = {
-            "user_id": user_id,
+            "cart_id": cart_id,
             "sku_id": sku_id,
             "quantity": 1,
             "unit_price": Decimal("99.99"),
-            "total_price": Decimal("99.99"),
         }
         defaults.update(kwargs)
 

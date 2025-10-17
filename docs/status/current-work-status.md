@@ -2,9 +2,156 @@
 
 **文档说明**：记录近一周内的工作进展和当前状态，超过一周的内容会转移到work-history-2025-Q4.md
 
-**最后更新**：2025-10-15  
+**最后更新**：2025-10-17  
 **更新周期**：每日更新，每周整理  
-**状态范围**：2025年10月9日 - 2025年10月16日
+**状态范围**：2025年10月11日 - 2025年10月17日
+
+---
+
+## 🎯 当前工作完成（2025-10-17）
+
+### ✅ 测试生成器跨模块依赖修复 + 数据隔离修复
+
+**背景**：在验证通用bug修复后，重新生成3个业务模块API测试时发现shopping_cart模块测试失败（8/10通过）
+
+#### 问题1：工厂方法参数错误
+
+**症状**：
+- shopping_cart测试调用 `create_item()` 方法不存在
+- 实际应该是 `create_cart_item(cart_id, sku_id)`
+
+**根本原因**：
+- commit 1e50408使用错误的映射 `"item": "CartItem"`
+- 生成器推断出 `create_item()` 而不是 `create_cart_item()`
+
+**解决方案**：
+1. 修复 `tests/factories/data_factory.py`:
+   - 添加 `create_cart(db, user_id)` 方法（处理user_id unique约束）
+   - 修复 `create_cart_item(db, cart_id, sku_id)` 使用正确的参数
+
+#### 问题2：生成器跨模块依赖缺失（核心问题）
+
+**症状**：
+- 修复工厂方法后，测试仍失败：`TypeError: create_product() missing 2 required positional arguments: 'category_id' and 'brand_id'`
+- Product的依赖（Category, Brand）没有被生成器自动创建
+
+**根本原因分析**：
+```python
+# tools/generate_test_template.py Line 315 (修复前)
+models = self.analyze_module_models(module_name)  # ❌ 只分析当前模块
+```
+
+**问题链**：
+1. `models` 字典只包含当前模块的模型（Cart, CartItem）
+2. CartItem → sku_id → Product (product_catalog模块)
+3. Product → category_id → Category (product_catalog模块)
+4. Product → brand_id → Brand (product_catalog模块)
+5. 生成器尝试在 `models` 字典中查找Category和Brand → ❌ 找不到
+6. 降级为 `create_product(db)` 不传参数 → 参数缺失错误
+
+**验证过程**：
+1. ✅ 确认外键提取正常：`brand_id -> brands.id`, `category_id -> categories.id`
+2. ✅ 确认依赖解析逻辑正确
+3. ❌ 发现 `models` 字典作用域问题：仅限当前模块
+
+**解决方案**：
+```python
+# tools/generate_test_template.py Line 315-320 (修复后)
+# 使用全局模型分析，支持跨模块依赖解析
+all_modules_models = self.model_analyzer.analyze_all_modules()
+models = {}
+for module_models in all_modules_models.values():
+    models.update(module_models)  # 合并所有模块的模型
+```
+
+**修复效果**：
+- 单模块：2个模型 → 全局：29个模型 ✅
+- 支持跨模块依赖：CartItem → Product → Category + Brand ✅
+
+#### 问题3：测试数据隔离问题
+
+**症状**：
+- 修复跨模块依赖后，仍有2个测试失败
+- 错误：`IntegrityError: (1062, "Duplicate entry '1-1' for key 'cart_items.uk_cart_sku'")`
+
+**根本原因**：
+- `tests/conftest.py` 的 `clean_integration_test_data` fixture清理列表中**缺少 cart_items 和 carts 表**
+- 第一个测试（test_add_item_to_cart）通过API创建了 (cart_id=1, sku_id=1)
+- 第二个测试（test_update_item_quantity）直接在数据库创建相同的 (cart_id=1, sku_id=1)
+- 违反CartItem的unique约束 `uk_cart_sku (cart_id, sku_id)`
+
+**解决方案**：
+```python
+# tests/conftest.py Line 583 (修复后)
+cleanup_tables = [
+    "cart_items",  # 购物车项（依赖carts和products）
+    "carts",       # 购物车（依赖users）
+    "order_items",
+    # ... 其他表
+]
+```
+
+#### 最终验证结果
+
+**重新生成4个业务模块API测试**：
+1. user_auth: 16/16 通过 ✅ (100%)
+2. product_catalog: 20/20 通过 ✅ (100%)
+3. shopping_cart: 10/10 通过 ✅ (100%)
+4. order_management: 11/11 通过 ✅ (100%)
+
+**总计**：57/57 API测试 ✅ (100%通过率)
+
+#### 修复文件清单
+
+1. **tests/factories/data_factory.py**
+   - 添加 `create_cart(db, user_id)` 方法
+   - 修复 `create_cart_item(db, cart_id, sku_id)` 签名
+
+2. **tools/generate_test_template.py**
+   - Line 315-320: 从单模块分析改为全局模块分析
+   - 使用 `analyze_all_modules()` 支持跨模块依赖解析
+
+3. **tests/conftest.py**
+   - Line 583: 清理列表添加 `cart_items` 和 `carts` 表
+
+4. **测试文件（重新生成）**
+   - `tests/integration/test_api/test_user_auth_api.py`
+   - `tests/integration/test_api/test_product_catalog_api.py`
+   - `tests/integration/test_api/test_shopping_cart_api.py`
+   - `tests/integration/test_api/test_order_management_api.py`
+
+#### 技术洞察
+
+**设计教训**：
+1. ❌ 单模块作用域限制了跨模块依赖解析
+2. ✅ 全局模型字典完全兼容单模块场景
+3. ✅ 测试隔离需要覆盖所有依赖表（包括新增模块）
+
+**兼容性验证**：
+- 全局模型查询向后兼容：包含原有模型 + 跨模块模型
+- 不影响现有逻辑：生成器只是 `models` 字典更大了
+- 性能影响：首次加载29个模型（缓存后无影响）
+
+**提交信息**：
+```bash
+fix: 修复测试生成器跨模块依赖和数据隔离问题
+
+1. 工厂方法修复:
+   - 添加 create_cart() 处理 unique 约束
+   - 修复 create_cart_item(cart_id, sku_id) 签名
+
+2. 跨模块依赖支持:
+   - generate_test_template.py 使用全局模型字典
+   - 从 analyze_module_models() → analyze_all_modules()
+   - 支持 CartItem → Product → Category + Brand
+
+3. 测试数据隔离:
+   - conftest.py 清理列表添加 cart_items, carts
+
+4. 验证结果:
+   - 57/57 API测试通过 (user_auth 16, product_catalog 20, 
+     shopping_cart 10, order_management 11)
+```
 
 ---
 

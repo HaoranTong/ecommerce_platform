@@ -1,0 +1,41 @@
+{
+  "comment": "路由参数名到模型名的映射表 - API测试代码生成的唯一数据源",
+  "description": "路径参数 {entity_type}_id → 模型名称的明确映射",
+  "usage": "完全静态映射，不使用推断。缺失映射时立即报错，由人工添加。",
+  "validation": "使用 tools/check_route_mapping.py 工具验证映射表的完整性",
+  
+  "mappings": {
+    "shopping_cart": {
+      "item": "CartItem",
+      "cart": "Cart"
+    },
+    "order_management": {
+      "item": "OrderItem",
+      "order": "Order",
+      "history": "OrderStatusHistory"
+    },
+    "inventory_management": {
+      "stock": "InventoryStock",
+      "reservation": "InventoryReservation"
+    },
+    "product_catalog": {
+      "category": "Category",
+      "brand": "Brand",
+      "product": "Product",
+      "sku": "SKU"
+    },
+    "user_auth": {
+      "user": "User",
+      "role": "Role"
+    },
+    "payment_service": {
+      "payment": "Payment"
+    },
+    "quality_control": {
+      "cert": "QualityCertificate"
+    },
+    "member_system": {
+      "activity": "MemberActivity"
+    }
+  }
+}

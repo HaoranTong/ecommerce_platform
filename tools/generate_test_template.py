@@ -311,11 +311,16 @@ class IntelligentTestGenerator:
         
         # 1. 分析模块结构（四层架构）
         print(f"\n🏗️ 分析模块结构: {module_name}")
-        models = self.analyze_module_models(module_name)
+        # 使用全局模型分析，支持跨模块依赖解析
+        all_modules_models = self.model_analyzer.analyze_all_modules()
+        models = {}
+        for module_models in all_modules_models.values():
+            models.update(module_models)  # 合并所有模块的模型
         repositories = self.analyze_module_repositories(module_name)  # 强制要求Repository层
         
         print(f"\n📊 结构分析完成:")
-        print(f"   Models: {len(models)} 个")
+        print(f"   当前模块Models: {len(self.analyze_module_models(module_name))} 个")
+        print(f"   全局可用Models: {len(models)} 个 (支持跨模块依赖)")
         print(f"   Repositories: {len(repositories)} 个")
 
         # 2. 生成智能数据工厂
