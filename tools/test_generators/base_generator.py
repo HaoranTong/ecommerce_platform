@@ -1129,7 +1129,7 @@ class BaseTestGenerator(ABC):
         else:
             return {"data": fake.word()}
     
-    def _convert_to_dynamic_code(self, field: str, value: Any) -> str:
+    def _convert_to_dynamic_code(self, field: str, value: Any, operation_type: Optional[str] = None) -> str:
         """
         将Schema字段信息转换为动态Faker生成代码
         
@@ -1139,6 +1139,7 @@ class BaseTestGenerator(ABC):
         Args:
             field: 字段名称（用于推断生成策略）
             value: 字段值信息（dict包含type和default，或直接值）
+            operation_type: 操作类型（'POST', 'PUT', 'PATCH'等），用于智能选择枚举值
             
         Returns:
             str: Faker代码字符串（如 'fake.email()' 或 'fake.name()[:50]'）
@@ -1318,6 +1319,42 @@ class BaseTestGenerator(ABC):
             # 字典类型
             elif actual_type is dict:
                 return 'None' if is_optional else '{}'
+            
+            # 枚举类型（Enum subclass）
+            elif hasattr(actual_type, '__mro__') and any(base.__name__ == 'Enum' for base in actual_type.__mro__):
+                # 这是一个枚举类，智能选择枚举值
+                try:
+                    from pydantic_core import PydanticUndefined
+                    enum_values = list(actual_type)
+                    if enum_values:
+                        # 如果有默认值（且不是PydanticUndefined），使用默认值
+                        if field_default is not None and field_default is not PydanticUndefined:
+                            if isinstance(field_default, str):
+                                return f'"{field_default}"'
+                            elif hasattr(field_default, 'value'):
+                                # 默认值是枚举实例
+                                return f'"{field_default.value}"'
+                            else:
+                                return f'{actual_type.__name__}.{field_default.name}'
+                        
+                        # 智能选择枚举值：
+                        # 对于更新操作（PUT/PATCH），选择第二个枚举值以测试状态转换
+                        # 对于创建操作（POST），使用第一个枚举值
+                        if operation_type in ['PUT', 'PATCH'] and len(enum_values) > 1:
+                            # 更新操作：使用第二个值（测试从默认值到其他值的转换）
+                            selected_value = enum_values[1]
+                        else:
+                            # 创建操作或只有一个枚举值：使用第一个值
+                            selected_value = enum_values[0]
+                        
+                        return f'"{selected_value.value}"' if isinstance(selected_value.value, str) else f'{actual_type.__name__}.{selected_value.name}'
+                except Exception as e:
+                    # 打印异常信息用于调试
+                    print(f"⚠️ 枚举处理异常 ({field}): {e}")
+                    import traceback
+                    traceback.print_exc()
+                # 如果枚举值列表为空或有异常，返回None
+                return 'None'
             
             # 其他类型
             else:

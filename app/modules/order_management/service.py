@@ -259,7 +259,9 @@ class OrderService:
                     OM_SKU_NOT_FOUND,
                 )
 
-            if product.status != "active":
+            # 修复: 商品status应该检查"published"而不是"active"
+            # product_catalog模块定义的status枚举值为: draft, published, archived
+            if product.status != "published":
                 raise self._http_error(
                     status.HTTP_400_BAD_REQUEST,
                     f"商品 {product.name} 当前不可购买",

@@ -444,7 +444,10 @@ class {class_name}:
         if self._needs_complete_chain_from_config(foreign_keys, module_name):
             # 使用create_complete_chain创建完整数据链
             return """        # 使用统一工厂创建完整数据链（符合testing-standards.md第1241行规范）
-        user, category, brand, product, sku = StandardTestDataFactory.create_complete_chain(mysql_integration_db)"""
+        # 包含库存记录，确保订单测试时库存验证通过
+        user, category, brand, product, sku, inventory_stock = StandardTestDataFactory.create_complete_chain(
+            mysql_integration_db, with_inventory=True
+        )"""
         else:
             # 简单实体：逐个创建
             entity_creation = []
@@ -486,7 +489,8 @@ class {class_name}:
             data_assignments = []
             for field, value in schema_data.items():
                 # 生成动态调用代码，避免硬编码
-                dynamic_code = self._convert_to_dynamic_code(field, value)
+                # 传递operation_type以便智能选择枚举值
+                dynamic_code = self._convert_to_dynamic_code(field, value, operation_type=route.method)
                 data_assignments.append(f'    "{field}": {dynamic_code}')
             
             if route.method in ['POST', 'PUT', 'PATCH', 'DELETE']:
@@ -557,15 +561,40 @@ class {class_name}:
         return False
     
     def _needs_path_param_entities(self, route: RouterInfo) -> bool:
-        """检测路径参数是否需要创建实体（GET/PUT/DELETE操作）"""
-        if route.method not in ['GET', 'PUT', 'PATCH', 'DELETE']:
-            return False
+        """检测路径参数是否需要创建实体
         
+        核心逻辑：
+        1. 检查路径中是否有实体ID参数（如{order_id}、{sku_id}）
+        2. 如果有依赖注入处理该参数（如Depends(validate_order_access)），则不需要创建
+        3. 如果是显式参数（如sku_id: str），则需要创建
+        
+        注意：POST方法可能使用依赖注入获取实体，这种情况不需要测试代码创建实体
+        """
         # 检查路径中是否包含实体ID参数（排除user_id）
         path_params = re.findall(r'\{(\w+)_id\}', route.path)
         # 过滤掉user_id，检查是否有其他实体ID
         entity_params = [p for p in path_params if p != 'user']
-        return len(entity_params) > 0
+        
+        if not entity_params:
+            return False
+        
+        # 检查是否通过依赖注入处理（如Depends(validate_order_access)返回Order实体）
+        # 这些依赖会自动从路径参数提取ID并查询实体
+        entity_injection_dependencies = [
+            'validate_order_access',  # order_id -> Order
+            'validate_cart_access',   # cart_id -> Cart
+            'validate_product_access', # product_id -> Product
+            # 可以添加更多...
+        ]
+        
+        for dep in route.dependencies:
+            dep_name = dep.get('dependency_name', '')
+            if any(entity_dep in dep_name for entity_dep in entity_injection_dependencies):
+                # 依赖注入会处理实体获取，测试不需要创建
+                return False
+        
+        # 没有依赖注入处理，需要测试代码创建实体
+        return True
     
     def _needs_redis_mock(self, route: RouterInfo) -> bool:
         """检测端点是否需要 Redis Mock（验证码等功能）
@@ -743,7 +772,8 @@ class {class_name}:
                 param_matches = re.findall(r'\{(\w+)_id\}', full_path)
                 entity_params = [p for p in param_matches if p != 'user']
                 
-                if entity_params and route.method in ['GET', 'PUT', 'PATCH', 'DELETE']:
+                # 所有HTTP方法如果有实体路径参数，都需要创建实体
+                if entity_params:
                     entity_type = entity_params[0]  # 取第一个实体参数（如 'item'）
                     
                     # 直接从response_model获取准确的模型名（不再推断）
@@ -788,7 +818,7 @@ class {class_name}:
                         
                         # 使用ModelInfo动态查询依赖关系
                         create_entity_code = self._generate_entity_creation_with_dependencies(
-                            model_name, entity_var, models, module_name
+                            model_name, entity_var, models, module_name, route=route
                         )
                         
                         full_path = full_path.replace(f'{{{entity_type}_id}}', f'{{{entity_var}.id}}')
@@ -1199,7 +1229,7 @@ class {class_name}:
     
     def _generate_entity_creation_with_dependencies(
         self, model_name: str, entity_var: str, models: Dict[str, ModelInfo], module_name: str, 
-        visited: set = None
+        visited: set = None, route: Optional[RouterInfo] = None
     ) -> str:
         """动态生成实体创建代码，自动处理外键依赖
         
@@ -1289,6 +1319,16 @@ class {class_name}:
                 # 自引用，跳过（工厂方法会自动设置为None）
                 continue
             
+            # 特殊处理：如果外键指向users表，使用当前测试的认证用户（避免权限问题）
+            # 通过检查route的require_admin判断使用哪个用户变量
+            if target_table == 'users':
+                # 动态确定用户变量名：根据路由权限要求选择
+                # 如果route信息不可用或没有管理员要求，默认使用test_user
+                user_var = 'admin_user' if (route and route.require_admin) else 'test_user'
+                dependency_vars.append(user_var)
+                params.append(f'{user_var}.id')
+                continue
+            
             # 方法1：直接通过tablename在models中查找
             actual_model_name = None
             for dep_model_name, dep_model_info in models.items():
@@ -1314,9 +1354,9 @@ class {class_name}:
                     f.foreign_key is not None for f in dep_model_info.fields
                 )
                 if has_nested_deps:
-                    # 递归生成依赖（传入visited避免循环依赖）
+                    # 递归生成依赖（传入visited避免循环依赖，route信息也需要传递）
                     nested_code = self._generate_entity_creation_with_dependencies(
-                        actual_model_name, dep_var_name, models, module_name, visited.copy()
+                        actual_model_name, dep_var_name, models, module_name, visited.copy(), route
                     )
                     dependencies_code.append(nested_code.strip())
                 else:

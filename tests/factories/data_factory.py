@@ -350,13 +350,88 @@ class StandardTestDataFactory:
         return cart_item
 
     @staticmethod
+    def create_order(db: Session, user_id: int, **kwargs):
+        """创建测试订单
+
+        Args:
+            user_id: 用户ID（整数）
+        
+        Returns:
+            Order对象
+        """
+        from app.modules.order_management.models import Order
+        import uuid
+        
+        defaults = {
+            "user_id": user_id,
+            "order_number": f"TEST-{uuid.uuid4().hex[:12].upper()}",
+            "status": "pending",
+            "subtotal": Decimal("99.99"),  # 小计金额
+            "shipping_fee": Decimal("10.00"),  # 运费
+            "discount_amount": Decimal("0.00"),  # 折扣金额
+            "total_amount": Decimal("109.99"),  # 总金额 = subtotal + shipping_fee - discount_amount
+            "shipping_address": "测试地址",
+            "receiver_name": "测试收件人",
+            "receiver_phone": "13800138000",
+            "notes": "测试订单",
+        }
+        defaults.update(kwargs)
+
+        order = Order(**defaults)
+        db.add(order)
+        db.commit()
+        db.refresh(order)
+        return order
+
+    @staticmethod
+    def create_order_item(db: Session, order_id: int, product_id: int, sku_id: int, **kwargs):
+        """创建测试订单项
+
+        Args:
+            order_id: 订单ID（整数）
+            product_id: 商品ID（整数）
+            sku_id: SKU的ID（整数，不是sku_code！）
+        
+        Returns:
+            OrderItem对象
+        """
+        from app.modules.order_management.models import OrderItem
+        
+        if not isinstance(sku_id, int):
+            raise ValueError(f"sku_id必须是整数类型，当前类型: {type(sku_id)}")
+
+        defaults = {
+            "order_id": order_id,
+            "product_id": product_id,
+            "sku_id": sku_id,
+            "quantity": 1,
+            "unit_price": Decimal("99.99"),
+            "total_price": Decimal("99.99"),
+            "product_name": "测试商品",
+            "sku_name": "测试SKU",
+        }
+        defaults.update(kwargs)
+
+        order_item = OrderItem(**defaults)
+        db.add(order_item)
+        db.commit()
+        db.refresh(order_item)
+        return order_item
+
+    @staticmethod
     def create_complete_chain(
         db: Session,
-    ) -> tuple[User, Category, Brand, Product, SKU]:
+        with_inventory: bool = True,
+    ) -> tuple[User, Category, Brand, Product, SKU, InventoryStock | None]:
         """创建完整的测试数据链
 
+        Args:
+            db: 数据库会话
+            with_inventory: 是否创建库存记录（默认True，订单测试必需）
+
         Returns:
-            (user, category, brand, product, sku) - 所有ID都是正确的整数类型
+            (user, category, brand, product, sku, inventory_stock) - 所有ID都是正确的整数类型
+            如果with_inventory=False，最后一个元素为None
         """
         user = StandardTestDataFactory.create_user(db)
         category = StandardTestDataFactory.create_category(db)
@@ -366,14 +441,23 @@ class StandardTestDataFactory:
         )
         sku = StandardTestDataFactory.create_sku(db, product_id=product.id)
 
+        # 创建库存记录（订单创建必需）
+        inventory_stock = None
+        if with_inventory:
+            inventory_stock = StandardTestDataFactory.create_inventory_stock(
+                db, sku_id=sku.id, available_quantity=1000
+            )
+
         # 验证所有ID都是整数
         assert isinstance(user.id, int)
         assert isinstance(category.id, int)
         assert isinstance(brand.id, int)
         assert isinstance(product.id, int)
         assert isinstance(sku.id, int)
+        if inventory_stock:
+            assert isinstance(inventory_stock.id, int)
 
-        return user, category, brand, product, sku
+        return user, category, brand, product, sku, inventory_stock
 
 
 class TestDataValidator:
