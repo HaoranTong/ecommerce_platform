@@ -54,6 +54,36 @@ labels:
 
 **架构版本**: V2.0 - 四层架构 (Router → Service → Repository → Model)
 
+## 概述
+
+### 模块定位
+
+库存管理模块是电商平台的核心基础模块，位于**商品域 (Product Domain)**，负责商品库存的实时跟踪、预占管理、补货预警和库存同步。本模块确保库存数据的准确性和一致性，防止超卖现象，支持高并发场景下的库存操作。
+
+### 核心职责
+
+1. **库存数据管理**: 维护SKU级别的库存主数据，包括总库存、可用库存、预占库存和冻结库存
+2. **库存预占机制**: 为购物车和订单提供库存预占/释放服务，支持超时自动释放
+3. **库存变更追踪**: 记录所有库存变更操作的详细日志，提供完整的审计追踪
+4. **库存预警服务**: 监控库存水平，提供低库存预警和缺货通知
+5. **高并发支持**: 通过乐观锁和缓存策略，支持高并发库存操作
+
+### 架构特点
+
+- **四层架构**: 采用Router → Service → Repository → Model分层设计，关注点清晰分离
+- **Repository模式**: 数据访问层完全封装，提升可测试性和可维护性
+- **事务安全**: 关键操作使用数据库事务保证ACID特性
+- **缓存优化**: Repository层支持Redis缓存，减少数据库压力
+- **权限控制**: 基于RBAC的细粒度权限管理
+
+### 设计原则
+
+1. **单一职责**: 每层只负责特定的关注点
+2. **开闭原则**: 对扩展开放，对修改封闭
+3. **依赖倒置**: 高层模块不依赖低层模块，都依赖抽象
+4. **接口隔离**: Repository提供明确的接口，Service不直接操作数据库
+5. **领域驱动**: 业务逻辑集中在Service层，Repository只负责数据访问
+
 ## 1. 架构设计
 
 ### 1.1 整体架构（四层架构）
@@ -979,12 +1009,242 @@ class AuditLogger:
         }
         
         await self.security_logger.log(audit_log)
-```text
+```python
 
 ---
 
-**文档版本**: v1.0  
+## 具体标准
+
+### 数据模型标准
+
+1. **表命名规范**
+   - 所有表名使用小写蛇形命名: `inventory_stocks`, `inventory_reservations`
+   - 表名必须使用复数形式表示集合
+   - 中间表使用两个实体名称组合: `table1_table2_relation`
+
+2. **字段命名规范**
+   - 主键统一使用 `id` (BIGINT AUTO_INCREMENT)
+   - 外键使用 `{entity}_id` 格式: `sku_id`, `warehouse_id`
+   - 布尔字段使用 `is_` 前缀: `is_active`, `is_deleted`
+   - 时间字段使用 `_at` 后缀: `created_at`, `updated_at`, `expires_at`
+   - 数量字段使用 `_quantity` 后缀: `total_quantity`, `available_quantity`
+
+3. **必需字段**
+   - 所有表必须包含: `id`, `created_at`, `updated_at`
+   - 逻辑删除表必须包含: `is_deleted`, `deleted_at`
+   - 有状态实体必须包含: `status`
+
+4. **索引设计**
+   - 主键自动索引
+   - 外键必须创建索引: `idx_{table}_{field}`
+   - 唯一约束必须命名: `uk_{table}_{fields}`
+   - 复合索引命名: `idx_{table}_{field1}_{field2}`
+   - 查询频繁的字段必须创建索引
+
+5. **数据类型标准**
+   - 主键: `BIGINT AUTO_INCREMENT`
+   - 外键: `BIGINT`
+   - 数量: `INT` (非负使用UNSIGNED)
+   - 金额: `DECIMAL(10,2)`
+   - 状态: `VARCHAR(20)` (使用枚举值)
+   - 短文本: `VARCHAR(N)` (N≤255)
+   - 长文本: `TEXT`
+   - 时间: `DATETIME` (使用UTC时区)
+
+### API设计标准
+
+1. **路由命名规范**
+   - 使用复数名词: `/stocks`, `/reservations`
+   - 使用中划线分隔: `/inventory-management`
+   - RESTful资源路径: `/stocks/{stock_id}`
+   - 动作使用POST + 路径: `/stocks/{stock_id}/adjust`
+
+2. **HTTP方法规范**
+   - GET: 查询操作(列表、详情)
+   - POST: 创建操作和特殊动作
+   - PUT: 全量更新操作
+   - PATCH: 部分更新操作
+   - DELETE: 删除操作
+
+3. **响应格式标准**
+   ```json
+   {
+     "code": 200,
+     "message": "操作成功",
+     "data": {...},
+     "timestamp": "2025-10-18T12:00:00Z"
+   }
+   ```
+
+4. **错误响应标准**
+   ```json
+   {
+     "code": 400,
+     "message": "库存不足",
+     "error_code": "INSUFFICIENT_STOCK",
+     "details": {
+       "sku_id": 1001,
+       "required": 10,
+       "available": 5
+     }
+   }
+   ```
+
+5. **分页标准**
+   - 查询参数: `page`, `page_size`
+   - 默认值: `page=1`, `page_size=20`
+   - 最大值: `page_size≤100`
+   - 响应包含: `total`, `page`, `page_size`, `items`
+
+### 代码实现标准
+
+1. **文件组织**
+   ```
+   module/
+   ├── __init__.py      # 导出router
+   ├── models.py        # 数据模型 (ORM)
+   ├── schemas.py       # DTO模型 (Pydantic)
+   ├── repository.py    # 数据访问层
+   ├── service.py       # 业务逻辑层
+   ├── dependencies.py  # 依赖注入
+   ├── router.py        # HTTP路由层
+   └── README.md        # 模块文档
+   ```
+
+2. **层次职责**
+   - **Router层**: 只负责HTTP请求处理、参数验证、响应序列化
+   - **Service层**: 只负责业务逻辑编排、规则验证、事务协调
+   - **Repository层**: 只负责数据访问、查询构建、缓存管理
+   - **Model层**: 只负责数据结构定义、关系映射、约束声明
+
+3. **命名约定**
+   - 类名: PascalCase (`InventoryService`, `InventoryRepository`)
+   - 函数名: snake_case (`get_stock_by_id`, `create_reservation`)
+   - 常量: UPPER_SNAKE_CASE (`MAX_QUANTITY`, `DEFAULT_THRESHOLD`)
+   - 私有方法: `_method_name`
+
+4. **文档注释**
+   - 所有公共类必须有docstring
+   - 所有公共方法必须有docstring
+   - docstring格式:
+     ```python
+     """
+     简要描述
+     
+     详细描述
+     
+     Args:
+         param1: 参数说明
+         param2: 参数说明
+     
+     Returns:
+         返回值说明
+     
+     Raises:
+         ExceptionType: 异常说明
+     """
+     ```
+
+5. **类型注解**
+   - 所有函数参数必须有类型注解
+   - 所有函数返回值必须有类型注解
+   - 使用typing模块的泛型: `List`, `Dict`, `Optional`
+
+### 事务管理标准
+
+1. **事务边界**
+   - Service层方法是事务边界
+   - Repository方法不控制事务
+   - 使用contextmanager管理事务: `repository.transaction()`
+
+2. **事务隔离级别**
+   - 默认: READ_COMMITTED
+   - 库存扣减: REPEATABLE_READ
+   - 统计查询: READ_UNCOMMITTED (允许脏读)
+
+3. **事务超时**
+   - 默认超时: 30秒
+   - 长事务超时: 60秒
+   - 超时后自动回滚
+
+### 性能优化标准
+
+1. **查询优化**
+   - 使用索引覆盖: SELECT只查询索引字段
+   - 避免SELECT *: 只查询需要的字段
+   - 批量操作: 使用bulk_insert_mappings, bulk_update_mappings
+   - 分页查询: 使用limit/offset或游标分页
+
+2. **缓存策略**
+   - 库存数据缓存时间: 5分钟
+   - 预占数据不缓存 (实时性要求)
+   - 缓存键格式: `inventory:stock:{sku_id}:{warehouse_id}`
+   - 缓存更新策略: Write-Through (写穿)
+
+3. **并发控制**
+   - 乐观锁: 使用version字段
+   - 悲观锁: 使用FOR UPDATE (谨慎使用)
+   - 分布式锁: 使用Redis实现
+
+### 错误处理标准
+
+1. **异常层次**
+   ```python
+   BaseException
+   ├── InventoryError (基础异常)
+   │   ├── InsufficientStockError (库存不足)
+   │   ├── ReservationNotFoundError (预占不存在)
+   │   ├── ReservationExpiredError (预占已过期)
+   │   └── InvalidOperationError (无效操作)
+   ```
+
+2. **异常信息**
+   - 必须包含: 错误代码、错误消息、错误详情
+   - 不暴露敏感信息 (SQL、堆栈)
+   - 提供用户友好的错误消息
+
+3. **错误码规范**
+   - 格式: `MODULE_ERROR_TYPE`
+   - 示例: `INVENTORY_INSUFFICIENT_STOCK`, `INVENTORY_RESERVATION_NOT_FOUND`
+
+### 安全标准
+
+1. **权限控制**
+   - 所有API必须有权限检查
+   - 使用RBAC模型
+   - 权限格式: `resource:action` (`inventory:read`, `inventory:write`)
+
+2. **输入验证**
+   - 使用Pydantic进行数据验证
+   - 验证数量范围: quantity > 0
+   - 验证状态值: 使用枚举类型
+
+3. **SQL注入防护**
+   - 使用ORM参数绑定
+   - 禁止字符串拼接SQL
+   - 使用SQLAlchemy的text()处理原生SQL
+
+### 测试标准
+
+1. **单元测试**
+   - Repository层: Mock数据库
+   - Service层: Mock Repository
+   - 测试覆盖率: ≥80%
+
+2. **集成测试**
+   - 使用测试数据库
+   - 测试完整业务流程
+   - 测试并发场景
+
+3. **性能测试**
+   - 库存查询QPS: ≥1000
+   - 库存扣减TPS: ≥500
+   - 响应时间P99: ≤100ms
+
+---
+
+**文档版本**: v1.1.0  
 **创建日期**: 2025-09-15  
-**最后更新**: 2025-09-15  
+**最后更新**: 2025-10-18  
 **责任人**: 系统架构师  
 **审核人**: 技术总监

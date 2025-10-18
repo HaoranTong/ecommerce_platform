@@ -20,24 +20,13 @@ if config.config_file_name is not None:
 
 # 导入所有模型以确保metadata包含所有表定义
 from app.core.database import Base
-from app.modules.inventory_management.models import (  # 库存管理模型
-    InventoryReservation, InventoryStock, InventoryTransaction)
-from app.modules.member_system.models import (ActivityParticipation,  # 会员系统模型
-                                              BenefitUsage, Member,
-                                              MemberActivity,
-                                              MembershipBenefit,
-                                              MembershipLevel,
-                                              PointTransaction, SystemConfig)
-from app.modules.order_management.models import (Order, OrderItem,  # 订单管理模型
-                                                 OrderStatusHistory)
-from app.modules.product_catalog.models import (SKU, Brand, Category,  # 产品目录模型
-                                                Product, ProductAttribute,
-                                                ProductImage, ProductTag,
-                                                SKUAttribute)
-# 导入所有模块的模型
-from app.modules.user_auth.models import (Permission, Role,  # 用户认证模型
-                                          RolePermission, Session, User,
-                                          UserRole)
+
+# 使用自动发现机制导入所有模块的模型
+from app.core.model_discovery import discover_and_register_models
+
+# 自动发现并导入所有模块的模型
+table_count, imported_modules = discover_and_register_models()
+print(f"✅ Alembic已加载 {table_count} 个表，来自 {len(imported_modules)} 个模块")
 
 # 设置target_metadata为Base的metadata
 target_metadata = Base.metadata
