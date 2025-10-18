@@ -409,11 +409,12 @@ class IntelligentTestGenerator:
                 print(f"✅ 生成专项测试: 安全测试 + 性能测试")
         
         if test_type == "performance":
-            # 仅生成性能测试 - 使用全局模型
+            # 仅生成性能测试
+            # 注意：PerformanceTestGenerator会自己使用CrossModuleDependencyResolver获取全局模型
             from tools.test_generators import PerformanceTestGenerator
             
             performance_generator = PerformanceTestGenerator(self.project_root, self.config)
-            performance_tests = performance_generator.generate_tests(module_name, global_models)
+            performance_tests = performance_generator.generate_tests(module_name, models)
             generated_files.update(performance_tests)
             
             print(f"✅ 生成性能测试")

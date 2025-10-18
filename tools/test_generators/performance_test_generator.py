@@ -81,6 +81,7 @@
 """
 
 import asyncio
+from pathlib import Path
 from typing import Dict, List, Tuple, Any, Optional
 from .base_generator import BaseTestGenerator, ModelInfo, RouterInfo
 from .utils.test_utils import TestUtils
@@ -88,6 +89,12 @@ from .utils.test_utils import TestUtils
 
 class PerformanceTestGenerator(BaseTestGenerator):
     """性能测试代码生成器"""
+    
+    def __init__(self, project_root: Path, config: Dict[str, Any]):
+        super().__init__(project_root, config)
+        # 初始化跨模块依赖解析器（用于外键目标查找）
+        from .utils.cross_module_dependency_resolver import CrossModuleDependencyResolver
+        self.cross_module_resolver = CrossModuleDependencyResolver(project_root)
 
     def _convert_to_dynamic_code(self, field: str, value: Any) -> str:
         """
@@ -142,6 +149,10 @@ class PerformanceTestGenerator(BaseTestGenerator):
         """
         检测请求Schema中的外键字段（使用ModelAnalyzer提供的模型信息）
         
+        ⚠️ 重要修复（2025-10-18）：添加递归检测嵌套Schema中的外键
+        - 原代码只检查顶层字段，导致OrderItemRequest中的product_id/sku_id未被检测
+        - 修复后支持递归检测嵌套Schema（如List[OrderItemRequest]）
+        
         Args:
             module_name: 模块名称
             route: 路由信息
@@ -158,25 +169,42 @@ class PerformanceTestGenerator(BaseTestGenerator):
         if not schema_data or not isinstance(schema_data, dict):
             return foreign_keys
         
-        # 遍历Schema字段，检查是否是必填外键
-        for field_name in schema_data.keys():
+        # 递归提取所有外键字段（包括嵌套Schema）
+        self._extract_foreign_keys_recursive(schema_data, foreign_keys, models, module_name)
+        
+        return foreign_keys
+    
+    def _extract_foreign_keys_recursive(self, schema_data: Dict[str, Any], foreign_keys: Dict[str, Tuple[str, str]], 
+                                       models: Dict[str, ModelInfo], module_name: str) -> None:
+        """递归提取Schema中的所有外键字段（包括嵌套Schema）
+        
+        参考API测试生成器的实现（api_test_generator.py Line 435-459）
+        
+        Args:
+            schema_data: Schema字段信息字典
+            foreign_keys: 收集到的外键字典（会被修改）
+            models: 模型信息字典
+            module_name: 当前模块名
+        """
+        for field_name, field_info in schema_data.items():
             field_lower = field_name.lower()
             
-            # 排除user_id（由认证系统处理）
+            # 检测顶层外键
             if field_lower.endswith('_id') and field_lower not in ['user_id']:
                 # 检查是否是必填字段（非Optional）
-                field_value = schema_data[field_name]
                 is_optional = False
                 
-                if hasattr(field_value, '__origin__'):
+                if hasattr(field_info, '__origin__'):
                     import typing
                     if hasattr(typing, 'get_args'):
-                        args = typing.get_args(field_value)
+                        args = typing.get_args(field_info)
                         if type(None) in args:
                             is_optional = True
                 
-                if isinstance(field_value, dict):
-                    if field_value.get('nullable') or field_value.get('default') is None:
+                if isinstance(field_info, dict):
+                    if field_info.get('nullable') or field_info.get('default') is None:
+                        is_optional = True
+                    if not field_info.get('required', True):
                         is_optional = True
                 
                 # 只处理必填外键
@@ -184,23 +212,33 @@ class PerformanceTestGenerator(BaseTestGenerator):
                     # 从models中查找对应的外键关系（返回tuple: model_name, module_name）
                     target_info = self._find_foreign_key_target(field_name, models, module_name)
                     if target_info and target_info[1]:  # 确保找到了模块名
-                        foreign_keys[field_name] = target_info
-        
-        return foreign_keys
+                        if field_name not in foreign_keys:  # 避免重复添加
+                            foreign_keys[field_name] = target_info
+            
+            # 🔧 关键修复：递归检测嵌套Schema（如List[OrderItemRequest]）
+            if isinstance(field_info, dict) and field_info.get('is_nested_schema'):
+                nested_fields = field_info.get('nested_fields', {})
+                if nested_fields:
+                    # 递归提取嵌套Schema中的外键
+                    self._extract_foreign_keys_recursive(nested_fields, foreign_keys, models, module_name)
     
     def _find_foreign_key_target(self, field_name: str, models: Dict[str, ModelInfo], current_module: str) -> Optional[Tuple[str, str]]:
         """
         从模型信息中查找外键的目标模型和模块
         
+        ⚠️ 重要修复（2025-10-18）：使用CrossModuleDependencyResolver支持跨模块外键查找
+        - 原代码只在当前模块查找，导致嵌套Schema中的跨模块外键（如sku_id）推断错误
+        - 修复后委托给CrossModuleDependencyResolver，利用ModelAnalyzer的全局模型信息
+        
         Args:
-            field_name: 外键字段名（如sku_id）
-            models: 当前模块的模型信息字典
-            current_module: 当前模块名（用于fallback）
+            field_name: 外键字段名（如sku_id、product_id）
+            models: 当前模块的模型信息字典（用于查找外键定义）
+            current_module: 当前模块名
             
         Returns:
-            Optional[Tuple[str, str]]: (目标模型名, 目标模块名)，如("Product", "product_catalog")
+            Optional[Tuple[str, str]]: (目标模型名, 目标模块名)，如("SKU", "product_catalog")
         """
-        # 遍历当前模块的模型，查找包含该外键的模型
+        # 🔧 方法1：在当前模块的models中查找包含该外键定义的模型
         for model_name, model_info in models.items():
             for field in model_info.fields:
                 if field.name == field_name and field.foreign_key:
@@ -210,18 +248,39 @@ class PerformanceTestGenerator(BaseTestGenerator):
                     fk_parts = field.foreign_key.split('.')
                     if len(fk_parts) >= 2:
                         # 取倒数第二部分作为表名（兼容两种格式）
-                        table_name = fk_parts[-2]  # products, carts等
-                        # 使用TestUtils通用工具转换表名到模型名
-                        target_model = TestUtils.table_name_to_model_name(table_name)
+                        table_name = fk_parts[-2]  # products, product_skus等
                         
-                        # 通过表名查找所属模块（遍历所有模块）
-                        target_module = self._find_module_by_tablename(table_name, current_module)
+                        # 🎯 使用CrossModuleDependencyResolver查找模型和模块
+                        target_model = self.cross_module_resolver.get_model_by_table(table_name)
+                        target_module = self.cross_module_resolver.get_module_for_model(target_model) if target_model else None
                         
-                        return (target_model, target_module)
+                        if target_model and target_module:
+                            return (target_model, target_module)
         
-        # 如果在models中找不到，使用启发式推断
-        # sku_id -> Sku, category_id -> Category
+        # 🔧 方法2：如果在当前模块找不到外键定义，尝试通过字段名推断表名
+        # 这种情况通常发生在嵌套Schema中的外键字段（如OrderItemRequest中的sku_id）
+        # sku_id -> sku -> skus/product_skus -> SKU (product_catalog模块)
         entity_name = field_name.replace('_id', '')
+        
+        # 将entity_name转换为可能的表名（复数形式）
+        # sku -> skus, product -> products, category -> categories
+        possible_table_names = [
+            f"{entity_name}s",  # sku -> skus
+            f"product_{entity_name}s",  # sku -> product_skus
+            f"{entity_name}es",  # category -> categories（规则变化）
+            entity_name  # 单数形式（某些表不使用复数）
+        ]
+        
+        # 🎯 使用CrossModuleDependencyResolver查找匹配的表名
+        for table_name in possible_table_names:
+            target_model = self.cross_module_resolver.get_model_by_table(table_name)
+            if target_model:
+                target_module = self.cross_module_resolver.get_module_for_model(target_model)
+                if target_module:
+                    return (target_model, target_module)
+        
+        # 最终fallback：使用启发式推断
+        # sku_id -> Sku, category_id -> Category
         target_model = ''.join(word.capitalize() for word in entity_name.split('_'))
         return (target_model, current_module)
 
@@ -272,9 +331,53 @@ class PerformanceTestGenerator(BaseTestGenerator):
             fixture_creation.append(f"        for factory_class in {target_module}_factories.__dict__.values():")
             fixture_creation.append(f"            if hasattr(factory_class, '_meta') and hasattr(factory_class._meta, 'sqlalchemy_session'):")
             fixture_creation.append(f"                factory_class._meta.sqlalchemy_session = async_api_client.db")
-            fixture_creation.append(f"        test_{entity_name}_fixtures = {target_module}_factories.{factory_name}.create_batch({batch_size})")
+            
+            # 🎯 获取字段覆盖配置（确保生成的数据符合业务规则）
+            field_overrides = self._get_factory_field_overrides(module_name, field_name)
+            if field_overrides:
+                override_params = ', '.join([f"{k}='{v}'" if isinstance(v, str) else f"{k}={v}" for k, v in field_overrides.items()])
+                fixture_creation.append(f"        test_{entity_name}_fixtures = {target_module}_factories.{factory_name}.create_batch({batch_size}, {override_params})")
+            else:
+                fixture_creation.append(f"        test_{entity_name}_fixtures = {target_module}_factories.{factory_name}.create_batch({batch_size})")
             fixture_creation.append(f"        async_api_client.db.flush()  # 确保ID生成")
             fixture_creation.append("")
+            
+            # 🎯 检查业务逻辑依赖（从配置文件读取）
+            business_deps = self._get_business_dependencies(module_name, field_name)
+            if business_deps:
+                for dep in business_deps:
+                    dep_module = dep['module']
+                    dep_model = dep['model']
+                    dep_factory = f"{dep_model}Factory"
+                    dep_fields = dep['fields']
+                    dep_reason = dep.get('reason', '业务逻辑要求')
+                    
+                    # 添加依赖模块的导入
+                    dep_import = f"from tests.factories import {dep_module}_factories"
+                    if dep_import not in imports:
+                        imports.append(dep_import)
+                    
+                    # 生成依赖数据创建代码
+                    fixture_creation.append(f"        # 🔧 为每个{target_model}创建{dep_model}记录（{dep_reason}）")
+                    fixture_creation.append(f"        for factory_class in {dep_module}_factories.__dict__.values():")
+                    fixture_creation.append(f"            if hasattr(factory_class, '_meta') and hasattr(factory_class._meta, 'sqlalchemy_session'):")
+                    fixture_creation.append(f"                factory_class._meta.sqlalchemy_session = async_api_client.db")
+                    fixture_creation.append(f"        for {entity_name} in test_{entity_name}_fixtures:")
+                    
+                    # 构建字段参数
+                    field_params = []
+                    for field_key, field_value in dep_fields.items():
+                        if isinstance(field_value, str) and field_value.startswith('{{') and field_value.endswith('}}'):
+                            # 变量引用，如 {{sku.id}}
+                            field_params.append(f"{field_key}={entity_name}.{field_value[2:-2].split('.')[1]}")
+                        else:
+                            # 字面值
+                            field_params.append(f"{field_key}={field_value}")
+                    
+                    params_str = ', '.join(field_params)
+                    fixture_creation.append(f"            {dep_module}_factories.{dep_factory}.create({params_str})")
+                    fixture_creation.append(f"        async_api_client.db.flush()  # 确保{dep_model}数据提交")
+                    fixture_creation.append("")
         
         if not imports:
             return ("", "")
@@ -289,66 +392,71 @@ class PerformanceTestGenerator(BaseTestGenerator):
         
         return (import_code, fixture_code)
 
+    def _get_business_dependencies(self, module_name: str, field_name: str) -> list:
+        """
+        获取字段的业务逻辑依赖
+        
+        从配置文件中读取performance_test_business_dependencies，
+        检查当前模块的指定字段是否有业务依赖要求。
+        
+        Args:
+            module_name: 模块名（如order_management）
+            field_name: 字段名（如sku_id）
+            
+        Returns:
+            list: 业务依赖配置列表，例如：
+                [
+                    {
+                        "model": "InventoryStock",
+                        "module": "inventory_management",
+                        "fields": {"sku_id": "{{sku.id}}", "total_quantity": 1000},
+                        "reason": "订单创建需要验证SKU库存"
+                    }
+                ]
+        """
+        # 从配置文件读取
+        business_deps_config = self.config.get('business_logic_patterns', {}).get('performance_test_business_dependencies', {})
+        module_config = business_deps_config.get(module_name, {})
+        field_config = module_config.get(field_name, {})
+        
+        return field_config.get('requires', [])
+    
+    def _get_factory_field_overrides(self, module_name: str, field_name: str) -> dict:
+        """
+        获取Factory字段覆盖配置
+        
+        从配置文件中读取performance_test_factory_overrides，
+        返回需要在create_batch()时覆盖的字段值。
+        
+        Args:
+            module_name: 模块名（如order_management）
+            field_name: 字段名（如product_id, sku_id）
+            
+        Returns:
+            dict: 字段覆盖配置，例如：{"status": "published"}
+        """
+        # 从配置文件读取
+        factory_overrides_config = self.config.get('business_logic_patterns', {}).get('performance_test_factory_overrides', {})
+        module_config = factory_overrides_config.get(module_name, {})
+        
+        return module_config.get(field_name, {})
+    
     def _infer_module_from_model(self, model_name: str, current_module: str) -> str:
         """
         从模型名推断所属模块
         
-        先将模型名转为表名，然后通过表名查找模块。
+        使用CrossModuleDependencyResolver查找模型所属模块。
         
         Args:
-            model_name: 模型类名（如Product）
-            current_module: 当前模块名（作为默认值）
+            model_name: 模型类名（如Product, SKU）
+            current_module: 当前模块名（作为fallback）
             
         Returns:
             str: 模块名（如product_catalog）
         """
-        # 使用TestUtils将模型名转为表名
-        tablename = TestUtils.model_name_to_table_name(model_name)
-        
-        # 通过表名查找模块
-        return self._find_module_by_tablename(tablename, current_module)
-    
-    def _find_module_by_tablename(self, tablename: str, current_module: str) -> str:
-        """
-        通过表名查找对应的模块名
-        
-        通过扫描项目中的所有模块，找到包含指定表名的模块。
-        
-        Args:
-            tablename: 表名（如products, carts）
-            current_module: 当前模块名（作为默认值）
-            
-        Returns:
-            str: 模块名（如product_catalog）
-        """
-        from pathlib import Path
-        
-        # 遍历所有模块目录
-        modules_dir = self.project_root / "app" / "modules"
-        if not modules_dir.exists():
-            return current_module
-        
-        for module_path in modules_dir.iterdir():
-            if not module_path.is_dir() or module_path.name.startswith('_'):
-                continue
-            
-            module_name = module_path.name
-            models_file = module_path / "models.py"
-            
-            if not models_file.exists():
-                continue
-            
-            try:
-                # 读取models.py文件，查找__tablename__
-                content = models_file.read_text(encoding='utf-8')
-                # 简单的文本匹配：查找 __tablename__ = "tablename" 或 __tablename__ = 'tablename'
-                if f'__tablename__ = "{tablename}"' in content or f"__tablename__ = '{tablename}'" in content:
-                    return module_name
-            except Exception:
-                continue
-        
-        # 未找到，返回当前模块
-        return current_module
+        # 🎯 使用CrossModuleDependencyResolver查找模型所属模块
+        target_module = self.cross_module_resolver.get_module_for_model(model_name)
+        return target_module if target_module else current_module
 
     def _generate_write_test_data(self, routes: List[RouterInfo], module_name: str, request_id: str = "{{request_id}}") -> str:
         """
@@ -504,10 +612,20 @@ class PerformanceTestGenerator(BaseTestGenerator):
         return f"/api/v1/{module_path}/", "POST"
     
     def generate_tests(self, module_name: str, models: Dict[str, ModelInfo]) -> Dict[str, str]:
-        """生成性能测试代码"""
+        """生成性能测试代码
+        
+        注意：此方法会忽略传入的models参数，而是使用自己的cross_module_resolver
+        来获取所有模块的模型信息（用于外键依赖检测）
+        """
         
         routes = self.analyze_router_file(module_name)
-        test_content = self._generate_performance_test_content(module_name, routes, models)
+        
+        # 🎯 使用cross_module_resolver获取当前模块的models
+        # 这样可以正确检测跨模块的外键依赖
+        all_modules = self.cross_module_resolver.model_analyzer.analyze_all_modules()
+        module_models = all_modules.get(module_name, {})
+        
+        test_content = self._generate_performance_test_content(module_name, routes, module_models)
         return {f"tests/performance/test_{module_name}_performance.py": test_content}
     
     def _generate_performance_test_content(self, module_name: str, routes: List[RouterInfo], models: Dict[str, ModelInfo]) -> str:
@@ -685,7 +803,10 @@ class {class_name}:
         # 如果有外键导入，添加到imports部分
         extra_imports = f"\n{fk_imports}" if fk_imports else ""
         
-        return f'''{extra_imports}
+        # 使用.format()而非f-string来替换占位符，避免Python作用域问题
+        # 原因：f-string中的{fk_fixtures}会被当作变量引用，导致NameError或字面量保留
+        # 解决：使用普通字符串+.format()方法，明确替换占位符
+        template = '''{extra_imports}
 
 class {class_name}:
     """{business_domain}模块并发性能测试"""
@@ -919,6 +1040,18 @@ class {class_name}:
         
         print("✅ 混合工作负载测试通过")
 '''
+        
+        # 使用.format()替换所有占位符
+        return template.format(
+            extra_imports=extra_imports,
+            class_name=class_name,
+            business_domain=business_domain,
+            auth_endpoint=auth_endpoint,
+            write_endpoint=write_endpoint,
+            write_method=write_method,
+            test_data_template=test_data_template,
+            fk_fixtures=fk_fixtures  # 关键：这里替换{fk_fixtures}占位符
+        )
     
     def _generate_load_tests(self, module_name: str, routes: List[RouterInfo], models: Dict[str, ModelInfo]) -> str:
         """生成负载测试"""

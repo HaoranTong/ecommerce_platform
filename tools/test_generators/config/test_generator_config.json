@@ -169,8 +169,39 @@
       "sku_requires": ["inventory_management.InventoryStock"],
       "order_creation_requires": ["inventory_management.InventoryStock"],
       "cart_item_requires": []
-    }
-    ,
+    },
+    "performance_test_business_dependencies": {
+      "_description": "Performance测试的业务逻辑依赖配置 - 定义创建测试数据时需要的额外业务依赖",
+      "_usage": "当检测到某个外键字段时，自动创建关联的业务依赖数据",
+      "order_management": {
+        "sku_id": {
+          "requires": [
+            {
+              "model": "InventoryStock",
+              "module": "inventory_management",
+              "fields": {
+                "sku_id": "{{sku.id}}",
+                "total_quantity": 1000,
+                "available_quantity": 1000
+              },
+              "reason": "订单创建需要验证SKU库存"
+            }
+          ]
+        }
+      }
+    },
+    "performance_test_factory_overrides": {
+      "_description": "Performance测试中Factory字段覆盖配置 - 确保生成的测试数据符合业务规则",
+      "_usage": "在create_batch()调用时覆盖Factory的默认字段值",
+      "order_management": {
+        "product_id": {
+          "status": "published"
+        },
+        "sku_id": {
+          "is_active": true
+        }
+      }
+    },
     "repository_priority_fields": [
       "real_name",
       "phone",
