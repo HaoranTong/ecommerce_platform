@@ -1,3 +1,19 @@
+---
+title: "库存管理模块需求规格说明"
+version: "v1.1.0"
+status: "active"
+created: "2025-09-15"
+updated: "2025-10-18"
+owner: "产品经理"
+dependencies:
+  - "docs/requirements/functional.md"
+  - "docs/requirements/non-functional.md"
+  - "docs/standards/requirements-standards.md"
+labels:
+  - "inventory-management"
+  - "requirements"
+---
+
 # 库存管理模块需求规格说明书
 
 <!--
@@ -5,9 +21,9 @@
 文件路径：docs/design/modules/inventory-management/requirements.md
 文档类型：需求规格说明书
 模块名称：库存管理模块 (Inventory Management Module)
-文档版本：v1.0.0
+文档版本：v1.1.0
 创建时间：2025-09-15
-最后修改：2025-09-15
+最后修改：2025-10-18
 维护人员：系统架构师
 文档状态：正式版本
 
@@ -22,6 +38,18 @@
 - API规范：api-spec.md
 -->
 
+## 依赖标准
+
+本文档遵循以下标准规范：
+
+| 标准文档 | 版本 | 应用范围 |
+|---------|------|---------|
+| [API设计标准](../../standards/api-standards.md) | v1.0 | RESTful API设计、路由命名 |
+| [数据库设计标准](../../standards/database-standards.md) | v1.0 | 表结构设计、字段命名、索引设计 |
+| [架构设计标准](../../standards/architecture-standards.md) | v1.0 | 四层架构、Repository模式、依赖注入 |
+| [应用架构](../../architecture/application-architecture.md) | v1.0 | 模块化单体、模块边界、依赖管理 |
+
+**架构版本**: V2.0 - 四层架构 (Router → Service → Repository → Model)
 ## 1. 概述
 
 ### 1.1 项目背景
@@ -204,10 +232,16 @@
 ## 7. 约束条件
 
 ### 7.1 技术约束
-- **数据库**：基于PostgreSQL关系型数据库
-- **缓存**：使用Redis提升查询性能
-- **框架**：基于FastAPI Python Web框架
+- **数据库**：基于MySQL 8.0关系型数据库
+- **缓存**：使用Redis 7.0提升查询性能
+- **框架**：基于FastAPI 0.104.1 Python Web框架
+- **ORM框架**：使用SQLAlchemy 2.0.23进行数据访问
 - **消息队列**：使用Redis实现异步消息处理
+- **架构模式**：采用四层架构（Router → Service → Repository → Model）⭐
+  - API层（Router）：处理HTTP请求和响应
+  - 业务层（Service）：实现业务逻辑和流程控制
+  - 数据层（Repository）：封装数据访问和查询构建
+  - 模型层（Model）：定义数据模型和ORM映射
 
 ### 7.2 业务约束
 - **SKU唯一性**：每个SKU只能有一条库存记录

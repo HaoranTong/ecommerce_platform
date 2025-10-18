@@ -1,0 +1,64 @@
+# Inventory Management模块上下文变量
+# 生成时间: 2025-10-18
+# 用途: 模块详细设计任务的上下文记录
+
+module: inventory-management
+technical_name: inventory_management
+business_domain: 商品域 (Product Domain)
+
+core_entities:
+  - InventoryStock: 库存主表，记录SKU的库存数量
+  - InventoryReservation: 库存预留表，记录购物车和订单的库存预占
+  - InventoryTransaction: 库存交易记录表，记录所有库存变动
+
+functional_scope:
+  includes:
+    - 库存数量管理: SKU级别的库存总量和可用量管理
+    - 库存预留机制: 购物车和订单的库存预占和释放
+    - 库存扣减操作: 订单支付后的实际库存扣减
+    - 库存调整功能: 手动增加/减少库存数量
+    - 库存交易记录: 完整的库存变动审计日志
+    - 低库存预警: 库存不足时的预警通知
+    - 库存一致性检查: 定期检查库存数据一致性
+    - 批量库存查询: 支持多SKU的批量库存查询
+  
+  excludes:
+    - SKU商品信息管理: 由product_catalog模块负责
+    - 订单创建逻辑: 由order_management模块负责
+    - 购物车管理: 由shopping_cart模块负责
+    - 支付处理: 由payment_service模块负责
+    - 通知推送: 由notification_service模块负责
+
+dependencies:
+  depends_on:
+    - product_catalog: 
+        reason: 需要验证SKU存在性，获取SKU基本信息
+        tables: products, product_skus
+    - user_auth:
+        reason: 需要获取操作用户信息用于审计
+        tables: users
+  
+  depended_by:
+    - order_management:
+        scenario: 订单创建时预留库存，支付后扣减库存，取消订单释放库存
+    - shopping_cart:
+        scenario: 加入购物车时检查库存可用性
+    - payment_service:
+        scenario: 支付成功后触发库存扣减
+
+standards:
+  document_structure: A8(8章节)
+  naming_conventions: naming-conventions-standards.md
+  api_principles: api-standards.md
+  database_design: database-standards.md
+
+architecture:
+  current: 三层架构 (Router → Service → Model)
+  target: 四层架构 (Router → Service → Repository → Model)
+  reason: 分离数据访问逻辑，提高代码可维护性和可测试性
+
+module_info:
+  api_prefix: /api/v1/inventory-management
+  table_prefix: inventory_
+  code_path: app/modules/inventory_management/
+  doc_path: docs/design/modules/inventory-management/

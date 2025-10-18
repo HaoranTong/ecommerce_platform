@@ -1,3 +1,18 @@
+---
+title: "库存管理模块快速指南"
+version: "v1.1.0"
+status: "active"
+created: "2025-09-15"
+updated: "2025-10-18"
+owner: "开发团队"
+dependencies:
+  - "docs/design/modules/inventory-management/design.md"
+  - "docs/design/modules/inventory-management/requirements.md"
+labels:
+  - "inventory-management"
+  - "quick-guide"
+---
+
 # 库存管理模块 (Inventory Management Module)
 
 <!--
@@ -23,6 +38,18 @@
 - API说明：api-implementation.md
 -->
 
+## 依赖标准
+
+本文档遵循以下标准规范：
+
+| 标准文档 | 版本 | 应用范围 |
+|---------|------|---------|
+| [API设计标准](../../standards/api-standards.md) | v1.0 | RESTful API设计、路由命名 |
+| [数据库设计标准](../../standards/database-standards.md) | v1.0 | 表结构设计、字段命名、索引设计 |
+| [架构设计标准](../../standards/architecture-standards.md) | v1.0 | 四层架构、Repository模式、依赖注入 |
+| [应用架构](../../architecture/application-architecture.md) | v1.0 | 模块化单体、模块边界、依赖管理 |
+
+**架构版本**: V2.0 - 四层架构 (Router → Service → Repository → Model)
 ## 模块概述
 
 库存管理模块是电商平台的核心基础模块，负责商品库存的全生命周期管理，包括库存查询、预留、扣减、释放以及库存监控等功能。该模块确保平台商品库存数据的准确性和一致性，支持高并发场景下的库存操作。
@@ -56,25 +83,58 @@
 ## 技术架构
 
 ### 技术栈
-- **Web框架**: FastAPI
-- **ORM**: SQLAlchemy 2.0
-- **数据库**: PostgreSQL (主) + Redis (缓存)
-- **消息队列**: Redis Streams
-- **监控**: Prometheus + Grafana
-- **日志**: 结构化日志 + ELK Stack
+- **Web框架**: FastAPI 0.104.1
+- **ORM**: SQLAlchemy 2.0.23
+- **数据验证**: Pydantic 2.5.0
+- **数据库**: MySQL 8.0 (主) + Redis 7.0 (缓存)
+- **Python版本**: 3.10+
+- **部署方式**: Docker Compose
 
-### 架构层次
-```
-┌─────────────────┐
-│   API Layer     │ ← FastAPI路由和中间件
-├─────────────────┤
-│ Service Layer   │ ← 业务逻辑服务
-├─────────────────┤
-│Repository Layer │ ← 数据访问层
-├─────────────────┤
-│   Data Layer    │ ← PostgreSQL + Redis
-└─────────────────┘
-```
+### 四层架构设计 ⭐
+
+```text
+┌──────────────────────────────────────────────────┐
+│  Router Layer (router.py)                        │
+│  • API端点定义                                    │
+│  • 请求响应处理                                   │
+│  • 数据验证(Pydantic)                             │
+└──────────────────────────────────────────────────┘
+                    ↓
+┌──────────────────────────────────────────────────┐
+│  Service Layer (service.py)                      │
+│  • 业务流程编排                                   │
+│  • 业务规则验证                                   │
+│  • 事务管理                                       │
+└──────────────────────────────────────────────────┘
+                    ↓
+┌──────────────────────────────────────────────────┐
+│  Repository Layer (repository.py) ⭐NEW          │
+│  • 数据访问封装                                   │
+│  • 查询构建                                       │
+│  • 缓存策略                                       │
+└──────────────────────────────────────────────────┘
+                    ↓
+┌──────────────────────────────────────────────────┐
+│  Model Layer (models.py)                         │
+│  • ORM模型定义                                    │
+│  • 数据库约束                                     │
+│  • 实体关系映射                                   │
+└──────────────────────────────────────────────────┘
+```text
+
+### 模块文件结构
+
+```python
+app/modules/inventory_management/
+├── __init__.py          # 模块初始化
+├── models.py            # 数据模型 (SQLAlchemy ORM)
+├── repository.py        # 数据操作层 ⭐NEW
+├── service.py           # 业务逻辑层
+├── schemas.py           # 数据传输对象 (Pydantic)
+├── router.py            # API路由层
+├── dependencies.py      # 依赖注入
+└── README.md            # 模块说明
+```text
 
 ## 快速开始
 
@@ -91,7 +151,7 @@ pip install -r requirements.txt
 
 # 启动数据库服务 (使用Docker)
 docker-compose up -d postgres redis
-```
+```text
 
 ### 数据库初始化
 ```bash
@@ -100,7 +160,7 @@ alembic upgrade head
 
 # 初始化基础数据
 python scripts/init_inventory_data.py
-```
+```python
 
 ### 启动服务
 ```bash
@@ -109,7 +169,7 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 
 # 或使用开发脚本
 ./start.ps1
-```
+```text
 
 ## API使用示例
 
@@ -127,7 +187,7 @@ response = httpx.post(
     json={"sku_codes": ["SKU001", "SKU002", "SKU003"]}
 )
 print(response.json())
-```
+```json
 
 ### 库存预留
 ```python
@@ -143,7 +203,7 @@ response = httpx.post(
     }
 )
 print(response.json())
-```
+```json
 
 ### 库存扣减
 ```python
@@ -158,12 +218,12 @@ response = httpx.post(
     }
 )
 print(response.json())
-```
+```json
 
 ## 开发指南
 
 ### 项目结构
-```
+```text
 app/modules/inventory_management/
 ├── __init__.py
 ├── router.py              # API路由
@@ -174,7 +234,7 @@ app/modules/inventory_management/
 ├── exceptions.py         # 自定义异常
 ├── constants.py          # 常量定义
 └── utils.py              # 工具函数
-```
+```text
 
 ### 代码规范
 - 遵循 PEP 8 代码风格
@@ -192,7 +252,7 @@ pytest tests/test_inventory_management.py -v
 
 # 运行覆盖率测试
 pytest --cov=app.modules.inventory_management tests/
-```
+```text
 
 ## 配置说明
 
@@ -210,7 +270,7 @@ INVENTORY_RESERVATION_TTL=1800
 # 监控配置
 ENABLE_METRICS=true
 METRICS_PORT=8001
-```
+```text
 
 ### 性能调优
 - 数据库索引优化
@@ -230,7 +290,7 @@ curl http://localhost:8000/health/database
 
 # 检查Redis连接
 curl http://localhost:8000/health/redis
-```
+```text
 
 ### 关键指标
 - 库存查询QPS
@@ -246,7 +306,7 @@ tail -f logs/inventory.log
 
 # 查看错误日志
 grep "ERROR" logs/inventory.log | tail -20
-```
+```text
 
 ## 常见问题
 

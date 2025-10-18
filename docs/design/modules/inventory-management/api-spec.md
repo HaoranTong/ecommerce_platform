@@ -1,3 +1,19 @@
+---
+title: "库存管理模块API规范"
+version: "v1.1.0"
+status: "active"
+created: "2025-09-15"
+updated: "2025-10-18"
+owner: "API架构师"
+dependencies:
+  - "docs/standards/api-standards.md"
+  - "docs/design/modules/inventory-management/design.md"
+labels:
+  - "inventory-management"
+  - "api-specification"
+  - "restful"
+---
+
 # 库存管理模块 API 规范
 
 <!--
@@ -5,9 +21,9 @@
 文件路径：docs/design/modules/inventory-management/api-spec.md
 文档类型：API规范文档
 模块名称：库存管理模块 (Inventory Management Module)
-文档版本：v1.0.0
+文档版本：v1.1.0
 创建时间：2025-09-15
-最后修改：2025-09-15
+最后修改：2025-10-18
 维护人员：API架构师
 文档状态：正式版本
 
@@ -22,10 +38,22 @@
 - 模块概览：overview.md
 -->
 
+## 依赖标准
+
+本文档遵循以下标准规范：
+
+| 标准文档 | 版本 | 应用范围 |
+|---------|------|---------|
+| [API设计标准](../../standards/api-standards.md) | v1.0 | RESTful API设计、路由命名 |
+| [数据库设计标准](../../standards/database-standards.md) | v1.0 | 表结构设计、字段命名、索引设计 |
+| [架构设计标准](../../standards/architecture-standards.md) | v1.0 | 四层架构、Repository模式、依赖注入 |
+| [应用架构](../../architecture/application-architecture.md) | v1.0 | 模块化单体、模块边界、依赖管理 |
+
+**架构版本**: V2.0 - 四层架构 (Router → Service → Repository → Model)
 ## 文档信息
 - **模块名称**: 库存管理模块 (Inventory Management Module)  
 - **API版本**: v1.0
-- **最后更新**: 2025-09-15
+- **最后更新**: 2025-10-18
 - **文档类型**: API规范文档
 - **遵循标准**: [API设计标准](../../standards/api-standards.md)
 - **架构对齐**: 严格遵循 [表模块映射](../../architecture/table-module-mapping.md) 架构设计
@@ -37,13 +65,18 @@
 2. **Product-SKU分离**: 遵循架构设计，Product管理基础信息，SKU管理规格和定价
 3. **统一标识**: 使用 `sku_id` 作为库存操作的核心标识符
 4. **事件驱动**: 库存变动触发相应事件，实现模块解耦
+5. **四层架构**: 采用Router → Service → Repository → Model四层架构设计 ⭐
+   - **API层**: 本文档定义的RESTful接口
+   - **业务层**: Service层实现业务逻辑
+   - **数据层**: Repository层封装数据访问
+   - **模型层**: Model层定义数据结构
 
 ## API 基础信息
 
 ### 基础路径
-```
+```text
 /api/inventory/
-```
+```text
 
 ### 认证方式
 - **类型**: Bearer Token (JWT)
@@ -58,7 +91,7 @@
     "data": {},
     "timestamp": "2025-09-15T10:30:00Z"
 }
-```
+```json
 
 ## API 端点定义
 
@@ -86,7 +119,7 @@
         "last_updated": "2025-09-15T10:30:00Z"
     }
 }
-```
+```text
 
 #### 1.2 批量获取SKU库存
 - **方法**: `POST`
@@ -98,7 +131,7 @@
 {
     "sku_ids": ["SKU001001", "SKU001002", "SKU001003"]
 }
-```
+```json
 - **响应**:
 ```json
 {
@@ -121,7 +154,7 @@
         }
     ]
 }
-```
+```text
 
 ### 2. 库存预占接口
 
@@ -143,7 +176,7 @@
     ],
     "expires_minutes": 30
 }
-```
+```text
 - **响应**:
 ```json
 {
@@ -161,7 +194,7 @@
         ]
     }
 }
-```
+```text
 
 #### 2.2 释放库存预占
 - **方法**: `DELETE`
@@ -185,7 +218,7 @@
         ]
     }
 }
-```
+```text
 
 #### 2.3 批量释放用户预占
 - **方法**: `DELETE`
@@ -205,7 +238,7 @@
         "total_released_quantity": 15
     }
 }
-```
+```text
 
 ### 3. 库存操作接口
 
@@ -226,7 +259,7 @@
         }
     ]
 }
-```
+```text
 - **响应**:
 ```json
 {
@@ -243,7 +276,7 @@
         ]
     }
 }
-```
+```text
 
 #### 3.2 库存调整
 - **方法**: `POST`
@@ -260,7 +293,7 @@
     "reason": "新进货入库",
     "reference": "PO202509150001"
 }
-```
+```text
 - **响应**:
 ```json
 {
@@ -274,7 +307,7 @@
         "transaction_id": "txn_78901"
     }
 }
-```
+```text
 
 ### 4. 库存管理接口
 
@@ -291,7 +324,7 @@
     "warning_threshold": 10,
     "critical_threshold": 5
 }
-```
+```json
 - **响应**:
 ```json
 {
@@ -303,7 +336,7 @@
         "critical_threshold": 5
     }
 }
-```
+```text
 
 #### 4.2 获取低库存SKU列表
 - **方法**: `GET`
@@ -332,7 +365,7 @@
         ]
     }
 }
-```
+```text
 
 ### 5. 库存历史接口
 
@@ -371,7 +404,7 @@
         ]
     }
 }
-```
+```text
 
 #### 5.2 搜索库存变动记录
 - **方法**: `GET`
@@ -405,7 +438,7 @@
         "released_quantity": 150
     }
 }
-```
+```text
 
 #### 6.2 库存一致性检查
 - **方法**: `POST`
@@ -429,7 +462,7 @@
         ]
     }
 }
-```
+```text
 
 ## 错误响应
 
@@ -446,7 +479,7 @@
     },
     "timestamp": "2025-09-15T10:30:00Z"
 }
-```
+```text
 
 ### 常见错误码
 - `INSUFFICIENT_INVENTORY`: 库存不足
@@ -480,7 +513,7 @@
         "user_id": 123
     }
 }
-```
+```text
 
 ## 性能要求
 

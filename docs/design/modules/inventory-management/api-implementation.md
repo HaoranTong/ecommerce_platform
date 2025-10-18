@@ -1,3 +1,18 @@
+---
+title: "库存管理模块API实现文档"
+version: "v1.1.0"
+status: "active"
+created: "2025-09-15"
+updated: "2025-10-18"
+owner: "API开发工程师"
+dependencies:
+  - "docs/design/modules/inventory-management/api-spec.md"
+  - "docs/standards/api-standards.md"
+labels:
+  - "inventory-management"
+  - "api-implementation"
+---
+
 # 库存管理模块API实现文档
 
 <!--
@@ -5,9 +20,9 @@
 文件路径：docs/design/modules/inventory-management/api-implementation.md
 文档类型：API实现文档
 模块名称：库存管理模块 (Inventory Management Module)
-文档版本：v1.0.0
+文档版本：v1.1.0
 创建时间：2025-09-15
-最后修改：2025-09-15
+最后修改：2025-10-18
 维护人员：API开发工程师
 文档状态：正式版本
 
@@ -22,6 +37,18 @@
 - 实现指南：implementation.md
 -->
 
+## 依赖标准
+
+本文档遵循以下标准规范：
+
+| 标准文档 | 版本 | 应用范围 |
+|---------|------|---------|
+| [API设计标准](../../standards/api-standards.md) | v1.0 | RESTful API设计、路由命名 |
+| [数据库设计标准](../../standards/database-standards.md) | v1.0 | 表结构设计、字段命名、索引设计 |
+| [架构设计标准](../../standards/architecture-standards.md) | v1.0 | 四层架构、Repository模式、依赖注入 |
+| [应用架构](../../architecture/application-architecture.md) | v1.0 | 模块化单体、模块边界、依赖管理 |
+
+**架构版本**: V2.0 - 四层架构 (Router → Service → Repository → Model)
 ## 1. API概述
 
 ### 1.1 API设计原则
@@ -30,6 +57,11 @@
 - **无状态**: API调用之间相互独立，无状态依赖
 - **幂等性**: 相同的请求产生相同的结果
 - **版本控制**: 支持API版本向后兼容
+- **四层架构**: API层调用Service层，Service层调用Repository层 ⭐
+  - API层（Router）: 处理HTTP请求，参数验证，响应格式化
+  - 业务层（Service）: 实现业务逻辑，事务管理，权限检查
+  - 数据层（Repository）: 数据访问封装，查询构建，缓存策略
+  - 模型层（Model）: 数据模型定义，ORM映射
 
 ### 1.2 基础信息
 - **Base URL**: `{host}/api/v1/inventory`
@@ -48,7 +80,7 @@
     "timestamp": "2025-09-15T10:30:00Z",
     "request_id": "req_123456789"
 }
-```
+```text
 
 #### 错误响应结构
 ```json
@@ -66,7 +98,7 @@
     "timestamp": "2025-09-15T10:30:00Z",
     "request_id": "req_123456789"
 }
-```
+```text
 
 ## 2. 库存查询接口
 
@@ -117,7 +149,7 @@
         ]
     }
 }
-```
+```text
 
 **实现代码**
 ```python
@@ -166,7 +198,7 @@ async def get_sku_inventory(
                 "message": "库存查询失败"
             }
         )
-```
+```text
 
 ### 2.2 批量获取库存
 
@@ -181,7 +213,7 @@ async def get_sku_inventory(
     "sku_ids": ["SKU-001", "SKU-002", "SKU-003"],
     "include_unavailable": false
 }
-```
+```json
 
 **请求参数**
 | 参数名 | 类型 | 必填 | 描述 |
@@ -217,7 +249,7 @@ async def get_sku_inventory(
         "total_found": 2
     }
 }
-```
+```text
 
 ## 3. 库存预占接口
 
@@ -246,7 +278,7 @@ async def get_sku_inventory(
     "expires_minutes": 120,
     "idempotency_key": "idem_key_12345"
 }
-```
+```text
 
 **请求参数验证**
 ```python
@@ -268,7 +300,7 @@ class ReservationRequest(BaseModel):
 class ReservationItem(BaseModel):
     sku_id: str = Field(..., min_length=1, max_length=100)
     quantity: int = Field(..., gt=0, le=10000, description="预占数量")
-```
+```python
 
 **响应示例**
 ```json
@@ -297,7 +329,7 @@ class ReservationItem(BaseModel):
         "total_reserved": 3
     }
 }
-```
+```text
 
 **实现代码**
 ```python
@@ -379,7 +411,7 @@ async def reserve_inventory(
                 "details": e.errors()
             }
         )
-```
+```text
 
 ### 3.2 释放库存预占
 
@@ -412,7 +444,7 @@ async def reserve_inventory(
         "released_at": "2025-09-15T10:45:00Z"
     }
 }
-```
+```text
 
 ## 4. 库存扣减接口
 
@@ -441,7 +473,7 @@ async def reserve_inventory(
     "operator_type": "system",
     "reason": "订单确认扣减"
 }
-```
+```text
 
 **实现代码**
 ```python
@@ -497,7 +529,7 @@ async def deduct_inventory(
                 "message": f"预占记录不存在: {str(e)}"
             }
         )
-```
+```json
 
 ## 5. 库存管理接口
 
@@ -517,7 +549,7 @@ async def deduct_inventory(
     "critical_threshold": 50,
     "reason": "新商品上架"
 }
-```
+```text
 
 **响应示例**
 ```json
@@ -535,7 +567,7 @@ async def deduct_inventory(
         "created_at": "2025-09-15T10:30:00Z"
     }
 }
-```
+```text
 
 ### 5.2 调整库存数量
 
@@ -552,7 +584,7 @@ async def deduct_inventory(
     "reason": "采购入库",
     "reference_id": "purchase_order_123"
 }
-```
+```text
 
 ### 5.3 更新库存阈值
 
@@ -568,7 +600,7 @@ async def deduct_inventory(
     "critical_threshold": 100,
     "reason": "调整预警策略"
 }
-```
+```text
 
 ## 6. 库存查询和报表接口
 
@@ -616,7 +648,7 @@ async def deduct_inventory(
         }
     }
 }
-```
+```text
 
 ### 6.2 获取库存变更历史
 
@@ -702,7 +734,7 @@ async def validation_exception_handler(request: Request, exc: ValidationError):
             "request_id": str(uuid.uuid4())
         }
     )
-```
+```text
 
 ## 8. API安全和限流
 
@@ -740,7 +772,7 @@ def require_permission(permission: Permission):
             return await func(*args, current_user=current_user, **kwargs)
         return wrapper
     return decorator
-```
+```text
 
 ### 8.2 API限流
 
@@ -765,7 +797,7 @@ async def get_sku_inventory(request: Request, sku_id: str):
 async def reserve_inventory(request: Request, ...):
     # 接口逻辑
     pass
-```
+```python
 
 ### 8.3 幂等性处理
 
@@ -791,7 +823,7 @@ class IdempotencyService:
             self.ttl,
             json.dumps(result, default=str)
         )
-```
+```json
 
 ## 9. 性能优化
 
@@ -836,7 +868,7 @@ async def batch_reserve_inventory(
     results = await asyncio.gather(*tasks, return_exceptions=True)
     
     return process_batch_results(results)
-```
+```text
 
 ---
 

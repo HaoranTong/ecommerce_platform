@@ -1,3 +1,18 @@
+---
+title: "库存管理模块概览"
+version: "v1.1.0"
+status: "active"
+created: "2025-09-15"
+updated: "2025-10-18"
+owner: "技术经理"
+dependencies:
+  - "docs/architecture/business-architecture.md"
+  - "docs/architecture/application-architecture.md"
+labels:
+  - "inventory-management"
+  - "module-overview"
+---
+
 # 库存管理模块 (Inventory Management Module)
 
 <!--
@@ -23,6 +38,18 @@
 - API规范：api-spec.md
 -->
 
+## 依赖标准
+
+本文档遵循以下标准规范：
+
+| 标准文档 | 版本 | 应用范围 |
+|---------|------|---------|
+| [API设计标准](../../standards/api-standards.md) | v1.0 | RESTful API设计、路由命名 |
+| [数据库设计标准](../../standards/database-standards.md) | v1.0 | 表结构设计、字段命名、索引设计 |
+| [架构设计标准](../../standards/architecture-standards.md) | v1.0 | 四层架构、Repository模式、依赖注入 |
+| [应用架构](../../architecture/application-architecture.md) | v1.0 | 模块化单体、模块边界、依赖管理 |
+
+**架构版本**: V2.0 - 四层架构 (Router → Service → Repository → Model)
 ## 模块概述
 
 库存管理模块是电商平台的核心基础模块，负责商品库存的实时跟踪、预占机制、补货预警和库存同步。确保库存数据的准确性和一致性，防止超卖现象，支持高并发场景下的库存操作。
@@ -57,21 +84,66 @@
 
 ## 技术架构
 
-### 核心组件
+### 四层架构设计 ⭐
 
-```
-inventory/
-├── models/
-│   ├── inventory.py              # 库存数据模型
-│   ├── inventory_transaction.py  # 库存交易记录模型
-│   └── cart_reservation.py       # 购物车预占模型
-├── services/
-│   └── inventory_service.py      # 库存业务逻辑服务
-├── schemas/
-│   └── inventory.py              # 库存数据传输对象
-└── api/
-    └── inventory_routes.py       # 库存API路由
-```
+```text
+app/modules/inventory_management/
+├── __init__.py                   # 模块初始化
+├── models.py                     # 数据模型层 (ORM Models)
+│   ├── InventoryStock           # 库存主表模型
+│   ├── InventoryReservation     # 库存预占模型
+│   └── InventoryTransaction     # 库存交易记录模型
+├── repository.py                 # 数据操作层 ⭐NEW
+│   └── InventoryRepository      # 数据访问封装类
+│       ├── CRUD操作方法
+│       ├── 复杂查询构建
+│       ├── 缓存管理
+│       └── 事务控制
+├── service.py                    # 业务逻辑层
+│   └── InventoryService         # 业务服务类
+│       ├── 库存预留逻辑
+│       ├── 库存扣减逻辑
+│       ├── 库存调整逻辑
+│       └── 业务规则验证
+├── schemas.py                    # 数据传输层 (Pydantic)
+│   ├── Request Models           # 请求数据模型
+│   └── Response Models          # 响应数据模型
+├── router.py                     # API路由层
+│   └── API Endpoints            # REST API端点定义
+├── dependencies.py               # 依赖注入
+│   ├── get_db()                 # 数据库会话
+│   └── get_current_user()       # 用户认证
+└── README.md                     # 模块说明文档
+```text
+
+### 架构层次关系
+
+```text
+┌─────────────────────────────────────────────────────────────┐
+│  Router (router.py)           表现层 - API接口定义            │
+└─────────────────────────────────────────────────────────────┘
+                            ↓ 调用
+┌─────────────────────────────────────────────────────────────┐
+│  Service (service.py)         业务层 - 业务逻辑编排           │
+└─────────────────────────────────────────────────────────────┘
+                            ↓ 调用
+┌─────────────────────────────────────────────────────────────┐
+│  Repository (repository.py)  数据操作层 - 数据访问封装 ⭐NEW  │
+└─────────────────────────────────────────────────────────────┘
+                            ↓ 操作
+┌─────────────────────────────────────────────────────────────┐
+│  Models (models.py)           数据层 - ORM模型定义           │
+└─────────────────────────────────────────────────────────────┘
+```text
+
+### 核心组件说明
+
+| 组件 | 职责 | 关键特性 |
+|------|------|---------|
+| **Router** | HTTP请求处理 | FastAPI路由、数据验证、错误处理 |
+| **Service** | 业务逻辑实现 | 流程编排、业务规则、事务管理 |
+| **Repository** ⭐ | 数据访问封装 | CRUD操作、查询构建、缓存策略 |
+| **Models** | 数据结构定义 | ORM映射、约束定义、关系映射 |
 
 ### 数据库设计
 
@@ -91,7 +163,7 @@ CREATE TABLE inventory (
     INDEX idx_available_quantity (available_quantity),
     INDEX idx_total_quantity (total_quantity)
 );
-```
+```text
 
 #### 2. 库存交易记录表 (inventory_transactions)
 ```sql
@@ -109,7 +181,7 @@ CREATE TABLE inventory_transactions (
     INDEX idx_created_at (created_at),
     INDEX idx_reference_id (reference_id)
 );
-```
+```text
 
 #### 3. 购物车预占表 (cart_reservations)
 ```sql
@@ -126,7 +198,7 @@ CREATE TABLE cart_reservations (
     INDEX idx_sku_id (sku_id),
     INDEX idx_expires_at (expires_at)
 );
-```
+```text
 
 ### Redis 缓存设计
 
@@ -150,7 +222,7 @@ inventory:reservation:cart:{user_id} = {
     ],
     "expires_at": "2024-12-19T11:00:00Z"
 }
-```
+```json
 
 ## API 接口
 
@@ -221,7 +293,7 @@ sequenceDiagram
     Cart->>User: 显示购物车状态
     
     Note over Inventory: 30分钟后自动释放预占
-```
+```text
 
 ### 订单库存扣减流程
 ```mermaid
@@ -237,7 +309,7 @@ sequenceDiagram
     Order->>Inventory: 执行库存扣减
     Inventory->>DB: 更新库存数据
     Inventory->>Order: 扣减完成确认
-```
+```text
 
 ### 库存调整流程
 ```mermaid
@@ -252,7 +324,7 @@ sequenceDiagram
     Inventory->>DB: 记录调整历史
     Inventory->>Redis: 清除缓存
     Inventory->>Admin: 返回调整结果
-```
+```text
 
 ## 核心服务
 
@@ -272,7 +344,7 @@ class InventoryService:
     def get_low_stock_products(self, filters: LowStockQuery) -> PaginatedResponse
     def get_inventory_transactions(self, product_id: int, filters: TransactionQuery) -> PaginatedResponse
     def cleanup_expired_reservations(self) -> CleanupResult
-```
+```python
 
 ## 配置说明
 
@@ -291,7 +363,7 @@ INVENTORY_BATCH_QUERY_LIMIT=100
 
 # 清理任务配置
 INVENTORY_CLEANUP_INTERVAL_MINUTES=10
-```
+```text
 
 ### Redis配置
 ```bash
@@ -299,7 +371,7 @@ INVENTORY_CLEANUP_INTERVAL_MINUTES=10
 REDIS_URL=redis://localhost:6379/0
 REDIS_PASSWORD=your_password
 REDIS_DB=0
-```
+```text
 
 ## 监控与运维
 
@@ -338,7 +410,7 @@ REDIS_DB=0
     ├── allocation_utils.py        # 分配算法工具
     ├── forecast_utils.py          # 预测工具
     └── sync_utils.py              # 同步工具
-```
+```text
 
 ### 数据库设计
 
@@ -446,7 +518,7 @@ CREATE TABLE inventory_batches (
     
     UNIQUE(warehouse_id, sku_id, batch_number)
 );
-```
+```text
 
 ### Redis 缓存设计
 
@@ -488,7 +560,7 @@ low_stock_alerts = [
         "priority": "high"
     }
 ]
-```
+```text
 
 ## API 接口
 
@@ -613,7 +685,7 @@ low_stock_alerts = [
     responses:
       204:
         description: 取消成功
-```
+```text
 
 ## 业务逻辑
 
@@ -771,7 +843,7 @@ class InventoryReservationService:
                     available_delta=reservation.quantity,
                     reserved_delta=-reservation.quantity
                 )
-```
+```text
 
 ### 库存分配算法
 
@@ -858,7 +930,7 @@ class InventoryAllocationService:
             raise InsufficientInventoryError(item.sku_id)
         
         return allocations
-```
+```text
 
 ### 补货建议算法
 
@@ -961,7 +1033,7 @@ class ReplenishmentService:
             return 'medium'
         else:
             return 'low'
-```
+```text
 
 ## 监控指标
 
@@ -1005,7 +1077,7 @@ MAX_RESERVATION_EXTENSION=60
 # 补货配置
 REPLENISHMENT_CHECK_INTERVAL=86400
 LOW_STOCK_THRESHOLD=0.2
-```
+```text
 
 ## 相关文档
 

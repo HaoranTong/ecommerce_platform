@@ -1,3 +1,20 @@
+---
+title: "库存管理模块实现指南"
+version: "v1.1.0"
+status: "active"
+created: "2025-09-15"
+updated: "2025-10-18"
+owner: "开发工程师"
+dependencies:
+  - "docs/design/modules/inventory-management/design.md"
+  - "docs/standards/code-standards.md"
+  - "docs/standards/architecture-standards.md"
+labels:
+  - "inventory-management"
+  - "implementation"
+  - "repository-pattern"
+---
+
 # 库存管理模块实现文档
 
 <!--
@@ -22,6 +39,18 @@
 - API规范：api-spec.md
 -->
 
+## 依赖标准
+
+本文档遵循以下标准规范：
+
+| 标准文档 | 版本 | 应用范围 |
+|---------|------|---------|
+| [API设计标准](../../standards/api-standards.md) | v1.0 | RESTful API设计、路由命名 |
+| [数据库设计标准](../../standards/database-standards.md) | v1.0 | 表结构设计、字段命名、索引设计 |
+| [架构设计标准](../../standards/architecture-standards.md) | v1.0 | 四层架构、Repository模式、依赖注入 |
+| [应用架构](../../architecture/application-architecture.md) | v1.0 | 模块化单体、模块边界、依赖管理 |
+
+**架构版本**: V2.0 - 四层架构 (Router → Service → Repository → Model)
 ## 1. 技术栈选择
 
 ### 1.1 核心技术栈
@@ -45,42 +74,130 @@
 | **mypy** | 1.5+ | 静态类型检查 |
 | **pre-commit** | 3.0+ | 代码质量检查 |
 
-## 2. 项目结构实现
+## 2. 四层架构实现 ⭐
 
-### 2.1 目录结构
+### 2.1 架构演进说明
 
-```
+**架构升级**: 从传统的三层架构升级为四层架构，增加Repository层（数据操作层）
+
+| 架构版本 | 层次划分 | 主要特点 |
+|---------|---------|---------|
+| **V1.0 三层架构** | Router → Service → Model | Service层直接操作数据库 |
+| **V2.0 四层架构** ⭐ | Router → Service → Repository → Model | 数据访问逻辑分离 |
+
+**升级优势**:
+- ✅ **关注点分离**: Service专注业务逻辑，Repository专注数据访问
+- ✅ **可测试性**: Repository可以Mock，便于单元测试
+- ✅ **可维护性**: 数据访问逻辑集中管理，易于优化
+- ✅ **可扩展性**: 支持切换不同数据源（MySQL → PostgreSQL）
+
+### 2.2 四层架构目录结构
+
+```sql
 app/modules/inventory_management/
 ├── __init__.py                 # 模块初始化
-├── models.py                   # 数据模型定义
-├── schemas.py                  # API数据结构
-├── service.py                  # 业务逻辑服务
-├── router.py                   # API路由定义
+├── models.py                   # Layer 4: 数据模型层 (ORM Models)
+│   ├── InventoryStock         # 库存主表
+│   ├── InventoryReservation   # 库存预占表
+│   └── InventoryTransaction   # 库存交易记录表
+├── repository.py               # Layer 3: 数据操作层 ⭐NEW
+│   └── InventoryRepository    # 数据访问封装
+│       ├── CRUD Methods       # 基础CRUD操作
+│       ├── Query Builders     # 复杂查询构建
+│       ├── Cache Strategy     # 缓存策略
+│       └── Transaction Mgmt   # 事务管理
+├── service.py                  # Layer 2: 业务逻辑层
+│   └── InventoryService       # 业务服务
+│       ├── reserve_inventory  # 库存预留
+│       ├── deduct_inventory   # 库存扣减
+│       ├── adjust_inventory   # 库存调整
+│       └── check_consistency  # 一致性检查
+├── schemas.py                  # Pydantic Schemas
+│   ├── Request Models         # 请求模型
+│   └── Response Models        # 响应模型
+├── router.py                   # Layer 1: API路由层
+│   └── API Endpoints          # REST API端点
 ├── dependencies.py             # 依赖注入
+│   ├── get_db()               # 数据库会话
+│   ├── get_repository()       # Repository实例
+│   └── get_service()          # Service实例
 └── exceptions.py               # 自定义异常
 
 tests/
 ├── unit/
 │   ├── test_models/
-│   │   └── test_inventory_models.py
+│   │   └── test_inventory_models.py          # 模型单元测试
+│   ├── test_repositories/
+│   │   └── test_inventory_repositories.py    # Repository单元测试 ⭐NEW
 │   └── test_services/
-│       └── test_inventory_service.py
+│       └── test_inventory_services.py        # Service单元测试
 ├── integration/
 │   └── test_api/
-│       └── test_inventory_integration.py
-└── conftest.py                 # 测试配置
-```
+│       └── test_inventory_api.py             # API集成测试
+└── conftest.py                                # 测试配置
+```text
 
-### 2.2 模块依赖关系
+### 2.3 四层架构依赖关系
 
 ```python
-# 依赖层次结构
-Router Layer    ->  Service Layer    ->  Model Layer
-    │                    │                   │
-    ├── schemas.py       ├── service.py     ├── models.py
-    ├── router.py        └── exceptions.py  └── database.py
-    └── dependencies.py
-```
+# 四层架构依赖链
+┌─────────────────────────────────────────────────────────┐
+│  Layer 1: Router (router.py)                            │
+│  • 接收HTTP请求                                          │
+│  • 调用Service层                                         │
+│  • 返回HTTP响应                                          │
+└─────────────────────────────────────────────────────────┘
+            ↓ depends_on
+┌─────────────────────────────────────────────────────────┐
+│  Layer 2: Service (service.py)                          │
+│  • 业务流程编排                                          │
+│  • 调用Repository层                                      │
+│  • 业务规则验证                                          │
+└─────────────────────────────────────────────────────────┘
+            ↓ depends_on
+┌─────────────────────────────────────────────────────────┐
+│  Layer 3: Repository (repository.py) ⭐NEW              │
+│  • 数据库CRUD操作                                        │
+│  • 查询构建                                              │
+│  • 缓存管理                                              │
+└─────────────────────────────────────────────────────────┘
+            ↓ operates_on
+┌─────────────────────────────────────────────────────────┐
+│  Layer 4: Models (models.py)                            │
+│  • ORM模型定义                                           │
+│  • 数据库映射                                            │
+│  • 约束定义                                              │
+└─────────────────────────────────────────────────────────┘
+```text
+
+### 2.4 依赖注入实现
+
+```python
+# dependencies.py - 四层架构依赖注入
+
+from fastapi import Depends
+from sqlalchemy.orm import Session
+from app.core.database import get_db
+
+def get_repository(db: Session = Depends(get_db)) -> InventoryRepository:
+    """获取Repository实例"""
+    return InventoryRepository(db)
+
+def get_service(
+    repository: InventoryRepository = Depends(get_repository)
+) -> InventoryService:
+    """获取Service实例"""
+    return InventoryService(repository)
+
+# router.py - 在路由中使用
+@router.post("/reserve")
+async def reserve_inventory(
+    items: List[ReservationItem],
+    service: InventoryService = Depends(get_service)
+):
+    """调用链: Router → Service → Repository → Model"""
+    return await service.reserve_inventory(items)
+```text
 
 ## 3. 数据模型实现
 
@@ -175,7 +292,7 @@ class InventoryStock(Base):
                 self.total_quantity -= quantity
                 return True
         return False
-```
+```text
 
 ### 3.2 关联模型实现
 
@@ -214,7 +331,7 @@ class InventoryTransaction(Base):
     reason = Column(String(500))
     operator_id = Column(Integer)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
-```
+```text
 
 ## 4. 业务服务实现
 
@@ -267,7 +384,7 @@ class InventoryService:
             "is_active": inventory.is_active,
             "last_updated": inventory.updated_at
         }
-```
+```text
 
 ### 4.2 核心业务逻辑实现
 
@@ -349,7 +466,7 @@ class InventoryService:
         except Exception as e:
             self.db.rollback()
             raise
-```
+```text
 
 ### 4.3 异常处理实现
 
@@ -382,7 +499,7 @@ class InvalidOperationError(InventoryException):
     """无效操作异常"""
     def __init__(self, message: str):
         super().__init__(message)
-```
+```python
 
 ## 5. API接口实现
 
@@ -439,7 +556,7 @@ class ReservationResponse(BaseModel):
     reservation_id: str
     expires_at: datetime
     reserved_items: List[Dict[str, Any]]
-```
+```text
 
 ### 5.2 路由实现
 
@@ -526,7 +643,7 @@ async def reserve_inventory(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e)
         )
-```
+```text
 
 ## 6. 数据库迁移实现
 
@@ -584,7 +701,7 @@ def downgrade():
     
     op.execute('DROP TYPE reservationtype')
     op.execute('DROP TYPE transactiontype')
-```
+```sql
 
 ### 6.2 数据库约束
 
@@ -605,7 +722,7 @@ WHERE (total_quantity - reserved_quantity) <= warning_threshold;
 
 CREATE INDEX idx_reservation_active_sku 
 ON inventory_reservation (sku_id, is_active, expires_at);
-```
+```text
 
 ## 7. 缓存实现
 
@@ -659,7 +776,7 @@ class InventoryCache:
         cache_keys = [f"{self.cache_prefix}:stock:{sku_id}" for sku_id in sku_ids]
         if cache_keys:
             await self.redis.delete(*cache_keys)
-```
+```json
 
 ### 7.2 缓存集成
 
@@ -689,7 +806,7 @@ class InventoryService:
     async def _invalidate_cache_after_update(self, sku_ids: List[str]):
         """库存更新后清除相关缓存"""
         await self.cache.batch_invalidate(sku_ids)
-```
+```python
 
 ## 8. 测试实现
 
@@ -758,7 +875,7 @@ class TestInventoryService:
                 expires_minutes=120,
                 user_id=1
             )
-```
+```text
 
 ### 8.2 集成测试
 
@@ -818,7 +935,7 @@ def test_create_and_get_inventory(client):
     inventory_data = get_response.json()
     assert inventory_data["sku_id"] == "TEST-SKU-001"
     assert inventory_data["total_quantity"] == 100
-```
+```json
 
 ## 9. 性能优化实现
 
@@ -850,7 +967,7 @@ async def get_batch_inventory_optimized(self, sku_ids: List[str]) -> List[Dict]:
             })
     
     return results
-```
+```text
 
 ### 9.2 连接池配置
 
@@ -870,7 +987,7 @@ engine = create_engine(
     pool_recycle=3600,     # 连接回收时间
     echo=False             # 生产环境关闭SQL日志
 )
-```
+```sql
 
 ## 10. 监控和日志实现
 
@@ -936,7 +1053,7 @@ class InventoryService:
     async def reserve_inventory(self, ...):
         # 业务逻辑
         pass
-```
+```python
 
 ### 10.2 结构化日志
 
@@ -996,7 +1113,7 @@ class InventoryAuditLogger:
             user_id=user_id,
             expires_at=expires_at
         )
-```
+```text
 
 ---
 
