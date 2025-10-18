@@ -325,9 +325,7 @@ class RepositoryTestGenerator:
             return entity_var
         
         # 特殊处理：特殊参数名的固定默认值
-        if param_name in ['data', 'update_data', 'filters'] or 'dict' in param_type.lower():
-            return "{}"
-        elif param_name in ['skip', 'offset']:
+        if param_name in ['skip', 'offset']:
             return "0"
         elif param_name in ['limit', 'count']:
             return "100"
@@ -335,9 +333,19 @@ class RepositoryTestGenerator:
         # 获取当前模型信息
         model_info = models.get(repo_info.model_name)
         
-        # 根据类型分发到专门的解析方法
-        if 'List' in param_type:
+        # ✅ 修复：优先检查复合类型，使用精确匹配而非子串匹配
+        # 问题：'str' in 'Dict[str, Any]' → True（误判）
+        # 解决：按优先级检查，复合类型优先于基础类型
+        
+        # 优先级1：Dict类型（包括Dict[str, Any], dict[int, str]等）
+        if param_type.startswith('Dict[') or param_type.startswith('dict[') or param_name in ['data', 'update_data', 'filters']:
+            return "{}"
+        
+        # 优先级2：List类型（包括List[int], List[str]等）
+        elif param_type.startswith('List[') or param_type.startswith('list['):
             return self._resolve_list_param(param_name, param_type, repo_info, model_info, entity_var)
+        
+        # 优先级3：基础类型（精确匹配或子串匹配，但已排除复合类型）
         elif 'int' in param_type.lower():
             return self._resolve_integer_param(param_name, param_type, repo_info, model_info, models, entity_var)
         elif 'str' in param_type.lower():
@@ -641,9 +649,10 @@ class RepositoryTestGenerator:
                 else:
                     cross_module_models[model_name] = model_info.module_name
         
-        # 从生成的测试代码中提取所有使用的模型名
+        # 从生成的测试代码中提取所有使用的模型名和Enum类型
         import re
         all_test_code = '\n'.join(test_classes)
+        
         # 匹配 "entity = ModelName(" 模式
         entity_pattern = r'entity\s*=\s*([A-Z][a-zA-Z0-9_]*)\s*\('
         found_models = re.findall(entity_pattern, all_test_code)
@@ -655,6 +664,13 @@ class RepositoryTestGenerator:
                     current_module_models.add(model_name)
                 else:
                     cross_module_models[model_name] = model_info.module_name
+        
+        # 匹配Enum使用模式: "EnumType.VALUE"
+        enum_pattern = r'([A-Z][a-zA-Z0-9_]*Type)\.([A-Z_]+)'
+        found_enums = re.findall(enum_pattern, all_test_code)
+        for enum_name, _ in found_enums:
+            # Enum类型都定义在当前模块的models.py中
+            current_module_models.add(enum_name)
         
         # 收集需要导入的Repository
         repo_imports = [repo_info.name for repo_info in repositories.values()]
@@ -749,13 +765,25 @@ from app.modules.{module_name}.repository import (
         method_name = method_info.name
         
         # 🎯 步骤1：智能推断实际要创建的实体类型
+        # 优先级1: 使用方法返回类型（最准确）
+        # 优先级2: 使用参数类型（Entity对象模式）
+        # 优先级3: 使用Repository主模型（兜底）
+        
         # 过滤掉self, db, cls等基础参数
         method_params = [p for p in method_info.parameters if p[0] not in ['self', 'db', 'cls']]
         
-        # 从参数类型推断实际要创建的实体类型
+        # 🎯 优先使用返回类型推断模型
         actual_model_name = model_name  # 默认使用Repository对应的模型
         
-        if len(method_params) == 1:
+        # 提取返回类型中的模型名（去除Optional等装饰器）
+        return_type = method_info.return_type
+        clean_return_type = return_type.replace('Optional[', '').replace(']', '').strip()
+        
+        # 检查返回类型是否是已知模型
+        if clean_return_type in models:
+            actual_model_name = clean_return_type
+        elif len(method_params) == 1:
+            # 如果返回类型不是模型，尝试从参数类型推断
             param_name, param_type, param_kind = method_params[0]
             
             # 🔧 提取参数类型中的实体名称（如 "OrderItem" from "OrderItem"）
@@ -771,15 +799,33 @@ from app.modules.{module_name}.repository import (
                     clean_param_type = alt_name  # 使用实际的模型名
             
             if is_entity_type:
-                # 🎯 核心修复：使用参数类型作为实际模型名称！
+                # 使用参数类型作为实际模型名称
                 actual_model_name = clean_param_type
         
-        # 🎯 步骤2：使用actual_model_name生成实体创建代码
-        # 生成最小字段创建代码（只填必填字段）
-        minimal_imports, minimal_entity_code = self._generate_minimal_entity_creation(actual_model_name, models, module_name)
+        # 🎯 步骤2：根据参数模式生成数据创建代码
+        # 判断是Entity对象模式还是Dict参数模式
+        is_dict_param = False
+        if len(method_params) == 1:
+            param_name, param_type, param_kind = method_params[0]
+            if param_type.startswith('Dict[') or param_type.startswith('dict['):
+                is_dict_param = True
         
-        # 🔑 生成完整字段创建代码（填充所有字段）
-        full_imports, full_entity_code = self._generate_full_entity_creation(actual_model_name, models, module_name)
+        if is_dict_param:
+            # Dict参数模式：生成字典数据而不是entity对象
+            minimal_imports, minimal_entity_code = self._generate_minimal_dict_creation(
+                actual_model_name, models, module_name, param_name
+            )
+            full_imports, full_entity_code = self._generate_full_dict_creation(
+                actual_model_name, models, module_name, param_name
+            )
+        else:
+            # Entity对象模式：生成entity对象（原有逻辑）
+            minimal_imports, minimal_entity_code = self._generate_minimal_entity_creation(
+                actual_model_name, models, module_name
+            )
+            full_imports, full_entity_code = self._generate_full_entity_creation(
+                actual_model_name, models, module_name
+            )
         
         # 组装import语句（放在方法开始）
         import_block = ''
@@ -819,6 +865,11 @@ from app.modules.{module_name}.repository import (
                 # 实体对象参数：传递entity
                 method_call_args_minimal = "unit_test_db, entity"
                 method_call_args_factory = "unit_test_db, entity"
+            elif param_type.startswith('Dict[') or param_type.startswith('dict['):
+                # ✅ Dict参数模式：传递字典变量（而不是空字典）
+                # 字典变量名使用参数名（如inventory_data, reservation_data）
+                method_call_args_minimal = f"unit_test_db, {param_name}"
+                method_call_args_factory = f"unit_test_db, {param_name}"
             else:
                 # 字段参数（如user_id: int）：使用已创建的依赖实体
                 # 检查是否是外键字段
@@ -840,9 +891,19 @@ from app.modules.{module_name}.repository import (
                     method_call_args_factory = f"unit_test_db, {fk_var_name}.id"
                 else:
                     # 普通字段参数：使用测试值
-                    test_value = f'1'  # 默认测试值
-                    if 'str' in param_type.lower():
-                        test_value = f'"test_{param_name}"'
+                    # ✅ 修复：优先检查复合类型，避免子串匹配误判
+                    # 问题：'str' in 'Dict[str, Any]'.lower() → True（误判）
+                    # 解决：先检查Dict/List等复合类型，再精确匹配基础类型
+                    if param_type.startswith('Dict[') or param_type.startswith('dict['):
+                        test_value = '{}'  # Dict类型传空字典
+                    elif param_type.startswith('List[') or param_type.startswith('list['):
+                        test_value = '[]'  # List类型传空列表
+                    elif param_type in ['str', 'Optional[str]', 'str | None']:
+                        test_value = f'"test_{param_name}"'  # 字符串类型
+                    elif param_type in ['int', 'Optional[int]', 'int | None']:
+                        test_value = '1'  # 整数类型
+                    else:
+                        test_value = '1'  # 默认值
                     method_call_args_minimal = f"unit_test_db, {test_value}"
                     method_call_args_factory = f"unit_test_db, {test_value}"
         else:
@@ -2258,30 +2319,8 @@ from app.modules.{module_name}.repository import (
             assertion = "assert result is not None"
             result_var = "result"
         
-        # 🔧 检查是否为跨模块模型（需要使用Factory）
-        is_cross_module = actual_model_name not in models
-        
-        if is_cross_module:
-            # 跨模块模型：使用Factory创建
-            factory_import = self.dependency_resolver.get_factory_import(actual_model_name, module_name)
-            factory_manager_import = self.dependency_resolver.get_factory_manager_import(actual_model_name, module_name)
-            
-            test_code = f'''    def test_{method_name}_query(self, unit_test_db: Session):
-        """测试{method_name} - 查询功能"""
-        # 🔧 跨模块查询：使用Factory创建实体
-        {factory_manager_import}
-        {factory_import}
-        entity = {actual_model_name}Factory.create()
-        
-        # 执行Repository方法
-        {result_var} = {method_call}
-        
-        # 验证查询结果
-        {assertion}
-'''
-        else:
-            # 当前模块模型：直接创建
-            test_code = f'''    def test_{method_name}_query(self, unit_test_db: Session):
+        # 生成测试代码
+        test_code = f'''    def test_{method_name}_query(self, unit_test_db: Session):
         """测试{method_name} - 查询功能"""
         # 准备测试数据
         {entity_creation}
@@ -2401,12 +2440,28 @@ class Test{repo_name}:
         # 策略: 先按字段类型分类，再根据字段名语义推断具体值
         # 这样既保证类型正确，又能生成更合理的测试值
         
+        # 0. Enum类型 - 从column_type提取枚举值
+        # column_type格式: "Enum('RESERVE', 'RELEASE', 'DEDUCT', 'ADJUST', 'RESTOCK')"
+        if 'Enum(' in field.column_type or 'ENUM(' in field.column_type:
+            import re
+            # 提取枚举值列表
+            match = re.search(r"Enum\((.*?)\)", field.column_type, re.IGNORECASE)
+            if match:
+                enum_str = match.group(1)
+                # 移除引号和空格，分割
+                enum_values = [v.strip().strip("'\"") for v in enum_str.split(',')]
+                if enum_values and field.enum_class_name:
+                    # 使用AST分析提取的真实Enum类名（如ReservationType）
+                    # 而不是从字段名猜测
+                    first_value = enum_values[0]
+                    return f'{field.enum_class_name}.{first_value}'
+        
         # 1. 布尔类型
         if field.python_type == 'bool':
             return 'True'
         
         # 2. 日期时间类型
-        elif field.python_type == 'datetime':
+        elif field.python_type in ['datetime', 'datetime.datetime']:
             return 'datetime.now()'
         
         # 3. Decimal类型 - 根据字段名语义推断
@@ -2504,6 +2559,51 @@ class Test{repo_name}:
         
         return ', '.join(params)
     
+    def _get_dependencies_from_config(
+        self,
+        model_name: str,
+        module_name: str
+    ) -> List[Tuple[str, str, str]]:
+        """从配置文件中读取模型的完整依赖链
+        
+        使用 cross_module_dependency_chains 配置，支持间接依赖（如 InventoryReservation → InventoryStock → SKU）
+        
+        Args:
+            model_name: 模型名称（如 'InventoryReservation'）
+            module_name: 当前模块名称（如 'inventory_management'）
+            
+        Returns:
+            List[Tuple[str, str, str]]: [(依赖模型名, 依赖所属模块, 字段名或None), ...]
+            返回None表示配置中没有该模型的依赖链配置
+        """
+        dependency_chains = self.config.get('business_logic_patterns', {}).get('cross_module_dependency_chains', {})
+        
+        if module_name not in dependency_chains:
+            return None  # 该模块没有配置
+        
+        module_chains = dependency_chains[module_name]
+        if not isinstance(module_chains, dict):
+            return None
+        
+        if model_name not in module_chains:
+            return None  # 该模型没有配置
+        
+        # 配置格式: ["inventory_management.InventoryStock", "product_catalog.SKU", ...]
+        config_deps = module_chains[model_name]
+        if not isinstance(config_deps, list):
+            return None
+        
+        dependencies = []
+        for dep_str in config_deps:
+            if '.' not in dep_str:
+                continue  # 无效格式
+            
+            dep_module, dep_model = dep_str.rsplit('.', 1)
+            # 字段名设为None，因为配置中没有字段信息（这是完整依赖链，不是直接外键）
+            dependencies.append((dep_model, dep_module, None))
+        
+        return dependencies
+    
     def _get_all_dependencies(
         self,
         model_name: str,
@@ -2513,6 +2613,11 @@ class Test{repo_name}:
         is_root: bool = True
     ) -> List[Tuple[str, str, str]]:
         """递归获取模型的所有依赖（包括传递依赖）
+        
+        **策略：直接外键分析 + 配置补充**
+        1. 首先通过递归分析获取所有直接外键依赖
+        2. 然后从配置中补充额外的依赖（如间接依赖）
+        3. 去重并按层级排序
         
         Args:
             model_name: 模型名称
@@ -2526,6 +2631,7 @@ class Test{repo_name}:
             按依赖层级排序，先返回最底层依赖
             字段名仅对直接依赖有值，传递依赖为None
         """
+        # 🔥 步骤1: 递归分析直接外键依赖（原有逻辑）
         if visited is None:
             visited = set()
         
@@ -2572,7 +2678,7 @@ class Test{repo_name}:
                 sub_deps = self._get_all_dependencies(fk_model_name, models, module_name, visited, is_root=False)
                 dependencies.extend(sub_deps)
             
-            # 添加当前依赖
+            # 添加当前依赖（无论跨模块还是同模块）
             # 字段名仅对根模型的直接依赖有值
             field_name = field.name if is_root else None
             dependencies.append((fk_model_name, fk_module, field_name))
@@ -2593,6 +2699,16 @@ class Test{repo_name}:
                     if m == dep_model and mod == dep_module:
                         unique_deps[i] = (dep_model, dep_module, dep_field)
                         break
+        
+        # 🔥 步骤2: 从配置中补充额外依赖（如间接依赖）
+        config_deps = self._get_dependencies_from_config(model_name, module_name)
+        if config_deps is not None:
+            for config_dep in config_deps:
+                dep_key = (config_dep[0], config_dep[1])
+                if dep_key not in seen:
+                    # 配置中的依赖不在直接外键依赖中，添加它
+                    unique_deps.append(config_dep)
+                    seen[dep_key] = config_dep[2]
         
         return unique_deps
     
@@ -2713,18 +2829,24 @@ class Test{repo_name}:
         # 添加外键字段
         for field in fk_fields:
             if field.name in fk_var_names:
-                # 有对应的依赖实体
+                # 有对应的依赖实体（直接外键依赖）
                 field_assignments.append(f'{field.name}={fk_var_names[field.name]}')
             else:
-                # 同一个依赖模型的多个外键字段，使用第一个创建的依赖实体
-                # 例如：UserRole有user_id和assigned_by都指向User，assigned_by使用user.id
+                # 🔥 智能匹配：从外键目标查找已创建的依赖实体
+                # 例如：InventoryReservation.sku_id → inventory_stocks.sku_id
+                # 需要使用已创建的 InventoryStock.sku_id，而不是 SKU.id
                 fk_target = field.foreign_key
                 fk_table = fk_target.split('.')[0]
+                fk_column = fk_target.split('.')[1] if '.' in fk_target else 'id'
+                
                 # 使用resolver从表名查找模型名（零硬编码）
                 fk_model_name = self.dependency_resolver.get_model_by_table(fk_table) or self._fallback_table_to_model(fk_table)
-                dep_var_name = fk_model_name.lower()
+                
                 if fk_model_name in created_entities:
-                    field_assignments.append(f'{field.name}={created_entities[fk_model_name]}.id')
+                    # 找到了对应的依赖实体
+                    dep_var_name = created_entities[fk_model_name]
+                    # 使用正确的属性名（如 inventory_stock.sku_id 而不是 inventory_stock.id）
+                    field_assignments.append(f'{field.name}={dep_var_name}.{fk_column}')
                 else:
                     # 降级方案：使用整数值
                     field_assignments.append(f'{field.name}=1')
@@ -2856,7 +2978,23 @@ class Test{repo_name}:
         
         # 添加外键字段（引用依赖实体的ID）
         for field in fk_fields:
-            field_assignments.append(f'{field.name}={fk_var_names[field.name]}')
+            if field.name in fk_var_names:
+                # 有对应的依赖实体（直接外键依赖）
+                field_assignments.append(f'{field.name}={fk_var_names[field.name]}')
+            else:
+                # 🔥 智能匹配：从外键目标查找已创建的依赖实体
+                fk_target = field.foreign_key
+                fk_table = fk_target.split('.')[0]
+                fk_column = fk_target.split('.')[1] if '.' in fk_target else 'id'
+                
+                fk_model_name = self.dependency_resolver.get_model_by_table(fk_table) or self._fallback_table_to_model(fk_table)
+                
+                if fk_model_name in created_entities:
+                    dep_var_name = created_entities[fk_model_name]
+                    field_assignments.append(f'{field.name}={dep_var_name}.{fk_column}')
+                else:
+                    # 降级方案：使用整数值
+                    field_assignments.append(f'{field.name}=1')
         
         if field_assignments:
             lines.append(f'# 构造被测实体: {model_name} - 只填必填字段')
@@ -2874,6 +3012,223 @@ class Test{repo_name}:
         code = '\n'.join(indented_lines)
         
         # 返回imports和code（分开处理）
+        return (imports, code)
+    
+    def _generate_minimal_dict_creation(
+        self,
+        model_name: str,
+        models: Dict[str, ModelInfo],
+        module_name: str,
+        param_name: str = "data"
+    ) -> Tuple[List[str], str]:
+        """生成最小字典数据创建代码（用于Dict参数的CREATE方法）
+        
+        与_generate_minimal_entity_creation的区别：
+        - Entity模式：entity = Model(field1=val1, field2=val2, ...)
+        - Dict模式：  data = {"field1": val1, "field2": val2, ...}
+        
+        复用逻辑：
+        - 字段提取逻辑相同（必填字段、外键处理）
+        - 依赖实体创建相同（Factory Boy）
+        - 只改变最后的输出格式
+        
+        Args:
+            model_name: 模型名称
+            models: 模型信息字典
+            module_name: 模块名称
+            param_name: 参数名（如inventory_data, reservation_data）
+            
+        Returns:
+            Tuple[List[str], str]: (import语句列表, 字典创建代码)
+        """
+        imports = []
+        
+        if model_name not in models:
+            return (imports, f'        {param_name} = {{}}  # TODO: 补充必填字段')
+        
+        model_info = models[model_name]
+        
+        # 提取必填字段
+        auto_fields = {'id', 'created_at', 'updated_at', 'is_deleted'}
+        required_fields = [
+            f for f in model_info.fields 
+            if not f.nullable 
+            and f.name not in auto_fields 
+            and not (f.primary_key and f.name == 'id' and not f.foreign_key)
+            and not f.server_default
+        ]
+        
+        if not required_fields:
+            return (imports, f'        {param_name} = {{}}\n        # 注意: 该模型所有字段均为可选或有默认值')
+        
+        # 分离外键和普通字段
+        fk_fields = [f for f in required_fields if f.foreign_key]
+        normal_fields = [f for f in required_fields if not f.foreign_key]
+        
+        lines = []
+        created_factories = set()
+        created_entities = {}
+        used_modules = set()
+        
+        # 递归获取所有依赖（使用配置或递归分析）
+        all_dependencies = self._get_all_dependencies(model_name, models, module_name)
+        
+        # 按依赖层级创建
+        for dep_model_name, dep_module, dep_field_name in all_dependencies:
+            if dep_model_name in created_factories:
+                continue
+                
+            dep_var_name = dep_model_name.lower()
+            factory_name = f'{dep_model_name}Factory'
+            
+            imports.append(f'from tests.factories.{dep_module}_factories import {factory_name}')
+            
+            if dep_module != module_name and dep_module not in used_modules:
+                manager_name = f'{"".join(word.capitalize() for word in dep_module.split("_"))}FactoryManager'
+                imports.append(f'from tests.factories.{dep_module}_factories import {manager_name}')
+                lines.append(f'{manager_name}.setup_factories(unit_test_db)')
+                used_modules.add(dep_module)
+            
+            if dep_module == module_name:
+                lines.append(f'{factory_name}._meta.sqlalchemy_session = unit_test_db')
+            
+            factory_params = self._get_factory_params(dep_model_name, models, module_name, created_entities)
+            if factory_params:
+                lines.append(f'{dep_var_name} = {factory_name}.create({factory_params})')
+            else:
+                lines.append(f'{dep_var_name} = {factory_name}.create()')
+            
+            created_factories.add(dep_model_name)
+            created_entities[dep_model_name] = dep_var_name
+        
+        if lines:
+            lines.append('')  # 空行分隔
+        
+        # 构造字典数据 - 填充所有必填字段（包括外键）
+        dict_items = []
+        
+        # 先添加普通必填字段
+        for field in normal_fields:
+            test_value = self._get_minimal_test_value(field)
+            dict_items.append(f'"{field.name}": {test_value}')
+        
+        # 再添加外键字段（必填外键必须包含）
+        for field in fk_fields:
+            # 🔥 智能匹配：从外键目标查找已创建的依赖实体
+            fk_target = field.foreign_key
+            fk_table = fk_target.split('.')[0]
+            fk_column = fk_target.split('.')[1] if '.' in fk_target else 'id'
+            
+            fk_model_name = self.dependency_resolver.get_model_by_table(fk_table) or self._fallback_table_to_model(fk_table)
+            
+            if fk_model_name in created_entities:
+                dep_var_name = created_entities[fk_model_name]
+                dict_items.append(f'"{field.name}": {dep_var_name}.{fk_column}')
+            else:
+                # 降级方案：使用整数值
+                dict_items.append(f'"{field.name}": 1')
+        
+        if dict_items:
+            lines.append(f'# 构造数据字典: {model_name} - 只填必填字段')
+            lines.append(f'{param_name} = {{')
+            for i, item in enumerate(dict_items):
+                comma = ',' if i < len(dict_items) - 1 else ''
+                lines.append(f'    {item}{comma}')
+            lines.append('}')
+        else:
+            lines.append(f'# 构造数据字典: {model_name} - 所有字段均有默认值')
+            lines.append(f'{param_name} = {{}}')
+        
+        # 添加缩进
+        indented_lines = ['        ' + line if not line.startswith('        ') else line for line in lines]
+        code = '\n'.join(indented_lines)
+        
+        return (imports, code)
+    
+    def _generate_full_dict_creation(
+        self,
+        model_name: str,
+        models: Dict[str, ModelInfo],
+        module_name: str,
+        param_name: str = "data"
+    ) -> Tuple[List[str], str]:
+        """生成完整字典数据创建代码（用于Dict参数的CREATE方法）
+        
+        与_generate_minimal_dict_creation的区别：
+        - minimal: 只填必填字段
+        - full: 填写所有字段（包括可选字段）
+        
+        Args:
+            model_name: 模型名称
+            models: 模型信息字典
+            module_name: 模块名称
+            param_name: 参数名
+            
+        Returns:
+            Tuple[List[str], str]: (import语句列表, 字典创建代码)
+        """
+        # ✅ 复用full entity创建的逻辑
+        imports, entity_code = self._generate_full_entity_creation(model_name, models, module_name)
+        
+        if model_name not in models:
+            return (imports, f'        {param_name} = {{}}  # TODO: 补充所有字段')
+        
+        model_info = models[model_name]
+        
+        # 提取所有字段（除自动生成的）
+        auto_fields = {'id', 'created_at', 'updated_at', 'is_deleted'}
+        all_fields = [
+            f for f in model_info.fields
+            if f.name not in auto_fields
+            and not (f.primary_key and f.name == 'id' and not f.foreign_key)
+        ]
+        
+        if not all_fields:
+            return (imports, f'        {param_name} = {{}}\n        # 注意: 该模型只有自动生成字段')
+        
+        fk_fields = [f for f in all_fields if f.foreign_key]
+        normal_fields = [f for f in all_fields if not f.foreign_key]
+        
+        # 解析entity_code提取依赖创建部分
+        lines = []
+        fk_var_names = {}
+        entity_lines = entity_code.strip().split('\n')
+        for line in entity_lines:
+            line = line.strip()
+            if 'Factory' in line or 'from tests.factories' in line:
+                lines.append('        ' + line)
+                if '=' in line and 'Factory.create()' in line:
+                    var_name = line.split('=')[0].strip()
+                    for fk_field in fk_fields:
+                        if fk_field.name == f'{var_name}_id' or fk_field.name == var_name:
+                            fk_var_names[fk_field.name] = f'{var_name}.id'
+        
+        if lines:
+            lines.append('')
+        
+        # 构造完整字典数据
+        dict_items = []
+        for field in normal_fields:
+            test_value = self._get_minimal_test_value(field)
+            dict_items.append(f'"{field.name}": {test_value}')
+        
+        for field in fk_fields:
+            if field.name in fk_var_names:
+                dict_items.append(f'"{field.name}": {fk_var_names[field.name]}')
+        
+        if dict_items:
+            lines.append(f'# 构造完整数据字典: {model_name} - 填充所有字段')
+            lines.append(f'{param_name} = {{')
+            for i, item in enumerate(dict_items):
+                comma = ',' if i < len(dict_items) - 1 else ''
+                lines.append(f'    {item}{comma}')
+            lines.append('}')
+        else:
+            lines.append(f'{param_name} = {{}}')
+        
+        indented_lines = ['        ' + line if not line.startswith('        ') else line for line in lines]
+        code = '\n'.join(indented_lines)
+        
         return (imports, code)
     
     def _generate_test_entity_creation(
@@ -3036,7 +3391,23 @@ class Test{repo_name}:
         
         # 添加外键字段赋值
         for field in fk_fields:
-            field_assignments.append(f'{field.name}={fk_var_names[field.name]}')
+            if field.name in fk_var_names:
+                # 有对应的依赖实体（直接外键依赖）
+                field_assignments.append(f'{field.name}={fk_var_names[field.name]}')
+            else:
+                # 🔥 智能匹配：从外键目标查找已创建的依赖实体
+                fk_target = field.foreign_key
+                fk_table = fk_target.split('.')[0]
+                fk_column = fk_target.split('.')[1] if '.' in fk_target else 'id'
+                
+                fk_model_name = self.dependency_resolver.get_model_by_table(fk_table) or self._fallback_table_to_model(fk_table)
+                
+                if fk_model_name in created_entities:
+                    dep_var_name = created_entities[fk_model_name]
+                    field_assignments.append(f'{field.name}={dep_var_name}.{fk_column}')
+                else:
+                    # 降级方案：使用整数值
+                    field_assignments.append(f'{field.name}=1')
         
         # 添加主实体创建
         lines.append(f'entity = {model_name}({", ".join(field_assignments)})')

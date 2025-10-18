@@ -119,6 +119,9 @@ class ModelAnalyzer:
         """
         models = {}
         
+        # 从文件路径提取模块名（如 .../inventory_management/models.py → inventory_management）
+        module_name = models_file.parent.name
+        
         try:
             with open(models_file, 'r', encoding='utf-8') as f:
                 tree = ast.parse(f.read(), filename=str(models_file))
@@ -139,7 +142,7 @@ class ModelAnalyzer:
                     )
                     
                     if is_model or has_tablename:
-                        model_data = self._extract_ast_model_info(node)
+                        model_data = self._extract_ast_model_info(node, module_name)
                         models[node.name] = model_data
             
             print(f"📋 AST分析发现 {len(models)} 个模型类")
@@ -149,8 +152,13 @@ class ModelAnalyzer:
             print(f"⚠️ AST分析失败: {e}")
             return {}
     
-    def _extract_ast_model_info(self, node: ast.ClassDef) -> Dict[str, Any]:
-        """从AST节点提取模型信息"""
+    def _extract_ast_model_info(self, node: ast.ClassDef, module_name: str) -> Dict[str, Any]:
+        """从AST节点提取模型信息
+        
+        Args:
+            node: AST类定义节点
+            module_name: 模块名称（用于导入Enum类）
+        """
         model_data = {
             'name': node.name,
             'tablename': None,
@@ -179,7 +187,7 @@ class ModelAnalyzer:
                         
                         # 提取字段定义（Column）
                         elif self._is_column_definition(item.value):
-                            field_info = self._analyze_ast_column(target.id, item.value)
+                            field_info = self._analyze_ast_column(target.id, item.value, module_name)
                             if field_info:
                                 model_data['fields'].append(field_info)
                         
@@ -209,8 +217,14 @@ class ModelAnalyzer:
                 return True
         return False
     
-    def _analyze_ast_column(self, field_name: str, node: ast.Call) -> Optional[Dict[str, Any]]:
-        """分析Column定义"""
+    def _analyze_ast_column(self, field_name: str, node: ast.Call, module_name: str) -> Optional[Dict[str, Any]]:
+        """分析Column定义
+        
+        Args:
+            field_name: 字段名
+            node: AST Call节点
+            module_name: 模块名称（用于导入Enum类）
+        """
         if not isinstance(node, ast.Call):
             return None
         
@@ -224,14 +238,39 @@ class ModelAnalyzer:
             'unique': False,
             'default': None,
             'server_default': None,
-            'constraints': []
+            'constraints': [],
+            'enum_class_name': None  # 初始化为None，Enum类型时会被设置
         }
         
         # 提取类型（第一个参数）
         if node.args:
             type_node = node.args[0]
             if isinstance(type_node, ast.Call) and isinstance(type_node.func, ast.Name):
-                field_info['column_type'] = type_node.func.id
+                # 特殊处理SqlEnum/Enum类型
+                if type_node.func.id in ['SqlEnum', 'Enum']:
+                    # SqlEnum(ReservationType) → 提取ReservationType
+                    if type_node.args and isinstance(type_node.args[0], ast.Name):
+                        enum_class_name = type_node.args[0].id
+                        # 单独存储Enum类名到field_info
+                        field_info['enum_class_name'] = enum_class_name
+                        # 尝试从模块中导入并获取枚举值
+                        try:
+                            import importlib
+                            module_path = f"app.modules.{module_name}.models"
+                            models_module = importlib.import_module(module_path)
+                            enum_class = getattr(models_module, enum_class_name, None)
+                            if enum_class and hasattr(enum_class, '__members__'):
+                                enum_values = list(enum_class.__members__.keys())
+                                field_info['column_type'] = f"Enum({', '.join(enum_values)})"
+                            else:
+                                field_info['column_type'] = f"Enum({enum_class_name})"
+                        except Exception:
+                            # 导入失败，保存类名
+                            field_info['column_type'] = f"Enum({enum_class_name})"
+                    else:
+                        field_info['column_type'] = type_node.func.id
+                else:
+                    field_info['column_type'] = type_node.func.id
             elif isinstance(type_node, ast.Name):
                 field_info['column_type'] = type_node.id
         
@@ -366,9 +405,18 @@ class ModelAnalyzer:
             # 先创建字段信息字典（用于后续关联约束）
             field_info_dict = {}
             for column in table.columns:
+                # 特殊处理Enum类型：如果column.type有enum_class属性，转换为Enum(...)格式
+                column_type_str = str(column.type)
+                enum_class_name = None
+                if hasattr(column.type, 'enum_class'):
+                    enum_class = column.type.enum_class
+                    enum_class_name = enum_class.__name__  # 提取Enum类名（如ReservationType）
+                    enum_values = [e.name for e in enum_class]  # 使用name（如CART）而不是value（如'cart'）
+                    column_type_str = f"Enum({', '.join(enum_values)})"
+                
                 field_info = {
                     'name': column.name,
-                    'column_type': str(column.type),
+                    'column_type': column_type_str,
                     'python_type': column.type.python_type.__name__ if hasattr(column.type, 'python_type') else 'Any',
                     'nullable': column.nullable,
                     'primary_key': column.primary_key,
@@ -376,7 +424,8 @@ class ModelAnalyzer:
                     'unique': column.unique,
                     'default': column.default,
                     'server_default': column.server_default,
-                    'constraints': []
+                    'constraints': [],
+                    'enum_class_name': enum_class_name  # 单独存储Enum类名
                 }
                 field_info_dict[column.name] = field_info
                 model_data['fields'].append(field_info)
@@ -464,7 +513,8 @@ class ModelAnalyzer:
                         unique=field['unique'],
                         default=field['default'],
                         server_default=field.get('server_default'),
-                        constraints=field.get('constraints', [])
+                        constraints=field.get('constraints', []),
+                        enum_class_name=field.get('enum_class_name')  # 传递Enum类名
                     ))
             
             rel_infos = []

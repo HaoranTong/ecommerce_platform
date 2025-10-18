@@ -177,6 +177,8 @@ class InventoryRepository:
         """
         inventory = InventoryStock(**inventory_data)
         self.db.add(inventory)
+        self.db.flush()  # 刷新获取ID，但不提交事务
+        self.db.refresh(inventory)
         return inventory
     
     def update_inventory_quantity(
@@ -314,6 +316,8 @@ class InventoryRepository:
         """
         reservation = InventoryReservation(**reservation_data)
         self.db.add(reservation)
+        self.db.flush()  # 刷新获取ID，但不提交事务
+        self.db.refresh(reservation)
         return reservation
     
     def get_reservation_by_id(self, reservation_id: int) -> Optional[InventoryReservation]:
@@ -465,6 +469,8 @@ class InventoryRepository:
         """
         transaction = InventoryTransaction(**transaction_data)
         self.db.add(transaction)
+        self.db.flush()  # 刷新获取ID，但不提交事务
+        self.db.refresh(transaction)
         return transaction
     
     def get_transactions_by_sku(

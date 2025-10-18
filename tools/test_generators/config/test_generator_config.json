@@ -160,8 +160,8 @@
       },
       "inventory_management": {
         "InventoryStock": ["product_catalog.Category", "product_catalog.Brand", "product_catalog.Product", "product_catalog.SKU"],
-        "InventoryReservation": ["user_auth.User", "product_catalog.Category", "product_catalog.Brand", "product_catalog.Product", "product_catalog.SKU"],
-        "InventoryTransaction": ["user_auth.User", "product_catalog.Category", "product_catalog.Brand", "product_catalog.Product", "product_catalog.SKU"]
+        "InventoryReservation": ["inventory_management.InventoryStock", "product_catalog.Category", "product_catalog.Brand", "product_catalog.Product", "product_catalog.SKU"],
+        "InventoryTransaction": ["inventory_management.InventoryStock", "product_catalog.Category", "product_catalog.Brand", "product_catalog.Product", "product_catalog.SKU"]
       }
     },
     "api_test_business_rules": {

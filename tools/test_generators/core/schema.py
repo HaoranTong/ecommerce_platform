@@ -30,6 +30,7 @@ class FieldInfo:
     default: Any
     server_default: Any = None  # 数据库默认值
     constraints: List[str] = None
+    enum_class_name: Optional[str] = None  # Enum类型的类名（如ReservationType）
     
     def __post_init__(self):
         if self.constraints is None:

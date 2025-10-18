@@ -114,13 +114,18 @@ class RepositoryAnalyzer:
             if self.import_aliases:
                 print(f"  📝 检测到import别名: {self.import_aliases}")
             
+            # 🔍 步骤1.5：提取从.models导入的所有模型类
+            self.imported_models = self._extract_imported_models(tree)
+            if self.imported_models:
+                print(f"  📦 检测到导入的模型: {', '.join(self.imported_models)}")
+            
             # 🔍 步骤2：查找所有Repository类
             for node in ast.walk(tree):
                 if isinstance(node, ast.ClassDef):
                     if node.name.endswith('Repository'):
-                        repo_info = self._analyze_repository_class(node, module_name)
+                        repo_info = self._analyze_repository_class(node, module_name, tree)
                         repositories[node.name] = repo_info
-                        print(f"  ✅ 发现Repository: {node.name} ({len(repo_info.methods)}个方法)")
+                        print(f"  ✅ 发现Repository: {node.name} (主模型: {repo_info.model_name}, {len(repo_info.methods)}个方法)")
             
             print(f"✅ Repository分析完成，共 {len(repositories)} 个Repository类\n")
             return repositories
@@ -129,12 +134,13 @@ class RepositoryAnalyzer:
             print(f"❌ Repository分析失败: {e}")
             return {}
     
-    def _analyze_repository_class(self, class_node: ast.ClassDef, module_name: str) -> RepositoryInfo:
+    def _analyze_repository_class(self, class_node: ast.ClassDef, module_name: str, tree: ast.AST) -> RepositoryInfo:
         """分析单个Repository类
         
         Args:
             class_node: AST类节点
             module_name: 模块名称
+            tree: 完整的AST树（用于提取方法返回类型）
             
         Returns:
             RepositoryInfo: Repository信息
@@ -150,9 +156,12 @@ class RepositoryAnalyzer:
                 method_info = self._analyze_repository_method(item, class_node.name, module_name)
                 methods.append(method_info)
         
+        # 🎯 智能推断主模型名（优先级从高到低）
+        inferred_model = self._infer_primary_model(class_node, methods)
+        
         return RepositoryInfo(
             name=class_node.name,
-            model_name=self._infer_model_name(class_node.name),
+            model_name=inferred_model,
             methods=methods,
             docstring=ast.get_docstring(class_node),
             import_aliases=self.import_aliases  # 传递别名映射
@@ -362,7 +371,7 @@ class RepositoryAnalyzer:
         return query_params
     
     def _infer_model_name(self, repo_class_name: str) -> str:
-        """从Repository类名推断对应的Model名
+        """从Repository类名推断对应的Model名（后备策略）
         
         Args:
             repo_class_name: Repository类名，如 'UserRepository'
@@ -374,6 +383,81 @@ class RepositoryAnalyzer:
         if repo_class_name.endswith('Repository'):
             return repo_class_name[:-10]  # len('Repository') = 10
         return repo_class_name
+    
+    def _extract_imported_models(self, tree: ast.AST) -> List[str]:
+        """提取从.models导入的所有模型类（使用真实模型名，忽略别名）
+        
+        例如: from .models import Session as UserSession
+        提取: "Session" (真实模型名，而不是别名"UserSession")
+        
+        Args:
+            tree: AST树
+            
+        Returns:
+            List[str]: 真实的模型类名列表，如 ["Session", "User"]（不是别名）
+        """
+        models = []
+        
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ImportFrom):
+                # 检查是否从.models导入
+                if node.module in ['.models', 'models']:
+                    for alias in node.names:
+                        # 排除枚举、类型等非模型类（通常以大写开头）
+                        # ✅ 关键修复：始终使用alias.name（真实名），忽略alias.asname（别名）
+                        # 这样可以避免Session as UserSession时提取到UserSession
+                        if alias.name[0].isupper() and not alias.name.endswith('Type'):
+                            models.append(alias.name)  # 使用真实名，不使用别名
+        
+        return models
+    
+    def _infer_primary_model(self, class_node: ast.ClassDef, methods: List) -> str:
+        """智能推断Repository的主模型
+        
+        策略（优先级从高到低）：
+        1. 分析方法返回类型，找出最常出现的模型类
+        2. 从导入的模型列表中，找以Repository类名开头的模型（如 InventoryRepository → InventoryStock）
+        3. 如果只导入了一个模型，直接使用
+        4. 后备：使用类名推断（去掉Repository后缀）
+        
+        Args:
+            class_node: Repository类的AST节点
+            methods: Repository方法列表
+            
+        Returns:
+            str: 推断的主模型名
+        """
+        repo_class_name = class_node.name
+        
+        # 策略1：统计方法返回类型中的模型名
+        return_type_counts = {}
+        for item in class_node.body:
+            if isinstance(item, ast.FunctionDef) and item.returns:
+                return_type_str = self._extract_type_annotation(item.returns)
+                # 提取类型中的模型名（去掉Optional, List等包装）
+                model_name = return_type_str.replace('Optional[', '').replace('List[', '').replace(']', '').strip()
+                if model_name in self.imported_models:
+                    return_type_counts[model_name] = return_type_counts.get(model_name, 0) + 1
+        
+        # 如果有明显的主模型（出现次数最多），使用它
+        if return_type_counts:
+            primary_model = max(return_type_counts, key=return_type_counts.get)
+            return primary_model
+        
+        # 策略2：从导入列表中查找以Repository类名开头的模型
+        # 例如: InventoryRepository → 查找 Inventory* → InventoryStock
+        inferred_prefix = self._infer_model_name(repo_class_name)
+        candidates = [m for m in self.imported_models if m.startswith(inferred_prefix)]
+        if candidates:
+            # 优先选择最短的（InventoryStock < InventoryReservation）
+            return min(candidates, key=len)
+        
+        # 策略3：如果只导入了一个模型，直接使用
+        if len(self.imported_models) == 1:
+            return self.imported_models[0]
+        
+        # 策略4：后备 - 使用类名推断
+        return self._infer_model_name(repo_class_name)
     
     def _extract_import_aliases(self, tree: ast.AST) -> Dict[str, str]:
         """提取import语句中的别名映射
