@@ -300,8 +300,9 @@ class RepositoryTestGenerator:
         if param_name in context:
             return context[param_name]
         
-        # 特殊处理：entity参数直接传entity变量
-        if param_name == 'entity':
+        # 特殊处理：表示"对象实例"的参数名，直接传entity变量
+        # 这些参数名在语义上都表示"一个完整的ORM对象实例"，应该传测试中创建的entity变量
+        if param_name in ['entity', 'instance', 'obj', 'model', 'record', 'item']:
             return entity_var
         
         # 🎯 关键修复：检查参数类型是否是模型类（如user: User, session: UserSession）
@@ -343,35 +344,78 @@ class RepositoryTestGenerator:
         
         # 优先级2：List类型（包括List[int], List[str]等）
         elif param_type.startswith('List[') or param_type.startswith('list['):
-            return self._resolve_list_param(param_name, param_type, repo_info, model_info, entity_var)
+            return self._resolve_list_param(param_name, param_type, repo_info, model_info, entity_var, **context)
         
         # 优先级3：基础类型（精确匹配或子串匹配，但已排除复合类型）
         elif 'int' in param_type.lower():
-            return self._resolve_integer_param(param_name, param_type, repo_info, model_info, models, entity_var)
+            return self._resolve_integer_param(param_name, param_type, repo_info, model_info, models, entity_var, **context)
         elif 'str' in param_type.lower():
-            return self._resolve_string_param(param_name, param_type, model_info, entity_var)
+            return self._resolve_string_param(param_name, param_type, model_info, entity_var, **context)
         elif 'bool' in param_type.lower():
             return "False"
+        elif 'datetime' in param_type.lower():
+            # datetime类型：for_not_found场景使用datetime.now()
+            for_not_found = context.get('for_not_found', False)
+            if for_not_found:
+                return "datetime.now()"
+            else:
+                # found场景：尝试从entity获取
+                if model_info and param_name in [f.name for f in model_info.fields]:
+                    return f"{entity_var}.{param_name}"
+                return "datetime.now()"
         else:
-            # 未知类型，尝试作为字段处理
-            if model_info and param_name in [f.name for f in model_info.fields]:
+            # 🐛 BUG修复：处理Enum类型和其他未知类型
+            for_not_found = context.get('for_not_found', False)
+            
+            # 检查是否可能是Enum类型（类名通常以大写字母开头，如OrderStatus, ReservationType）
+            clean_type = param_type.replace('Optional[', '').replace(']', '').strip()
+            is_possible_enum = clean_type and clean_type[0].isupper() and clean_type not in ['Dict', 'List', 'Tuple', 'Set']
+            
+            if for_not_found and is_possible_enum:
+                # not_found场景，可能是Enum：尝试使用枚举的第一个值
+                # 例如：OrderStatus.PENDING, ReservationType.CART
+                # 注意：这里我们无法确定具体的枚举值，使用通用的第一个值名称模式
+                # 常见的Enum第一个值: PENDING, ACTIVE, CART等
+                # 简化处理：查找模型字段中是否有同名的enum_class_name
+                if model_info:
+                    for field in model_info.fields:
+                        if field.name == param_name and field.enum_class_name:
+                            # 找到了Enum字段，使用Enum的第一个值（通用模式）
+                            # 例如：OrderStatus.PENDING
+                            enum_class = field.enum_class_name
+                            # 尝试常见的第一个枚举值名称
+                            common_first_values = ['PENDING', 'ACTIVE', 'CART', 'DEFAULT', 'NORMAL']
+                            for first_val in common_first_values:
+                                # 使用第一个匹配的模式
+                                return f"{enum_class}.{first_val}"
+                            # 如果没有匹配，使用PENDING作为默认
+                            return f"{enum_class}.PENDING"
+                # 如果找不到enum_class_name，直接使用类型名.PENDING
+                return f"{clean_type}.PENDING"
+            elif for_not_found:
+                # not_found场景，其他未知类型：使用None或硬编码值
+                return '"nonexistent"'
+            else:
+                # found场景：未知类型，尝试作为字段处理
+                if model_info and param_name in [f.name for f in model_info.fields]:
+                    return f"{entity_var}.{param_name}"
                 return f"{entity_var}.{param_name}"
-            return f"{entity_var}.{param_name}"
     
     def _resolve_string_param(
         self,
         param_name: str,
         param_type: str,
         model_info: Optional[ModelInfo],
-        entity_var: str
+        entity_var: str,
+        **context
     ) -> str:
         """解析字符串参数值
         
         处理字符串参数的逻辑映射，核心解决"identifier应该映射到username还是生成硬编码"的问题。
         
         策略：
-        1. 检查是否是模型字段 → entity.param_name
-        2. 逻辑参数映射（identifier → username/email/phone）
+        1. 检查是否是模型字段 → entity.param_name (found场景)
+        2. 逻辑参数映射（identifier → username/email/phone）(found场景)
         3. 后备：生成硬编码字符串
         
         Args:
@@ -379,10 +423,19 @@ class RepositoryTestGenerator:
             param_type: 参数类型
             model_info: 模型信息
             entity_var: entity变量名
+            context: 上下文（如for_not_found=True）
             
         Returns:
             str: 参数值表达式
         """
+        # 🐛 BUG修复：检查是否是not_found场景
+        for_not_found = context.get('for_not_found', False)
+        
+        if for_not_found:
+            # not_found场景：直接返回硬编码的不存在值
+            return '"nonexistent"'
+        
+        # found场景：继续原有逻辑
         # 1. 检查是否是模型字段
         if model_info and param_name in [f.name for f in model_info.fields]:
             return f"{entity_var}.{param_name}"
@@ -412,19 +465,20 @@ class RepositoryTestGenerator:
         repo_info: RepositoryInfo,
         model_info: Optional[ModelInfo],
         models: Dict[str, ModelInfo],
-        entity_var: str
+        entity_var: str,
+        **context
     ) -> str:
         """解析整数参数值
         
         处理整数参数，包括关联查询判断（user_id需要依赖实体）。
         
         策略：
-        1. xxx_id + 匹配当前模型 → entity.id
-        2. xxx_id + 是模型外键字段 → entity.param_name
+        1. xxx_id + 匹配当前模型 → entity.id (found) / 999999 (not_found)
+        2. xxx_id + 是模型外键字段 → entity.param_name (found) / 999999 (not_found)
         3. xxx_id + Optional类型 → None
-        4. xxx_id + 必填但不是字段 → 1（关联查询，暂时简化处理）
-        5. 其他整数参数是字段 → entity.param_name
-        6. 后备：1
+        4. xxx_id + 必填但不是字段 → 1 (found) / 999999 (not_found)
+        5. 其他整数参数是字段 → entity.param_name (found) / 999999 (not_found)
+        6. 后备：1 (found) / 999999 (not_found)
         
         Args:
             param_name: 参数名
@@ -433,21 +487,25 @@ class RepositoryTestGenerator:
             model_info: 当前模型信息
             models: 所有模型信息
             entity_var: entity变量名
+            context: 上下文（如for_not_found=True）
             
         Returns:
             str: 参数值表达式
         """
+        # 🐛 BUG修复：检查是否是not_found场景
+        for_not_found = context.get('for_not_found', False)
+        
         # 处理 xxx_id 格式的参数
         if param_name.endswith('_id'):
             base_name = param_name[:-3]
             
             # 1. 匹配当前模型：category_id in CategoryRepository → entity.id
             if base_name.lower() == repo_info.model_name.lower():
-                return f"{entity_var}.id"
+                return "999999" if for_not_found else f"{entity_var}.id"
             
             # 2. 检查是否是模型的外键字段
             if model_info and param_name in [f.name for f in model_info.fields]:
-                return f"{entity_var}.{param_name}"
+                return "999999" if for_not_found else f"{entity_var}.{param_name}"
             
             # 3. Optional类型的关联查询参数
             if 'Optional' in param_type:
@@ -455,14 +513,14 @@ class RepositoryTestGenerator:
             
             # 4. 必填但不是字段的关联查询（如role_id但当前模型是User）
             # TODO: 未来需要创建依赖实体，当前简化为返回1
-            return "1"
+            return "999999" if for_not_found else "1"
         
         # 处理常见整数字段
         if model_info and param_name in [f.name for f in model_info.fields]:
-            return f"{entity_var}.{param_name}"
+            return "999999" if for_not_found else f"{entity_var}.{param_name}"
         
         # 后备：返回1
-        return "1"
+        return "999999" if for_not_found else "1"
     
     def _resolve_list_param(
         self,
@@ -470,14 +528,15 @@ class RepositoryTestGenerator:
         param_type: str,
         repo_info: RepositoryInfo,
         model_info: Optional[ModelInfo],
-        entity_var: str
+        entity_var: str,
+        **context
     ) -> str:
         """解析列表参数值
         
         处理列表类型参数，特别是 xxx_ids: List[int] 的情况。
         
         策略：
-        1. xxx_ids + 匹配当前模型 → [entity.id]
+        1. xxx_ids + 匹配当前模型 → [entity.id] 或 [999999] (not_found场景)
         2. 提取元素类型生成默认列表
         
         Args:
@@ -486,21 +545,28 @@ class RepositoryTestGenerator:
             repo_info: Repository信息
             model_info: 当前模型信息
             entity_var: entity变量名
+            context: 上下文（如for_not_found=True）
             
         Returns:
             str: 参数值表达式
         """
+        # 🐛 BUG修复：检查是否是not_found场景
+        for_not_found = context.get('for_not_found', False)
+        
         # xxx_ids + 匹配当前模型
         if param_name.endswith('_ids'):
             base_name = param_name[:-4]  # category_ids → category
             if base_name.lower() == repo_info.model_name.lower():
-                return f"[{entity_var}.id]"
+                if for_not_found:
+                    return "[999999]"  # not_found场景：不存在的ID
+                else:
+                    return f"[{entity_var}.id]"  # found场景：entity的ID
         
         # 根据元素类型生成默认列表
         if 'int' in param_type.lower():
-            return "[1]"
+            return "[999999]" if for_not_found else "[1]"
         elif 'str' in param_type.lower():
-            return '["test"]'
+            return '["nonexistent"]' if for_not_found else '["test"]'
         else:
             return "[]"
     
@@ -665,8 +731,9 @@ class RepositoryTestGenerator:
                 else:
                     cross_module_models[model_name] = model_info.module_name
         
-        # 匹配Enum使用模式: "EnumType.VALUE"
-        enum_pattern = r'([A-Z][a-zA-Z0-9_]*Type)\.([A-Z_]+)'
+        # 匹配Enum使用模式: "EnumName.VALUE" (如 OrderStatus.PENDING, ReservationType.CART)
+        # 修复：不仅匹配*Type结尾，也匹配*Status等常见Enum命名模式
+        enum_pattern = r'([A-Z][a-zA-Z0-9_]*(?:Type|Status|State))\.([A-Z_]+)'
         found_enums = re.findall(enum_pattern, all_test_code)
         for enum_name, _ in found_enums:
             # Enum类型都定义在当前模块的models.py中
@@ -1080,28 +1147,20 @@ from app.modules.{module_name}.repository import (
         is_list_return = 'List[' in method_info.return_type or 'list[' in method_info.return_type.lower()
         is_bool_return = method_info.return_type == 'bool'
         
-        # 🎯 使用新的参数生成方法（2025-10-16 重构）
-        # ⚠️ 关键修复：需要确定entity变量的实际类型来正确推断参数值
+        # 🎯 关键修复(2025-10-19)：entity_type_for_params必须与entity_creation保持一致
+        # 
+        # Bug修复说明：
+        # - entity由第1062行的entity_creation生成，使用actual_model_name
+        # - 参数推断从entity中提取字段值，必须使用相同的模型类型
+        # - 旧逻辑: entity_type_for_params = model_name if is_list_return else actual_model_name
+        #   导致List返回时entity类型与参数推断类型不匹配
         #
-        # 设计原则：
-        # - 参数值推断依赖于entity变量的类型
-        # - entity类型由entity_creation逻辑决定
-        # - 对于列表返回，entity是主模型；对于单对象返回，entity是返回类型
-        #
-        # 示例：
-        # 1. get_user_by_id(user_id: int) → User
-        #    entity_type = "User"（返回类型）
-        #    参数推断：user_id → entity.id（从User模型推断）
-        #
-        # 2. get_order_items(order_id: int) → List[OrderItem]
-        #    entity_type = "Order"（主模型）
-        #    参数推断：order_id → entity.id（从Order模型推断）
-        #
-        # 通用化设计：
-        # - 根据返回类型决定entity的类型（与entity_creation逻辑一致）
-        # - 列表返回 → 主模型（model_name）
-        # - 单对象返回 → 返回类型（actual_model_name）
-        entity_type_for_params = model_name if is_list_return else actual_model_name
+        # 示例失败案例：
+        # get_reservations_by_reference(reference_id: str) → List[InventoryReservation]
+        # - 旧逻辑: entity=InventoryStock (model_name), 参数从InventoryStock推断
+        # - 结果: entity.reference_id失败 (InventoryStock没有此字段)
+        # - 新逻辑: entity=InventoryReservation, 参数从InventoryReservation推断 ✅
+        entity_type_for_params = actual_model_name
         
         original_model_name = repo_info.model_name
         repo_info.model_name = entity_type_for_params  # 临时覆盖为entity的实际类型
@@ -1202,11 +1261,17 @@ from app.modules.{module_name}.repository import (
             # 返回列表的方法（如list方法、get_user_roles等）
             
             # 生成包含依赖的实体创建代码
-            entity_creation_with_deps = self._generate_test_entity_creation(model_name, models, "关联数据", with_dependencies=True, module_name=module_name)
+            # 🐛 BUG修复：使用actual_model_name而不是model_name
+            entity_creation_with_deps = self._generate_test_entity_creation(actual_model_name, models, "关联数据", with_dependencies=True, module_name=module_name)
             
             # 生成方法调用
             method_call_found = self._generate_method_call(method_info, repo_name, query_param)
-            method_call_not_found = self._generate_method_call(method_info, repo_name, "unit_test_db, 999999")
+            # 🐛 BUG修复：使用for_not_found上下文生成not_found参数
+            original_model_name_for_not_found = repo_info.model_name
+            repo_info.model_name = entity_type_for_params  # 临时覆盖为entity的实际类型
+            not_found_params_str = self._generate_test_params(method_info, repo_info, models, entity_var="entity", for_not_found=True)
+            repo_info.model_name = original_model_name_for_not_found  # 恢复原值
+            method_call_not_found = self._generate_method_call(method_info, repo_name, not_found_params_str)
             
             return f'''    def test_{method_name}_found(self, unit_test_db: Session):
         """测试{method_name} - 查询到数据"""
