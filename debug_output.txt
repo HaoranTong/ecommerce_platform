@@ -1,0 +1,1125 @@
+E:\ecommerce_platform\app\modules\inventory_management\models.py:70: SAWarning: This declarative base already contains a class with the same class name and module name as app.modules.inventory_management.models.InventoryStock, and will be replaced in the string-lookup table.
+  class InventoryStock(BaseModel):
+E:\ecommerce_platform\app\modules\inventory_management\models.py:70: SAWarning: This declarative base already contains a class with the same class name and module name as app.modules.inventory_management.models.InventoryStock, and will be replaced in the string-lookup table.
+  class InventoryStock(BaseModel):
+E:\ecommerce_platform\app\modules\user_auth\models.py:34: SAWarning: This declarative base already contains a class with the same class name and module name as app.modules.user_auth.models.User, and will be replaced in the string-lookup table.
+  class User(Base, TimestampMixin, SoftDeleteMixin):
+E:\ecommerce_platform\app\modules\inventory_management\models.py:70: SAWarning: This declarative base already contains a class with the same class name and module name as app.modules.inventory_management.models.InventoryStock, and will be replaced in the string-lookup table.
+  class InventoryStock(BaseModel):
+E:\ecommerce_platform\app\modules\member_system\models.py:36: SAWarning: This declarative base already contains a class with the same class name and module name as app.modules.member_system.models.MemberLevel, and will be replaced in the string-lookup table.
+  class MemberLevel(Base, TimestampMixin):
+E:\ecommerce_platform\app\modules\product_catalog\models.py:39: SAWarning: This declarative base already contains a class with the same class name and module name as app.modules.product_catalog.models.Category, and will be replaced in the string-lookup table.
+  class Category(Base, TimestampMixin, SoftDeleteMixin):
+✅ 配置文件加载成功: E:\ecommerce_platform\tools\test_generators\config\test_generator_config.json
+✅ 环境兼容性验证通过
+
+🏗️ 分析模块结构: inventory_management
+🔍 开始智能分析模块: inventory_management
+📋 AST分析发现 3 个模型类
+⚠️ 运行时分析失败: Table 'inventory_stocks' is already defined for this MetaData instance.  Specify 'extend_existing=True' to redefine options and columns on an existing Table object.
+🔗 合并模型: InventoryReservation (7字段, 1关系)
+🔗 合并模型: InventoryStock (8字段, 2关系)
+🔗 合并模型: InventoryTransaction (11字段, 1关系)
+✅ 分析完成，共识别 3 个数据模型
+🔍 分析Repository层: E:\ecommerce_platform\app\modules\inventory_management\repository.py
+  📦 检测到导入的模型: InventoryStock, InventoryReservation, InventoryTransaction
+  ✅ 发现Repository: InventoryRepository (主模型: InventoryStock, 24个方法)
+✅ Repository分析完成，共 1 个Repository类
+
+
+📊 结构分析完成:
+   Models: 3 个
+   Repositories: 1 个
+🔍 初始化ModelAnalyzer，分析所有模块...
+🌍 开始全局分析所有模块...
+🔍 开始智能分析模块: batch_traceability
+📋 AST分析发现 0 个模型类
+🏃 运行时分析发现 0 个模型类
+✅ 分析完成，共识别 0 个数据模型
+🔍 开始智能分析模块: customer_service_system
+📋 AST分析发现 0 个模型类
+🏃 运行时分析发现 0 个模型类
+✅ 分析完成，共识别 0 个数据模型
+🔍 开始智能分析模块: data_analytics_platform
+📋 AST分析发现 0 个模型类
+🏃 运行时分析发现 0 个模型类
+✅ 分析完成，共识别 0 个数据模型
+🔍 开始智能分析模块: distributor_management
+📋 AST分析发现 0 个模型类
+🏃 运行时分析发现 0 个模型类
+✅ 分析完成，共识别 0 个数据模型
+🔍 开始智能分析模块: inventory_management
+📋 AST分析发现 3 个模型类
+⚠️ 运行时分析失败: Table 'inventory_stocks' is already defined for this MetaData instance.  Specify 'extend_existing=True' to redefine options and columns on an existing Table object.
+🔗 合并模型: InventoryReservation (7字段, 1关系)
+🔗 合并模型: InventoryStock (8字段, 2关系)
+🔗 合并模型: InventoryTransaction (11字段, 1关系)
+✅ 分析完成，共识别 3 个数据模型
+🔍 开始智能分析模块: logistics_management
+📋 AST分析发现 0 个模型类
+🏃 运行时分析发现 0 个模型类
+✅ 分析完成，共识别 0 个数据模型
+🔍 开始智能分析模块: marketing_campaigns
+📋 AST分析发现 0 个模型类
+🏃 运行时分析发现 0 个模型类
+✅ 分析完成，共识别 0 个数据模型
+🔍 开始智能分析模块: member_system
+📋 AST分析发现 4 个模型类
+⚠️ 运行时分析失败: Foreign key associated with column 'inventory_stocks.sku_id' could not find table 'product_skus' with which to generate a foreign key to target column 'id'
+🔗 合并模型: MemberProfile (10字段, 1关系)
+🔗 合并模型: MemberPoint (6字段, 1关系)
+🔗 合并模型: MemberLevel (5字段, 0关系)
+🔗 合并模型: PointTransaction (8字段, 0关系)
+✅ 分析完成，共识别 4 个数据模型
+🔍 开始智能分析模块: notification_service
+📋 AST分析发现 0 个模型类
+🏃 运行时分析发现 0 个模型类
+✅ 分析完成，共识别 0 个数据模型
+🔍 开始智能分析模块: order_management
+📋 AST分析发现 3 个模型类
+⚠️ 运行时分析失败: One or more mappers failed to initialize - can't proceed with initialization of other mappers. Triggering mapper: 'Mapper[InventoryStock(inventory_stocks)]'. Original exception was: Foreign key associated with column 'inventory_stocks.sku_id' could not find table 'product_skus' with which to generate a foreign key to target column 'id'
+🔗 合并模型: OrderItem (13字段, 1关系)
+🔗 合并模型: OrderStatusHistory (7字段, 2关系)
+🔗 合并模型: Order (15字段, 3关系)
+✅ 分析完成，共识别 3 个数据模型
+🔍 开始智能分析模块: payment_service
+📋 AST分析发现 2 个模型类
+⚠️ 运行时分析失败: One or more mappers failed to initialize - can't proceed with initialization of other mappers. Triggering mapper: 'Mapper[InventoryStock(inventory_stocks)]'. Original exception was: Foreign key associated with column 'inventory_stocks.sku_id' could not find table 'product_skus' with which to generate a foreign key to target column 'id'
+🔗 合并模型: Payment (19字段, 2关系)
+🔗 合并模型: Refund (11字段, 2关系)
+✅ 分析完成，共识别 2 个数据模型
+🔍 开始智能分析模块: product_catalog
+📋 AST分析发现 8 个模型类
+⚠️ 运行时分析失败: One or more mappers failed to initialize - can't proceed with initialization of other mappers. Triggering mapper: 'Mapper[InventoryStock(inventory_stocks)]'. Original exception was: Foreign key associated with column 'inventory_stocks.sku_id' could not find table 'product_skus' with which to generate a foreign key to target column 'id'
+🔗 合并模型: Category (6字段, 2关系)
+🔗 合并模型: Brand (7字段, 1关系)
+🔗 合并模型: Product (13字段, 6关系)
+🔗 合并模型: SKUAttribute (4字段, 1关系)
+🔗 合并模型: ProductImage (7字段, 2关系)
+🔗 合并模型: ProductTag (4字段, 1关系)
+🔗 合并模型: ProductAttribute (6字段, 1关系)
+🔗 合并模型: SKU (10字段, 3关系)
+✅ 分析完成，共识别 8 个数据模型
+🔍 开始智能分析模块: quality_control
+📋 AST分析发现 1 个模型类
+⚠️ 运行时分析失败: One or more mappers failed to initialize - can't proceed with initialization of other mappers. Triggering mapper: 'Mapper[InventoryStock(inventory_stocks)]'. Original exception was: Foreign key associated with column 'inventory_stocks.sku_id' could not find table 'product_skus' with which to generate a foreign key to target column 'id'
+🔗 合并模型: Certificate (8字段, 0关系)
+✅ 分析完成，共识别 1 个数据模型
+🔍 开始智能分析模块: recommendation_system
+📋 AST分析发现 0 个模型类
+🏃 运行时分析发现 0 个模型类
+✅ 分析完成，共识别 0 个数据模型
+🔍 开始智能分析模块: risk_control_system
+📋 AST分析发现 0 个模型类
+🏃 运行时分析发现 0 个模型类
+✅ 分析完成，共识别 0 个数据模型
+🔍 开始智能分析模块: shopping_cart
+📋 AST分析发现 2 个模型类
+⚠️ 运行时分析失败: One or more mappers failed to initialize - can't proceed with initialization of other mappers. Triggering mapper: 'Mapper[InventoryStock(inventory_stocks)]'. Original exception was: Foreign key associated with column 'inventory_stocks.sku_id' could not find table 'product_skus' with which to generate a foreign key to target column 'id'
+🔗 合并模型: CartItem (7字段, 1关系)
+🔗 合并模型: Cart (4字段, 1关系)
+✅ 分析完成，共识别 2 个数据模型
+🔍 开始智能分析模块: social_features
+📋 AST分析发现 0 个模型类
+🏃 运行时分析发现 0 个模型类
+✅ 分析完成，共识别 0 个数据模型
+🔍 开始智能分析模块: supplier_management
+📋 AST分析发现 0 个模型类
+🏃 运行时分析发现 0 个模型类
+✅ 分析完成，共识别 0 个数据模型
+🔍 开始智能分析模块: user_auth
+📋 AST分析发现 6 个模型类
+⚠️ 运行时分析失败: Table 'users' is already defined for this MetaData instance.  Specify 'extend_existing=True' to redefine options and columns on an existing Table object.
+🔗 合并模型: User (17字段, 2关系)
+🔗 合并模型: Session (8字段, 1关系)
+🔗 合并模型: RolePermission (4字段, 3关系)
+🔗 合并模型: Role (4字段, 2关系)
+🔗 合并模型: Permission (5字段, 1关系)
+🔗 合并模型: UserRole (4字段, 3关系)
+✅ 分析完成，共识别 6 个数据模型
+✅ 全局分析完成：8 个模块，29 个模型
+E:\ecommerce_platform\app\modules\user_auth\models.py:34: SAWarning: This declarative base already contains a class with the same class name and module name as app.modules.user_auth.models.User, and will be replaced in the string-lookup table.
+  class User(Base, TimestampMixin, SoftDeleteMixin):
+✅ ModelAnalyzer初始化完成
+🏭 开始生成智能测试数据工厂: inventory_management
+🔍 开始分析模型依赖关系...
+  ✅ ModelAnalyzer: inventory_stocks → InventoryStock
+  📎 InventoryReservation.sku_id → InventoryStock (外键依赖)
+  ✅ ModelAnalyzer: product_skus → SKU
+  ✅ ModelAnalyzer: inventory_stocks → InventoryStock
+  📎 InventoryTransaction.sku_id → InventoryStock (外键依赖)
+📊 依赖图构建完成: 3 个模型
+🚀 开始拓扑排序...
+  ✅ InventoryStock 添加到创建序列 (位置 1)
+  ✅ InventoryReservation 添加到创建序列 (位置 2)
+  ✅ InventoryTransaction 添加到创建序列 (位置 3)
+🎯 拓扑排序完成，最终创建顺序:
+  1. InventoryStock
+  2. InventoryReservation
+  3. InventoryTransaction
+  ✅ ModelAnalyzer: product_skus → SKU
+🔍 开始分析模型依赖关系...
+  ✅ ModelAnalyzer: inventory_stocks → InventoryStock
+  📎 InventoryReservation.sku_id → InventoryStock (外键依赖)
+  ✅ ModelAnalyzer: product_skus → SKU
+  ✅ ModelAnalyzer: inventory_stocks → InventoryStock
+  📎 InventoryTransaction.sku_id → InventoryStock (外键依赖)
+📊 依赖图构建完成: 3 个模型
+🚀 开始拓扑排序...
+  ✅ InventoryStock 添加到创建序列 (位置 1)
+  ✅ InventoryReservation 添加到创建序列 (位置 2)
+  ✅ InventoryTransaction 添加到创建序列 (位置 3)
+🎯 拓扑排序完成，最终创建顺序:
+  1. InventoryStock
+  2. InventoryReservation
+  3. InventoryTransaction
+  ✅ ModelAnalyzer: inventory_stocks → InventoryStock
+  ✅ ModelAnalyzer: product_skus → SKU
+  ✅ ModelAnalyzer: inventory_stocks → InventoryStock
+  ⚠️  推断: _description → Description (可能不准确)
+  ✅ ModelAnalyzer: users → User
+  ✅ ModelAnalyzer: roles → Role
+  ✅ ModelAnalyzer: permissions → Permission
+  ✅ ModelAnalyzer: user_roles → UserRole
+  ✅ ModelAnalyzer: role_permissions → RolePermission
+  ✅ ModelAnalyzer: sessions → Session
+  ✅ ModelAnalyzer: products → Product
+  ⚠️  推断: _description → Description (可能不准确)
+  ✅ ModelAnalyzer: users → User
+  ✅ ModelAnalyzer: roles → Role
+  ✅ ModelAnalyzer: permissions → Permission
+  ✅ ModelAnalyzer: user_roles → UserRole
+  ✅ ModelAnalyzer: role_permissions → RolePermission
+  ✅ ModelAnalyzer: sessions → Session
+  ✅ ModelAnalyzer: products → Product
+  ✅ ModelAnalyzer: product_skus → SKU
+  ✅ ModelAnalyzer: categories → Category
+  ⚠️  推断: _description → Description (可能不准确)
+  ✅ ModelAnalyzer: users → User
+  ✅ ModelAnalyzer: roles → Role
+  ✅ ModelAnalyzer: permissions → Permission
+  ✅ ModelAnalyzer: user_roles → UserRole
+  ✅ ModelAnalyzer: role_permissions → RolePermission
+  ✅ ModelAnalyzer: sessions → Session
+  ✅ ModelAnalyzer: products → Product
+  ✅ ModelAnalyzer: product_skus → SKU
+  ✅ ModelAnalyzer: categories → Category
+  ✅ ModelAnalyzer: brands → Brand
+  ✅ ModelAnalyzer: product_skus → SKU
+  ✅ ModelAnalyzer: inventory_stocks → InventoryStock
+  ✅ ModelAnalyzer: inventory_stocks → InventoryStock
+✅ 工厂生成完成，共3个Factory类
+🌍 开始全局分析所有模块...
+🔍 开始智能分析模块: batch_traceability
+📋 AST分析发现 0 个模型类
+🏃 运行时分析发现 0 个模型类
+✅ 分析完成，共识别 0 个数据模型
+🔍 开始智能分析模块: customer_service_system
+📋 AST分析发现 0 个模型类
+🏃 运行时分析发现 0 个模型类
+✅ 分析完成，共识别 0 个数据模型
+🔍 开始智能分析模块: data_analytics_platform
+📋 AST分析发现 0 个模型类
+🏃 运行时分析发现 0 个模型类
+✅ 分析完成，共识别 0 个数据模型
+🔍 开始智能分析模块: distributor_management
+📋 AST分析发现 0 个模型类
+🏃 运行时分析发现 0 个模型类
+✅ 分析完成，共识别 0 个数据模型
+🔍 开始智能分析模块: inventory_management
+📋 AST分析发现 3 个模型类
+⚠️ 运行时分析失败: Table 'inventory_stocks' is already defined for this MetaData instance.  Specify 'extend_existing=True' to redefine options and columns on an existing Table object.
+🔗 合并模型: InventoryReservation (7字段, 1关系)
+🔗 合并模型: InventoryStock (8字段, 2关系)
+🔗 合并模型: InventoryTransaction (11字段, 1关系)
+✅ 分析完成，共识别 3 个数据模型
+🔍 开始智能分析模块: logistics_management
+📋 AST分析发现 0 个模型类
+🏃 运行时分析发现 0 个模型类
+✅ 分析完成，共识别 0 个数据模型
+🔍 开始智能分析模块: marketing_campaigns
+📋 AST分析发现 0 个模型类
+🏃 运行时分析发现 0 个模型类
+✅ 分析完成，共识别 0 个数据模型
+🔍 开始智能分析模块: member_system
+📋 AST分析发现 4 个模型类
+⚠️ 运行时分析失败: Table 'member_levels' is already defined for this MetaData instance.  Specify 'extend_existing=True' to redefine options and columns on an existing Table object.
+🔗 合并模型: MemberProfile (10字段, 1关系)
+🔗 合并模型: MemberPoint (6字段, 1关系)
+🔗 合并模型: MemberLevel (5字段, 0关系)
+🔗 合并模型: PointTransaction (8字段, 0关系)
+✅ 分析完成，共识别 4 个数据模型
+🔍 开始智能分析模块: notification_service
+📋 AST分析发现 0 个模型类
+🏃 运行时分析发现 0 个模型类
+✅ 分析完成，共识别 0 个数据模型
+🔍 开始智能分析模块: order_management
+📋 AST分析发现 3 个模型类
+⚠️ 运行时分析失败: Table 'orders' is already defined for this MetaData instance.  Specify 'extend_existing=True' to redefine options and columns on an existing Table object.
+🔗 合并模型: OrderItem (13字段, 1关系)
+🔗 合并模型: OrderStatusHistory (7字段, 2关系)
+🔗 合并模型: Order (15字段, 3关系)
+✅ 分析完成，共识别 3 个数据模型
+🔍 开始智能分析模块: payment_service
+📋 AST分析发现 2 个模型类
+⚠️ 运行时分析失败: Table 'payments' is already defined for this MetaData instance.  Specify 'extend_existing=True' to redefine options and columns on an existing Table object.
+🔗 合并模型: Payment (19字段, 2关系)
+🔗 合并模型: Refund (11字段, 2关系)
+✅ 分析完成，共识别 2 个数据模型
+🔍 开始智能分析模块: product_catalog
+📋 AST分析发现 8 个模型类
+⚠️ 运行时分析失败: Table 'categories' is already defined for this MetaData instance.  Specify 'extend_existing=True' to redefine options and columns on an existing Table object.
+🔗 合并模型: Category (6字段, 2关系)
+🔗 合并模型: Brand (7字段, 1关系)
+🔗 合并模型: Product (13字段, 6关系)
+🔗 合并模型: SKUAttribute (4字段, 1关系)
+🔗 合并模型: ProductImage (7字段, 2关系)
+🔗 合并模型: ProductTag (4字段, 1关系)
+🔗 合并模型: ProductAttribute (6字段, 1关系)
+🔗 合并模型: SKU (10字段, 3关系)
+✅ 分析完成，共识别 8 个数据模型
+🔍 开始智能分析模块: quality_control
+📋 AST分析发现 1 个模型类
+⚠️ 运行时分析失败: Table 'certificates' is already defined for this MetaData instance.  Specify 'extend_existing=True' to redefine options and columns on an existing Table object.
+🔗 合并模型: Certificate (8字段, 0关系)
+✅ 分析完成，共识别 1 个数据模型
+🔍 开始智能分析模块: recommendation_system
+📋 AST分析发现 0 个模型类
+🏃 运行时分析发现 0 个模型类
+✅ 分析完成，共识别 0 个数据模型
+🔍 开始智能分析模块: risk_control_system
+📋 AST分析发现 0 个模型类
+🏃 运行时分析发现 0 个模型类
+✅ 分析完成，共识别 0 个数据模型
+🔍 开始智能分析模块: shopping_cart
+📋 AST分析发现 2 个模型类
+⚠️ 运行时分析失败: Table 'carts' is already defined for this MetaData instance.  Specify 'extend_existing=True' to redefine options and columns on an existing Table object.
+🔗 合并模型: CartItem (7字段, 1关系)
+🔗 合并模型: Cart (4字段, 1关系)
+✅ 分析完成，共识别 2 个数据模型
+🔍 开始智能分析模块: social_features
+📋 AST分析发现 0 个模型类
+🏃 运行时分析发现 0 个模型类
+✅ 分析完成，共识别 0 个数据模型
+🔍 开始智能分析模块: supplier_management
+📋 AST分析发现 0 个模型类
+🏃 运行时分析发现 0 个模型类
+✅ 分析完成，共识别 0 个数据模型
+🔍 开始智能分析模块: user_auth
+📋 AST分析发现 6 个模型类
+⚠️ 运行时分析失败: Table 'users' is already defined for this MetaData instance.  Specify 'extend_existing=True' to redefine options and columns on an existing Table object.
+🔗 合并模型: User (17字段, 2关系)
+🔗 合并模型: Session (8字段, 1关系)
+🔗 合并模型: RolePermission (4字段, 3关系)
+🔗 合并模型: Role (4字段, 2关系)
+🔗 合并模型: Permission (5字段, 1关系)
+🔗 合并模型: UserRole (4字段, 3关系)
+✅ 分析完成，共识别 6 个数据模型
+✅ 全局分析完成：8 个模块，29 个模型
+
+🔍 DEBUG [get_inventory_by_sku]:
+  返回类型: Optional[InventoryStock]
+  推断模型: InventoryStock
+  主模型: InventoryStock
+  模型在models中: True
+
+  🔧 _generate_test_entity_creation:
+    model_name: InventoryStock
+    model_name in models: True
+    with_dependencies: True
+    module_name: inventory_management
+    ✅ 模型在models中，字段数: 8
+    必填字段数: 6
+    外键字段数: 1
+      - sku_id → product_skus.id
+    普通字段数: 5
+    → 生成多行依赖代码
+    最终生成的代码行数: 15
+    最后一行: entity = InventoryStock(total_quantity=10, available_quantity=10, reserved_quantity=10, warning_threshold=1, critical_threshold=1, sku_id=sku.id)
+  生成的entity_creation代码:
+    第1行: from tests.factories.product_catalog_factories import ProductCatalogFactoryManager
+    第2行:         ProductCatalogFactoryManager.setup_factories(unit_test_db)
+    第3行:         # 准备依赖实体: SKU
+    第4行:         from tests.factories.product_catalog_factories import SKUFactory
+    第5行:         sku = SKUFactory.create()
+    第6行:         # 准备依赖实体: Category
+    第7行:         from tests.factories.product_catalog_factories import CategoryFactory
+    第8行:         category = CategoryFactory.create()
+    第9行:         # 准备依赖实体: Brand
+    第10行:         from tests.factories.product_catalog_factories import BrandFactory
+    第11行:         brand = BrandFactory.create()
+    第12行:         # 准备依赖实体: Product
+    第13行:         from tests.factories.product_catalog_factories import ProductFactory
+    第14行:         product = ProductFactory.create()
+    第15行:         entity = InventoryStock(total_quantity=10, available_quantity=10, reserved_quantity=10, warning_threshold=1, critical_threshold=1, sku_id=sku.id)
+  是否跨模块: False
+  参数推断使用的模型: InventoryStock
+  生成的query_param: unit_test_db, entity.sku_id
+🔍 DEBUG [get_inventory_by_sku] 结束
+
+
+🔍 DEBUG [get_inventories_by_sku_ids]:
+  返回类型: List[InventoryStock]
+  推断模型: InventoryStock
+  主模型: InventoryStock
+  模型在models中: True
+
+  🔧 _generate_test_entity_creation:
+    model_name: InventoryStock
+    model_name in models: True
+    with_dependencies: True
+    module_name: inventory_management
+    ✅ 模型在models中，字段数: 8
+    必填字段数: 6
+    外键字段数: 1
+      - sku_id → product_skus.id
+    普通字段数: 5
+    → 生成多行依赖代码
+    最终生成的代码行数: 15
+    最后一行: entity = InventoryStock(total_quantity=10, available_quantity=10, reserved_quantity=10, warning_threshold=1, critical_threshold=1, sku_id=sku.id)
+  生成的entity_creation代码:
+    第1行: from tests.factories.product_catalog_factories import ProductCatalogFactoryManager
+    第2行:         ProductCatalogFactoryManager.setup_factories(unit_test_db)
+    第3行:         # 准备依赖实体: SKU
+    第4行:         from tests.factories.product_catalog_factories import SKUFactory
+    第5行:         sku = SKUFactory.create()
+    第6行:         # 准备依赖实体: Category
+    第7行:         from tests.factories.product_catalog_factories import CategoryFactory
+    第8行:         category = CategoryFactory.create()
+    第9行:         # 准备依赖实体: Brand
+    第10行:         from tests.factories.product_catalog_factories import BrandFactory
+    第11行:         brand = BrandFactory.create()
+    第12行:         # 准备依赖实体: Product
+    第13行:         from tests.factories.product_catalog_factories import ProductFactory
+    第14行:         product = ProductFactory.create()
+    第15行:         entity = InventoryStock(total_quantity=10, available_quantity=10, reserved_quantity=10, warning_threshold=1, critical_threshold=1, sku_id=sku.id)
+  是否跨模块: False
+  参数推断使用的模型: InventoryStock
+  生成的query_param: unit_test_db, [1]
+🔍 DEBUG [get_inventories_by_sku_ids] 结束
+
+
+  🔧 _generate_test_entity_creation:
+    model_name: InventoryStock
+    model_name in models: True
+    with_dependencies: True
+    module_name: inventory_management
+    ✅ 模型在models中，字段数: 8
+    必填字段数: 6
+    外键字段数: 1
+      - sku_id → product_skus.id
+    普通字段数: 5
+    → 生成多行依赖代码
+    最终生成的代码行数: 15
+    最后一行: entity = InventoryStock(total_quantity=10, available_quantity=10, reserved_quantity=10, warning_threshold=1, critical_threshold=1, sku_id=sku.id)
+
+🔍 DEBUG [get_inventory_for_update]:
+  返回类型: Optional[InventoryStock]
+  推断模型: InventoryStock
+  主模型: InventoryStock
+  模型在models中: True
+
+  🔧 _generate_test_entity_creation:
+    model_name: InventoryStock
+    model_name in models: True
+    with_dependencies: True
+    module_name: inventory_management
+    ✅ 模型在models中，字段数: 8
+    必填字段数: 6
+    外键字段数: 1
+      - sku_id → product_skus.id
+    普通字段数: 5
+    → 生成多行依赖代码
+    最终生成的代码行数: 15
+    最后一行: entity = InventoryStock(total_quantity=10, available_quantity=10, reserved_quantity=10, warning_threshold=1, critical_threshold=1, sku_id=sku.id)
+  生成的entity_creation代码:
+    第1行: from tests.factories.product_catalog_factories import ProductCatalogFactoryManager
+    第2行:         ProductCatalogFactoryManager.setup_factories(unit_test_db)
+    第3行:         # 准备依赖实体: SKU
+    第4行:         from tests.factories.product_catalog_factories import SKUFactory
+    第5行:         sku = SKUFactory.create()
+    第6行:         # 准备依赖实体: Category
+    第7行:         from tests.factories.product_catalog_factories import CategoryFactory
+    第8行:         category = CategoryFactory.create()
+    第9行:         # 准备依赖实体: Brand
+    第10行:         from tests.factories.product_catalog_factories import BrandFactory
+    第11行:         brand = BrandFactory.create()
+    第12行:         # 准备依赖实体: Product
+    第13行:         from tests.factories.product_catalog_factories import ProductFactory
+    第14行:         product = ProductFactory.create()
+    第15行:         entity = InventoryStock(total_quantity=10, available_quantity=10, reserved_quantity=10, warning_threshold=1, critical_threshold=1, sku_id=sku.id)
+  是否跨模块: False
+  参数推断使用的模型: InventoryStock
+  生成的query_param: unit_test_db, entity.sku_id
+🔍 DEBUG [get_inventory_for_update] 结束
+
+
+🔍 DEBUG [get_active_inventories]:
+  返回类型: List[InventoryStock]
+  推断模型: InventoryStock
+  主模型: InventoryStock
+  模型在models中: True
+
+  🔧 _generate_test_entity_creation:
+    model_name: InventoryStock
+    model_name in models: True
+    with_dependencies: True
+    module_name: inventory_management
+    ✅ 模型在models中，字段数: 8
+    必填字段数: 6
+    外键字段数: 1
+      - sku_id → product_skus.id
+    普通字段数: 5
+    → 生成多行依赖代码
+    最终生成的代码行数: 15
+    最后一行: entity = InventoryStock(total_quantity=10, available_quantity=10, reserved_quantity=10, warning_threshold=1, critical_threshold=1, sku_id=sku.id)
+  生成的entity_creation代码:
+    第1行: from tests.factories.product_catalog_factories import ProductCatalogFactoryManager
+    第2行:         ProductCatalogFactoryManager.setup_factories(unit_test_db)
+    第3行:         # 准备依赖实体: SKU
+    第4行:         from tests.factories.product_catalog_factories import SKUFactory
+    第5行:         sku = SKUFactory.create()
+    第6行:         # 准备依赖实体: Category
+    第7行:         from tests.factories.product_catalog_factories import CategoryFactory
+    第8行:         category = CategoryFactory.create()
+    第9行:         # 准备依赖实体: Brand
+    第10行:         from tests.factories.product_catalog_factories import BrandFactory
+    第11行:         brand = BrandFactory.create()
+    第12行:         # 准备依赖实体: Product
+    第13行:         from tests.factories.product_catalog_factories import ProductFactory
+    第14行:         product = ProductFactory.create()
+    第15行:         entity = InventoryStock(total_quantity=10, available_quantity=10, reserved_quantity=10, warning_threshold=1, critical_threshold=1, sku_id=sku.id)
+  是否跨模块: False
+  参数推断使用的模型: InventoryStock
+  生成的query_param: unit_test_db, 100, 0
+🔍 DEBUG [get_active_inventories] 结束
+
+
+  🔧 _generate_test_entity_creation:
+    model_name: InventoryStock
+    model_name in models: True
+    with_dependencies: True
+    module_name: inventory_management
+    ✅ 模型在models中，字段数: 8
+    必填字段数: 6
+    外键字段数: 1
+      - sku_id → product_skus.id
+    普通字段数: 5
+    → 生成多行依赖代码
+    最终生成的代码行数: 15
+    最后一行: entity = InventoryStock(total_quantity=10, available_quantity=10, reserved_quantity=10, warning_threshold=1, critical_threshold=1, sku_id=sku.id)
+
+  🔧 _generate_test_entity_creation:
+    model_name: InventoryStock
+    model_name in models: True
+    with_dependencies: True
+    module_name: inventory_management
+    ✅ 模型在models中，字段数: 8
+    必填字段数: 6
+    外键字段数: 1
+      - sku_id → product_skus.id
+    普通字段数: 5
+    → 生成多行依赖代码
+    最终生成的代码行数: 15
+    最后一行: entity = InventoryStock(total_quantity=10, available_quantity=10, reserved_quantity=10, warning_threshold=1, critical_threshold=1, sku_id=sku.id)
+
+🔍 DEBUG [get_low_stock_items]:
+  返回类型: List[InventoryStock]
+  推断模型: InventoryStock
+  主模型: InventoryStock
+  模型在models中: True
+
+  🔧 _generate_test_entity_creation:
+    model_name: InventoryStock
+    model_name in models: True
+    with_dependencies: True
+    module_name: inventory_management
+    ✅ 模型在models中，字段数: 8
+    必填字段数: 6
+    外键字段数: 1
+      - sku_id → product_skus.id
+    普通字段数: 5
+    → 生成多行依赖代码
+    最终生成的代码行数: 15
+    最后一行: entity = InventoryStock(total_quantity=10, available_quantity=10, reserved_quantity=10, warning_threshold=1, critical_threshold=1, sku_id=sku.id)
+  生成的entity_creation代码:
+    第1行: from tests.factories.product_catalog_factories import ProductCatalogFactoryManager
+    第2行:         ProductCatalogFactoryManager.setup_factories(unit_test_db)
+    第3行:         # 准备依赖实体: SKU
+    第4行:         from tests.factories.product_catalog_factories import SKUFactory
+    第5行:         sku = SKUFactory.create()
+    第6行:         # 准备依赖实体: Category
+    第7行:         from tests.factories.product_catalog_factories import CategoryFactory
+    第8行:         category = CategoryFactory.create()
+    第9行:         # 准备依赖实体: Brand
+    第10行:         from tests.factories.product_catalog_factories import BrandFactory
+    第11行:         brand = BrandFactory.create()
+    第12行:         # 准备依赖实体: Product
+    第13行:         from tests.factories.product_catalog_factories import ProductFactory
+    第14行:         product = ProductFactory.create()
+    第15行:         entity = InventoryStock(total_quantity=10, available_quantity=10, reserved_quantity=10, warning_threshold=1, critical_threshold=1, sku_id=sku.id)
+  是否跨模块: False
+  参数推断使用的模型: InventoryStock
+  生成的query_param: unit_test_db, 1
+🔍 DEBUG [get_low_stock_items] 结束
+
+
+  🔧 _generate_test_entity_creation:
+    model_name: InventoryStock
+    model_name in models: True
+    with_dependencies: True
+    module_name: inventory_management
+    ✅ 模型在models中，字段数: 8
+    必填字段数: 6
+    外键字段数: 1
+      - sku_id → product_skus.id
+    普通字段数: 5
+    → 生成多行依赖代码
+    最终生成的代码行数: 15
+    最后一行: entity = InventoryStock(total_quantity=10, available_quantity=10, reserved_quantity=10, warning_threshold=1, critical_threshold=1, sku_id=sku.id)
+
+🔍 DEBUG [get_reservation_by_id]:
+  返回类型: Optional[InventoryReservation]
+  推断模型: InventoryReservation
+  主模型: InventoryStock
+  模型在models中: True
+
+  🔧 _generate_test_entity_creation:
+    model_name: InventoryReservation
+    model_name in models: True
+    with_dependencies: True
+    module_name: inventory_management
+    ✅ 模型在models中，字段数: 7
+    必填字段数: 5
+    外键字段数: 1
+      - sku_id → inventory_stocks.sku_id
+    普通字段数: 4
+    → 生成多行依赖代码
+    最终生成的代码行数: 20
+    最后一行: entity = InventoryReservation(reservation_type=ReservationType.CART, reference_id="查询测试", quantity=10, expires_at=datetime.now(), sku_id=inventorystock.id)
+  生成的entity_creation代码:
+    第1行: from tests.factories.product_catalog_factories import ProductCatalogFactoryManager
+    第2行:         ProductCatalogFactoryManager.setup_factories(unit_test_db)
+    第3行:         # 准备依赖实体: SKU
+    第4行:         from tests.factories.product_catalog_factories import SKUFactory
+    第5行:         sku = SKUFactory.create()
+    第6行:         # 准备依赖实体: Category
+    第7行:         from tests.factories.product_catalog_factories import CategoryFactory
+    第8行:         category = CategoryFactory.create()
+    第9行:         # 准备依赖实体: Brand
+    第10行:         from tests.factories.product_catalog_factories import BrandFactory
+    第11行:         brand = BrandFactory.create()
+    第12行:         # 准备依赖实体: Product
+    第13行:         from tests.factories.product_catalog_factories import ProductFactory
+    第14行:         product = ProductFactory.create()
+    第15行:         from tests.factories.inventory_management_factories import InventoryManagementFactoryManager
+    第16行:         InventoryManagementFactoryManager.setup_factories(unit_test_db)
+    第17行:         # 准备依赖实体: InventoryStock
+    第18行:         from tests.factories.inventory_management_factories import InventoryStockFactory
+    第19行:         inventorystock = InventoryStockFactory.create(sku_id=sku.id)
+    第20行:         entity = InventoryReservation(reservation_type=ReservationType.CART, reference_id="查询测试", quantity=10, expires_at=datetime.now(), sku_id=inventorystock.id)
+  是否跨模块: False
+  参数推断使用的模型: InventoryReservation
+  生成的query_param: unit_test_db, 1
+🔍 DEBUG [get_reservation_by_id] 结束
+
+
+🔍 DEBUG [get_reservations_by_reference]:
+  返回类型: List[InventoryReservation]
+  推断模型: InventoryReservation
+  主模型: InventoryStock
+  模型在models中: True
+
+  🔧 _generate_test_entity_creation:
+    model_name: InventoryReservation
+    model_name in models: True
+    with_dependencies: True
+    module_name: inventory_management
+    ✅ 模型在models中，字段数: 7
+    必填字段数: 5
+    外键字段数: 1
+      - sku_id → inventory_stocks.sku_id
+    普通字段数: 4
+    → 生成多行依赖代码
+    最终生成的代码行数: 20
+    最后一行: entity = InventoryReservation(reservation_type=ReservationType.CART, reference_id="查询测试", quantity=10, expires_at=datetime.now(), sku_id=inventorystock.id)
+  生成的entity_creation代码:
+    第1行: from tests.factories.product_catalog_factories import ProductCatalogFactoryManager
+    第2行:         ProductCatalogFactoryManager.setup_factories(unit_test_db)
+    第3行:         # 准备依赖实体: SKU
+    第4行:         from tests.factories.product_catalog_factories import SKUFactory
+    第5行:         sku = SKUFactory.create()
+    第6行:         # 准备依赖实体: Category
+    第7行:         from tests.factories.product_catalog_factories import CategoryFactory
+    第8行:         category = CategoryFactory.create()
+    第9行:         # 准备依赖实体: Brand
+    第10行:         from tests.factories.product_catalog_factories import BrandFactory
+    第11行:         brand = BrandFactory.create()
+    第12行:         # 准备依赖实体: Product
+    第13行:         from tests.factories.product_catalog_factories import ProductFactory
+    第14行:         product = ProductFactory.create()
+    第15行:         from tests.factories.inventory_management_factories import InventoryManagementFactoryManager
+    第16行:         InventoryManagementFactoryManager.setup_factories(unit_test_db)
+    第17行:         # 准备依赖实体: InventoryStock
+    第18行:         from tests.factories.inventory_management_factories import InventoryStockFactory
+    第19行:         inventorystock = InventoryStockFactory.create(sku_id=sku.id)
+    第20行:         entity = InventoryReservation(reservation_type=ReservationType.CART, reference_id="查询测试", quantity=10, expires_at=datetime.now(), sku_id=inventorystock.id)
+  是否跨模块: False
+  参数推断使用的模型: InventoryReservation
+  生成的query_param: unit_test_db, entity.reference_id, entity.reservation_type, False
+🔍 DEBUG [get_reservations_by_reference] 结束
+
+
+  🔧 _generate_test_entity_creation:
+    model_name: InventoryStock
+    model_name in models: True
+    with_dependencies: True
+    module_name: inventory_management
+    ✅ 模型在models中，字段数: 8
+    必填字段数: 6
+    外键字段数: 1
+      - sku_id → product_skus.id
+    普通字段数: 5
+    → 生成多行依赖代码
+    最终生成的代码行数: 15
+    最后一行: entity = InventoryStock(total_quantity=10, available_quantity=10, reserved_quantity=10, warning_threshold=1, critical_threshold=1, sku_id=sku.id)
+
+🔍 DEBUG [get_active_reservations_by_sku]:
+  返回类型: List[InventoryReservation]
+  推断模型: InventoryReservation
+  主模型: InventoryStock
+  模型在models中: True
+
+  🔧 _generate_test_entity_creation:
+    model_name: InventoryReservation
+    model_name in models: True
+    with_dependencies: True
+    module_name: inventory_management
+    ✅ 模型在models中，字段数: 7
+    必填字段数: 5
+    外键字段数: 1
+      - sku_id → inventory_stocks.sku_id
+    普通字段数: 4
+    → 生成多行依赖代码
+    最终生成的代码行数: 20
+    最后一行: entity = InventoryReservation(reservation_type=ReservationType.CART, reference_id="查询测试", quantity=10, expires_at=datetime.now(), sku_id=inventorystock.id)
+  生成的entity_creation代码:
+    第1行: from tests.factories.product_catalog_factories import ProductCatalogFactoryManager
+    第2行:         ProductCatalogFactoryManager.setup_factories(unit_test_db)
+    第3行:         # 准备依赖实体: SKU
+    第4行:         from tests.factories.product_catalog_factories import SKUFactory
+    第5行:         sku = SKUFactory.create()
+    第6行:         # 准备依赖实体: Category
+    第7行:         from tests.factories.product_catalog_factories import CategoryFactory
+    第8行:         category = CategoryFactory.create()
+    第9行:         # 准备依赖实体: Brand
+    第10行:         from tests.factories.product_catalog_factories import BrandFactory
+    第11行:         brand = BrandFactory.create()
+    第12行:         # 准备依赖实体: Product
+    第13行:         from tests.factories.product_catalog_factories import ProductFactory
+    第14行:         product = ProductFactory.create()
+    第15行:         from tests.factories.inventory_management_factories import InventoryManagementFactoryManager
+    第16行:         InventoryManagementFactoryManager.setup_factories(unit_test_db)
+    第17行:         # 准备依赖实体: InventoryStock
+    第18行:         from tests.factories.inventory_management_factories import InventoryStockFactory
+    第19行:         inventorystock = InventoryStockFactory.create(sku_id=sku.id)
+    第20行:         entity = InventoryReservation(reservation_type=ReservationType.CART, reference_id="查询测试", quantity=10, expires_at=datetime.now(), sku_id=inventorystock.id)
+  是否跨模块: False
+  参数推断使用的模型: InventoryReservation
+  生成的query_param: unit_test_db, entity.sku_id
+🔍 DEBUG [get_active_reservations_by_sku] 结束
+
+
+  🔧 _generate_test_entity_creation:
+    model_name: InventoryStock
+    model_name in models: True
+    with_dependencies: True
+    module_name: inventory_management
+    ✅ 模型在models中，字段数: 8
+    必填字段数: 6
+    外键字段数: 1
+      - sku_id → product_skus.id
+    普通字段数: 5
+    → 生成多行依赖代码
+    最终生成的代码行数: 15
+    最后一行: entity = InventoryStock(total_quantity=10, available_quantity=10, reserved_quantity=10, warning_threshold=1, critical_threshold=1, sku_id=sku.id)
+
+🔍 DEBUG [get_expired_reservations]:
+  返回类型: List[InventoryReservation]
+  推断模型: InventoryReservation
+  主模型: InventoryStock
+  模型在models中: True
+
+  🔧 _generate_test_entity_creation:
+    model_name: InventoryReservation
+    model_name in models: True
+    with_dependencies: True
+    module_name: inventory_management
+    ✅ 模型在models中，字段数: 7
+    必填字段数: 5
+    外键字段数: 1
+      - sku_id → inventory_stocks.sku_id
+    普通字段数: 4
+    → 生成多行依赖代码
+    最终生成的代码行数: 20
+    最后一行: entity = InventoryReservation(reservation_type=ReservationType.CART, reference_id="查询测试", quantity=10, expires_at=datetime.now(), sku_id=inventorystock.id)
+  生成的entity_creation代码:
+    第1行: from tests.factories.product_catalog_factories import ProductCatalogFactoryManager
+    第2行:         ProductCatalogFactoryManager.setup_factories(unit_test_db)
+    第3行:         # 准备依赖实体: SKU
+    第4行:         from tests.factories.product_catalog_factories import SKUFactory
+    第5行:         sku = SKUFactory.create()
+    第6行:         # 准备依赖实体: Category
+    第7行:         from tests.factories.product_catalog_factories import CategoryFactory
+    第8行:         category = CategoryFactory.create()
+    第9行:         # 准备依赖实体: Brand
+    第10行:         from tests.factories.product_catalog_factories import BrandFactory
+    第11行:         brand = BrandFactory.create()
+    第12行:         # 准备依赖实体: Product
+    第13行:         from tests.factories.product_catalog_factories import ProductFactory
+    第14行:         product = ProductFactory.create()
+    第15行:         from tests.factories.inventory_management_factories import InventoryManagementFactoryManager
+    第16行:         InventoryManagementFactoryManager.setup_factories(unit_test_db)
+    第17行:         # 准备依赖实体: InventoryStock
+    第18行:         from tests.factories.inventory_management_factories import InventoryStockFactory
+    第19行:         inventorystock = InventoryStockFactory.create(sku_id=sku.id)
+    第20行:         entity = InventoryReservation(reservation_type=ReservationType.CART, reference_id="查询测试", quantity=10, expires_at=datetime.now(), sku_id=inventorystock.id)
+  是否跨模块: False
+  参数推断使用的模型: InventoryReservation
+  生成的query_param: unit_test_db, entity.before
+🔍 DEBUG [get_expired_reservations] 结束
+
+
+  🔧 _generate_test_entity_creation:
+    model_name: InventoryStock
+    model_name in models: True
+    with_dependencies: True
+    module_name: inventory_management
+    ✅ 模型在models中，字段数: 8
+    必填字段数: 6
+    外键字段数: 1
+      - sku_id → product_skus.id
+    普通字段数: 5
+    → 生成多行依赖代码
+    最终生成的代码行数: 15
+    最后一行: entity = InventoryStock(total_quantity=10, available_quantity=10, reserved_quantity=10, warning_threshold=1, critical_threshold=1, sku_id=sku.id)
+
+  🔧 _generate_test_entity_creation:
+    model_name: InventoryStock
+    model_name in models: True
+    with_dependencies: True
+    module_name: inventory_management
+    ✅ 模型在models中，字段数: 8
+    必填字段数: 6
+    外键字段数: 1
+      - sku_id → product_skus.id
+    普通字段数: 5
+    → 生成多行依赖代码
+    最终生成的代码行数: 15
+    最后一行: entity = InventoryStock(total_quantity=10, available_quantity=10, reserved_quantity=10, warning_threshold=1, critical_threshold=1, sku_id=sku.id)
+
+  🔧 _generate_test_entity_creation:
+    model_name: InventoryStock
+    model_name in models: True
+    with_dependencies: True
+    module_name: inventory_management
+    ✅ 模型在models中，字段数: 8
+    必填字段数: 6
+    外键字段数: 1
+      - sku_id → product_skus.id
+    普通字段数: 5
+    → 生成多行依赖代码
+    最终生成的代码行数: 15
+    最后一行: entity = InventoryStock(total_quantity=10, available_quantity=10, reserved_quantity=10, warning_threshold=1, critical_threshold=1, sku_id=sku.id)
+
+🔍 DEBUG [get_transactions_by_sku]:
+  返回类型: Tuple[List[InventoryTransaction], int]
+  推断模型: InventoryStock
+  主模型: InventoryStock
+  模型在models中: True
+
+  🔧 _generate_test_entity_creation:
+    model_name: InventoryStock
+    model_name in models: True
+    with_dependencies: True
+    module_name: inventory_management
+    ✅ 模型在models中，字段数: 8
+    必填字段数: 6
+    外键字段数: 1
+      - sku_id → product_skus.id
+    普通字段数: 5
+    → 生成多行依赖代码
+    最终生成的代码行数: 15
+    最后一行: entity = InventoryStock(total_quantity=10, available_quantity=10, reserved_quantity=10, warning_threshold=1, critical_threshold=1, sku_id=sku.id)
+  生成的entity_creation代码:
+    第1行: from tests.factories.product_catalog_factories import ProductCatalogFactoryManager
+    第2行:         ProductCatalogFactoryManager.setup_factories(unit_test_db)
+    第3行:         # 准备依赖实体: SKU
+    第4行:         from tests.factories.product_catalog_factories import SKUFactory
+    第5行:         sku = SKUFactory.create()
+    第6行:         # 准备依赖实体: Category
+    第7行:         from tests.factories.product_catalog_factories import CategoryFactory
+    第8行:         category = CategoryFactory.create()
+    第9行:         # 准备依赖实体: Brand
+    第10行:         from tests.factories.product_catalog_factories import BrandFactory
+    第11行:         brand = BrandFactory.create()
+    第12行:         # 准备依赖实体: Product
+    第13行:         from tests.factories.product_catalog_factories import ProductFactory
+    第14行:         product = ProductFactory.create()
+    第15行:         entity = InventoryStock(total_quantity=10, available_quantity=10, reserved_quantity=10, warning_threshold=1, critical_threshold=1, sku_id=sku.id)
+  是否跨模块: False
+  参数推断使用的模型: InventoryStock
+  生成的query_param: unit_test_db, entity.sku_id, 100, 0
+🔍 DEBUG [get_transactions_by_sku] 结束
+
+
+  🔧 _generate_test_entity_creation:
+    model_name: InventoryStock
+    model_name in models: True
+    with_dependencies: True
+    module_name: inventory_management
+    ✅ 模型在models中，字段数: 8
+    必填字段数: 6
+    外键字段数: 1
+      - sku_id → product_skus.id
+    普通字段数: 5
+    → 生成多行依赖代码
+    最终生成的代码行数: 15
+    最后一行: entity = InventoryStock(total_quantity=10, available_quantity=10, reserved_quantity=10, warning_threshold=1, critical_threshold=1, sku_id=sku.id)
+
+🔍 DEBUG [get_transactions_by_date_range]:
+  返回类型: List[InventoryTransaction]
+  推断模型: InventoryTransaction
+  主模型: InventoryStock
+  模型在models中: True
+
+  🔧 _generate_test_entity_creation:
+    model_name: InventoryTransaction
+    model_name in models: True
+    with_dependencies: True
+    module_name: inventory_management
+    ✅ 模型在models中，字段数: 11
+    必填字段数: 5
+    外键字段数: 1
+      - sku_id → inventory_stocks.sku_id
+    普通字段数: 4
+    → 生成多行依赖代码
+    最终生成的代码行数: 20
+    最后一行: entity = InventoryTransaction(transaction_type=TransactionType.RESERVE, quantity_change=10, quantity_before=10, quantity_after=10, sku_id=inventorystock.id)
+  生成的entity_creation代码:
+    第1行: from tests.factories.product_catalog_factories import ProductCatalogFactoryManager
+    第2行:         ProductCatalogFactoryManager.setup_factories(unit_test_db)
+    第3行:         # 准备依赖实体: SKU
+    第4行:         from tests.factories.product_catalog_factories import SKUFactory
+    第5行:         sku = SKUFactory.create()
+    第6行:         # 准备依赖实体: Category
+    第7行:         from tests.factories.product_catalog_factories import CategoryFactory
+    第8行:         category = CategoryFactory.create()
+    第9行:         # 准备依赖实体: Brand
+    第10行:         from tests.factories.product_catalog_factories import BrandFactory
+    第11行:         brand = BrandFactory.create()
+    第12行:         # 准备依赖实体: Product
+    第13行:         from tests.factories.product_catalog_factories import ProductFactory
+    第14行:         product = ProductFactory.create()
+    第15行:         from tests.factories.inventory_management_factories import InventoryManagementFactoryManager
+    第16行:         InventoryManagementFactoryManager.setup_factories(unit_test_db)
+    第17行:         # 准备依赖实体: InventoryStock
+    第18行:         from tests.factories.inventory_management_factories import InventoryStockFactory
+    第19行:         inventorystock = InventoryStockFactory.create(sku_id=sku.id)
+    第20行:         entity = InventoryTransaction(transaction_type=TransactionType.RESERVE, quantity_change=10, quantity_before=10, quantity_after=10, sku_id=inventorystock.id)
+  是否跨模块: False
+  参数推断使用的模型: InventoryTransaction
+  生成的query_param: unit_test_db, entity.start_date, entity.end_date, entity.transaction_type, entity.sku_id
+🔍 DEBUG [get_transactions_by_date_range] 结束
+
+
+  🔧 _generate_test_entity_creation:
+    model_name: InventoryStock
+    model_name in models: True
+    with_dependencies: True
+    module_name: inventory_management
+    ✅ 模型在models中，字段数: 8
+    必填字段数: 6
+    外键字段数: 1
+      - sku_id → product_skus.id
+    普通字段数: 5
+    → 生成多行依赖代码
+    最终生成的代码行数: 15
+    最后一行: entity = InventoryStock(total_quantity=10, available_quantity=10, reserved_quantity=10, warning_threshold=1, critical_threshold=1, sku_id=sku.id)
+
+🔍 DEBUG [get_transactions_by_reference]:
+  返回类型: List[InventoryTransaction]
+  推断模型: InventoryTransaction
+  主模型: InventoryStock
+  模型在models中: True
+
+  🔧 _generate_test_entity_creation:
+    model_name: InventoryTransaction
+    model_name in models: True
+    with_dependencies: True
+    module_name: inventory_management
+    ✅ 模型在models中，字段数: 11
+    必填字段数: 5
+    外键字段数: 1
+      - sku_id → inventory_stocks.sku_id
+    普通字段数: 4
+    → 生成多行依赖代码
+    最终生成的代码行数: 20
+    最后一行: entity = InventoryTransaction(transaction_type=TransactionType.RESERVE, quantity_change=10, quantity_before=10, quantity_after=10, sku_id=inventorystock.id)
+  生成的entity_creation代码:
+    第1行: from tests.factories.product_catalog_factories import ProductCatalogFactoryManager
+    第2行:         ProductCatalogFactoryManager.setup_factories(unit_test_db)
+    第3行:         # 准备依赖实体: SKU
+    第4行:         from tests.factories.product_catalog_factories import SKUFactory
+    第5行:         sku = SKUFactory.create()
+    第6行:         # 准备依赖实体: Category
+    第7行:         from tests.factories.product_catalog_factories import CategoryFactory
+    第8行:         category = CategoryFactory.create()
+    第9行:         # 准备依赖实体: Brand
+    第10行:         from tests.factories.product_catalog_factories import BrandFactory
+    第11行:         brand = BrandFactory.create()
+    第12行:         # 准备依赖实体: Product
+    第13行:         from tests.factories.product_catalog_factories import ProductFactory
+    第14行:         product = ProductFactory.create()
+    第15行:         from tests.factories.inventory_management_factories import InventoryManagementFactoryManager
+    第16行:         InventoryManagementFactoryManager.setup_factories(unit_test_db)
+    第17行:         # 准备依赖实体: InventoryStock
+    第18行:         from tests.factories.inventory_management_factories import InventoryStockFactory
+    第19行:         inventorystock = InventoryStockFactory.create(sku_id=sku.id)
+    第20行:         entity = InventoryTransaction(transaction_type=TransactionType.RESERVE, quantity_change=10, quantity_before=10, quantity_after=10, sku_id=inventorystock.id)
+  是否跨模块: False
+  参数推断使用的模型: InventoryTransaction
+  生成的query_param: unit_test_db, entity.reference_type, entity.reference_id
+🔍 DEBUG [get_transactions_by_reference] 结束
+
+
+  🔧 _generate_test_entity_creation:
+    model_name: InventoryStock
+    model_name in models: True
+    with_dependencies: True
+    module_name: inventory_management
+    ✅ 模型在models中，字段数: 8
+    必填字段数: 6
+    外键字段数: 1
+      - sku_id → product_skus.id
+    普通字段数: 5
+    → 生成多行依赖代码
+    最终生成的代码行数: 15
+    最后一行: entity = InventoryStock(total_quantity=10, available_quantity=10, reserved_quantity=10, warning_threshold=1, critical_threshold=1, sku_id=sku.id)
+
+🔍 DEBUG [get_inventory_statistics]:
+  返回类型: Dict[str, Any]
+  推断模型: InventoryStock
+  主模型: InventoryStock
+  模型在models中: True
+
+  🔧 _generate_test_entity_creation:
+    model_name: InventoryStock
+    model_name in models: True
+    with_dependencies: True
+    module_name: inventory_management
+    ✅ 模型在models中，字段数: 8
+    必填字段数: 6
+    外键字段数: 1
+      - sku_id → product_skus.id
+    普通字段数: 5
+    → 生成多行依赖代码
+    最终生成的代码行数: 15
+    最后一行: entity = InventoryStock(total_quantity=10, available_quantity=10, reserved_quantity=10, warning_threshold=1, critical_threshold=1, sku_id=sku.id)
+  生成的entity_creation代码:
+    第1行: from tests.factories.product_catalog_factories import ProductCatalogFactoryManager
+    第2行:         ProductCatalogFactoryManager.setup_factories(unit_test_db)
+    第3行:         # 准备依赖实体: SKU
+    第4行:         from tests.factories.product_catalog_factories import SKUFactory
+    第5行:         sku = SKUFactory.create()
+    第6行:         # 准备依赖实体: Category
+    第7行:         from tests.factories.product_catalog_factories import CategoryFactory
+    第8行:         category = CategoryFactory.create()
+    第9行:         # 准备依赖实体: Brand
+    第10行:         from tests.factories.product_catalog_factories import BrandFactory
+    第11行:         brand = BrandFactory.create()
+    第12行:         # 准备依赖实体: Product
+    第13行:         from tests.factories.product_catalog_factories import ProductFactory
+    第14行:         product = ProductFactory.create()
+    第15行:         entity = InventoryStock(total_quantity=10, available_quantity=10, reserved_quantity=10, warning_threshold=1, critical_threshold=1, sku_id=sku.id)
+  是否跨模块: False
+  参数推断使用的模型: InventoryStock
+  生成的query_param: unit_test_db, [1]
+🔍 DEBUG [get_inventory_statistics] 结束
+
+
+  🔧 _generate_test_entity_creation:
+    model_name: InventoryStock
+    model_name in models: True
+    with_dependencies: True
+    module_name: inventory_management
+    ✅ 模型在models中，字段数: 8
+    必填字段数: 6
+    外键字段数: 1
+      - sku_id → product_skus.id
+    普通字段数: 5
+    → 生成多行依赖代码
+    最终生成的代码行数: 15
+    最后一行: entity = InventoryStock(total_quantity=10, available_quantity=10, reserved_quantity=10, warning_threshold=1, critical_threshold=1, sku_id=sku.id)
+
+  🔧 _generate_test_entity_creation:
+    model_name: InventoryStock
+    model_name in models: True
+    with_dependencies: True
+    module_name: inventory_management
+    ✅ 模型在models中，字段数: 8
+    必填字段数: 6
+    外键字段数: 1
+      - sku_id → product_skus.id
+    普通字段数: 5
+    → 生成多行依赖代码
+    最终生成的代码行数: 15
+    最后一行: entity = InventoryStock(total_quantity=10, available_quantity=10, reserved_quantity=10, warning_threshold=1, critical_threshold=1, sku_id=sku.id)
+
+  🔧 _generate_test_entity_creation:
+    model_name: InventoryStock
+    model_name in models: True
+    with_dependencies: True
+    module_name: inventory_management
+    ✅ 模型在models中，字段数: 8
+    必填字段数: 6
+    外键字段数: 1
+      - sku_id → product_skus.id
+    普通字段数: 5
+    → 生成多行依赖代码
+    最终生成的代码行数: 15
+    最后一行: entity = InventoryStock(total_quantity=10, available_quantity=10, reserved_quantity=10, warning_threshold=1, critical_threshold=1, sku_id=sku.id)
+✅ 生成单元测试脚本 (组件: repositories):
+   🗃️  Repository测试: tests/unit/test_repositories/test_inventory_management_repositories.py
+📝 生成文件: tests/unit/test_repositories/test_inventory_management_repositories.py
+✅ 文件已生成到正式目录
+📋 下一步: 在正式目录中完成代码审查，审查通过后即可执行测试
+🔍 开始测试文件自动验证机制...
+
+🔍 步骤1: Python语法检查
+  ✅ 语法检查通过: tests/unit/test_repositories/test_inventory_management_repositories.py
+
+🔍 步骤2: pytest测试收集检查
+  ✅ pytest收集成功: tests/unit/test_repositories/test_inventory_management_repositories.py (41个测试)
+
+🔍 步骤3: 依赖完整性检查
+  📋 工厂文件: tests/factories/__init__.py - 定义20个工厂类
+  🔗 测试文件: tests/unit/test_repositories/test_inventory_management_repositories.py - 使用7个工厂类
+  ✅ 工厂依赖完整性检查通过
+
+🔍 步骤4: 基础执行成功率测试
+
+📊 测试质量验证报告 [CHECK:TEST-008]
+==================================================
+🔍 语法检查: 1/1 通过 (100.0%)
+🧪 pytest收集: 1个测试文件, 41个测试方法
+🔗 依赖检查: 1个工厂文件, 0个缺失依赖
+▶️ 执行测试: 0/0 通过 (0.0%)
+
+📈 整体质量评分: 50.0% - ❌ 需要改进
+
+⚠️ 建议检查和修复以上问题后重新验证
+✅ 生成完成，共 1 个测试文件
+
+🎯 生成完成！共生成 1 个文件
+⚠️ 部分验证检查未通过，请查看验证报告

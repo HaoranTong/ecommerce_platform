@@ -617,33 +617,16 @@ class InventoryRepository:
             .scalar()
         )
     
-    # ============ 事务管理 ============
+    # ============ 辅助方法 ============
     
-    def begin_transaction(self):
-        """开始数据库事务"""
-        # SQLAlchemy Session默认开启事务
-        pass
-    
-    def commit_transaction(self):
-        """提交事务"""
-        try:
-            self.db.commit()
-        except SQLAlchemyError as e:
-            self.db.rollback()
-            raise e
-    
-    def rollback_transaction(self):
-        """回滚事务"""
-        self.db.rollback()
-    
-    def flush(self):
+    def flush(self) -> None:
         """
         刷新会话（不提交事务）
         将pending的更改发送到数据库，但不提交
         """
         self.db.flush()
     
-    def refresh(self, instance):
+    def refresh(self, instance) -> None:
         """
         刷新实例数据
         从数据库重新加载实例的最新数据

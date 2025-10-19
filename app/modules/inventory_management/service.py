@@ -166,10 +166,10 @@ class InventoryService:
         )
 
         try:
-            self.repository.commit()
+            self.db.commit()
             return self.get_sku_inventory(inventory_data.sku_id)
         except IntegrityError as e:
-            self.repository.rollback()
+            self.db.rollback()
             raise ValueError(f"创建库存记录失败: {str(e)}")
 
     # ============ 库存预占管理 ============
@@ -240,7 +240,7 @@ class InventoryService:
                     )
                 )
 
-            self.repository.commit()
+            self.db.commit()
 
             return ReservationResponse(
                 reservation_id=reservation_id,
@@ -249,7 +249,7 @@ class InventoryService:
             )
 
         except Exception as e:
-            self.repository.rollback()
+            self.db.rollback()
             raise
 
     async def release_reservation(self, reservation_id: str, user_id: int) -> bool:
@@ -283,11 +283,11 @@ class InventoryService:
                 # 标记预占为无效
                 self.repository.invalidate_reservation(reservation.id)
 
-            self.repository.commit()
+            self.db.commit()
             return True
 
         except Exception:
-            self.repository.rollback()
+            self.db.rollback()
             raise
 
     # ============ 库存操作管理 ============
@@ -352,12 +352,12 @@ class InventoryService:
                     )
                 )
 
-            self.repository.commit()
+            self.db.commit()
 
             return DeductResponse(order_id=order_id, deducted_items=deducted_items)
 
         except Exception as e:
-            self.repository.rollback()
+            self.db.rollback()
             raise
 
     # ============ 其他必要方法 ============
@@ -385,10 +385,10 @@ class InventoryService:
         inventory.critical_threshold = critical_threshold
 
         try:
-            self.repository.commit()
+            self.db.commit()
             return True
         except Exception:
-            self.repository.rollback()
+            self.db.rollback()
             raise
 
     async def adjust_inventory(
@@ -460,7 +460,7 @@ class InventoryService:
                 quantity_after=inventory.total_quantity,
             )
 
-            self.repository.commit()
+            self.db.commit()
 
             return AdjustmentResponse(
                 sku_id=sku_id,
@@ -471,7 +471,7 @@ class InventoryService:
             )
 
         except Exception:
-            self.repository.rollback()
+            self.db.rollback()
             raise
 
     # 添加向后兼容的方法（用于现有代码调用）
@@ -626,13 +626,13 @@ class InventoryService:
             cleaned_count += 1
 
         try:
-            self.repository.commit()
+            self.db.commit()
             return CleanupResponse(
                 cleaned_reservations=cleaned_count,
                 released_quantity=total_quantity_released,
             )
         except Exception:
-            self.repository.rollback()
+            self.db.rollback()
             raise
 
     def get_transaction_logs(

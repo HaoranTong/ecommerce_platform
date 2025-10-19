@@ -1,0 +1,258 @@
+============================= test session starts =============================
+platform win32 -- Python 3.11.9, pytest-8.4.2, pluggy-1.6.0 -- E:\ecommerce_platform\.venv\Scripts\python.exe
+cachedir: .pytest_cache
+rootdir: E:\ecommerce_platform
+configfile: pyproject.toml
+plugins: anyio-4.10.0, Faker-37.8.0, asyncio-1.2.0, cov-7.0.0, mock-3.12.0, timeout-2.4.0, xdist-3.8.0
+asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+timeout: 300.0s
+timeout method: thread
+timeout func_only: False
+collecting ... collected 18 items
+
+tests/integration/test_api/test_inventory_management_api.py::TestInventoryManagementGetAPI::test_get_sku_inventory FAILED [  5%]
+tests/integration/test_api/test_inventory_management_api.py::TestInventoryManagementGetAPI::test_get_low_stock_skus FAILED [ 11%]
+tests/integration/test_api/test_inventory_management_api.py::TestInventoryManagementGetAPI::test_get_sku_transaction_logs FAILED [ 16%]
+tests/integration/test_api/test_inventory_management_api.py::TestInventoryManagementGetAPI::test_search_inventory_transactions FAILED [ 22%]
+tests/integration/test_api/test_inventory_management_api.py::TestInventoryManagementPostAPI::test_get_batch_sku_inventory FAILED [ 27%]
+tests/integration/test_api/test_inventory_management_api.py::TestInventoryManagementPostAPI::test_reserve_inventory FAILED [ 33%]
+tests/integration/test_api/test_inventory_management_api.py::TestInventoryManagementPostAPI::test_deduct_inventory FAILED [ 38%]
+tests/integration/test_api/test_inventory_management_api.py::TestInventoryManagementPostAPI::test_adjust_inventory FAILED [ 44%]
+tests/integration/test_api/test_inventory_management_api.py::TestInventoryManagementPostAPI::test_cleanup_expired_reservations FAILED [ 50%]
+tests/integration/test_api/test_inventory_management_api.py::TestInventoryManagementPostAPI::test_check_inventory_consistency FAILED [ 55%]
+tests/integration/test_api/test_inventory_management_api.py::TestInventoryManagementPostAPI::test_create_sku_inventory FAILED [ 61%]
+tests/integration/test_api/test_inventory_management_api.py::TestInventoryManagementDeleteAPI::test_release_reservation FAILED [ 66%]
+tests/integration/test_api/test_inventory_management_api.py::TestInventoryManagementDeleteAPI::test_release_user_reservations FAILED [ 72%]
+tests/integration/test_api/test_inventory_management_api.py::TestInventoryManagementPutAPI::test_update_inventory_threshold FAILED [ 77%]
+tests/integration/test_api/test_inventory_management_api.py::TestInventoryManagementPutAPI::test_update_sku_inventory_config FAILED [ 83%]
+tests/integration/test_api/test_inventory_management_api.py::TestInventoryManagementAPIIntegration::test_inventory_management_workflow PASSED [ 88%]
+tests/integration/test_api/test_inventory_management_api.py::TestInventoryManagementAPIIntegration::test_api_error_handling PASSED [ 94%]
+tests/integration/test_api/test_inventory_management_api.py::TestInventoryManagementAPIIntegration::test_api_rate_limiting PASSED [100%]
+
+================================== FAILURES ===================================
+____________ TestInventoryManagementGetAPI.test_get_sku_inventory _____________
+tests\integration\test_api\test_inventory_management_api.py:61: in test_get_sku_inventory
+    assert response.status_code == status.HTTP_200_OK
+E   assert 500 == 200
+E    +  where 500 = <Response [500 Internal Server Error]>.status_code
+E    +  and   200 = status.HTTP_200_OK
+---------------------------- Captured stdout setup ----------------------------
+🐳 使用现有MySQL容器进行集成测试...
+✅ MySQL集成测试数据库已准备完成（表结构已更新）
+🚀 电商平台服务启动中...
+🔍 AUTO_CREATE flag: False
+🔍 AUTO_CREATE_TABLES env: NOT_SET
+⚠️  AUTO_CREATE=False，跳过数据库表创建
+-------------------------- Captured stdout teardown ---------------------------
+🛑 电商平台服务关闭中...
+____________ TestInventoryManagementGetAPI.test_get_low_stock_skus ____________
+tests\integration\test_api\test_inventory_management_api.py:94: in test_get_low_stock_skus
+    assert response.status_code == status.HTTP_200_OK
+E   assert 500 == 200
+E    +  where 500 = <Response [500 Internal Server Error]>.status_code
+E    +  and   200 = status.HTTP_200_OK
+---------------------------- Captured stdout setup ----------------------------
+🚀 电商平台服务启动中...
+🔍 AUTO_CREATE flag: False
+🔍 AUTO_CREATE_TABLES env: NOT_SET
+⚠️  AUTO_CREATE=False，跳过数据库表创建
+-------------------------- Captured stdout teardown ---------------------------
+🛑 电商平台服务关闭中...
+_________ TestInventoryManagementGetAPI.test_get_sku_transaction_logs _________
+tests\integration\test_api\test_inventory_management_api.py:140: in test_get_sku_transaction_logs
+    assert response.status_code == status.HTTP_200_OK
+E   assert 500 == 200
+E    +  where 500 = <Response [500 Internal Server Error]>.status_code
+E    +  and   200 = status.HTTP_200_OK
+---------------------------- Captured stdout setup ----------------------------
+🚀 电商平台服务启动中...
+🔍 AUTO_CREATE flag: False
+🔍 AUTO_CREATE_TABLES env: NOT_SET
+⚠️  AUTO_CREATE=False，跳过数据库表创建
+-------------------------- Captured stdout teardown ---------------------------
+🛑 电商平台服务关闭中...
+______ TestInventoryManagementGetAPI.test_search_inventory_transactions _______
+tests\integration\test_api\test_inventory_management_api.py:173: in test_search_inventory_transactions
+    assert response.status_code == status.HTTP_200_OK
+E   assert 500 == 200
+E    +  where 500 = <Response [500 Internal Server Error]>.status_code
+E    +  and   200 = status.HTTP_200_OK
+---------------------------- Captured stdout setup ----------------------------
+🚀 电商平台服务启动中...
+🔍 AUTO_CREATE flag: False
+🔍 AUTO_CREATE_TABLES env: NOT_SET
+⚠️  AUTO_CREATE=False，跳过数据库表创建
+-------------------------- Captured stdout teardown ---------------------------
+🛑 电商平台服务关闭中...
+_________ TestInventoryManagementPostAPI.test_get_batch_sku_inventory _________
+tests\integration\test_api\test_inventory_management_api.py:218: in test_get_batch_sku_inventory
+    assert response.status_code == status.HTTP_200_OK
+E   assert 422 == 200
+E    +  where 422 = <Response [422 Unprocessable Entity]>.status_code
+E    +  and   200 = status.HTTP_200_OK
+---------------------------- Captured stdout setup ----------------------------
+🚀 电商平台服务启动中...
+🔍 AUTO_CREATE flag: False
+🔍 AUTO_CREATE_TABLES env: NOT_SET
+⚠️  AUTO_CREATE=False，跳过数据库表创建
+-------------------------- Captured stdout teardown ---------------------------
+🛑 电商平台服务关闭中...
+____________ TestInventoryManagementPostAPI.test_reserve_inventory ____________
+tests\integration\test_api\test_inventory_management_api.py:270: in test_reserve_inventory
+    assert response.status_code == status.HTTP_200_OK
+E   assert 500 == 200
+E    +  where 500 = <Response [500 Internal Server Error]>.status_code
+E    +  and   200 = status.HTTP_200_OK
+---------------------------- Captured stdout setup ----------------------------
+🚀 电商平台服务启动中...
+🔍 AUTO_CREATE flag: False
+🔍 AUTO_CREATE_TABLES env: NOT_SET
+⚠️  AUTO_CREATE=False，跳过数据库表创建
+-------------------------- Captured stdout teardown ---------------------------
+🛑 电商平台服务关闭中...
+____________ TestInventoryManagementPostAPI.test_deduct_inventory _____________
+tests\integration\test_api\test_inventory_management_api.py:314: in test_deduct_inventory
+    assert response.status_code == status.HTTP_200_OK
+E   assert 500 == 200
+E    +  where 500 = <Response [500 Internal Server Error]>.status_code
+E    +  and   200 = status.HTTP_200_OK
+---------------------------- Captured stdout setup ----------------------------
+🚀 电商平台服务启动中...
+🔍 AUTO_CREATE flag: False
+🔍 AUTO_CREATE_TABLES env: NOT_SET
+⚠️  AUTO_CREATE=False，跳过数据库表创建
+-------------------------- Captured stdout teardown ---------------------------
+🛑 电商平台服务关闭中...
+____________ TestInventoryManagementPostAPI.test_adjust_inventory _____________
+tests\integration\test_api\test_inventory_management_api.py:354: in test_adjust_inventory
+    assert response.status_code == status.HTTP_200_OK
+E   assert 422 == 200
+E    +  where 422 = <Response [422 Unprocessable Entity]>.status_code
+E    +  and   200 = status.HTTP_200_OK
+---------------------------- Captured stdout setup ----------------------------
+🚀 电商平台服务启动中...
+🔍 AUTO_CREATE flag: False
+🔍 AUTO_CREATE_TABLES env: NOT_SET
+⚠️  AUTO_CREATE=False，跳过数据库表创建
+-------------------------- Captured stdout teardown ---------------------------
+🛑 电商平台服务关闭中...
+______ TestInventoryManagementPostAPI.test_cleanup_expired_reservations _______
+tests\integration\test_api\test_inventory_management_api.py:387: in test_cleanup_expired_reservations
+    assert response.status_code == status.HTTP_200_OK
+E   assert 500 == 200
+E    +  where 500 = <Response [500 Internal Server Error]>.status_code
+E    +  and   200 = status.HTTP_200_OK
+---------------------------- Captured stdout setup ----------------------------
+🚀 电商平台服务启动中...
+🔍 AUTO_CREATE flag: False
+🔍 AUTO_CREATE_TABLES env: NOT_SET
+⚠️  AUTO_CREATE=False，跳过数据库表创建
+-------------------------- Captured stdout teardown ---------------------------
+🛑 电商平台服务关闭中...
+_______ TestInventoryManagementPostAPI.test_check_inventory_consistency _______
+tests\integration\test_api\test_inventory_management_api.py:420: in test_check_inventory_consistency
+    assert response.status_code == status.HTTP_200_OK
+E   assert 500 == 200
+E    +  where 500 = <Response [500 Internal Server Error]>.status_code
+E    +  and   200 = status.HTTP_200_OK
+---------------------------- Captured stdout setup ----------------------------
+🚀 电商平台服务启动中...
+🔍 AUTO_CREATE flag: False
+🔍 AUTO_CREATE_TABLES env: NOT_SET
+⚠️  AUTO_CREATE=False，跳过数据库表创建
+-------------------------- Captured stdout teardown ---------------------------
+🛑 电商平台服务关闭中...
+__________ TestInventoryManagementPostAPI.test_create_sku_inventory ___________
+tests\integration\test_api\test_inventory_management_api.py:466: in test_create_sku_inventory
+    assert response.status_code == status.HTTP_201_CREATED
+E   assert 400 == 201
+E    +  where 400 = <Response [400 Bad Request]>.status_code
+E    +  and   201 = status.HTTP_201_CREATED
+---------------------------- Captured stdout setup ----------------------------
+🚀 电商平台服务启动中...
+🔍 AUTO_CREATE flag: False
+🔍 AUTO_CREATE_TABLES env: NOT_SET
+⚠️  AUTO_CREATE=False，跳过数据库表创建
+-------------------------- Captured stdout teardown ---------------------------
+🛑 电商平台服务关闭中...
+__________ TestInventoryManagementDeleteAPI.test_release_reservation __________
+tests\integration\test_api\test_inventory_management_api.py:510: in test_release_reservation
+    reservation = StandardTestDataFactory.create_inventory_reservation(mysql_integration_db, inventory_stock.id)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests\factories\data_factory.py:289: in create_inventory_reservation
+    reservation = InventoryReservation(**defaults)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+<string>:4: in __init__
+    ???
+.venv\Lib\site-packages\sqlalchemy\orm\state.py:566: in _initialize_instance
+    with util.safe_reraise():
+.venv\Lib\site-packages\sqlalchemy\util\langhelpers.py:147: in __exit__
+    raise exc_value.with_traceback(exc_tb)
+.venv\Lib\site-packages\sqlalchemy\orm\state.py:564: in _initialize_instance
+    manager.original_init(*mixed[1:], **kwargs)
+.venv\Lib\site-packages\sqlalchemy\orm\decl_base.py:2134: in _declarative_constructor
+    raise TypeError(
+E   TypeError: 'reserved_quantity' is an invalid keyword argument for InventoryReservation
+---------------------------- Captured stdout setup ----------------------------
+🚀 电商平台服务启动中...
+🔍 AUTO_CREATE flag: False
+🔍 AUTO_CREATE_TABLES env: NOT_SET
+⚠️  AUTO_CREATE=False，跳过数据库表创建
+-------------------------- Captured stdout teardown ---------------------------
+🛑 电商平台服务关闭中...
+_______ TestInventoryManagementDeleteAPI.test_release_user_reservations _______
+tests\integration\test_api\test_inventory_management_api.py:539: in test_release_user_reservations
+    assert response.status_code == status.HTTP_204_NO_CONTENT
+E   assert 500 == 204
+E    +  where 500 = <Response [500 Internal Server Error]>.status_code
+E    +  and   204 = status.HTTP_204_NO_CONTENT
+---------------------------- Captured stdout setup ----------------------------
+🚀 电商平台服务启动中...
+🔍 AUTO_CREATE flag: False
+🔍 AUTO_CREATE_TABLES env: NOT_SET
+⚠️  AUTO_CREATE=False，跳过数据库表创建
+-------------------------- Captured stdout teardown ---------------------------
+🛑 电商平台服务关闭中...
+________ TestInventoryManagementPutAPI.test_update_inventory_threshold ________
+tests\integration\test_api\test_inventory_management_api.py:581: in test_update_inventory_threshold
+    assert response.status_code == status.HTTP_200_OK
+E   assert 422 == 200
+E    +  where 422 = <Response [422 Unprocessable Entity]>.status_code
+E    +  and   200 = status.HTTP_200_OK
+---------------------------- Captured stdout setup ----------------------------
+🚀 电商平台服务启动中...
+🔍 AUTO_CREATE flag: False
+🔍 AUTO_CREATE_TABLES env: NOT_SET
+⚠️  AUTO_CREATE=False，跳过数据库表创建
+-------------------------- Captured stdout teardown ---------------------------
+🛑 电商平台服务关闭中...
+_______ TestInventoryManagementPutAPI.test_update_sku_inventory_config ________
+tests\integration\test_api\test_inventory_management_api.py:626: in test_update_sku_inventory_config
+    assert response.status_code == status.HTTP_200_OK
+E   assert 500 == 200
+E    +  where 500 = <Response [500 Internal Server Error]>.status_code
+E    +  and   200 = status.HTTP_200_OK
+---------------------------- Captured stdout setup ----------------------------
+🚀 电商平台服务启动中...
+🔍 AUTO_CREATE flag: False
+🔍 AUTO_CREATE_TABLES env: NOT_SET
+⚠️  AUTO_CREATE=False，跳过数据库表创建
+-------------------------- Captured stdout teardown ---------------------------
+🛑 电商平台服务关闭中...
+=========================== short test summary info ===========================
+FAILED tests/integration/test_api/test_inventory_management_api.py::TestInventoryManagementGetAPI::test_get_sku_inventory
+FAILED tests/integration/test_api/test_inventory_management_api.py::TestInventoryManagementGetAPI::test_get_low_stock_skus
+FAILED tests/integration/test_api/test_inventory_management_api.py::TestInventoryManagementGetAPI::test_get_sku_transaction_logs
+FAILED tests/integration/test_api/test_inventory_management_api.py::TestInventoryManagementGetAPI::test_search_inventory_transactions
+FAILED tests/integration/test_api/test_inventory_management_api.py::TestInventoryManagementPostAPI::test_get_batch_sku_inventory
+FAILED tests/integration/test_api/test_inventory_management_api.py::TestInventoryManagementPostAPI::test_reserve_inventory
+FAILED tests/integration/test_api/test_inventory_management_api.py::TestInventoryManagementPostAPI::test_deduct_inventory
+FAILED tests/integration/test_api/test_inventory_management_api.py::TestInventoryManagementPostAPI::test_adjust_inventory
+FAILED tests/integration/test_api/test_inventory_management_api.py::TestInventoryManagementPostAPI::test_cleanup_expired_reservations
+FAILED tests/integration/test_api/test_inventory_management_api.py::TestInventoryManagementPostAPI::test_check_inventory_consistency
+FAILED tests/integration/test_api/test_inventory_management_api.py::TestInventoryManagementPostAPI::test_create_sku_inventory
+FAILED tests/integration/test_api/test_inventory_management_api.py::TestInventoryManagementDeleteAPI::test_release_reservation
+FAILED tests/integration/test_api/test_inventory_management_api.py::TestInventoryManagementDeleteAPI::test_release_user_reservations
+FAILED tests/integration/test_api/test_inventory_management_api.py::TestInventoryManagementPutAPI::test_update_inventory_threshold
+FAILED tests/integration/test_api/test_inventory_management_api.py::TestInventoryManagementPutAPI::test_update_sku_inventory_config
+================== 15 failed, 3 passed, 9 warnings in 32.42s ==================

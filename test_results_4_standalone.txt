@@ -1,0 +1,240 @@
+============================= test session starts =============================
+platform win32 -- Python 3.11.9, pytest-8.4.2, pluggy-1.6.0 -- E:\ecommerce_platform\.venv\Scripts\python.exe
+cachedir: .pytest_cache
+rootdir: E:\ecommerce_platform
+configfile: pyproject.toml
+plugins: anyio-4.10.0, Faker-37.8.0, asyncio-1.2.0, cov-7.0.0, mock-3.12.0, timeout-2.4.0, xdist-3.8.0
+asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+timeout: 300.0s
+timeout method: thread
+timeout func_only: False
+collecting ... collected 5 items
+
+tests/unit/test_inventory_management_standalone.py::TestInventoryManagementWorkflow::test_complete_inventory_management_workflow PASSED [ 20%]
+tests/unit/test_inventory_management_standalone.py::TestInventoryManagementWorkflow::test_normal_business_scenario FAILED [ 40%]
+tests/unit/test_inventory_management_standalone.py::TestInventoryManagementWorkflow::test_edge_case_scenarios PASSED [ 60%]
+tests/unit/test_inventory_management_standalone.py::TestInventoryManagementWorkflow::test_exception_handling_scenarios PASSED [ 80%]
+tests/unit/test_inventory_management_standalone.py::TestInventoryManagementWorkflow::test_performance_critical_paths FAILED [100%]
+
+================================== FAILURES ===================================
+________ TestInventoryManagementWorkflow.test_normal_business_scenario ________
+.venv\Lib\site-packages\sqlalchemy\engine\base.py:1965: in _exec_single_context
+    self.dialect.do_execute(
+.venv\Lib\site-packages\sqlalchemy\engine\default.py:921: in do_execute
+    cursor.execute(statement, parameters)
+E   sqlite3.IntegrityError: FOREIGN KEY constraint failed
+
+The above exception was the direct cause of the following exception:
+tests\unit\test_inventory_management_standalone.py:107: in test_normal_business_scenario
+    normal_data = self.factory_manager.create_test_scenario(unit_test_db, 'normal')
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests\factories\inventory_management_factories.py:147: in create_test_scenario
+    return InventoryManagementFactoryManager.create_sample_data(session)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests\factories\inventory_management_factories.py:137: in create_sample_data
+    data['inventorytransaction'] = InventoryTransactionFactory()
+                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\factory\base.py:43: in __call__
+    return cls.create(**kwargs)
+           ^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\factory\base.py:539: in create
+    return cls._generate(enums.CREATE_STRATEGY, kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\factory\alchemy.py:60: in _generate
+    return super()._generate(strategy, params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\factory\base.py:468: in _generate
+    return step.build()
+           ^^^^^^^^^^^^
+.venv\Lib\site-packages\factory\builder.py:270: in build
+    step.resolve(pre)
+.venv\Lib\site-packages\factory\builder.py:211: in resolve
+    self.attributes[field_name] = getattr(self.stub, field_name)
+                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\factory\builder.py:356: in __getattr__
+    value = value.evaluate_pre(
+.venv\Lib\site-packages\factory\declarations.py:67: in evaluate_pre
+    return self.evaluate(instance, step, context)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\factory\declarations.py:457: in evaluate
+    return step.recurse(subfactory, extra, force_sequence=force_sequence)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\factory\builder.py:228: in recurse
+    return builder.build(parent_step=self, force_sequence=force_sequence)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\factory\builder.py:274: in build
+    instance = self.factory_meta.instantiate(
+.venv\Lib\site-packages\factory\base.py:320: in instantiate
+    return self.factory._create(model, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\factory\alchemy.py:116: in _create
+    return cls._save(model_class, session, args, kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\factory\alchemy.py:127: in _save
+    session.commit()
+.venv\Lib\site-packages\sqlalchemy\orm\session.py:1920: in commit
+    trans.commit(_to_root=True)
+<string>:2: in commit
+    ???
+.venv\Lib\site-packages\sqlalchemy\orm\state_changes.py:139: in _go
+    ret_value = fn(self, *arg, **kw)
+                ^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\sqlalchemy\orm\session.py:1236: in commit
+    self._prepare_impl()
+<string>:2: in _prepare_impl
+    ???
+.venv\Lib\site-packages\sqlalchemy\orm\state_changes.py:139: in _go
+    ret_value = fn(self, *arg, **kw)
+                ^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\sqlalchemy\orm\session.py:1211: in _prepare_impl
+    self.session.flush()
+.venv\Lib\site-packages\sqlalchemy\orm\session.py:4163: in flush
+    self._flush(objects)
+.venv\Lib\site-packages\sqlalchemy\orm\session.py:4298: in _flush
+    with util.safe_reraise():
+.venv\Lib\site-packages\sqlalchemy\util\langhelpers.py:147: in __exit__
+    raise exc_value.with_traceback(exc_tb)
+.venv\Lib\site-packages\sqlalchemy\orm\session.py:4259: in _flush
+    flush_context.execute()
+.venv\Lib\site-packages\sqlalchemy\orm\unitofwork.py:466: in execute
+    rec.execute(self)
+.venv\Lib\site-packages\sqlalchemy\orm\unitofwork.py:642: in execute
+    util.preloaded.orm_persistence.save_obj(
+.venv\Lib\site-packages\sqlalchemy\orm\persistence.py:93: in save_obj
+    _emit_insert_statements(
+.venv\Lib\site-packages\sqlalchemy\orm\persistence.py:1226: in _emit_insert_statements
+    result = connection.execute(
+.venv\Lib\site-packages\sqlalchemy\engine\base.py:1412: in execute
+    return meth(
+.venv\Lib\site-packages\sqlalchemy\sql\elements.py:483: in _execute_on_connection
+    return connection._execute_clauseelement(
+.venv\Lib\site-packages\sqlalchemy\engine\base.py:1635: in _execute_clauseelement
+    ret = self._execute_context(
+.venv\Lib\site-packages\sqlalchemy\engine\base.py:1844: in _execute_context
+    return self._exec_single_context(
+.venv\Lib\site-packages\sqlalchemy\engine\base.py:1984: in _exec_single_context
+    self._handle_dbapi_exception(
+.venv\Lib\site-packages\sqlalchemy\engine\base.py:2339: in _handle_dbapi_exception
+    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+.venv\Lib\site-packages\sqlalchemy\engine\base.py:1965: in _exec_single_context
+    self.dialect.do_execute(
+.venv\Lib\site-packages\sqlalchemy\engine\default.py:921: in do_execute
+    cursor.execute(statement, parameters)
+E   sqlalchemy.exc.IntegrityError: (sqlite3.IntegrityError) FOREIGN KEY constraint failed
+E   [SQL: INSERT INTO inventory_stocks (sku_id, total_quantity, available_quantity, reserved_quantity, warning_threshold, critical_threshold, is_active) VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING id, created_at, updated_at]
+E   [parameters: (2, 176, 416, 732, 294, 906, 1)]
+E   (Background on this error at: https://sqlalche.me/e/20/gkpj)
+---------------------------- Captured stdout call -----------------------------
+
+✅ 执行正常业务场景...
+_______ TestInventoryManagementWorkflow.test_performance_critical_paths _______
+.venv\Lib\site-packages\sqlalchemy\engine\base.py:1965: in _exec_single_context
+    self.dialect.do_execute(
+.venv\Lib\site-packages\sqlalchemy\engine\default.py:921: in do_execute
+    cursor.execute(statement, parameters)
+E   sqlite3.IntegrityError: FOREIGN KEY constraint failed
+
+The above exception was the direct cause of the following exception:
+tests\unit\test_inventory_management_standalone.py:186: in test_performance_critical_paths
+    batch_data.append(self.factory_manager.create_sample_data(unit_test_db))
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests\factories\inventory_management_factories.py:137: in create_sample_data
+    data['inventorytransaction'] = InventoryTransactionFactory()
+                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\factory\base.py:43: in __call__
+    return cls.create(**kwargs)
+           ^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\factory\base.py:539: in create
+    return cls._generate(enums.CREATE_STRATEGY, kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\factory\alchemy.py:60: in _generate
+    return super()._generate(strategy, params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\factory\base.py:468: in _generate
+    return step.build()
+           ^^^^^^^^^^^^
+.venv\Lib\site-packages\factory\builder.py:270: in build
+    step.resolve(pre)
+.venv\Lib\site-packages\factory\builder.py:211: in resolve
+    self.attributes[field_name] = getattr(self.stub, field_name)
+                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\factory\builder.py:356: in __getattr__
+    value = value.evaluate_pre(
+.venv\Lib\site-packages\factory\declarations.py:67: in evaluate_pre
+    return self.evaluate(instance, step, context)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\factory\declarations.py:457: in evaluate
+    return step.recurse(subfactory, extra, force_sequence=force_sequence)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\factory\builder.py:228: in recurse
+    return builder.build(parent_step=self, force_sequence=force_sequence)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\factory\builder.py:274: in build
+    instance = self.factory_meta.instantiate(
+.venv\Lib\site-packages\factory\base.py:320: in instantiate
+    return self.factory._create(model, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\factory\alchemy.py:116: in _create
+    return cls._save(model_class, session, args, kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\factory\alchemy.py:127: in _save
+    session.commit()
+.venv\Lib\site-packages\sqlalchemy\orm\session.py:1920: in commit
+    trans.commit(_to_root=True)
+<string>:2: in commit
+    ???
+.venv\Lib\site-packages\sqlalchemy\orm\state_changes.py:139: in _go
+    ret_value = fn(self, *arg, **kw)
+                ^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\sqlalchemy\orm\session.py:1236: in commit
+    self._prepare_impl()
+<string>:2: in _prepare_impl
+    ???
+.venv\Lib\site-packages\sqlalchemy\orm\state_changes.py:139: in _go
+    ret_value = fn(self, *arg, **kw)
+                ^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\sqlalchemy\orm\session.py:1211: in _prepare_impl
+    self.session.flush()
+.venv\Lib\site-packages\sqlalchemy\orm\session.py:4163: in flush
+    self._flush(objects)
+.venv\Lib\site-packages\sqlalchemy\orm\session.py:4298: in _flush
+    with util.safe_reraise():
+.venv\Lib\site-packages\sqlalchemy\util\langhelpers.py:147: in __exit__
+    raise exc_value.with_traceback(exc_tb)
+.venv\Lib\site-packages\sqlalchemy\orm\session.py:4259: in _flush
+    flush_context.execute()
+.venv\Lib\site-packages\sqlalchemy\orm\unitofwork.py:466: in execute
+    rec.execute(self)
+.venv\Lib\site-packages\sqlalchemy\orm\unitofwork.py:642: in execute
+    util.preloaded.orm_persistence.save_obj(
+.venv\Lib\site-packages\sqlalchemy\orm\persistence.py:93: in save_obj
+    _emit_insert_statements(
+.venv\Lib\site-packages\sqlalchemy\orm\persistence.py:1226: in _emit_insert_statements
+    result = connection.execute(
+.venv\Lib\site-packages\sqlalchemy\engine\base.py:1412: in execute
+    return meth(
+.venv\Lib\site-packages\sqlalchemy\sql\elements.py:483: in _execute_on_connection
+    return connection._execute_clauseelement(
+.venv\Lib\site-packages\sqlalchemy\engine\base.py:1635: in _execute_clauseelement
+    ret = self._execute_context(
+.venv\Lib\site-packages\sqlalchemy\engine\base.py:1844: in _execute_context
+    return self._exec_single_context(
+.venv\Lib\site-packages\sqlalchemy\engine\base.py:1984: in _exec_single_context
+    self._handle_dbapi_exception(
+.venv\Lib\site-packages\sqlalchemy\engine\base.py:2339: in _handle_dbapi_exception
+    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+.venv\Lib\site-packages\sqlalchemy\engine\base.py:1965: in _exec_single_context
+    self.dialect.do_execute(
+.venv\Lib\site-packages\sqlalchemy\engine\default.py:921: in do_execute
+    cursor.execute(statement, parameters)
+E   sqlalchemy.exc.IntegrityError: (sqlite3.IntegrityError) FOREIGN KEY constraint failed
+E   [SQL: INSERT INTO inventory_stocks (sku_id, total_quantity, available_quantity, reserved_quantity, warning_threshold, critical_threshold, is_active) VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING id, created_at, updated_at]
+E   [parameters: (4, 855, 588, 561, 658, 165, 1)]
+E   (Background on this error at: https://sqlalche.me/e/20/gkpj)
+---------------------------- Captured stdout call -----------------------------
+
+⚡ 执行性能关键路径测试...
+=========================== short test summary info ===========================
+FAILED tests/unit/test_inventory_management_standalone.py::TestInventoryManagementWorkflow::test_normal_business_scenario
+FAILED tests/unit/test_inventory_management_standalone.py::TestInventoryManagementWorkflow::test_performance_critical_paths
+=================== 2 failed, 3 passed, 9 warnings in 2.90s ===================

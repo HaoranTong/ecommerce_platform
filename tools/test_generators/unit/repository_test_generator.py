@@ -364,34 +364,57 @@ class RepositoryTestGenerator:
                     return f"{entity_var}.{param_name}"
                 return "datetime.now()"
         else:
-            # 🐛 BUG修复：处理Enum类型和其他未知类型
+            # 处理未知类型（包括Enum）
             for_not_found = context.get('for_not_found', False)
             
             # 检查是否可能是Enum类型（类名通常以大写字母开头，如OrderStatus, ReservationType）
             clean_type = param_type.replace('Optional[', '').replace(']', '').strip()
+            is_optional = 'Optional[' in param_type
             is_possible_enum = clean_type and clean_type[0].isupper() and clean_type not in ['Dict', 'List', 'Tuple', 'Set']
             
             if for_not_found and is_possible_enum:
-                # not_found场景，可能是Enum：尝试使用枚举的第一个值
-                # 例如：OrderStatus.PENDING, ReservationType.CART
-                # 注意：这里我们无法确定具体的枚举值，使用通用的第一个值名称模式
-                # 常见的Enum第一个值: PENDING, ACTIVE, CART等
-                # 简化处理：查找模型字段中是否有同名的enum_class_name
+                # not_found场景，可能是Enum：
+                # 1. 如果是Optional[Enum]，使用None（最安全）
+                # 2. 如果是必填Enum，从模型信息中提取实际的枚举值
+                if is_optional:
+                    return "None"
+                
+                # 必填Enum：从ModelInfo中提取实际的枚举值
                 if model_info:
                     for field in model_info.fields:
                         if field.name == param_name and field.enum_class_name:
-                            # 找到了Enum字段，使用Enum的第一个值（通用模式）
-                            # 例如：OrderStatus.PENDING
                             enum_class = field.enum_class_name
-                            # 尝试常见的第一个枚举值名称
-                            common_first_values = ['PENDING', 'ACTIVE', 'CART', 'DEFAULT', 'NORMAL']
-                            for first_val in common_first_values:
-                                # 使用第一个匹配的模式
-                                return f"{enum_class}.{first_val}"
-                            # 如果没有匹配，使用PENDING作为默认
-                            return f"{enum_class}.PENDING"
-                # 如果找不到enum_class_name，直接使用类型名.PENDING
-                return f"{clean_type}.PENDING"
+                            # 🎯 自动化：从column_type中解析枚举值
+                            # column_type格式: "Enum(CART, ORDER)" 或 "Enum(ReservationType)"
+                            if field.column_type and field.column_type.startswith('Enum('):
+                                import re
+                                # 提取括号内的内容
+                                match = re.search(r'Enum\(([^)]+)\)', field.column_type)
+                                if match:
+                                    enum_content = match.group(1)
+                                    # 如果包含逗号，说明是枚举值列表
+                                    if ',' in enum_content:
+                                        enum_values = [v.strip() for v in enum_content.split(',')]
+                                        # 使用第一个枚举值
+                                        return f"{enum_class}.{enum_values[0]}"
+                
+                # 🎯 降级方案：尝试运行时导入Enum类获取第一个值
+                # 从param_type或clean_type中提取Enum类名，尝试从models中导入
+                try:
+                    import importlib
+                    # 假设Enum定义在模型模块中
+                    if model_info:
+                        module_path = f"app.modules.{model_info.module_name}.models"
+                        models_module = importlib.import_module(module_path)
+                        enum_class_obj = getattr(models_module, clean_type, None)
+                        if enum_class_obj and hasattr(enum_class_obj, '__members__'):
+                            first_value = list(enum_class_obj.__members__.keys())[0]
+                            return f"{clean_type}.{first_value}"
+                except Exception:
+                    pass
+                
+                # 最终降级：返回None（会导致测试失败，但至少提供了错误信息）
+                return "None"  # 无法确定枚举值，使用None
             elif for_not_found:
                 # not_found场景，其他未知类型：使用None或硬编码值
                 return '"nonexistent"'

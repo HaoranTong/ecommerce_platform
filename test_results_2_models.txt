@@ -1,0 +1,50 @@
+============================= test session starts =============================
+platform win32 -- Python 3.11.9, pytest-8.4.2, pluggy-1.6.0 -- E:\ecommerce_platform\.venv\Scripts\python.exe
+cachedir: .pytest_cache
+rootdir: E:\ecommerce_platform
+configfile: pyproject.toml
+plugins: anyio-4.10.0, Faker-37.8.0, asyncio-1.2.0, cov-7.0.0, mock-3.12.0, timeout-2.4.0, xdist-3.8.0
+asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+timeout: 300.0s
+timeout method: thread
+timeout func_only: False
+collecting ... collected 36 items
+
+tests/unit/test_models/test_inventory_management_models.py::TestInventoryTransactionModel::test_model_instance_creation PASSED [  2%]
+tests/unit/test_models/test_inventory_management_models.py::TestInventoryTransactionModel::test_id_field_mock PASSED [  5%]
+tests/unit/test_models/test_inventory_management_models.py::TestInventoryTransactionModel::test_sku_id_field_mock PASSED [  8%]
+tests/unit/test_models/test_inventory_management_models.py::TestInventoryTransactionModel::test_transaction_type_field_mock PASSED [ 11%]
+tests/unit/test_models/test_inventory_management_models.py::TestInventoryTransactionModel::test_quantity_change_field_mock PASSED [ 13%]
+tests/unit/test_models/test_inventory_management_models.py::TestInventoryTransactionModel::test_quantity_before_field_mock PASSED [ 16%]
+tests/unit/test_models/test_inventory_management_models.py::TestInventoryTransactionModel::test_quantity_after_field_mock PASSED [ 19%]
+tests/unit/test_models/test_inventory_management_models.py::TestInventoryTransactionModel::test_reference_type_field_mock PASSED [ 22%]
+tests/unit/test_models/test_inventory_management_models.py::TestInventoryTransactionModel::test_reference_id_field_mock PASSED [ 25%]
+tests/unit/test_models/test_inventory_management_models.py::TestInventoryTransactionModel::test_operator_id_field_mock PASSED [ 27%]
+tests/unit/test_models/test_inventory_management_models.py::TestInventoryTransactionModel::test_reason_field_mock PASSED [ 30%]
+tests/unit/test_models/test_inventory_management_models.py::TestInventoryTransactionModel::test_notes_field_mock PASSED [ 33%]
+tests/unit/test_models/test_inventory_management_models.py::TestInventoryTransactionModel::test_model_string_representation PASSED [ 36%]
+tests/unit/test_models/test_inventory_management_models.py::TestInventoryTransactionModel::test_stock_relationship_mock PASSED [ 38%]
+tests/unit/test_models/test_inventory_management_models.py::TestInventoryReservationModel::test_model_instance_creation PASSED [ 41%]
+tests/unit/test_models/test_inventory_management_models.py::TestInventoryReservationModel::test_id_field_mock PASSED [ 44%]
+tests/unit/test_models/test_inventory_management_models.py::TestInventoryReservationModel::test_sku_id_field_mock PASSED [ 47%]
+tests/unit/test_models/test_inventory_management_models.py::TestInventoryReservationModel::test_reservation_type_field_mock PASSED [ 50%]
+tests/unit/test_models/test_inventory_management_models.py::TestInventoryReservationModel::test_reference_id_field_mock PASSED [ 52%]
+tests/unit/test_models/test_inventory_management_models.py::TestInventoryReservationModel::test_quantity_field_mock PASSED [ 55%]
+tests/unit/test_models/test_inventory_management_models.py::TestInventoryReservationModel::test_expires_at_field_mock PASSED [ 58%]
+tests/unit/test_models/test_inventory_management_models.py::TestInventoryReservationModel::test_is_active_field_mock PASSED [ 61%]
+tests/unit/test_models/test_inventory_management_models.py::TestInventoryReservationModel::test_model_string_representation PASSED [ 63%]
+tests/unit/test_models/test_inventory_management_models.py::TestInventoryReservationModel::test_stock_relationship_mock PASSED [ 66%]
+tests/unit/test_models/test_inventory_management_models.py::TestInventoryStockModel::test_model_instance_creation PASSED [ 69%]
+tests/unit/test_models/test_inventory_management_models.py::TestInventoryStockModel::test_id_field_mock PASSED [ 72%]
+tests/unit/test_models/test_inventory_management_models.py::TestInventoryStockModel::test_sku_id_field_mock PASSED [ 75%]
+tests/unit/test_models/test_inventory_management_models.py::TestInventoryStockModel::test_total_quantity_field_mock PASSED [ 77%]
+tests/unit/test_models/test_inventory_management_models.py::TestInventoryStockModel::test_available_quantity_field_mock PASSED [ 80%]
+tests/unit/test_models/test_inventory_management_models.py::TestInventoryStockModel::test_reserved_quantity_field_mock PASSED [ 83%]
+tests/unit/test_models/test_inventory_management_models.py::TestInventoryStockModel::test_warning_threshold_field_mock PASSED [ 86%]
+tests/unit/test_models/test_inventory_management_models.py::TestInventoryStockModel::test_critical_threshold_field_mock PASSED [ 88%]
+tests/unit/test_models/test_inventory_management_models.py::TestInventoryStockModel::test_is_active_field_mock PASSED [ 91%]
+tests/unit/test_models/test_inventory_management_models.py::TestInventoryStockModel::test_model_string_representation PASSED [ 94%]
+tests/unit/test_models/test_inventory_management_models.py::TestInventoryStockModel::test_reservations_relationship_mock PASSED [ 97%]
+tests/unit/test_models/test_inventory_management_models.py::TestInventoryStockModel::test_transactions_relationship_mock PASSED [100%]
+
+======================= 36 passed, 9 warnings in 2.58s ========================

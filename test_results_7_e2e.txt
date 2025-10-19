@@ -1,0 +1,42 @@
+============================= test session starts =============================
+platform win32 -- Python 3.11.9, pytest-8.4.2, pluggy-1.6.0 -- E:\ecommerce_platform\.venv\Scripts\python.exe
+cachedir: .pytest_cache
+rootdir: E:\ecommerce_platform
+configfile: pyproject.toml
+plugins: anyio-4.10.0, Faker-37.8.0, asyncio-1.2.0, cov-7.0.0, mock-3.12.0, timeout-2.4.0, xdist-3.8.0
+asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+timeout: 300.0s
+timeout method: thread
+timeout func_only: False
+collecting ... collected 7 items
+
+tests/e2e/test_inventory_management_workflows.py::TestInventoryManagementE2EWorkflow::test_complete_business_workflow FAILED [ 14%]
+tests/e2e/test_inventory_management_workflows.py::TestInventoryManagementE2EWorkflow::test_concurrent_user_workflow PASSED [ 28%]
+tests/e2e/test_inventory_management_workflows.py::TestInventoryManagementE2EWorkflow::test_workflow_with_data_dependencies PASSED [ 42%]
+tests/e2e/test_inventory_management_workflows.py::TestInventoryManagementE2EErrorHandling::test_invalid_data_handling PASSED [ 57%]
+tests/e2e/test_inventory_management_workflows.py::TestInventoryManagementE2EErrorHandling::test_unauthorized_access_handling PASSED [ 71%]
+tests/e2e/test_inventory_management_workflows.py::TestInventoryManagementE2EErrorHandling::test_resource_not_found_handling PASSED [ 85%]
+tests/e2e/test_inventory_management_workflows.py::TestInventoryManagementE2EErrorHandling::test_workflow_rollback_on_error PASSED [100%]
+
+================================== FAILURES ===================================
+_____ TestInventoryManagementE2EWorkflow.test_complete_business_workflow ______
+tests\e2e\test_inventory_management_workflows.py:91: in test_complete_business_workflow
+    assert response.status_code in [200, 404], f"查询失败: {response.status_code}"
+E   AssertionError: 查询失败: 500
+E   assert 500 in [200, 404]
+E    +  where 500 = <Response [500 Internal Server Error]>.status_code
+---------------------------- Captured stdout setup ----------------------------
+🐳 使用现有MySQL容器进行集成测试...
+✅ MySQL集成测试数据库已准备完成（表结构已更新）
+---------------------------- Captured stdout call -----------------------------
+
+🔐 步骤1: 用户认证...
+✅ 用户认证成功: test_admin_a3a77c93
+
+📝 步骤2: 创建数据...
+⚠️ 创建失败: 422
+
+📋 步骤3: 查询数据列表...
+=========================== short test summary info ===========================
+FAILED tests/e2e/test_inventory_management_workflows.py::TestInventoryManagementE2EWorkflow::test_complete_business_workflow
+================== 1 failed, 6 passed, 9 warnings in 21.41s ===================
