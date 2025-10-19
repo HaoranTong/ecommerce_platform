@@ -88,6 +88,36 @@ class RepositoryInfo:
     methods: List[RepositoryMethodInfo]
     docstring: Optional[str]
     import_aliases: Dict[str, str] = None  # {别名: 真实类名} 如 {"UserSession": "Session"}
+
+
+@dataclass
+class ServiceMethodInfo:
+    """Service方法信息"""
+    
+    name: str
+    parameters: List[Tuple[str, str, str]]  # [(name, type, kind), ...] kind: 'positional' | 'keyword-only'
+    return_type: str
+    is_async: bool
+    has_transaction: bool  # 是否包含commit/rollback
+    docstring: Optional[str]
+    repository_calls: List[str] = None  # 调用的Repository方法列表
+    raises_exceptions: List[str] = None  # 抛出的异常类型列表
+    
+    def __post_init__(self):
+        if self.repository_calls is None:
+            self.repository_calls = []
+        if self.raises_exceptions is None:
+            self.raises_exceptions = []
+
+
+@dataclass
+class ServiceInfo:
+    """Service类信息"""
+    
+    name: str  # InventoryService
+    methods: List[ServiceMethodInfo]
+    docstring: Optional[str]
+    is_static: bool  # Service类是否使用静态方法
     
     
 @dataclass
