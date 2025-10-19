@@ -1169,6 +1169,10 @@ from app.modules.{module_name}.repository import (
         # 检查返回类型
         is_list_return = 'List[' in method_info.return_type or 'list[' in method_info.return_type.lower()
         is_bool_return = method_info.return_type == 'bool'
+        # 🎯 新增：检查Tuple返回类型（如 Tuple[List[Model], int]）
+        is_tuple_return = 'Tuple[' in method_info.return_type or 'tuple[' in method_info.return_type.lower()
+        # 🎯 新增：检查Dict返回类型（如 Dict[str, Any]）
+        is_dict_return = 'Dict[' in method_info.return_type or 'dict[' in method_info.return_type.lower()
         
         # 🎯 关键修复(2025-10-19)：entity_type_for_params必须与entity_creation保持一致
         # 
@@ -1280,8 +1284,8 @@ from app.modules.{module_name}.repository import (
         
         assert result is False
 '''
-        elif is_list_return:
-            # 返回列表的方法（如list方法、get_user_roles等）
+        elif is_list_return or is_tuple_return:
+            # 返回列表或Tuple的方法（如list方法、get_user_roles等、get_transactions_by_sku等）
             
             # 生成包含依赖的实体创建代码
             # 🐛 BUG修复：使用actual_model_name而不是model_name
@@ -1296,6 +1300,16 @@ from app.modules.{module_name}.repository import (
             repo_info.model_name = original_model_name_for_not_found  # 恢复原值
             method_call_not_found = self._generate_method_call(method_info, repo_name, not_found_params_str)
             
+            # 🎯 根据返回类型选择断言
+            if is_tuple_return:
+                # Tuple返回：如 Tuple[List[Model], int] - (数据列表, 总数)
+                found_assertion = "assert isinstance(result, tuple)\n        assert len(result) == 2\n        assert isinstance(result[0], list)\n        assert isinstance(result[1], int)"
+                not_found_assertion = "assert isinstance(result, tuple)\n        assert len(result) == 2\n        assert isinstance(result[0], list)\n        assert len(result[0]) == 0\n        assert result[1] == 0"
+            else:
+                # List返回
+                found_assertion = "assert isinstance(result, list)\n        # 注意：复杂join查询可能返回空列表（依赖完整的关联链），\n        # 这里只验证方法正确执行并返回list类型即可"
+                not_found_assertion = "assert isinstance(result, list)\n        assert len(result) == 0"
+            
             return f'''    def test_{method_name}_found(self, unit_test_db: Session):
         """测试{method_name} - 查询到数据"""
         # 准备测试数据
@@ -1307,9 +1321,7 @@ from app.modules.{module_name}.repository import (
         result = {method_call_found}
         
         # 验证结果
-        assert isinstance(result, list)
-        # 注意：复杂join查询可能返回空列表（依赖完整的关联链），
-        # 这里只验证方法正确执行并返回list类型即可
+        {found_assertion}
 
     def test_{method_name}_not_found(self, unit_test_db: Session):
         """测试{method_name} - 数据不存在"""
@@ -1317,8 +1329,7 @@ from app.modules.{module_name}.repository import (
         result = {method_call_not_found}
         
         # 验证结果
-        assert isinstance(result, list)
-        assert len(result) == 0
+        {not_found_assertion}
 '''
         
         else:
@@ -1332,6 +1343,10 @@ from app.modules.{module_name}.repository import (
             if is_count_method:
                 found_assertion = "assert isinstance(result, int)\n        assert result >= 0  # count方法返回非负整数"
                 not_found_assertion = "assert result == 0  # count方法返回0"
+            elif is_dict_return:
+                # Dict返回类型：not_found场景返回空字典或默认值字典
+                found_assertion = "assert isinstance(result, dict)\n        assert result is not None"
+                not_found_assertion = "assert isinstance(result, dict)  # Dict类型方法在not_found场景通常返回空字典或默认值"
             else:
                 found_assertion = "assert result is not None"
                 not_found_assertion = "assert result is None"
@@ -1423,8 +1438,15 @@ from app.modules.{module_name}.repository import (
                 not_found_params = []
                 for param in params:
                     param = param.strip()
+                    # 🎯 检查是否是List类型（如[1], [entity.id]）
+                    if param.startswith('[') and param.endswith(']'):
+                        # List类型，保留List格式但替换内容
+                        if 'entity.' in param or param == '[1]' or any(c.isdigit() for c in param):
+                            not_found_params.append('[999999]')
+                        else:
+                            not_found_params.append('["nonexistent"]')
                     # 检查是否包含.id（如cart.id, user.id）
-                    if '.id' in param or param.isdigit():
+                    elif '.id' in param or param.isdigit():
                         # ID类型，使用999999
                         not_found_params.append('999999')
                     else:
@@ -1434,8 +1456,18 @@ from app.modules.{module_name}.repository import (
                 return f"{db_prefix}, {result}" if db_prefix else result
             else:
                 # 单个参数，替换为不存在的值
-                result = '"nonexistent_value_12345"'
-                return f"{db_prefix}, {result}" if db_prefix else result
+                # 🎯 检查是否是List类型（如[1], [entity.id]）
+                if business_params.startswith('[') and business_params.endswith(']'):
+                    # List类型，保留List格式但替换内容为不存在的值
+                    if 'entity.' in business_params or '[1]' in business_params or any(c.isdigit() for c in business_params):
+                        result = '[999999]'
+                    else:
+                        result = '["nonexistent"]'
+                    return f"{db_prefix}, {result}" if db_prefix else result
+                else:
+                    # 普通单个参数，替换为不存在的值
+                    result = '"nonexistent_value_12345"'
+                    return f"{db_prefix}, {result}" if db_prefix else result
     
     def _generate_delete_verification(self, is_soft_delete: bool, model_name: str, filter_condition: str) -> str:
         """生成删除验证逻辑（通用方法）
