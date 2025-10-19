@@ -647,7 +647,7 @@ class BaseTestGenerator(ABC):
             
             # 如果找到Schema类型参数，说明有请求体
             if schema_name and any(suffix in schema_name for suffix in 
-                ['Create', 'Update', 'Base', 'Request', 'Send', 'Reset', 'Verify', 'Refresh']):
+                ['Create', 'Update', 'Base', 'Request', 'Query', 'Send', 'Reset', 'Verify', 'Refresh', 'Adjustment', 'Deduct']):
                 return True
         
         return False
@@ -699,7 +699,7 @@ class BaseTestGenerator(ABC):
             
             # 验证是否是有效的Schema类名（通常以Create/Update/Base等结尾）
             if schema_name and any(suffix in schema_name for suffix in 
-                ['Create', 'Update', 'Base', 'Request', 'Send', 'Reset', 'Verify', 'Refresh']):
+                ['Create', 'Update', 'Base', 'Request', 'Query', 'Send', 'Reset', 'Verify', 'Refresh', 'Adjustment', 'Deduct']):
                 return schema_name
         
         return None
@@ -1227,7 +1227,10 @@ class BaseTestGenerator(ABC):
             # 根据字段名称和类型生成代码
             # 字符串类型
             if actual_type in (str, type(str)):
-                if any(keyword in field_name_lower for keyword in ['phone', 'mobile', 'tel']):
+                # Optional的关联ID字段（如reservation_id, reference_id等）- 默认为None避免复杂依赖
+                if is_optional and field_name_lower.endswith('_id') and field_name_lower not in ['order_id', 'user_id', 'sku_id']:
+                    return 'None'  # Optional的关联ID默认为None，避免需要预先创建关联记录
+                elif any(keyword in field_name_lower for keyword in ['phone', 'mobile', 'tel']):
                     return 'f"1{fake.random_int(min=3, max=9)}{fake.random_int(min=100000000, max=999999999)}"'
                 elif any(keyword in field_name_lower for keyword in ['verification_code', 'code', 'verify']):
                     return 'fake.numerify("######")'
@@ -1271,6 +1274,15 @@ class BaseTestGenerator(ABC):
                 # 排序字段
                 elif any(keyword in field_name_lower for keyword in ['sort', 'order', 'sequence']):
                     return 'fake.random_int(min=0, max=100)'
+                # 数量字段 - 使用合理的小范围避免库存不足
+                elif any(keyword in field_name_lower for keyword in ['quantity', 'count', 'num', 'amount']) and 'quantity' in field_name_lower:
+                    return 'fake.random_int(min=1, max=10)'  # 数量字段使用1-10的小范围
+                # 库存字段 - 使用较大范围
+                elif any(keyword in field_name_lower for keyword in ['stock', 'inventory', 'available']):
+                    return 'fake.random_int(min=100, max=1000)'  # 库存字段使用较大范围
+                # 时间相关字段（分钟、小时、天数等）
+                elif any(keyword in field_name_lower for keyword in ['minutes', 'hours', 'days', 'expires']):
+                    return 'fake.random_int(min=1, max=60)'  # 时间字段使用合理范围
                 else:
                     # 使用schema中定义的约束（如果有）
                     min_val = value.get('ge', value.get('gt', 1)) if isinstance(value, dict) else 1

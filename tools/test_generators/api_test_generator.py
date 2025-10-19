@@ -69,6 +69,54 @@ class APITestGenerator(BaseTestGenerator):
         
         # 从主配置文件加载路由参数到模型的映射表
         self.route_model_mapping = self._load_route_model_mapping()
+        
+        # 🔧 加载API路径参数字段映射配置
+        self.path_param_field_mapping = self._load_path_param_field_mapping()
+    
+    def _load_path_param_field_mapping(self) -> Dict[str, Dict[str, str]]:
+        """从配置文件加载API路径参数字段映射
+        
+        Returns:
+            Dict[model_name, Dict[param_name, field_name]]
+            例如: {"InventoryReservation": {"path_param": "reservation_id", "field": "reference_id"}}
+        """
+        if 'business_logic_patterns' in self.config:
+            patterns = self.config['business_logic_patterns']
+            if 'api_path_param_field_mapping' in patterns:
+                mapping = patterns['api_path_param_field_mapping']
+                # 过滤掉下划线开头的元数据字段
+                return {k: v for k, v in mapping.items() if not k.startswith('_')}
+        
+        print("⚠️ 警告：未找到api_path_param_field_mapping配置，将使用默认.id字段")
+        return {}
+    
+    def _get_path_param_field(self, model_name: str, entity_type: str) -> str:
+        """获取模型在路径参数中应该使用的字段名
+        
+        Args:
+            model_name: 模型名称，如"InventoryReservation"
+            entity_type: 路径参数中的实体类型，如"reservation"
+            
+        Returns:
+            字段名，如"reference_id"或"id"
+            
+        Example:
+            对于路径 /reserve/{reservation_id}，如果配置了：
+            "InventoryReservation": {"path_param": "reservation_id", "field": "reference_id"}
+            则返回 "reference_id"
+        """
+        # 1. 检查配置文件中是否有该模型的映射
+        if model_name in self.path_param_field_mapping:
+            config = self.path_param_field_mapping[model_name]
+            # 验证路径参数是否匹配
+            expected_param = config.get('path_param', '')
+            if expected_param == f"{entity_type}_id":
+                field_name = config.get('field', 'id')
+                print(f"  📌 使用配置映射: {model_name}.{field_name} (路径参数: {entity_type}_id)")
+                return field_name
+        
+        # 2. 默认返回主键id
+        return 'id'
     
     def _load_route_model_mapping(self) -> Dict[str, Dict[str, str]]:
         """从主配置文件加载路由参数到模型名的映射
@@ -456,13 +504,14 @@ class {class_name}:
         
         return collected_keys
     
-    def _generate_foreign_key_entities(self, schema_data: Dict[str, Dict[str, Any]], module_name: str, method: str) -> str:
+    def _generate_foreign_key_entities(self, schema_data: Dict[str, Dict[str, Any]], module_name: str, method: str, route: RouterInfo = None) -> str:
         """检测外键字段并生成关联实体创建代码（使用统一工厂，符合testing-standards.md第1241行）
         
         设计原则：
         1. API集成测试使用StandardTestDataFactory（不使用Factory Boy）
         2. 基于配置文件判断是否需要完整数据链（无硬编码）
         3. 复杂实体使用create_complete_chain()
+        4. 对于"创建"API，避免预先创建目标实体
         """
         if method not in ['POST', 'PUT', 'PATCH']:
             return ""
@@ -473,13 +522,25 @@ class {class_name}:
         if not foreign_keys:
             return ""
         
+        # 🔧 检测是否是"创建库存"的API（避免预先创建库存记录）
+        # 对于PUT/PATCH请求，需要预先创建库存记录（因为是更新操作）
+        is_create_inventory_api = False
+        if route and method == 'POST':
+            function_name_lower = route.function_name.lower()
+            # 检测是否是创建库存的API
+            if 'create' in function_name_lower and 'inventory' in function_name_lower:
+                is_create_inventory_api = True
+        
         # 基于配置判断：是否需要完整数据链
         if self._needs_complete_chain_from_config(foreign_keys, module_name):
-            # 使用create_complete_chain创建完整数据链
-            return """        # 使用统一工厂创建完整数据链（符合testing-standards.md第1241行规范）
-        # 包含库存记录，确保订单测试时库存验证通过
+            # 对于创建库存API，不预先创建库存记录
+            # 对于PUT/PATCH请求，始终创建库存记录（更新操作需要已存在的记录）
+            with_inventory = (method in ['PUT', 'PATCH']) or (not is_create_inventory_api)
+            # 注意：无论with_inventory是True/False，都保持6个返回值（inventory_stock可能为None）
+            return f"""        # 使用统一工厂创建完整数据链（符合testing-standards.md第1241行规范）
+        # {'不包含' if not with_inventory else '包含'}库存记录
         user, category, brand, product, sku, inventory_stock = StandardTestDataFactory.create_complete_chain(
-            mysql_integration_db, with_inventory=True
+            mysql_integration_db, with_inventory={str(with_inventory)}
         )"""
         else:
             # 简单实体：逐个创建
@@ -516,7 +577,7 @@ class {class_name}:
         
         if schema_data and isinstance(schema_data, dict):
             # 检测外键依赖并生成实体创建代码
-            foreign_key_setup = self._generate_foreign_key_entities(schema_data, module_name, route.method)
+            foreign_key_setup = self._generate_foreign_key_entities(schema_data, module_name, route.method, route)
             
             # 将Schema分析结果转换为测试数据代码 - 生成动态代码而不是硬编码值
             data_assignments = []
@@ -809,58 +870,55 @@ class {class_name}:
                 if entity_params:
                     entity_type = entity_params[0]  # 取第一个实体参数（如 'item'）
                     
-                    # 直接从response_model获取准确的模型名（不再推断）
-                    module_name = self._extract_module_from_path(route.path)
-                    model_name = self._extract_model_name_from_response(route, models)
+                    # 🔧 检查test_data中是否已经创建了相同的实体（避免重复创建）
+                    # 例如：/adjust/{sku_id} 且请求体包含sku_id时，实体已在外键依赖中创建
+                    entity_already_created = entity_type in test_data
                     
-                    # 如果response_model为空（如DELETE请求），尝试从实体类型推断
-                    if not model_name:
-                        # entity_type: 'product' → 尝试查找 'Product'
-                        entity_type_pascal = ''.join(word.capitalize() for word in entity_type.split('_'))
-                        # 在models字典中查找（不区分大小写）
-                        for key in models.keys():
-                            if key.lower() == entity_type_pascal.lower():
-                                model_name = key
-                                break
+                    # 如果实体已经在test_data中创建，直接使用，不再重复创建
+                    if entity_already_created:
+                        full_path = full_path.replace(f'{{{entity_type}_id}}', f'{{{entity_type}.id}}')
+                        path_str = f'f"{full_path}"'
+                        # 不生成create_entity_code，实体已存在
+                        # 直接跳到路径参数替换完成，不执行后面的实体创建逻辑
+                    else:
+                        # 实体未创建，需要生成创建代码
+                        # 直接从response_model获取准确的模型名（不再推断）
+                        module_name = self._extract_module_from_path(route.path)
+                        model_name = self._extract_model_name_from_response(route, models)
                     
-                    # 基于模型名检查配置是否需要完整数据链
-                    if model_name and self._needs_complete_chain_for_model(model_name, module_name):
-                        # 使用create_complete_chain创建完整数据链
-                        create_entity_code = '''
+                        # 如果response_model为空（如DELETE请求），尝试从实体类型推断
+                        if not model_name:
+                            # entity_type: 'product' → 尝试查找 'Product'
+                            entity_type_pascal = ''.join(word.capitalize() for word in entity_type.split('_'))
+                            # 在models字典中查找（不区分大小写）
+                            for key in models.keys():
+                                if key.lower() == entity_type_pascal.lower():
+                                    model_name = key
+                                    break
+                        
+                        # 基于模型名检查配置是否需要完整数据链
+                        if model_name and self._needs_complete_chain_for_model(model_name, module_name):
+                            # 使用create_complete_chain创建完整数据链
+                            create_entity_code = '''
         # 使用统一工厂创建完整数据链（符合testing-standards.md第1241行规范）
         user, category, brand, product, sku = StandardTestDataFactory.create_complete_chain(mysql_integration_db)
         '''
-                        # 推断工厂方法名（如 CartItem -> cart_item）
-                        factory_method_name = self._to_snake_case(model_name)
-                        
-                        # 特殊处理：CartItem的create_cart_item需要product_id而不是sku_id
-                        # 原因：虽然字段名叫sku_id，但实际引用products.id（设计遗留问题）
-                        if factory_method_name == 'cart_item':
-                            # 创建实体（传入product.id）
-                            create_entity_code += f'''{entity_type} = StandardTestDataFactory.create_{factory_method_name}(mysql_integration_db, user.id, product.id)
+                            # 推断工厂方法名（如 CartItem -> cart_item）
+                            factory_method_name = self._to_snake_case(model_name)
+                            
+                            # 特殊处理：CartItem的create_cart_item需要product_id而不是sku_id
+                            # 原因：虽然字段名叫sku_id，但实际引用products.id（设计遗留问题）
+                            if factory_method_name == 'cart_item':
+                                # 创建实体（传入product.id）
+                                create_entity_code += f'''{entity_type} = StandardTestDataFactory.create_{factory_method_name}(mysql_integration_db, user.id, product.id)
         '''
-                        else:
-                            # 创建实体（默认传入sku.id）
-                            create_entity_code += f'''{entity_type} = StandardTestDataFactory.create_{factory_method_name}(mysql_integration_db, user.id, sku.id)
+                            else:
+                                # 创建实体（默认传入sku.id）
+                                create_entity_code += f'''{entity_type} = StandardTestDataFactory.create_{factory_method_name}(mysql_integration_db, user.id, sku.id)
         '''
-                        full_path = full_path.replace(f'{{{entity_type}_id}}', f'{{{entity_type}.id}}')
-                    elif model_name:
-                        # 使用models参数动态查询外键依赖，生成正确的创建代码
-                        factory_method_name = self._to_snake_case(model_name)
-                        entity_var = entity_type
-                        
-                        # 使用ModelInfo动态查询依赖关系
-                        create_entity_code = self._generate_entity_creation_with_dependencies(
-                            model_name, entity_var, models, module_name, route=route
-                        )
-                        
-                        full_path = full_path.replace(f'{{{entity_type}_id}}', f'{{{entity_var}.id}}')
-                    else:
-                        # 使用映射表获取模型名（唯一数据源）
-                        model_name = self._get_model_from_mapping(module_name, entity_type)
-                        
-                        if model_name:
-                            # 从映射表成功获取模型名
+                            full_path = full_path.replace(f'{{{entity_type}_id}}', f'{{{entity_type}.id}}')
+                        elif model_name:
+                            # 使用models参数动态查询外键依赖，生成正确的创建代码
                             factory_method_name = self._to_snake_case(model_name)
                             entity_var = entity_type
                             
@@ -869,18 +927,41 @@ class {class_name}:
                                 model_name, entity_var, models, module_name, route=route
                             )
                             
-                            full_path = full_path.replace(f'{{{entity_type}_id}}', f'{{{entity_var}.id}}')
+                            # 🔧 从配置文件获取路径参数应该使用的字段
+                            # 检查配置: api_path_param_field_mapping
+                            path_field = self._get_path_param_field(model_name, entity_type)
+                            
+                            full_path = full_path.replace(f'{{{entity_type}_id}}', f'{{{entity_var}.{path_field}}}')
                         else:
-                            # 映射表中没有，立即报错（不再尝试推断）
-                            error_msg = (
-                                f"❌ 缺少路由映射：{module_name} 模块的 '{entity_type}' 参数未在映射表中定义\n"
-                                f"   路由: {route.method} {route.path}\n"
-                                f"   解决: 请在 tools/test_generators/config/route_model_mapping.json 中添加:\n"
-                                f'   "{module_name}": {{"{entity_type}": "YourModelName"}}'
-                            )
-                            raise ValueError(error_msg)
-                    
-                    path_str = f'f"{full_path}"'
+                            # 使用映射表获取模型名（唯一数据源）
+                            model_name = self._get_model_from_mapping(module_name, entity_type)
+                            
+                            if model_name:
+                                # 从映射表成功获取模型名
+                                factory_method_name = self._to_snake_case(model_name)
+                                entity_var = entity_type
+                                
+                                # 使用ModelInfo动态查询依赖关系
+                                create_entity_code = self._generate_entity_creation_with_dependencies(
+                                    model_name, entity_var, models, module_name, route=route
+                                )
+                                
+                                # 🔧 从配置文件获取路径参数应该使用的字段
+                                # 检查配置: api_path_param_field_mapping
+                                path_field = self._get_path_param_field(model_name, entity_type)
+                                
+                                full_path = full_path.replace(f'{{{entity_type}_id}}', f'{{{entity_var}.{path_field}}}')
+                            else:
+                                # 映射表中没有，立即报错（不再尝试推断）
+                                error_msg = (
+                                    f"❌ 缺少路由映射：{module_name} 模块的 '{entity_type}' 参数未在映射表中定义\n"
+                                    f"   路由: {route.method} {route.path}\n"
+                                    f"   解决: 请在 tools/test_generators/config/route_model_mapping.json 中添加:\n"
+                                    f'   "{module_name}": {{"{entity_type}": "YourModelName"}}'
+                                )
+                                raise ValueError(error_msg)
+                        
+                        path_str = f'f"{full_path}"'
                 elif not entity_params:
                     # 其他参数默认替换为1
                     full_path = re.sub(r'\{[^}]+\}', '1', full_path)
@@ -1193,6 +1274,19 @@ class {class_name}:
             if key.lower() == response_model.lower():
                 return key
         
+        # 模糊匹配：尝试匹配Schema名中包含的Model名
+        # 例如：SKUInventoryRead -> 尝试匹配InventoryStock
+        response_lower = response_model.lower()
+        for model_name in models.keys():
+            model_lower = model_name.lower()
+            # 检查model名是否包含在response_model中
+            if model_lower in response_lower or response_lower in model_lower:
+                # 进一步验证：检查是否是主要模型
+                # 例如：'inventorystock' in 'skuinventoryread' ✓
+                # 但避免误匹配，如 'user' in 'userprofile' 
+                if len(model_name) > 3:  # 避免过短的名称误匹配
+                    return model_name
+        
         return None
     
     def _infer_model_name_from_path_param(self, param_name: str, module_name: str) -> Optional[str]:
@@ -1420,6 +1514,12 @@ class {class_name}:
                 # 跨模块依赖，从ModelAnalyzer获取完整的ModelInfo
                 dep_model_info = self.cross_module_resolver.model_analyzer.get_model_info(actual_model_name)
             
+            # 🔧 智能判断：外键是否指向主键 vs 非主键字段
+            # 从fk['target_field']获取目标字段名（如：'id', 'sku_id'等）
+            target_field = fk.get('target_field', 'id')  # 默认指向主键id
+            # 如果指向非主键字段（如sku_id），需要传递该字段的值
+            param_field = target_field if target_field != 'id' else 'id'
+            
             if dep_model_info:
                 # 检查依赖是否还有依赖（fields是List[FieldInfo]）
                 has_nested_deps = any(
@@ -1434,21 +1534,21 @@ class {class_name}:
                     dependencies_code.append(nested_code.strip())
                     # 递归生成的代码已经包含最终变量，直接使用该变量
                     dependency_vars.append(dep_var_name)
-                    params.append(f"{dep_var_name}.id")
+                    params.append(f"{dep_var_name}.{param_field}")
                 else:
                     # 没有嵌套依赖，直接创建
                     dependencies_code.append(
                         f"{dep_var_name} = StandardTestDataFactory.{factory_method}(mysql_integration_db)"
                     )
                     dependency_vars.append(dep_var_name)
-                    params.append(f"{dep_var_name}.id")
+                    params.append(f"{dep_var_name}.{param_field}")
             else:
                 # 找不到模型信息，直接尝试创建
                 dependencies_code.append(
                     f"{dep_var_name} = StandardTestDataFactory.{factory_method}(mysql_integration_db)"
                 )
                 dependency_vars.append(dep_var_name)
-                params.append(f"{dep_var_name}.id")
+                params.append(f"{dep_var_name}.{param_field}")
         
         # 生成最终的创建代码
         factory_method = self._to_snake_case(normalized_model_name)
@@ -1459,5 +1559,33 @@ class {class_name}:
         code_lines.append(
             f"{entity_var} = StandardTestDataFactory.create_{factory_method}(mysql_integration_db, {param_str})"
         )
+        
+        # 🔧 通用智能处理：基于response_model判断是否需要额外创建相关实体
+        # 场景：API路径参数是业务实体ID（如sku_id），但response_model返回的是关联实体（如Inventory）
+        # 解决：从response_model中提取关键词，判断需要创建哪些额外实体
+        if route and normalized_model_name.upper() == 'SKU':
+            # 提取response_model名称
+            response_type = str(route.response_model) if hasattr(route, 'response_model') else ""
+            
+            # 🔧 对于inventory_management模块的PUT/PATCH请求，自动创建inventory_stock
+            # 因为update_thresholds/update_sku_inventory_config需要已存在的库存记录
+            is_inventory_module = 'inventory' in module_name.lower()
+            needs_inventory = False
+            
+            if is_inventory_module and route.method in ['PUT', 'PATCH']:
+                # inventory_management模块的更新操作需要库存记录
+                needs_inventory = True
+            elif any(keyword in response_type for keyword in ['Inventory', 'Stock', 'inventory', 'stock']):
+                # 或者response_model包含Inventory/Stock关键词
+                if route.method in ['GET', 'PUT', 'DELETE', 'PATCH']:
+                    needs_inventory = True
+            
+            if needs_inventory:
+                code_lines.append(
+                    f"# 创建InventoryStock记录（{route.method} {route.path} 需要）"
+                )
+                code_lines.append(
+                    f"inventory_stock = StandardTestDataFactory.create_inventory_stock(mysql_integration_db, {entity_var}.id)"
+                )
         
         return "\n        ".join(code_lines)

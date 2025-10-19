@@ -278,7 +278,7 @@ from {module_import_path} import (
             
         # 处理外键关系
         if field.foreign_key:
-            return self._generate_foreign_key_definition(field, all_models, generated_factories)
+            return self._generate_foreign_key_definition(field, model_info, all_models, generated_factories)
 
         # 根据字段类型生成合适的Factory定义
         if field.column_type.upper().startswith("VARCHAR") or field.python_type == "str":
@@ -301,7 +301,7 @@ from {module_import_path} import (
             return self._generate_default_field_definition(field)
     
     def _generate_foreign_key_definition(
-        self, field: FieldInfo, all_models: Dict[str, ModelInfo],
+        self, field: FieldInfo, model_info: ModelInfo, all_models: Dict[str, ModelInfo],
         generated_factories: set = None
     ) -> str:
         """生成外键字段定义"""
@@ -347,9 +347,27 @@ from {module_import_path} import (
         if is_forward_reference and field.nullable:
             return f"{field.name} = None  # 可空外键，避免前向引用错误 (目标: {target_model}Factory)"
         else:
-            if field.name.endswith('_id'):
-                relation_field = field.name[:-3]
-                return f"{relation_field} = factory.SubFactory({target_model}Factory)"
+            # 检查是否指向非主键字段
+            # 如果外键指向非主键（如 inventory_stocks.sku_id），使用Sequence而不是SubFactory
+            # 因为SubFactory会创建新记录，可能违反外键约束
+            if target_column != 'id':
+                # 非主键外键，使用Sequence，在create_sample_data中手动管理
+                return f"{field.name} = factory.Sequence(lambda n: n + 1)  # 指向非主键{target_column}，需在create_sample_data中传递实际值"
+            elif field.name.endswith('_id'):
+                # 从relationships中查找真实的关系名
+                # 遍历所有关系，找到指向相同目标模型的关系
+                relation_field = None
+                for rel in model_info.relationships:
+                    if rel.related_model == target_model:
+                        # 找到了指向目标模型的关系
+                        relation_field = rel.name
+                        break
+                
+                if relation_field:
+                    return f"{relation_field} = factory.SubFactory({target_model}Factory)"
+                else:
+                    # 如果没有定义relationship，只生成外键字段
+                    return f"{field.name} = factory.Sequence(lambda n: n + 1)  # 无对应relationship，手动设置外键"
             else:
                 return f"{field.name} = factory.SubFactory({target_model}Factory)"
     
@@ -761,7 +779,11 @@ from {module_import_path} import (
         
         for field in model_info.fields:
             if field.foreign_key:
-                target_table = field.foreign_key.split('.')[0]
+                # 解析外键：table_name.column_name
+                fk_parts = field.foreign_key.split('.')
+                target_table = fk_parts[0]
+                target_column = fk_parts[1] if len(fk_parts) > 1 else 'id'  # 默认为id
+                
                 target_model = self._infer_model_name_from_table(target_table, models)
                 
                 # 检查是否跨模块
@@ -775,7 +797,7 @@ from {module_import_path} import (
                     found = False
                     for dep_module, dep_factory, check_key in cross_module_deps:
                         if check_key == dep_key:
-                            params.append(f"{field.name}=data['{dep_key}'].id")
+                            params.append(f"{field.name}=data['{dep_key}'].{target_column}")
                             found = True
                             break
                     
@@ -783,10 +805,29 @@ from {module_import_path} import (
                         print(f"⚠️ 警告: 未找到 {target_model} 的依赖，字段 {field.name} 可能需要手动处理")
                         
                 elif field.name.endswith('_id'):
-                    # 同模块内的外键，使用SubFactory或前置创建的实体
-                    relation_name = field.name[:-3]  # user_id -> user
-                    relation_model = relation_name.capitalize()
-                    if relation_model in [m.capitalize() for m in models.keys()]:
-                        params.append(f"{relation_name}=data['{relation_name.lower()}']")
+                    # 同模块内的外键，检查目标模型是否已创建
+                    # 从relationships中查找真实的关系名
+                    relation_name = None
+                    if model_name in models:
+                        model_info = models[model_name]
+                        for rel in model_info.relationships:
+                            if rel.related_model == target_model:
+                                relation_name = rel.name
+                                break
+                    
+                    # 如果找不到关系名，fallback到简单截取
+                    if not relation_name:
+                        relation_name = field.name[:-3]  # user_id -> user
+                    
+                    # 检查是否引用的是同模块内已创建的模型
+                    target_model_lower = target_model.lower()
+                    if target_model_lower in [m.lower() for m in models.keys()]:
+                        # 使用目标列名（而不是总是用.id）
+                        params.append(f"{field.name}=data['{target_model_lower}'].{target_column}")
+                        
+                        # 关键：只有指向主键且有relationship时，才需要传递relation=None来禁用SubFactory
+                        # 如果指向非主键，Factory定义中已经不包含SubFactory了（只有sku_id字段）
+                        if target_column == 'id' and relation_name:
+                            params.append(f"{relation_name}=None")
         
         return ", ".join(params)

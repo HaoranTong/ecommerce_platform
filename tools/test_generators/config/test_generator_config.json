@@ -170,6 +170,21 @@
       "order_creation_requires": ["inventory_management.InventoryStock"],
       "cart_item_requires": []
     },
+    "api_path_param_field_mapping": {
+      "_description": "API路径参数字段映射配置 - 指定模型在路径参数中应该使用哪个字段",
+      "_usage": "当路径参数为{entity_type}_id时，默认使用.id字段，但某些业务实体需要使用其他字段",
+      "_example": "路径/reserve/{reservation_id}应该使用reservation.reference_id而不是reservation.id",
+      "InventoryReservation": {
+        "path_param": "reservation_id",
+        "field": "reference_id",
+        "reason": "预占记录的业务ID是reference_id（订单ID或用户ID），不是数据库主键id"
+      },
+      "Order": {
+        "path_param": "order_id",
+        "field": "order_number",
+        "reason": "订单对外使用订单号order_number，不是数据库主键id"
+      }
+    },
     "performance_test_business_dependencies": {
       "_description": "Performance测试的业务逻辑依赖配置 - 定义创建测试数据时需要的额外业务依赖",
       "_usage": "当检测到某个外键字段时，自动创建关联的业务依赖数据",

@@ -36,7 +36,7 @@ from typing import List, Optional
 
 # 第三方库导入
 from fastapi import (APIRouter, BackgroundTasks, Depends, HTTPException, Query,
-                     status)
+                     Response, status)
 from sqlalchemy.orm import Session
 
 # 本地应用导入
@@ -213,7 +213,8 @@ async def release_reservation(
             {"reservation_id": reservation_id, "user_id": current_user.id},
         )
 
-        return {"message": "库存预占已释放"}
+        # 返回204 No Content表示成功但无需返回内容
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
 
     except HTTPException:
         raise
@@ -262,7 +263,8 @@ async def release_user_reservations(
             },
         )
 
-        return result
+        # 返回204 No Content表示成功但无需返回内容
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
 
     except Exception as e:
         raise HTTPException(
@@ -329,7 +331,7 @@ async def deduct_inventory(
     summary="库存调整",
 )
 async def adjust_inventory(
-    sku_id: str,
+    sku_id: int,
     adjustment: InventoryAdjustment,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
@@ -454,7 +456,7 @@ async def get_low_stock_skus(
 
     try:
         query = LowStockQuery(level=level, limit=limit, offset=offset)
-        low_stock_items = await service.get_low_stock_skus(query)
+        low_stock_items = service.get_low_stock_skus(query)
         return low_stock_items
 
     except Exception as e:
@@ -465,6 +467,58 @@ async def get_low_stock_skus(
 
 
 # ============ 库存历史接口 ============
+
+
+@router.get(
+    "/inventory-management/logs/search",
+    response_model=List[TransactionSearchResponse],
+    summary="搜索库存变动记录",
+)
+async def search_inventory_transactions(
+    sku_ids: Optional[str] = Query(None, description="SKU ID列表，逗号分隔"),
+    transaction_types: Optional[str] = Query(
+        None, description="交易类型列表，逗号分隔"
+    ),
+    operator_id: Optional[int] = Query(None, description="操作人ID"),
+    start_date: Optional[str] = Query(None, description="开始日期"),
+    end_date: Optional[str] = Query(None, description="结束日期"),
+    limit: int = Query(50, ge=1, le=1000, description="返回数量限制"),
+    offset: int = Query(0, ge=0, description="分页偏移"),
+    db: Session = Depends(get_db),
+    admin_user: User = Depends(get_current_admin_user),
+):
+    """
+    按条件搜索库存变动记录
+
+    支持多维度条件筛选库存变动记录
+    """
+    service = InventoryService(db)
+
+    try:
+        # 处理查询参数
+        sku_id_list = [int(s.strip()) for s in sku_ids.split(",")] if sku_ids else None
+        transaction_type_list = (
+            [t.strip() for t in transaction_types.split(",")] if transaction_types else None
+        )
+
+        query = TransactionQuery(
+            sku_ids=sku_id_list,
+            transaction_types=transaction_type_list,
+            operator_id=operator_id,
+            start_date=start_date,
+            end_date=end_date,
+            limit=limit,
+            offset=offset,
+        )
+
+        results = service.search_transaction_logs(query)
+        return results
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"搜索变动记录失败: {str(e)}",
+        )
 
 
 @router.get(
@@ -505,65 +559,13 @@ async def get_sku_transaction_logs(
             offset=offset,
         )
 
-        result = await service.get_transaction_logs(query)
+        result = service.get_transaction_logs(query)
         return result
 
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"获取变动历史失败: {str(e)}",
-        )
-
-
-@router.get(
-    "/inventory-management/logs/search",
-    response_model=List[TransactionSearchResponse],
-    summary="搜索库存变动记录",
-)
-async def search_inventory_transactions(
-    sku_ids: Optional[str] = Query(None, description="SKU ID列表，逗号分隔"),
-    transaction_types: Optional[str] = Query(
-        None, description="交易类型列表，逗号分隔"
-    ),
-    operator_id: Optional[int] = Query(None, description="操作人ID"),
-    start_date: Optional[str] = Query(None, description="开始日期"),
-    end_date: Optional[str] = Query(None, description="结束日期"),
-    limit: int = Query(50, ge=1, le=1000, description="返回数量限制"),
-    offset: int = Query(0, ge=0, description="分页偏移"),
-    db: Session = Depends(get_db),
-    admin_user: User = Depends(get_current_admin_user),
-):
-    """
-    按条件搜索库存变动记录
-
-    支持多维度条件筛选库存变动记录
-    """
-    service = InventoryService(db)
-
-    try:
-        # 处理查询参数
-        sku_id_list = sku_ids.split(",") if sku_ids else None
-        transaction_type_list = (
-            transaction_types.split(",") if transaction_types else None
-        )
-
-        query = TransactionQuery(
-            sku_ids=sku_id_list,
-            transaction_types=transaction_type_list,
-            operator_id=operator_id,
-            start_date=start_date,
-            end_date=end_date,
-            limit=limit,
-            offset=offset,
-        )
-
-        results = await service.search_transaction_logs(query)
-        return results
-
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"搜索变动记录失败: {str(e)}",
         )
 
 
@@ -589,7 +591,7 @@ async def cleanup_expired_reservations(
     service = InventoryService(db)
 
     try:
-        result = await service.cleanup_expired_reservations()
+        result = service.cleanup_expired_reservations()
         return result
 
     except Exception as e:
@@ -615,7 +617,7 @@ async def check_inventory_consistency(
     service = InventoryService(db)
 
     try:
-        result = await service.check_inventory_consistency()
+        result = service.check_inventory_consistency()
         return result
 
     except Exception as e:
@@ -631,6 +633,7 @@ async def check_inventory_consistency(
 @router.post(
     "/inventory-management/stock",
     response_model=SKUInventoryRead,
+    status_code=status.HTTP_201_CREATED,
     summary="创建SKU库存",
 )
 async def create_sku_inventory(

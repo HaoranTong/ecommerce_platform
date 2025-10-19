@@ -263,22 +263,36 @@ class StandardTestDataFactory:
 
     @staticmethod
     def create_inventory_reservation(
-        db: Session, sku_id: int, **kwargs
+        db: Session, inventory_stock_sku_id: int = None, inventory_stock_id: int = None, **kwargs
     ) -> InventoryReservation:
         """创建库存预占记录
 
         Args:
-            sku_id: SKU的ID（整数，不是sku_code！）
+            inventory_stock_sku_id: InventoryStock表的sku_id字段值（非主键外键）
+            inventory_stock_id: InventoryStock表的id主键（如果提供，会自动查询sku_id）
+        
+        Note:
+            必须提供inventory_stock_sku_id或inventory_stock_id之一
         """
-        if not isinstance(sku_id, int):
-            raise ValueError(f"sku_id必须是整数类型，当前类型: {type(sku_id)}")
+        # 如果提供了inventory_stock_id，查询对应的sku_id
+        if inventory_stock_id is not None:
+            inventory_stock = db.query(InventoryStock).filter(InventoryStock.id == inventory_stock_id).first()
+            if not inventory_stock:
+                raise ValueError(f"找不到ID为{inventory_stock_id}的InventoryStock记录")
+            inventory_stock_sku_id = inventory_stock.sku_id
+        
+        if inventory_stock_sku_id is None:
+            raise ValueError("必须提供inventory_stock_sku_id或inventory_stock_id之一")
+        
+        if not isinstance(inventory_stock_sku_id, int):
+            raise ValueError(f"inventory_stock_sku_id必须是整数类型，当前类型: {type(inventory_stock_sku_id)}")
 
         import uuid
         from datetime import datetime, timedelta, timezone
 
         defaults = {
-            "sku_id": sku_id,
-            "reserved_quantity": 10,
+            "sku_id": inventory_stock_sku_id,
+            "quantity": 10,
             "reservation_type": ReservationType.CART,
             "reference_id": f"TEST-REF-{uuid.uuid4().hex[:8]}",
             "expires_at": datetime.now(timezone.utc) + timedelta(hours=2),
@@ -294,20 +308,40 @@ class StandardTestDataFactory:
 
     @staticmethod
     def create_inventory_transaction(
-        db: Session, sku_id: int, **kwargs
+        db: Session, inventory_stock_sku_id: int = None, inventory_stock_id: int = None, 
+        sku_id: int = None, **kwargs
     ) -> InventoryTransaction:
         """创建库存事务记录
 
         Args:
-            sku_id: SKU的ID（整数，不是sku_code！）
+            inventory_stock_sku_id: InventoryStock表的sku_id字段值（非主键外键）
+            inventory_stock_id: InventoryStock表的id主键（如果提供，会自动查询sku_id）
+            sku_id: (已废弃，为兼容性保留) 等同于inventory_stock_sku_id
+        
+        Note:
+            必须提供inventory_stock_sku_id、inventory_stock_id或sku_id之一
         """
-        if not isinstance(sku_id, int):
-            raise ValueError(f"sku_id必须是整数类型，当前类型: {type(sku_id)}")
+        # 兼容旧参数名
+        if sku_id is not None:
+            inventory_stock_sku_id = sku_id
+        
+        # 如果提供了inventory_stock_id，查询对应的sku_id
+        if inventory_stock_id is not None:
+            inventory_stock = db.query(InventoryStock).filter(InventoryStock.id == inventory_stock_id).first()
+            if not inventory_stock:
+                raise ValueError(f"找不到ID为{inventory_stock_id}的InventoryStock记录")
+            inventory_stock_sku_id = inventory_stock.sku_id
+        
+        if inventory_stock_sku_id is None:
+            raise ValueError("必须提供inventory_stock_sku_id、inventory_stock_id或sku_id之一")
+        
+        if not isinstance(inventory_stock_sku_id, int):
+            raise ValueError(f"inventory_stock_sku_id必须是整数类型，当前类型: {type(inventory_stock_sku_id)}")
 
         import uuid
 
         defaults = {
-            "sku_id": sku_id,
+            "sku_id": inventory_stock_sku_id,
             "transaction_type": TransactionType.DEDUCT,
             "quantity": 10,
             "reference_type": "order",

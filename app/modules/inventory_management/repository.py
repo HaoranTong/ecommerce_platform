@@ -97,32 +97,42 @@ class InventoryRepository:
             .first()
         )
     
-    def get_inventories_by_sku_ids(self, sku_ids: List[int]) -> List[InventoryStock]:
+    def get_inventories_by_sku_ids(
+        self, 
+        sku_ids: List[int],
+        is_active: Optional[bool] = None
+    ) -> List[InventoryStock]:
         """
         批量获取库存记录
         
         Args:
             sku_ids: SKU ID列表
+            is_active: 是否仅查询激活状态，None表示不过滤
             
         Returns:
             InventoryStock对象列表
         """
-        return (
-            self.db.query(InventoryStock)
-            .filter(
-                InventoryStock.sku_id.in_(sku_ids),
-                InventoryStock.is_active == True
-            )
-            .all()
+        query = self.db.query(InventoryStock).filter(
+            InventoryStock.sku_id.in_(sku_ids)
         )
+        
+        if is_active is not None:
+            query = query.filter(InventoryStock.is_active == is_active)
+            
+        return query.all()
     
-    def get_inventory_for_update(self, sku_id: int) -> Optional[InventoryStock]:
+    def get_inventory_for_update(
+        self, 
+        sku_id: int,
+        is_active: Optional[bool] = None
+    ) -> Optional[InventoryStock]:
         """
         获取库存记录并加悲观锁（SELECT FOR UPDATE）
         用于并发控制，防止库存超卖
         
         Args:
             sku_id: SKU唯一标识
+            is_active: 是否仅查询激活状态，None表示不过滤
             
         Returns:
             InventoryStock对象，如果不存在则返回None
@@ -130,12 +140,15 @@ class InventoryRepository:
         Note:
             此方法会在数据库级别加行锁，直到事务提交或回滚才释放
         """
-        return (
+        query = (
             self.db.query(InventoryStock)
             .filter(InventoryStock.sku_id == sku_id)
-            .with_for_update()
-            .first()
         )
+        
+        if is_active is not None:
+            query = query.filter(InventoryStock.is_active == is_active)
+            
+        return query.with_for_update().first()
     
     def get_active_inventories(self, limit: int = 100, offset: int = 0) -> List[InventoryStock]:
         """
@@ -156,18 +169,27 @@ class InventoryRepository:
             .all()
         )
     
-    def create_inventory(self, inventory_data: Dict[str, Any]) -> InventoryStock:
+    def create_inventory(
+        self,
+        sku_id: int,
+        total_quantity: int,
+        available_quantity: Optional[int] = None,
+        reserved_quantity: int = 0,
+        warning_threshold: int = 10,
+        critical_threshold: int = 5,
+        is_active: bool = True
+    ) -> InventoryStock:
         """
         创建新的库存记录
         
         Args:
-            inventory_data: 库存数据字典
-                - sku_id: SKU ID（必需）
-                - total_quantity: 总库存数量（必需）
-                - reserved_quantity: 预占库存数量（默认0）
-                - warning_threshold: 低库存预警阈值（默认10）
-                - critical_threshold: 紧急库存阈值（默认5）
-                - is_active: 是否启用（默认True）
+            sku_id: SKU ID（必需）
+            total_quantity: 总库存数量（必需）
+            available_quantity: 可用库存数量（默认等于total_quantity）
+            reserved_quantity: 预占库存数量（默认0）
+            warning_threshold: 低库存预警阈值（默认10）
+            critical_threshold: 紧急库存阈值（默认5）
+            is_active: 是否启用（默认True）
                 
         Returns:
             创建的InventoryStock对象
@@ -175,7 +197,18 @@ class InventoryRepository:
         Raises:
             IntegrityError: 如果SKU已存在库存记录
         """
-        inventory = InventoryStock(**inventory_data)
+        if available_quantity is None:
+            available_quantity = total_quantity
+            
+        inventory = InventoryStock(
+            sku_id=sku_id,
+            total_quantity=total_quantity,
+            available_quantity=available_quantity,
+            reserved_quantity=reserved_quantity,
+            warning_threshold=warning_threshold,
+            critical_threshold=critical_threshold,
+            is_active=is_active
+        )
         self.db.add(inventory)
         self.db.flush()  # 刷新获取ID，但不提交事务
         self.db.refresh(inventory)
@@ -298,23 +331,37 @@ class InventoryRepository:
     
     # ============ 库存预占操作 (InventoryReservation) ============
     
-    def create_reservation(self, reservation_data: Dict[str, Any]) -> InventoryReservation:
+    def create_reservation(
+        self,
+        sku_id: int,
+        reservation_type: str,
+        reference_id: str,
+        quantity: int,
+        expires_at: datetime,
+        is_active: bool = True
+    ) -> InventoryReservation:
         """
         创建库存预占记录
         
         Args:
-            reservation_data: 预占数据字典
-                - sku_id: SKU ID（必需）
-                - reservation_type: 预占类型（必需）
-                - reference_id: 关联业务ID（必需）
-                - quantity: 预占数量（必需）
-                - expires_at: 过期时间（必需）
-                - is_active: 是否有效（默认True）
+            sku_id: SKU ID（必需）
+            reservation_type: 预占类型（必需）
+            reference_id: 关联业务ID（必需）
+            quantity: 预占数量（必需）
+            expires_at: 过期时间（必需）
+            is_active: 是否有效（默认True）
                 
         Returns:
             创建的InventoryReservation对象
         """
-        reservation = InventoryReservation(**reservation_data)
+        reservation = InventoryReservation(
+            sku_id=sku_id,
+            reservation_type=reservation_type,
+            reference_id=reference_id,
+            quantity=quantity,
+            expires_at=expires_at,
+            is_active=is_active
+        )
         self.db.add(reservation)
         self.db.flush()  # 刷新获取ID，但不提交事务
         self.db.refresh(reservation)
@@ -448,26 +495,46 @@ class InventoryRepository:
     
     # ============ 库存事务日志操作 (InventoryTransaction) ============
     
-    def create_transaction(self, transaction_data: Dict[str, Any]) -> InventoryTransaction:
+    def create_transaction(
+        self,
+        sku_id: int,
+        transaction_type: TransactionType,
+        quantity_change: int,
+        quantity_before: int,
+        quantity_after: int,
+        reference_type: Optional[str] = None,
+        reference_id: Optional[str] = None,
+        reason: Optional[str] = None,
+        operator_id: Optional[int] = None
+    ) -> InventoryTransaction:
         """
         创建库存变动日志
         
         Args:
-            transaction_data: 事务数据字典
-                - sku_id: SKU ID（必需）
-                - transaction_type: 事务类型（必需）
-                - quantity_change: 数量变化（必需）
-                - quantity_before: 变更前数量（必需）
-                - quantity_after: 变更后数量（必需）
-                - reference_type: 关联业务类型（可选）
-                - reference_id: 关联业务ID（可选）
-                - reason: 变更原因（可选）
-                - operator_id: 操作人ID（可选）
+            sku_id: SKU ID（必需）
+            transaction_type: 事务类型（必需）
+            quantity_change: 数量变化（必需）
+            quantity_before: 变更前数量（必需）
+            quantity_after: 变更后数量（必需）
+            reference_type: 关联业务类型（可选）
+            reference_id: 关联业务ID（可选）
+            reason: 变更原因（可选）
+            operator_id: 操作人ID（可选）
                 
         Returns:
             创建的InventoryTransaction对象
         """
-        transaction = InventoryTransaction(**transaction_data)
+        transaction = InventoryTransaction(
+            sku_id=sku_id,
+            transaction_type=transaction_type,
+            quantity_change=quantity_change,
+            quantity_before=quantity_before,
+            quantity_after=quantity_after,
+            reference_type=reference_type,
+            reference_id=reference_id,
+            reason=reason,
+            operator_id=operator_id
+        )
         self.db.add(transaction)
         self.db.flush()  # 刷新获取ID，但不提交事务
         self.db.refresh(transaction)
@@ -476,16 +543,18 @@ class InventoryRepository:
     def get_transactions_by_sku(
         self, 
         sku_id: int,
-        limit: int = 100,
-        offset: int = 0
+        transaction_type: Optional[TransactionType] = None,
+        page: int = 1,
+        page_size: int = 100
     ) -> Tuple[List[InventoryTransaction], int]:
         """
-        获取SKU的变动历史（支持分页）
+        获取SKU的变动历史（支持分页和类型过滤）
         
         Args:
             sku_id: SKU ID
-            limit: 每页记录数，默认100
-            offset: 偏移量，默认0
+            transaction_type: 交易类型（可选）
+            page: 页码，默认1
+            page_size: 每页记录数，默认100
             
         Returns:
             Tuple[事务列表, 总记录数]
@@ -494,14 +563,21 @@ class InventoryRepository:
             InventoryTransaction.sku_id == sku_id
         )
         
+        # 添加交易类型过滤
+        if transaction_type:
+            query = query.filter(InventoryTransaction.transaction_type == transaction_type)
+        
         # 获取总数
         total = query.count()
+        
+        # 计算偏移量
+        offset = (page - 1) * page_size
         
         # 获取分页数据
         transactions = (
             query
             .order_by(InventoryTransaction.created_at.desc())
-            .limit(limit)
+            .limit(page_size)
             .offset(offset)
             .all()
         )

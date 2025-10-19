@@ -252,10 +252,16 @@ labels:
 
 #### 2.2.2 库存预占表 (InventoryReservation)
 
+**设计说明**:
+- `sku_id`外键指向`inventory_stocks.sku_id`而非主键`id`，原因：
+  1. 业务语义明确：直接关联到SKU维度，而非库存记录维度
+  2. `inventory_stocks.sku_id`有UNIQUE约束，确保1:1关系
+  3. 与业务查询逻辑对齐，避免额外JOIN操作
+
 | 字段名 | 类型 | 约束 | 描述 |
 |--------|------|------|------|
 | id | Integer | PK, AUTO_INCREMENT | 主键ID |
-| sku_id | Integer | FK, NOT NULL | 关联的SKU ID (引用 skus.id) |
+| sku_id | Integer | FK, NOT NULL | 关联的SKU ID (引用 inventory_stocks.sku_id) |
 | reservation_type | Enum | NOT NULL | 预占类型 (cart/order) |
 | reference_id | String(100) | NOT NULL | 关联业务ID |
 | quantity | Integer | NOT NULL, >0 | 预占数量 |
@@ -272,10 +278,14 @@ labels:
 
 #### 2.2.3 库存事务表 (InventoryTransaction)
 
+**设计说明**:
+- `sku_id`外键设计同`InventoryReservation`，指向`inventory_stocks.sku_id`
+- 目的：建立清晰的业务语义关系和优化查询性能
+
 | 字段名 | 类型 | 约束 | 描述 |
 |--------|------|------|------|
 | id | Integer | PK, AUTO_INCREMENT | 主键ID |
-| sku_id | Integer | FK, NOT NULL | 关联的SKU ID (引用 skus.id) |
+| sku_id | Integer | FK, NOT NULL | 关联的SKU ID (引用 inventory_stocks.sku_id) |
 | transaction_type | Enum | NOT NULL | 事务类型 |
 | quantity_change | Integer | NOT NULL | 数量变化 |
 | quantity_before | Integer | NOT NULL | 变更前数量 |

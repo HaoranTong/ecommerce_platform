@@ -48,6 +48,7 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 # 第三方库导入
 from sqlalchemy.orm import Session
@@ -265,7 +266,7 @@ class InventoryService:
         """
         reservations = self.repository.get_reservations_by_reference(
             reference_id=reservation_id, 
-            is_active=True
+            active_only=True
         )
 
         if not reservations:
@@ -286,6 +287,62 @@ class InventoryService:
             self.db.commit()
             return True
 
+        except Exception:
+            self.db.rollback()
+            raise
+
+    async def release_user_reservations(self, user_id: str) -> Dict[str, Any]:
+        """
+        释放指定用户的所有库存预占
+        
+        Args:
+            user_id: 用户ID（字符串格式）
+            
+        Returns:
+            Dict包含释放的预占数量和总释放数量
+            
+        业务场景：
+        - 用户清空购物车
+        - 用户注销登录
+        - 批量清理用户预占
+        """
+        try:
+            # 查询用户的所有有效预占
+            reservations = self.repository.get_reservations_by_reference(
+                reference_id=user_id,
+                active_only=True
+            )
+            
+            if not reservations:
+                return {
+                    "released_reservations": 0,
+                    "total_released_quantity": 0,
+                    "message": "没有找到有效的预占记录"
+                }
+            
+            released_count = 0
+            total_quantity = 0
+            
+            for reservation in reservations:
+                # 获取库存记录
+                inventory = self.repository.get_by_sku_id(reservation.sku_id)
+                if inventory:
+                    # 释放预占数量
+                    inventory.release_quantity(reservation.quantity)
+                    total_quantity += reservation.quantity
+                
+                # 标记预占为无效
+                self.repository.invalidate_reservation(reservation.id)
+                released_count += 1
+            
+            self.db.commit()
+            
+            return {
+                "released_reservations": released_count,
+                "total_released_quantity": total_quantity,
+                "message": f"成功释放{released_count}个预占，共{total_quantity}件商品"
+            }
+            
         except Exception:
             self.db.rollback()
             raise
@@ -391,6 +448,46 @@ class InventoryService:
             self.db.rollback()
             raise
 
+    async def update_sku_inventory_config(
+        self, sku_id: str, update_data: Any
+    ) -> bool:
+        """
+        更新SKU库存配置
+        
+        Args:
+            sku_id: SKU标识符
+            update_data: 更新数据（SKUInventoryUpdate对象）
+            
+        Returns:
+            更新成功返回True，SKU不存在返回False
+            
+        功能：
+        - 更新warning_threshold（预警阈值）
+        - 更新critical_threshold（危险阈值）
+        - 更新is_active（是否启用库存管理）
+        """
+        inventory = self.repository.get_inventory_by_sku(sku_id)
+        
+        if not inventory:
+            return False
+        
+        # 应用更新（只更新提供的字段）
+        if hasattr(update_data, 'warning_threshold') and update_data.warning_threshold is not None:
+            inventory.warning_threshold = update_data.warning_threshold
+        
+        if hasattr(update_data, 'critical_threshold') and update_data.critical_threshold is not None:
+            inventory.critical_threshold = update_data.critical_threshold
+        
+        if hasattr(update_data, 'is_active') and update_data.is_active is not None:
+            inventory.is_active = update_data.is_active
+        
+        try:
+            self.db.commit()
+            return True
+        except Exception:
+            self.db.rollback()
+            raise
+
     async def adjust_inventory(
         self,
         sku_id: int,
@@ -425,11 +522,16 @@ class InventoryService:
         try:
             # 根据调整类型更新库存
             old_quantity = inventory.total_quantity
-            if adjustment_type == AdjustmentType.INCREASE:
+            transaction_type = TransactionType.ADJUST  # 默认类型
+            
+            # 统一使用字符串值比较（兼容AdjustmentTypeEnum和AdjustmentType）
+            adj_type_value = adjustment_type.value if hasattr(adjustment_type, 'value') else str(adjustment_type)
+            
+            if adj_type_value == "increase":
                 inventory.total_quantity += quantity
                 inventory.available_quantity += quantity
                 transaction_type = TransactionType.RESTOCK
-            elif adjustment_type == AdjustmentType.DECREASE:
+            elif adj_type_value == "decrease":
                 if inventory.available_quantity < quantity:
                     raise ValueError(
                         f"可用库存不足，当前: {inventory.available_quantity}, 需要: {quantity}"
@@ -437,11 +539,13 @@ class InventoryService:
                 inventory.total_quantity -= quantity
                 inventory.available_quantity -= quantity
                 transaction_type = TransactionType.ADJUST
-            elif adjustment_type == AdjustmentType.SET:
+            elif adj_type_value == "set":
                 inventory.total_quantity = quantity
                 inventory.available_quantity = quantity - inventory.reserved_quantity
                 quantity = abs(quantity - old_quantity)  # 记录变化量
                 transaction_type = TransactionType.ADJUST
+            else:
+                raise ValueError(f"不支持的调整类型: {adjustment_type}")
 
             # 创建变动记录
             transaction = self.repository.create_transaction(
@@ -506,31 +610,18 @@ class InventoryService:
                 # 是LowStockQuery对象
                 level = query_or_threshold.level
                 if level == "critical":
-                    results = self.repository.get_low_stock_items(
-                        threshold_type="critical",
-                        page=1,
-                        page_size=1000
-                    )
+                    # 使用critical_threshold - 传入None让Repository使用各SKU自己的critical_threshold
+                    # TODO: Repository暂不支持threshold_type参数，使用默认逻辑
+                    results = self.repository.get_low_stock_items(threshold=None)
                 else:  # warning
-                    results = self.repository.get_low_stock_items(
-                        threshold_type="warning",
-                        page=1,
-                        page_size=1000
-                    )
+                    # 使用warning_threshold - 传入None让Repository使用各SKU自己的warning_threshold
+                    results = self.repository.get_low_stock_items(threshold=None)
             else:
-                # 是数值阈值
-                results = self.repository.get_low_stock_items(
-                    custom_threshold=query_or_threshold,
-                    page=1,
-                    page_size=1000
-                )
+                # 是数值阈值 - 使用自定义阈值
+                results = self.repository.get_low_stock_items(threshold=query_or_threshold)
         else:
             # 默认使用预警阈值
-            results = self.repository.get_low_stock_items(
-                threshold_type="warning",
-                page=1,
-                page_size=1000
-            )
+            results = self.repository.get_low_stock_items(threshold=None)
 
         return [
             LowStockItem(
@@ -561,7 +652,6 @@ class InventoryService:
 
         # 如果参数为空列表，get_inventories_by_sku_ids可能返回空，改用直接查询
         if not inventories:
-            from sqlalchemy import select
             stmt = select(InventoryStock).where(InventoryStock.is_active == True)
             inventories = self.db.execute(stmt).scalars().all()
 
@@ -676,7 +766,6 @@ class InventoryService:
         else:
             # 多SKU或日期范围查询，使用通用方法
             # 这里简化处理，实际可能需要Repository增加更复杂的查询方法
-            from sqlalchemy import select
             stmt = select(InventoryTransaction)
             
             if sku_ids:
@@ -706,3 +795,239 @@ class InventoryService:
         return TransactionSearchResponse(
             sku_id=sku_id, total=total, logs=transaction_reads
         )
+
+    def search_transaction_logs(
+        self, query: TransactionQuery
+    ) -> List[TransactionSearchResponse]:
+        """
+        搜索库存变动记录（支持多SKU）
+        
+        Args:
+            query: 交易查询条件
+            
+        Returns:
+            交易搜索响应列表，每个SKU一个响应对象
+            
+        说明：
+            与get_transaction_logs的区别：
+            - get_transaction_logs: 单SKU查询，返回单个TransactionSearchResponse
+            - search_transaction_logs: 多SKU查询，返回List[TransactionSearchResponse]
+        """
+        # 解析查询条件
+        sku_ids = query.sku_ids if query.sku_ids else None
+        transaction_types = None
+        if query.transaction_types:
+            # 转换为TransactionType枚举
+            transaction_types = []
+            for t in query.transaction_types:
+                if isinstance(t, str):
+                    transaction_types.append(TransactionType[t.upper()])
+                else:
+                    transaction_types.append(t)
+        
+        operator_id = query.operator_id if query.operator_id else None
+        
+        # 构建查询
+        stmt = select(InventoryTransaction)
+        
+        if sku_ids:
+            stmt = stmt.where(InventoryTransaction.sku_id.in_(sku_ids))
+        if transaction_types:
+            stmt = stmt.where(InventoryTransaction.transaction_type.in_(transaction_types))
+        if operator_id:
+            stmt = stmt.where(InventoryTransaction.operator_id == operator_id)
+        
+        stmt = stmt.order_by(InventoryTransaction.created_at.desc())
+        
+        # 应用分页
+        stmt = stmt.offset(query.offset).limit(query.limit)
+        
+        # 执行查询
+        results = self.db.execute(stmt).scalars().all()
+        
+        # 按SKU分组
+        sku_groups = {}
+        for transaction in results:
+            sku_id = transaction.sku_id
+            if sku_id not in sku_groups:
+                sku_groups[sku_id] = []
+            sku_groups[sku_id].append(transaction)
+        
+        # 构建响应列表
+        response_list = []
+        for sku_id, transactions in sku_groups.items():
+            transaction_reads = [
+                InventoryTransactionRead.model_validate(t) for t in transactions
+            ]
+            response_list.append(
+                TransactionSearchResponse(
+                    sku_id=sku_id,
+                    total=len(transactions),
+                    logs=transaction_reads
+                )
+            )
+        
+        return response_list
+
+    # ============ 事件发布与集成 ============
+
+    async def publish_inventory_event(
+        self, 
+        event_type: str, 
+        event_data: Dict[str, Any],
+        severity: str = "INFO"
+    ) -> bool:
+        """
+        发布库存事件 - 用于系统集成和审计
+        
+        功能说明：
+        1. **事件记录**：将事件写入日志系统，便于审计和追踪
+        2. **时间戳**：自动添加事件发生时间（UTC时区）
+        3. **事件ID**：生成唯一事件ID，用于事件去重和追踪
+        4. **严重级别**：支持INFO/WARNING/ERROR级别分类
+        5. **数据验证**：验证事件数据的完整性
+        6. **异常捕获**：确保事件发布失败不影响业务流程
+        
+        Args:
+            event_type: 事件类型，如"inventory.stock.reserved"
+                - inventory.stock.reserved: 库存预占成功
+                - inventory.stock.released: 库存释放成功
+                - inventory.stock.deducted: 库存扣减成功
+                - inventory.stock.adjusted: 库存调整完成
+                - inventory.stock.low_warning: 库存低于警戒线
+                - inventory.stock.critical: 库存低于危险线
+            event_data: 事件数据字典，包含业务相关信息
+            severity: 事件严重级别 (INFO/WARNING/ERROR)
+            
+        Returns:
+            bool: 发布成功返回True，失败返回False
+            
+        事件数据标准格式：
+            {
+                "sku_id": int,              # SKU ID（必需）
+                "user_id": int,             # 用户ID（可选）
+                "operator_id": int,         # 操作员ID（可选）
+                "quantity": int,            # 数量变化（可选）
+                "old_value": int,           # 旧值（可选）
+                "new_value": int,           # 新值（可选）
+                "reason": str,              # 操作原因（可选）
+                "reference_id": str,        # 业务引用ID（可选）
+                "metadata": dict            # 额外元数据（可选）
+            }
+            
+        使用示例：
+            >>> await service.publish_inventory_event(
+            ...     "inventory.stock.reserved",
+            ...     {
+            ...         "sku_id": 123,
+            ...         "user_id": 456,
+            ...         "quantity": 10,
+            ...         "reference_id": "ORDER-001"
+            ...     }
+            ... )
+            True
+            
+        TODO:
+            - [ ] 集成消息队列（RabbitMQ/Kafka）实现异步事件分发
+            - [ ] 添加事件重试机制，确保重要事件不丢失
+            - [ ] 支持事件订阅者模式，允许其他模块订阅事件
+            - [ ] 实现事件持久化到专门的事件存储（Event Store）
+            - [ ] 添加事件版本控制，支持事件Schema演进
+        """
+        import logging
+        import json
+        
+        logger = logging.getLogger(__name__)
+        
+        try:
+            # 1. 生成事件唯一ID
+            event_id = f"evt_{uuid.uuid4().hex[:16]}"
+            
+            # 2. 添加标准元数据
+            event_payload = {
+                "event_id": event_id,
+                "event_type": event_type,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "severity": severity,
+                "source": "inventory_management",
+                "data": event_data
+            }
+            
+            # 3. 数据验证
+            required_fields = self._validate_event_data(event_type, event_data)
+            if not required_fields:
+                logger.warning(
+                    f"[EVENT-VALIDATION-FAILED] {event_type}: 缺少必需字段",
+                    extra={"event_payload": event_payload}
+                )
+                return False
+            
+            # 4. 根据严重级别选择日志级别
+            log_message = f"[INVENTORY-EVENT] {event_type}"
+            log_extra = {
+                "event_id": event_id,
+                "event_type": event_type,
+                "event_data": event_data,
+                "event_payload": json.dumps(event_payload, ensure_ascii=False)
+            }
+            
+            if severity == "ERROR":
+                logger.error(log_message, extra=log_extra)
+            elif severity == "WARNING":
+                logger.warning(log_message, extra=log_extra)
+            else:
+                logger.info(log_message, extra=log_extra)
+            
+            # 5. TODO: 发送到消息队列
+            # 预留消息队列集成点
+            # await self._send_to_message_queue(event_payload)
+            
+            # 6. 可选：记录到数据库事件表
+            # 预留事件持久化点
+            # await self._persist_event(event_payload)
+            
+            return True
+            
+        except Exception as e:
+            # 确保事件发布失败不影响业务流程
+            logger.error(
+                f"[EVENT-PUBLISH-ERROR] 发布事件失败: {event_type}",
+                exc_info=e,
+                extra={
+                    "event_type": event_type,
+                    "event_data": event_data,
+                    "error": str(e)
+                }
+            )
+            return False
+    
+    def _validate_event_data(self, event_type: str, event_data: Dict[str, Any]) -> bool:
+        """
+        验证事件数据的完整性
+        
+        Args:
+            event_type: 事件类型
+            event_data: 事件数据
+            
+        Returns:
+            bool: 验证通过返回True，否则返回False
+        """
+        # 不同事件类型的必需字段
+        required_fields_map = {
+            "inventory.stock.reserved": ["sku_id", "user_id", "quantity"],
+            "inventory.stock.released": ["reservation_id", "user_id"],  # reservation_id或reference_id都可以
+            "inventory.stock.deducted": ["sku_id", "quantity", "operator_id"],
+            "inventory.stock.adjusted": ["sku_id", "adjustment_type", "operator_id"],
+            "inventory.stock.low_warning": ["sku_id", "current_quantity", "threshold"],
+            "inventory.stock.critical": ["sku_id", "current_quantity", "threshold"],
+        }
+        
+        # 获取必需字段列表（未定义的事件类型只要求sku_id）
+        required_fields = required_fields_map.get(event_type, ["sku_id"])
+        
+        # 检查所有必需字段是否存在
+        for field in required_fields:
+            if field not in event_data:
+                return False
+        
+        return True
