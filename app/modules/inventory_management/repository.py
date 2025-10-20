@@ -169,27 +169,12 @@ class InventoryRepository:
             .all()
         )
     
-    def create_inventory(
-        self,
-        sku_id: int,
-        total_quantity: int,
-        available_quantity: Optional[int] = None,
-        reserved_quantity: int = 0,
-        warning_threshold: int = 10,
-        critical_threshold: int = 5,
-        is_active: bool = True
-    ) -> InventoryStock:
+    def create_inventory(self, inventory: InventoryStock) -> InventoryStock:
         """
         创建新的库存记录
         
         Args:
-            sku_id: SKU ID（必需）
-            total_quantity: 总库存数量（必需）
-            available_quantity: 可用库存数量（默认等于total_quantity）
-            reserved_quantity: 预占库存数量（默认0）
-            warning_threshold: 低库存预警阈值（默认10）
-            critical_threshold: 紧急库存阈值（默认5）
-            is_active: 是否启用（默认True）
+            inventory: InventoryStock实体对象
                 
         Returns:
             创建的InventoryStock对象
@@ -197,18 +182,6 @@ class InventoryRepository:
         Raises:
             IntegrityError: 如果SKU已存在库存记录
         """
-        if available_quantity is None:
-            available_quantity = total_quantity
-            
-        inventory = InventoryStock(
-            sku_id=sku_id,
-            total_quantity=total_quantity,
-            available_quantity=available_quantity,
-            reserved_quantity=reserved_quantity,
-            warning_threshold=warning_threshold,
-            critical_threshold=critical_threshold,
-            is_active=is_active
-        )
         self.db.add(inventory)
         self.db.flush()  # 刷新获取ID，但不提交事务
         self.db.refresh(inventory)
@@ -331,37 +304,16 @@ class InventoryRepository:
     
     # ============ 库存预占操作 (InventoryReservation) ============
     
-    def create_reservation(
-        self,
-        sku_id: int,
-        reservation_type: str,
-        reference_id: str,
-        quantity: int,
-        expires_at: datetime,
-        is_active: bool = True
-    ) -> InventoryReservation:
+    def create_reservation(self, reservation: InventoryReservation) -> InventoryReservation:
         """
         创建库存预占记录
         
         Args:
-            sku_id: SKU ID（必需）
-            reservation_type: 预占类型（必需）
-            reference_id: 关联业务ID（必需）
-            quantity: 预占数量（必需）
-            expires_at: 过期时间（必需）
-            is_active: 是否有效（默认True）
+            reservation: InventoryReservation实体对象
                 
         Returns:
             创建的InventoryReservation对象
         """
-        reservation = InventoryReservation(
-            sku_id=sku_id,
-            reservation_type=reservation_type,
-            reference_id=reference_id,
-            quantity=quantity,
-            expires_at=expires_at,
-            is_active=is_active
-        )
         self.db.add(reservation)
         self.db.flush()  # 刷新获取ID，但不提交事务
         self.db.refresh(reservation)
@@ -495,46 +447,16 @@ class InventoryRepository:
     
     # ============ 库存事务日志操作 (InventoryTransaction) ============
     
-    def create_transaction(
-        self,
-        sku_id: int,
-        transaction_type: TransactionType,
-        quantity_change: int,
-        quantity_before: int,
-        quantity_after: int,
-        reference_type: Optional[str] = None,
-        reference_id: Optional[str] = None,
-        reason: Optional[str] = None,
-        operator_id: Optional[int] = None
-    ) -> InventoryTransaction:
+    def create_transaction(self, transaction: InventoryTransaction) -> InventoryTransaction:
         """
         创建库存变动日志
         
         Args:
-            sku_id: SKU ID（必需）
-            transaction_type: 事务类型（必需）
-            quantity_change: 数量变化（必需）
-            quantity_before: 变更前数量（必需）
-            quantity_after: 变更后数量（必需）
-            reference_type: 关联业务类型（可选）
-            reference_id: 关联业务ID（可选）
-            reason: 变更原因（可选）
-            operator_id: 操作人ID（可选）
+            transaction: InventoryTransaction实体对象
                 
         Returns:
             创建的InventoryTransaction对象
         """
-        transaction = InventoryTransaction(
-            sku_id=sku_id,
-            transaction_type=transaction_type,
-            quantity_change=quantity_change,
-            quantity_before=quantity_before,
-            quantity_after=quantity_after,
-            reference_type=reference_type,
-            reference_id=reference_id,
-            reason=reason,
-            operator_id=operator_id
-        )
         self.db.add(transaction)
         self.db.flush()  # 刷新获取ID，但不提交事务
         self.db.refresh(transaction)

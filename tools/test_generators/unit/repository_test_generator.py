@@ -352,7 +352,32 @@ class RepositoryTestGenerator:
         elif 'str' in param_type.lower():
             return self._resolve_string_param(param_name, param_type, model_info, entity_var, **context)
         elif 'bool' in param_type.lower():
-            return "False"
+            # 🐛 BUG修复 (2025-10-20): 智能处理boolean参数
+            # 问题：get_inventory_for_update(sku_id, is_active=False) 查询失败
+            # 原因：所有bool参数都返回False，但is_active可能是Optional且应该用None
+            # 解决：检查是否Optional，以及是否是过滤参数
+            
+            # 检查是否是Optional类型
+            is_optional = 'Optional[' in param_type or param_type.endswith('| None')
+            
+            # 对于Optional[bool]类型的过滤参数（如is_active），使用None更安全
+            # 这样可以匹配所有记录，而不会因为默认值不匹配导致查不到数据
+            if is_optional and param_name.startswith('is_'):
+                return "None"
+            
+            # 如果模型有这个字段，尝试从entity获取（found场景）
+            for_not_found = context.get('for_not_found', False)
+            if not for_not_found and model_info and param_name in [f.name for f in model_info.fields]:
+                # 检查字段的默认值
+                field = next((f for f in model_info.fields if f.name == param_name), None)
+                if field and field.default:
+                    # 有默认值，使用默认值
+                    return field.default if field.default != 'True' and field.default != 'False' else field.default
+                # 没有默认值信息，从entity获取
+                return f"{entity_var}.{param_name}"
+            
+            # 其他情况：返回False (found) 或 "invalid_bool" (not_found)
+            return '"invalid_bool"' if for_not_found else "False"
         elif 'datetime' in param_type.lower():
             # datetime类型：for_not_found场景使用datetime.now()
             for_not_found = context.get('for_not_found', False)
@@ -3546,6 +3571,7 @@ class Test{repo_name}:
         支持的格式：
         - Optional[Product] -> Product
         - List[Order] -> Order
+        - Tuple[List[InventoryTransaction], int] -> InventoryTransaction
         - Product -> Product
         - int, str等基础类型 -> None
         
@@ -3558,14 +3584,49 @@ class Test{repo_name}:
         """
         import re
         
-        # 移除Optional, List等包装
+        # 🐛 BUG修复 (2025-10-20): 支持Tuple类型的模型提取
+        # 问题：Tuple[List[InventoryTransaction], int]无法提取出InventoryTransaction
+        # 原因：只移除了Optional和List，没有移除Tuple
+        # 解决：使用更智能的括号匹配，处理嵌套泛型
+        
+        # 1. 处理Tuple类型：提取第一个泛型参数（通常是List[Model]）
+        if 'Tuple[' in return_type or 'tuple[' in return_type:
+            # 使用栈匹配括号，找到Tuple的完整内容
+            start_idx = return_type.find('Tuple[') if 'Tuple[' in return_type else return_type.find('tuple[')
+            if start_idx != -1:
+                bracket_count = 0
+                content_start = start_idx + 6  # "Tuple[" 的长度
+                for i in range(content_start, len(return_type)):
+                    if return_type[i] == '[':
+                        bracket_count += 1
+                    elif return_type[i] == ']':
+                        if bracket_count == 0:
+                            # 找到匹配的右括号
+                            tuple_content = return_type[content_start:i]
+                            # Tuple的第一个参数通常是 List[Model]，提取它
+                            if ',' in tuple_content:
+                                # 找到第一个逗号（不在括号内的）
+                                paren_depth = 0
+                                for j, char in enumerate(tuple_content):
+                                    if char == '[':
+                                        paren_depth += 1
+                                    elif char == ']':
+                                        paren_depth -= 1
+                                    elif char == ',' and paren_depth == 0:
+                                        first_param = tuple_content[:j].strip()
+                                        return_type = first_param  # 继续处理List[Model]
+                                        break
+                            break
+                        bracket_count -= 1
+        
+        # 2. 移除Optional, List等包装
         clean_type = return_type.replace('Optional[', '').replace('List[', '').replace(']', '').strip()
         
-        # 移除 | None 语法
+        # 3. 移除 | None 语法
         if '|' in clean_type:
             clean_type = clean_type.split('|')[0].strip()
         
-        # 检查是否是模型类（大写开头且在models中）
+        # 4. 检查是否是模型类（大写开头且在models中）
         if clean_type and clean_type[0].isupper():
             # 尝试从当前模块查找
             if clean_type in models:

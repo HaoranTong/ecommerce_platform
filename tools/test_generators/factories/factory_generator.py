@@ -316,8 +316,8 @@ from {module_import_path} import (
         
         # 查找目标模型
         target_model = None
-        for model_name, model_info in all_models.items():
-            if model_info.tablename == target_table:
+        for model_name, model_inf in all_models.items():
+            if model_inf.tablename == target_table:
                 target_model = model_name
                 break
         
@@ -398,11 +398,35 @@ from {module_import_path} import (
         field_name = field.name.lower()
 
         if "email" in field_name:
-            return f"{field.name} = factory.Sequence(lambda n: f'user{{n}}@example.com')"
-        elif "username" in field_name or "name" in field_name:
-            return f"{field.name} = factory.Sequence(lambda n: f'{field_name}_{{n}}')"
+            # Email字段：使用UUID确保唯一性
+            if field.unique:
+                return f"{field.name} = factory.LazyFunction(lambda: f'user_{{uuid.uuid4().hex[:8]}}@example.com')"
+            else:
+                return f"{field.name} = factory.Sequence(lambda n: f'user{{n}}@example.com')"
+        elif "username" in field_name:
+            # Username字段：使用UUID确保唯一性
+            if field.unique:
+                return f"{field.name} = factory.LazyFunction(lambda: f'{field_name}_{{uuid.uuid4().hex[:8]}}')"
+            else:
+                return f"{field.name} = factory.Sequence(lambda n: f'{field_name}_{{n}}')"
+        elif "name" in field_name:
+            # Name字段：如果是unique，使用UUID确保唯一性
+            if field.unique:
+                return f"{field.name} = factory.LazyFunction(lambda: f'{field_name}_{{uuid.uuid4().hex[:8]}}')"
+            else:
+                return f"{field.name} = factory.Sequence(lambda n: f'{field_name}_{{n}}')"
         elif "code" in field_name:
-            return f"{field.name} = factory.Sequence(lambda n: f'{field.name.upper()}_{{n:06d}}')"
+            # Code字段：使用UUID确保唯一性
+            if field.unique:
+                return f"{field.name} = factory.LazyFunction(lambda: f'{field.name.upper()}_{{uuid.uuid4().hex[:8].upper()}}')"
+            else:
+                return f"{field.name} = factory.Sequence(lambda n: f'{field.name.upper()}_{{n:06d}}')"
+        elif "slug" in field_name:
+            # Slug字段：使用UUID确保唯一性（slug通常是unique的）
+            if field.unique:
+                return f"{field.name} = factory.LazyFunction(lambda: f'{field_name}_{{uuid.uuid4().hex[:8]}}')"
+            else:
+                return f"{field.name} = factory.Sequence(lambda n: f'{field_name}_{{n}}')"
         elif "description" in field_name:
             return f"{field.name} = factory.Faker('text', max_nb_chars=200)"
         elif "title" in field_name:
@@ -416,7 +440,8 @@ from {module_import_path} import (
         elif "password" in field_name:
             return f"{field.name} = 'hashed_password_123'"
         elif field.unique:
-            return f"{field.name} = factory.Sequence(lambda n: f'{field_name}_{{n}}')"
+            # 其他unique字段：使用UUID确保唯一性
+            return f"{field.name} = factory.LazyFunction(lambda: f'{field_name}_{{uuid.uuid4().hex[:8]}}')"
         else:
             max_length = self._extract_string_length(field.column_type)
             if max_length and max_length <= 50:
@@ -786,6 +811,16 @@ from {module_import_path} import (
                 
                 target_model = self._infer_model_name_from_table(target_table, models)
                 
+                # 🐛 BUG修复 (2025-10-20): 检查自引用，避免在create_sample_data中循环依赖
+                # 问题：Category.parent_id → categories.id (自引用)
+                #      生成: data['category'] = CategoryFactory(parent=data['category'])
+                #      结果: KeyError: 'category' (因为此时data['category']还未创建)
+                # 解决：跳过自引用字段，在create_sample_data中创建根对象（parent=None）
+                if target_model == model_name:
+                    # 自引用字段，不在create_sample_data中传入参数
+                    # Factory中已经将其设为None（见_generate_factory_field_for_fk）
+                    continue
+                
                 # 检查是否跨模块
                 is_cross_module = self._is_cross_module_dependency(target_model, models)
                 
@@ -822,12 +857,21 @@ from {module_import_path} import (
                     # 检查是否引用的是同模块内已创建的模型
                     target_model_lower = target_model.lower()
                     if target_model_lower in [m.lower() for m in models.keys()]:
-                        # 使用目标列名（而不是总是用.id）
-                        params.append(f"{field.name}=data['{target_model_lower}'].{target_column}")
-                        
-                        # 关键：只有指向主键且有relationship时，才需要传递relation=None来禁用SubFactory
-                        # 如果指向非主键，Factory定义中已经不包含SubFactory了（只有sku_id字段）
-                        if target_column == 'id' and relation_name:
-                            params.append(f"{relation_name}=None")
+                        # 关键修复：如果Factory有SubFactory，传入对象而不是外键ID
+                        # 这样可以重用已创建的对象，避免SubFactory创建新对象时外键约束失败
+                        # 
+                        # 判断依据：如果找到了relationship名称，说明Factory中有SubFactory
+                        # 注意：这里的relation_name是从当前模型的relationships中查找的
+                        # 例如：CartItem.cart_id → 找到relation: cart → 使用 cart=data['cart']
+                        #      而不是 cart_id=data['cart'].id
+                        if relation_name and relation_name != field.name[:-3]:
+                            # relationship名称与简单截取不同，可能是特殊命名，仍使用relationship
+                            params.append(f"{relation_name}=data['{target_model_lower}']")
+                        elif relation_name:
+                            # relationship名称与字段匹配（如cart_id → cart）
+                            params.append(f"{relation_name}=data['{target_model_lower}']")
+                        else:
+                            # 没有relationship，直接使用外键ID
+                            params.append(f"{field.name}=data['{target_model_lower}'].{target_column}")
         
         return ", ".join(params)

@@ -145,7 +145,7 @@ class InventoryService:
             raise ValueError(f"SKU {inventory_data.sku_id} 的库存记录已存在")
 
         # 创建库存记录
-        inventory = self.repository.create_inventory(
+        inventory = InventoryStock(
             sku_id=inventory_data.sku_id,
             total_quantity=inventory_data.initial_quantity,
             available_quantity=inventory_data.initial_quantity,
@@ -153,9 +153,10 @@ class InventoryService:
             warning_threshold=getattr(inventory_data, "warning_threshold", 10),
             critical_threshold=getattr(inventory_data, "critical_threshold", 5),
         )
+        inventory = self.repository.create_inventory(inventory)
 
         # 记录初始库存事务
-        self.repository.create_transaction(
+        transaction = InventoryTransaction(
             sku_id=inventory_data.sku_id,
             transaction_type=TransactionType.RESTOCK,
             quantity_change=inventory_data.initial_quantity,
@@ -165,6 +166,7 @@ class InventoryService:
             reference_id="system_init",
             reason="初始库存创建",
         )
+        self.repository.create_transaction(transaction)
 
         try:
             self.db.commit()
@@ -225,13 +227,14 @@ class InventoryService:
                     raise ValueError(f"SKU {sku_id} 预占失败")
 
                 # 创建预占记录
-                reservation = self.repository.create_reservation(
+                reservation_obj = InventoryReservation(
                     sku_id=sku_id,
                     reservation_type=reservation_type,
                     reference_id=reference_id,
                     quantity=quantity,
                     expires_at=expires_at,
                 )
+                reservation = self.repository.create_reservation(reservation_obj)
 
                 reserved_items.append(
                     ReservationItemResponse(
@@ -548,7 +551,7 @@ class InventoryService:
                 raise ValueError(f"不支持的调整类型: {adjustment_type}")
 
             # 创建变动记录
-            transaction = self.repository.create_transaction(
+            transaction_obj = InventoryTransaction(
                 sku_id=sku_id,
                 transaction_type=transaction_type,
                 quantity_change=quantity,
@@ -563,6 +566,7 @@ class InventoryService:
                 ),
                 quantity_after=inventory.total_quantity,
             )
+            transaction = self.repository.create_transaction(transaction_obj)
 
             self.db.commit()
 
