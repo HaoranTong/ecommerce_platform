@@ -563,6 +563,86 @@ class {class_name}:
     # 注意：_convert_to_dynamic_code 方法已移至 BaseTestGenerator 基类
     # 所有生成器都可以直接调用基类实现：self._convert_to_dynamic_code(field, value)
     # 如需自定义行为，可在子类中重写此方法
+    
+    def _has_interdependent_fields(self, schema_name: str, module_name: str) -> bool:
+        """检查Schema是否有字段间依赖约束
+        
+        从配置文件schema_field_constraints中读取
+        """
+        if 'schema_field_constraints' not in self.config:
+            return False
+        
+        constraints = self.config['schema_field_constraints']
+        return schema_name in constraints and constraints[schema_name].get('module') == module_name
+    
+    def _generate_constrained_test_data(self, schema_name: str, module_name: str, route: RouterInfo, models: Dict[str, ModelInfo]) -> str:
+        """为有字段间约束的Schema生成特殊的测试数据
+        
+        Args:
+            schema_name: Schema类名，如"ThresholdUpdate"
+            module_name: 模块名
+            route: 路由信息
+            models: 模型信息
+            
+        Returns:
+            生成的测试数据代码字符串
+        """
+        constraints = self.config['schema_field_constraints'][schema_name]
+        field_rules = constraints.get('field_rules', {})
+        
+        # 检测外键依赖并生成实体创建代码
+        schema_data = self.analyze_pydantic_schema(module_name, route)
+        foreign_key_setup = ''
+        if schema_data and isinstance(schema_data, dict):
+            foreign_key_setup = self._generate_foreign_key_entities(schema_data, module_name, route.method, route)
+        
+        # 生成约束测试数据
+        code_lines = []
+        code_lines.append("        # 动态生成测试数据，避免硬编码")
+        code_lines.append("        fake = Faker()")
+        
+        # 按generation_order生成字段
+        generation_order = constraints.get('generation_order', [])
+        temp_vars = {}
+        
+        for field in generation_order:
+            if field not in field_rules:
+                continue
+            
+            rule = field_rules[field]
+            
+            if rule.get('generate_first'):
+                # 先生成的字段（如warning_threshold）
+                min_val = rule.get('min', 0)
+                max_val = rule.get('max', 999999)
+                var_name = field.replace('_threshold', '')  # warning_threshold -> warning
+                code_lines.append(f"        # 业务逻辑：{rule.get('comment', '')}")
+                code_lines.append(f"        {var_name} = fake.random_int(min={min_val}, max={max_val})")
+                temp_vars[field] = var_name
+            elif 'max_reference' in rule:
+                # 依赖其他字段的字段（如critical_threshold）
+                ref_field = rule['max_reference']
+                ref_var = temp_vars.get(ref_field)
+                min_val = rule.get('min', 0)
+                var_name = field.replace('_threshold', '')  # critical_threshold -> critical
+                if ref_var:
+                    code_lines.append(f"        {var_name} = fake.random_int(min={min_val}, max={ref_var})  # 确保{var_name} <= {ref_var}")
+                    temp_vars[field] = var_name
+        
+        # 构建test_data字典
+        code_lines.append("        test_data = {")
+        for field in generation_order:
+            if field in temp_vars:
+                code_lines.append(f'    "{field}": {temp_vars[field]},')
+        code_lines.append("}")
+        
+        test_data_code = '\n'.join(code_lines)
+        
+        # 如果有外键依赖，先创建关联实体
+        if foreign_key_setup:
+            return f'''{foreign_key_setup}
+{test_data_code}'''
+        return test_data_code
 
     def _generate_test_data_for_route(self, route: RouterInfo, models: Dict[str, ModelInfo]) -> str:
         """为路由生成测试数据 - 集成双工厂架构，处理数据依赖关系"""
@@ -573,6 +653,12 @@ class {class_name}:
         
         # 使用基类的Schema分析功能
         module_name = self._extract_module_from_path(route.path)
+        
+        # 🔧 特殊处理：检测有字段间约束的Schema
+        schema_class_name = self._extract_schema_from_parameters(route) or self._infer_schema_class(route)
+        if schema_class_name and self._has_interdependent_fields(schema_class_name, module_name):
+            return self._generate_constrained_test_data(schema_class_name, module_name, route, models)
+        
         schema_data = self.analyze_pydantic_schema(module_name, route)
         
         if schema_data and isinstance(schema_data, dict):
@@ -882,11 +968,16 @@ class {class_name}:
                         # 直接跳到路径参数替换完成，不执行后面的实体创建逻辑
                     else:
                         # 实体未创建，需要生成创建代码
-                        # 直接从response_model获取准确的模型名（不再推断）
                         module_name = self._extract_module_from_path(route.path)
-                        model_name = self._extract_model_name_from_response(route, models)
+                        
+                        # 🔧 优先从配置映射表获取模型名（最准确）
+                        model_name = self._get_model_from_mapping(module_name, entity_type)
+                        
+                        # 如果配置映射不存在，再从response_model推断
+                        if not model_name:
+                            model_name = self._extract_model_name_from_response(route, models)
                     
-                        # 如果response_model为空（如DELETE请求），尝试从实体类型推断
+                        # 如果response_model也为空（如DELETE请求），尝试从实体类型推断
                         if not model_name:
                             # entity_type: 'product' → 尝试查找 'Product'
                             entity_type_pascal = ''.join(word.capitalize() for word in entity_type.split('_'))
@@ -899,24 +990,38 @@ class {class_name}:
                         # 基于模型名检查配置是否需要完整数据链
                         if model_name and self._needs_complete_chain_for_model(model_name, module_name):
                             # 使用create_complete_chain创建完整数据链
+                            # 注意：create_complete_chain返回6个值：user, category, brand, product, sku, inventory_stock
                             create_entity_code = '''
         # 使用统一工厂创建完整数据链（符合testing-standards.md第1241行规范）
-        user, category, brand, product, sku = StandardTestDataFactory.create_complete_chain(mysql_integration_db)
+        user, category, brand, product, sku, inventory_stock = StandardTestDataFactory.create_complete_chain(mysql_integration_db)
         '''
                             # 推断工厂方法名（如 CartItem -> cart_item）
                             factory_method_name = self._to_snake_case(model_name)
                             
-                            # 特殊处理：CartItem的create_cart_item需要product_id而不是sku_id
-                            # 原因：虽然字段名叫sku_id，但实际引用products.id（设计遗留问题）
+                            # 特殊处理不同模型的工厂方法参数需求
                             if factory_method_name == 'cart_item':
-                                # 创建实体（传入product.id）
+                                # CartItem的create_cart_item需要cart_id和product_id
+                                # 原因：虽然字段名叫sku_id，但实际引用products.id（设计遗留问题）
                                 create_entity_code += f'''{entity_type} = StandardTestDataFactory.create_{factory_method_name}(mysql_integration_db, user.id, product.id)
         '''
+                            elif factory_method_name == 'inventory_reservation':
+                                # InventoryReservation的create_inventory_reservation需要inventory_stock_id
+                                # 签名：(db, inventory_stock_sku_id=None, inventory_stock_id=None, **kwargs)
+                                create_entity_code += f'''{entity_type} = StandardTestDataFactory.create_{factory_method_name}(mysql_integration_db, inventory_stock_id=inventory_stock.id)
+        '''
+                            elif factory_method_name == 'inventory_transaction':
+                                # InventoryTransaction的create_inventory_transaction也需要inventory_stock_sku_id
+                                # 签名：(db, inventory_stock_sku_id=None, inventory_stock_id=None, sku_id=None, **kwargs)
+                                create_entity_code += f'''{entity_type} = StandardTestDataFactory.create_{factory_method_name}(mysql_integration_db, inventory_stock_sku_id=sku.id)
+        '''
                             else:
-                                # 创建实体（默认传入sku.id）
+                                # 默认情况：假设需要user_id和sku_id
                                 create_entity_code += f'''{entity_type} = StandardTestDataFactory.create_{factory_method_name}(mysql_integration_db, user.id, sku.id)
         '''
-                            full_path = full_path.replace(f'{{{entity_type}_id}}', f'{{{entity_type}.id}}')
+                            
+                            # 🔧 从配置文件获取路径参数应该使用的字段（对complete_chain分支也应用）
+                            path_field = self._get_path_param_field(model_name, entity_type)
+                            full_path = full_path.replace(f'{{{entity_type}_id}}', f'{{{entity_type}.{path_field}}}')
                         elif model_name:
                             # 使用models参数动态查询外键依赖，生成正确的创建代码
                             factory_method_name = self._to_snake_case(model_name)
@@ -1352,21 +1457,24 @@ class {class_name}:
         """检查模型是否需要完整数据链
         
         Args:
-            model_name: 模型名（如 'CartItem', 'OrderItem'）
-            module_name: 模块名（如 'shopping_cart', 'order_management'）
+            model_name: 模型名（如 'CartItem', 'OrderItem', 'InventoryStock'）
+            module_name: 模块名（如 'shopping_cart', 'order_management', 'inventory_management'）
             
         Returns:
             bool: True表示需要完整数据链
+            
+        Note:
+            使用配置文件models_need_complete_chain来判断，而不是根据依赖链猜测
+            这样可以明确控制哪些模型需要complete_chain，避免误判
         """
-        dependency_chains = self.config.get('business_logic_patterns', {}).get('cross_module_dependency_chains', {})
+        # 从配置文件读取需要complete_chain的模型列表
+        models_config = self.config.get('business_logic_patterns', {}).get('models_need_complete_chain', {})
         
-        if module_name in dependency_chains:
-            module_chains = dependency_chains[module_name]
-            if isinstance(module_chains, dict) and model_name in module_chains:
-                deps = module_chains[model_name]
-                # 如果依赖链中包含product_catalog模块，说明需要完整链
-                if isinstance(deps, list) and any('product_catalog' in str(dep) for dep in deps):
-                    return True
+        # 检查当前模块的当前模型是否在配置列表中
+        if module_name in models_config:
+            required_models = models_config[module_name]
+            if isinstance(required_models, list) and model_name in required_models:
+                return True
         
         return False
     
