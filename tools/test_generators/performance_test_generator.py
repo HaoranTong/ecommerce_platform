@@ -512,22 +512,46 @@ class PerformanceTestGenerator(BaseTestGenerator):
                 "description": fake.text(max_nb_chars=100)'''
 
     def _select_auth_endpoint(self, routes: List[RouterInfo], module_name: str) -> str:
-        """选择认证相关的端点"""
+        """
+        选择适合性能测试的读端点（并发读测试）
+        
+        性能测试要求：
+        - 无路径参数（避免并发测试时需要动态生成ID）
+        - 简单读操作（避免复杂业务逻辑）
+        - 需要认证（测试真实场景）
+        
+        Returns:
+            str: 选中的endpoint URL
+        """
         if routes:
-            # 优先选择需要认证的GET端点
-            auth_required_routes = [r for r in routes if r.auth_required and r.method == "GET"]
+            # 🎯 优先选择：需要认证且无路径参数的GET端点
+            # 修复日期：2025-10-20
+            # 修复原因：inventory_management选择了/stock/{sku_id}导致并发测试失败
+            # 关键修复：添加 '{' not in r.path 过滤条件
+            auth_required_routes = [
+                r for r in routes 
+                if r.auth_required 
+                and r.method == "GET" 
+                and '{' not in r.path  # 🔑 排除路径参数
+            ]
             if auth_required_routes:
                 return f"/api/v1{auth_required_routes[0].path}"
             
-            # 回退：使用第一个GET端点
-            get_routes = [r for r in routes if r.method == "GET"]
+            # 回退：使用无路径参数的GET端点（可能不需要认证）
+            get_routes = [r for r in routes if r.method == "GET" and '{' not in r.path]
             if get_routes:
                 return f"/api/v1{get_routes[0].path}"
             
-            # 再回退：使用第一个端点
+            # 再回退：使用无路径参数的POST端点（如批量查询）
+            # 适用于inventory_management的/stock/batch
+            post_routes = [r for r in routes if r.method == "POST" and '{' not in r.path]
+            if post_routes:
+                return f"/api/v1{post_routes[0].path}"
+            
+            # 最终回退：使用第一个端点（可能有路径参数，但至少有endpoint）
             return f"/api/v1{routes[0].path}"
         
-        # 最终回退：使用API模块名
+        # 完全找不到路由：使用API模块名
         module_path = module_name.replace('_', '-')
         return f"/api/v1/{module_path}/"
 
