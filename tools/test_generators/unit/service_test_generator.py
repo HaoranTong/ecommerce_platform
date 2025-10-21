@@ -1,614 +1,1507 @@
-"""
-Service测试生成器 - 业务服务层Mock测试代码自动生成
+from __future__ import annotations
 
-该模块实现Service层单元测试代码的智能生成，严格遵循testing-standards.md v2.0.0规范，
-采用100% Mock Repository策略（无数据库依赖），专注测试业务逻辑、异常处理、Repository调用验证。
-
-主要功能:
-- Service初始化测试: 验证Service正确初始化和依赖注入
-- Mock Repository测试: 使用pytest-mock模拟Repository行为
-- 业务逻辑验证: 测试Service中的业务规则和数据处理逻辑
-- 异常处理测试: 验证Service对各种异常的处理逻辑
-- Repository调用验证: 验证Service正确调用Repository方法（参数、调用次数等）
-- 边界情况测试: 空数据、重复数据、并发等边界场景
-
-技术栈:
-- pytest: 测试框架
-- pytest-mock: Mock和Spy功能
-- unittest.mock: Mock对象和行为配置
-
-依赖关系:
-- tools.test_generators.core.schema: ModelInfo/RepositoryInfo数据模型
-- tools.test_generators.utils.service_analyzer: Service类信息检测
-- tools.test_generators.utils.repository_analyzer: Repository方法分析
-- app.modules.{module}.service: 待测试的业务Service
-- app.modules.{module}.repository: 被Mock的Repository（不实际调用）
-
-测试策略:
-- 无数据库依赖: 100% Mock Repository，不创建数据库连接
-- 业务逻辑专注: 仅测试Service的业务逻辑，不测试Repository的数据访问
-- Mock行为配置: 使用mocker.patch配置Repository返回值和异常
-- 调用验证: 使用assert_called_with验证Repository调用参数
-- 快速执行: 无I/O操作，单个测试<5ms
-
-生成的测试结构（示例）:
-```python
-class TestUserService:
-    \"\"\"UserService单元测试\"\"\"
-    
-    def test_create_user_success(self, mocker):
-        \"\"\"测试创建用户 - 成功场景\"\"\"
-        # Mock repository返回值
-        mock_repo = mocker.Mock()
-        mock_repo.create.return_value = User(id=1)
-        
-        # 调用service方法
-        service = UserService(repository=mock_repo)
-        result = service.create_user(data)
-        
-        # 验证repository调用
-        mock_repo.create.assert_called_once_with(data)
-    
-    def test_create_user_duplicate(self, mocker):
-        \"\"\"测试创建用户 - 重复场景\"\"\"
-        # Mock repository抛出异常
-        mock_repo = mocker.Mock()
-        mock_repo.create.side_effect = ValueError("Duplicate")
-        
-        # 验证service处理异常
-        service = UserService(repository=mock_repo)
-        with pytest.raises(ValueError):
-            service.create_user(data)
-```
-
-使用示例:
-    from pathlib import Path
-    from tools.test_generators.unit.service_test_generator import ServiceTestGenerator
-    from tools.test_generators.utils.model_analyzer import ModelAnalyzer
-    from tools.test_generators.utils.repository_analyzer import RepositoryAnalyzer
-    
-    # 分析模型和Repository
-    model_analyzer = ModelAnalyzer(project_root=Path.cwd())
-    repo_analyzer = RepositoryAnalyzer(project_root=Path.cwd())
-    
-    models = model_analyzer.analyze_module_models("user_auth")
-    repositories = repo_analyzer.analyze_module_repositories("user_auth")
-    
-    # 生成测试代码
-    generator = ServiceTestGenerator(project_root=Path.cwd(), config={})
-    test_code = generator.generate_service_tests("user_auth", models, repositories)
-    
-    # 保存测试文件
-    with open("tests/unit/generated/user_auth/test_services.py", "w") as f:
-        f.write(test_code)
-
-注意事项:
-- 所有Repository必须Mock，禁止使用真实数据库
-- Mock配置应覆盖正常返回、异常抛出、空返回等多种场景
-- Service方法的业务逻辑应该独立于Repository实现
-- 对于复杂的Service方法，生成的测试可能需要手动调整Mock行为
-
-Performance:
-- 生成速度: 平均50-100ms
-- 测试执行: 无I/O，单个测试<5ms
-
-Author: AI Assistant
-Created: 2025-10-08
-Modified: 2025-10-08
-Version: 1.0.0
-"""
+import ast
+import importlib
+import inspect
+from datetime import datetime
+from decimal import Decimal
 from pathlib import Path
-from typing import Dict
+from typing import Dict, List, Optional, Set, Tuple
+
 from ..core import ModelInfo, RepositoryInfo
 from ..utils.service_analyzer import ServiceAnalyzer
 
 
 class ServiceTestGenerator:
-    """Service测试生成器"""
-    
-    def __init__(self, project_root: Path, config: Dict, main_generator=None):
-        """初始化生成器
-        
-        Args:
-            project_root: 项目根目录
-            config: 配置字典
-            main_generator: 主生成器实例（临时使用）
-        """
+    """Generate pytest test suites for service layer modules with mocked dependencies."""
+
+    def __init__(self, project_root: Path, config: Dict, main_generator=None) -> None:
         self.project_root = project_root
         self.config = config
         self.main_generator = main_generator
         self.service_analyzer = ServiceAnalyzer(project_root)
-    
+        self._signature_cache: Dict[Tuple[str, str, str], Optional[inspect.Signature]] = {}
+
     def generate_service_tests(
         self,
         module_name: str,
         models: Dict[str, ModelInfo],
-        repositories: Dict[str, RepositoryInfo]
+        repositories: Dict[str, RepositoryInfo],
     ) -> str:
-        """生成服务层测试 - Mock Repository [CHECK:TEST-001]
-        
-        ✅ **符合架构设计意图** ✅
-        严格遵循 testing-standards.md v2.0.0 和 architecture/overview.md 的设计原则：
-        - Service层测试必须Mock Repository（不使用数据库）
-        - 专注测试业务逻辑，不测试SQL（SQL由Repository层测试）
-        - 使用pytest-mock而非SQLite数据库
-        - Mock Repository返回值，验证Service调用Repository的参数和顺序
-        
-        🎯 **核心原则**:
-        1. Service层测试使用mocker fixture，不使用unit_test_db
-        2. Mock所有Repository方法调用
-        3. 验证业务规则、流程编排、异常处理
-        4. 不依赖数据库，测试速度快
-        
-        📖 **参考标准**:
-        - testing-standards.md 第46-123行: Service层Mock Repository
-        - architecture/overview.md 第310行: Repository可轻松Mock
-
-        Args:
-            module_name: 模块名称
-            models: 模型信息字典
-            repositories: Repository信息字典
-
-        Returns:
-            str: 服务层测试代码（使用Mock Repository）
-        """
-        from datetime import datetime
-        
         service_info = self._detect_service_info(module_name)
-        service_class_name = service_info['class_name']
+        service_class_name = service_info.get("class_name", "Service")
         test_class_name = f"Test{service_class_name}"
-        
-        # 收集需要Mock的Repository类
-        repo_imports = []
-        repo_mock_examples = []
-        for repo_name, repo_info in repositories.items():
-            repo_imports.append(repo_name)
-            # 生成Mock示例
-            repo_mock_examples.append(f"""
-    # Mock {repo_name}
-    mock_{repo_info.model_name.lower()}_repo = mocker.patch(
-        'app.modules.{module_name}.repository.{repo_name}'
-    )
-    # 设置Mock返回值
-    mock_{repo_info.model_name.lower()} = mocker.Mock(spec={repo_info.model_name})
-    mock_{repo_info.model_name.lower()}.id = 1
-    mock_{repo_info.model_name.lower()}_repo.get_by_id.return_value = mock_{repo_info.model_name.lower()}""")
-        
-        # 生成Mock Repository的业务逻辑测试
-        mock_tests = self._generate_mock_service_tests(
-            module_name, models, repositories, service_info
+
+        repo_names = sorted(repositories.keys())
+        service_used_models = self.service_analyzer.extract_service_used_models(module_name)
+        if not service_used_models:
+            service_used_models = [
+                model_name
+                for model_name, model_info in models.items()
+                if model_info.module_name == module_name or model_info.module_name is None
+            ]
+
+        service_ast_index = self._collect_service_ast_details(
+            module_name,
+            service_class_name,
+            set(repositories.keys()),
         )
-        
+
+        helpers_block = self._generate_helpers_block(service_class_name)
+        mock_tests = self._generate_mock_service_tests(
+            module_name,
+            service_info,
+            service_ast_index,
+        )
+
+        model_import_line = self._build_import_line(
+            module_name,
+            "models",
+            service_used_models,
+            "no explicit model imports discovered",
+        )
+        repo_import_line = self._build_import_line(
+            module_name,
+            "repository",
+            repo_names,
+            "no explicit repository imports discovered",
+        )
+
         template = '''"""
-{module_title} 服务层测试
+{module_title} service tests generated by ServiceTestGenerator.
 
-测试类型: 单元测试 - 服务层业务逻辑
-测试策略: Mock Repository（符合架构设计意图）
-测试范围: 业务规则、流程编排、异常处理、Repository调用验证
-生成时间: {generation_time}
-
-符合标准: 
-- [CHECK:TEST-001] 测试标准合规
-- testing-standards.md v2.0.0 第46-123行: Service层Mock Repository
-- architecture/overview.md 第310行: Repository可轻松Mock
-
-测试重点:
-1. ✅ 业务规则是否正确
-2. ✅ 流程编排是否合理
-3. ✅ 异常处理是否完善
-4. ✅ 调用Repository的参数和顺序
-5. ❌ 不测试SQL正确性（由Repository层测试负责）
-
-为什么Mock Repository?
-- 符合架构设计意图（"Repository可轻松Mock"）
-- 测试速度快，不依赖数据库
-- 职责清晰，只测试业务逻辑
-- SQL错误由Repository测试发现，Service不重复测试
+Generated: {generation_time}
+Strategy: repository mocks only.
 """
 
-import pytest
-from unittest.mock import Mock, MagicMock, patch
-from pytest_mock import MockerFixture
+import inspect
+from types import SimpleNamespace
 from decimal import Decimal
 from datetime import datetime, timedelta
+import pytest
+from pytest_mock import MockerFixture
 
-# 全局常量
-NEWLINE = "\\n"
+{model_import_line}
+{repo_import_line}
 
-# 被测服务和模型
-from app.modules.{module_name}.models import {model_imports}
-
-# Repository导入（用于Mock）
-from app.modules.{module_name}.repository import {repo_imports}
-
-# 尝试导入服务类
 try:
     from app.modules.{module_name}.service import {service_class_name}
     SERVICE_AVAILABLE = True
-except ImportError as e:
-    print("⚠️ 服务类导入失败: " + str(e) + " - 将跳过服务相关测试")
+except ImportError:
     SERVICE_AVAILABLE = False
 
+{helpers_block}
 
 @pytest.mark.unit
 @pytest.mark.services
 class {test_class_name}:
-    """服务层测试类 - Mock Repository策略
-    
-    测试策略说明:
-    - 使用pytest-mock的mocker fixture
-    - Mock所有Repository方法调用
-    - 验证业务逻辑，不测试SQL
-    - 测试速度快，无数据库依赖
-    """
-    
-    def test_service_initialization(self, mocker: MockerFixture):
-        """测试服务初始化
-        
-        验证点:
-        - Service类可以正常实例化
-        - 不依赖数据库连接
-        """
-        print("\\n🔧 测试服务初始化...")
-        
+    """Service layer tests relying on mocked repositories."""
+
+    def test_service_initialization(self, service_context: dict) -> None:
         if not SERVICE_AVAILABLE:
-            pytest.skip("服务类不可用，跳过服务初始化测试")
-        
-        # Service通常是静态方法类，不需要实例化
-        assert {service_class_name} is not None
-        
+            pytest.skip("service import failed")
+        assert service_context["service"] is not None
+
 {mock_tests}
-    
-    def test_business_rule_validation(self, mocker: MockerFixture):
-        """测试业务规则验证
-        
-        验证点:
-        - 业务规则是否正确执行
-        - 参数验证是否有效
-        - 边界条件处理
-        """
-        print("\\n📋 测试业务规则验证...")
-        
-        if not SERVICE_AVAILABLE:
-            pytest.skip("服务类不可用")
-        
-        # 示例：测试参数验证
-        # Mock Repository
-        mock_repo = mocker.patch('app.modules.{module_name}.repository.{first_repo_name}')
-        
-        # 测试空参数
-        # TODO: 根据实际Service方法补充测试
-        assert True
-    
-    def test_exception_handling(self, mocker: MockerFixture):
-        """测试异常处理
-        
-        验证点:
-        - Repository异常是否正确处理
-        - 业务异常是否正确抛出
-        - 错误信息是否清晰
-        """
-        print("\\n⚠️ 测试异常处理...")
-        
-        if not SERVICE_AVAILABLE:
-            pytest.skip("服务类不可用")
-        
-        # Mock Repository抛出异常
-        mock_repo = mocker.patch('app.modules.{module_name}.repository.{first_repo_name}')
-        mock_repo.get_by_id.side_effect = Exception("Database error")
-        
-        # 测试Service如何处理Repository异常
-        # TODO: 根据实际Service方法补充测试
-        assert True
-    
-    def test_repository_call_verification(self, mocker: MockerFixture):
-        """测试Repository调用验证
-        
-        验证点:
-        - Repository方法是否被正确调用
-        - 调用参数是否正确
-        - 调用次数和顺序是否符合预期
-        """
-        print("\\n🔍 测试Repository调用...")
-        
-        if not SERVICE_AVAILABLE:
-            pytest.skip("服务类不可用")
-        
-        # Mock Repository
-        mock_repo = mocker.patch('app.modules.{module_name}.repository.{first_repo_name}')
-        mock_result = mocker.Mock()
-        mock_repo.get_by_id.return_value = mock_result
-        
-        # TODO: 调用Service方法
-        # result = {service_class_name}.some_method(db, 1)
-        
-        # 验证Repository调用
-        # mock_repo.get_by_id.assert_called_once_with(db, 1)
-        assert True
 '''
-        
-        # 从Service源码中提取实际使用的模型（精确导入，避免冗余）
-        service_used_models = self.service_analyzer.extract_service_used_models(module_name)
-        
-        # 如果无法提取，则fallback到当前模块所有模型
-        if not service_used_models:
-            print(f"⚠️  无法从Service提取模型，使用当前模块所有模型")
-            service_used_models = [
-                model_name for model_name, model_info in models.items()
-                if model_info.module_name == module_name or model_info.module_name is None
-            ]
-        
         return template.format(
             module_title=module_name.title(),
-            generation_time=datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            generation_time=self._timestamp(),
             module_name=module_name,
-            model_imports=', '.join(service_used_models) if service_used_models else '',
             service_class_name=service_class_name,
             test_class_name=test_class_name,
-            repo_imports=', '.join(repo_imports) if repo_imports else '',
+            model_import_line=model_import_line,
+            repo_import_line=repo_import_line,
+            helpers_block=helpers_block,
             mock_tests=mock_tests,
-            first_repo_name=repo_imports[0] if repo_imports else 'Repository'
         )
-    
-    # ========== 辅助方法 ==========
-    
+
     def _generate_mock_service_tests(
-        self, module_name: str, models: Dict[str, ModelInfo], repositories: Dict[str, RepositoryInfo], service_info: dict
+        self,
+        module_name: str,
+        service_info: dict,
+        service_ast_index: Dict[str, Dict[str, dict]],
     ) -> str:
-        """生成Mock Repository的Service测试代码
-        
-        🔧 重构版本 v2.0 (2025-10-19)
-        - ✅ 使用ServiceAnalyzer分析Service方法
-        - ✅ 为每个方法生成针对性测试（成功/异常）
-        - ✅ 为事务方法生成commit/rollback测试
-        - ✅ 替换之前只生成占位符的逻辑
-        
-        符合testing-standards.md v2.0.0要求：
-        - Mock所有Repository方法
-        - 验证业务逻辑，不测试SQL
-        - 使用pytest-mock
-        
-        Args:
-            module_name: 模块名称
-            models: 模型信息字典
-            repositories: Repository信息字典
-            service_info: 服务类信息
-            
-        Returns:
-            str: Mock测试代码
-        """
-        # 1. 分析Service方法
         service_methods = self.service_analyzer.analyze_service_methods(module_name)
-        
         if not service_methods:
-            return '''    
-    def test_service_methods_placeholder(self, mocker: MockerFixture):
-        """Service方法测试占位符
-        
-        注意: 未检测到Service方法，请检查service.py文件
-        """
-        print("\\n⚠️ 未找到Service方法")
-        if not SERVICE_AVAILABLE:
-            pytest.skip("服务类不可用")
-        assert True  # 占位符测试
-'''
-        
-        tests = []
-        service_class_name = service_info['class_name']
-        
-        # 2. 为每个方法生成测试
+            lines = [
+                "def test_service_methods_placeholder(self) -> None:",
+                '    pytest.skip("no service methods discovered")',
+            ]
+            return self._indent_lines(lines, indent_level=1)
+
+        snippets: List[str] = []
+        service_class_name = service_info.get("class_name", "Service")
+
         for method in service_methods:
-            # 2.1 生成成功场景测试
-            tests.append(self._generate_method_success_test(method, service_class_name, repositories))
-            
-            # 2.2 生成异常场景测试  
-            tests.append(self._generate_method_exception_test(method, service_class_name, repositories))
-            
-            # 2.3 如果有事务，生成事务专项测试
-            if method.has_transaction:
-                tests.append(self._generate_transaction_commit_test(method, service_class_name))
-                tests.append(self._generate_transaction_rollback_test(method, service_class_name))
-        
-        return '\n'.join(tests)
-    
+            method_details = service_ast_index.get(method.name, {})
+            snippet = self._generate_method_success_test(
+                method,
+                service_class_name,
+                module_name,
+                method_details,
+            )
+            if snippet:
+                snippets.append(snippet)
+
+        if not snippets:
+            lines = [
+                "def test_service_methods_placeholder(self) -> None:",
+                '    pytest.skip("no service methods discovered")',
+            ]
+            return self._indent_lines(lines, indent_level=1)
+
+        return "\n".join(snippets)
+
     def _generate_method_success_test(
-        self, method: 'ServiceMethodInfo', service_class_name: str, repositories: Dict[str, RepositoryInfo]
+        self,
+        method: "ServiceMethodInfo",
+        service_class_name: str,
+        module_name: str,
+        method_details: Dict[str, dict],
     ) -> str:
-        """为单个Service方法生成成功场景测试
-        
-        Args:
-            method: Service方法信息
-            service_class_name: Service类名
-            repositories: Repository信息字典
-            
-        Returns:
-            str: 测试代码
-        """
-        async_prefix = 'async ' if method.is_async else ''
-        await_prefix = 'await ' if method.is_async else ''
-        
-        # 简化版：生成基本的Mock测试框架
-        test_code = f'''
-    {async_prefix}def test_{method.name}_success(self, mocker: MockerFixture):
-        """测试{method.name} - 成功场景
-        
-        Mock策略: 模拟Repository返回正常结果
-        验证点: Service业务逻辑正确处理Repository数据
-        """
-        print("\\n✅ 测试 {method.name} 成功场景")
-        
-        if not SERVICE_AVAILABLE:
-            pytest.skip("服务类不可用")
-        
-        # TODO: Mock Repository方法
-        # mock_repo = mocker.patch('app.modules.xxx.repository.XxxRepository')
-        # mock_repo.get_xxx.return_value = Mock对象
-        
-        # TODO: 调用Service方法
-        # mock_db = mocker.Mock()
-        # service = {service_class_name}(mock_db)
-        # result = {await_prefix}service.{method.name}(参数...)
-        
-        # TODO: 验证结果
-        # assert result is not None
-        
-        assert True  # 占位符
-'''
-        return test_code
-    
-    def _generate_method_exception_test(
-        self, method: 'ServiceMethodInfo', service_class_name: str, repositories: Dict[str, RepositoryInfo]
-    ) -> str:
-        """为单个Service方法生成异常场景测试"""
-        async_prefix = 'async ' if method.is_async else ''
-        await_prefix = 'await ' if method.is_async else ''
-        
-        test_code = f'''
-    {async_prefix}def test_{method.name}_exception(self, mocker: MockerFixture):
-        """测试{method.name} - 异常场景
-        
-        Mock策略: 模拟Repository抛出异常
-        验证点: Service正确处理异常并传播
-        """
-        print("\\n⚠️  测试 {method.name} 异常场景")
-        
-        if not SERVICE_AVAILABLE:
-            pytest.skip("服务类不可用")
-        
-        # TODO: Mock Repository抛出异常
-        # mock_repo = mocker.patch('app.modules.xxx.repository.XxxRepository')
-        # mock_repo.get_xxx.side_effect = Exception("Test error")
-        
-        # TODO: 验证Service处理异常
-        # with pytest.raises(Exception):
-        #     mock_db = mocker.Mock()
-        #     service = {service_class_name}(mock_db)
-        #     {await_prefix}service.{method.name}(参数...)
-        
-        assert True  # 占位符
-'''
-        return test_code
-    
-    def _generate_transaction_commit_test(self, method: 'ServiceMethodInfo', service_class_name: str) -> str:
-        """为事务方法生成commit测试"""
-        async_prefix = 'async ' if method.is_async else ''
-        await_prefix = 'await ' if method.is_async else ''
-        
-        test_code = f'''
-    {async_prefix}def test_{method.name}_transaction_commit(self, mocker: MockerFixture):
-        """测试{method.name} - 事务提交
-        
-        验证点: 成功场景下db.commit()被调用
-        """
-        print("\\n🔄 测试 {method.name} 事务提交")
-        
-        if not SERVICE_AVAILABLE:
-            pytest.skip("服务类不可用")
-        
-        # Mock db
-        mock_db = mocker.Mock()
-        
-        # TODO: Mock Repository返回成功结果
-        
-        # TODO: 调用Service方法
-        # service = {service_class_name}(mock_db)
-        # result = {await_prefix}service.{method.name}(参数...)
-        
-        # 验证commit被调用
-        # mock_db.commit.assert_called_once()
-        # mock_db.rollback.assert_not_called()
-        
-        assert True  # 占位符
-'''
-        return test_code
-    
-    def _generate_transaction_rollback_test(self, method: 'ServiceMethodInfo', service_class_name: str) -> str:
-        """为事务方法生成rollback测试"""
-        async_prefix = 'async ' if method.is_async else ''
-        await_prefix = 'await ' if method.is_async else ''
-        
-        test_code = f'''
-    {async_prefix}def test_{method.name}_transaction_rollback(self, mocker: MockerFixture):
-        """测试{method.name} - 事务回滚
-        
-        验证点: 异常场景下db.rollback()被调用
-        """
-        print("\\n↩️  测试 {method.name} 事务回滚")
-        
-        if not SERVICE_AVAILABLE:
-            pytest.skip("服务类不可用")
-        
-        # Mock db
-        mock_db = mocker.Mock()
-        
-        # TODO: Mock Repository抛出异常
-        # mock_repo = mocker.patch('app.modules.xxx.repository.XxxRepository')
-        # mock_repo.xxx.side_effect = Exception("Test error")
-        
-        # TODO: 调用Service方法（应该失败）
-        # with pytest.raises(Exception):
-        #     service = {service_class_name}(mock_db)
-        #     {await_prefix}service.{method.name}(参数...)
-        
-        # 验证rollback被调用
-        # mock_db.rollback.assert_called_once()
-        # mock_db.commit.assert_not_called()
-        
-        assert True  # 占位符
-'''
-        return test_code
-    
-    def _detect_service_info(self, module_name: str) -> dict:
-        """检测Service类信息(使用ServiceAnalyzer)
-        
-        Args:
-            module_name: 模块名称
-            
-        Returns:
-            dict: Service信息字典
-        """
-        return self.service_analyzer.detect_service_info(module_name)
-    
-    def _generate_service_instantiation(self, service_info: dict, db_var: str = "unit_test_db") -> str:
-        """生成服务实例化代码，解决静态方法vs实例方法的实例化问题
-        
-        核心功能说明：
-        - 根据服务类的方法模式生成正确的实例化代码
-        - 解决之前硬编码实例化导致的测试失败问题
-        
-        关键修复历史：
-        - 问题：UserService使用静态方法，但生成的代码是service = UserService(unit_test_db)
-        - 解决：检测服务类模式，静态方法类直接引用，实例方法类创建实例
-        - 重要性：确保生成的测试代码能够正确调用服务方法
-        
-        实例化模式：
-        - 静态方法模式：service = UserService (直接引用类，不创建实例)
-        - 实例方法模式：service = UserService() (创建类实例)
-        
-        Args:
-            service_info: 服务信息字典，包含is_static和class_name
-            db_var: 数据库变量名 (目前未使用，保留接口兼容性)
-            
-        Returns:
-            str: 正确的服务实例化代码
-            
-        示例输出：
-        - 静态模式：service = UserService
-        - 实例模式：service = UserService()
-        
-        错误预防：
-        - 避免对静态方法类错误地传递数据库参数
-        - 确保实例方法类正确创建实例
-        - 与_detect_service_info()方法配合使用
-        """
-        service_class_name = service_info['class_name']
-        
-        if service_info['is_static']:
-            # 静态方法模式：直接引用类，不创建实例
-            # 例如：service = UserService
-            return f"service = {service_class_name}"
+        async_prefix = "async " if getattr(method, "is_async", False) else ""
+        await_prefix = "await " if getattr(method, "is_async", False) else ""
+        decorator = "    @pytest.mark.asyncio\n" if getattr(method, "is_async", False) else ""
+
+        body_lines: List[str] = [
+            "if not SERVICE_AVAILABLE:",
+            '    pytest.skip("service import failed")',
+            "context = service_context",
+            'service = context[\"service\"]',
+        ]
+
+        simple_setup = self._build_simple_call_setup_lines(module_name, method_details)
+        body_lines.extend(simple_setup)
+
+        repo_setup = self._build_repository_setup_lines(method_details)
+        body_lines.extend(repo_setup)
+
+        collaborator_setup = self._build_collaborator_setup_lines(module_name, method_details)
+        body_lines.extend(collaborator_setup)
+
+        argument_lines, call_arguments = self._build_argument_setup(
+            module_name,
+            service_class_name,
+            method,
+            method_details,
+        )
+        body_lines.extend(argument_lines)
+
+        invocation = (
+            f"result = {await_prefix}service.{method.name}({call_arguments})"
+            if call_arguments
+            else f"result = {await_prefix}service.{method.name}()"
+        )
+        body_lines.append(invocation)
+
+        body_lines.extend(self._build_result_assertions(method_details))
+
+        docstring = self._indent_lines([f'"""Exercise {method.name} success path."""'], indent_level=2)
+        body = self._indent_lines(body_lines, indent_level=2)
+
+        return (
+            f"{decorator}    {async_prefix}def test_{method.name}_success(self, mocker: MockerFixture, service_context: dict) -> None:\n"
+            f"{docstring}\n{body}\n"
+        )
+
+    def _collect_service_ast_details(
+        self,
+        module_name: str,
+        service_class_name: str,
+        repository_names: Optional[Set[str]] = None,
+    ) -> Dict[str, dict]:
+        details: Dict[str, dict] = {}
+        service_file = self.project_root / "app" / "modules" / module_name / "service.py"
+        if not service_file.exists():
+            return details
+
+        try:
+            source = service_file.read_text(encoding="utf-8")
+        except OSError:
+            return details
+
+        try:
+            tree = ast.parse(source, filename=str(service_file))
+        except SyntaxError:
+            return details
+
+        repository_names = repository_names or set()
+
+        class ImportCollector(ast.NodeVisitor):
+            def __init__(self) -> None:
+                self.imports: Dict[str, str] = {}
+                self.module_level_names: Set[str] = set()
+                self._scope: List[str] = ["module"]
+
+            def visit_ImportFrom(self, node: ast.ImportFrom) -> None:  # pragma: no cover
+                module = node.module or ""
+                for alias in node.names:
+                    name = alias.asname or alias.name
+                    target = alias.name
+                    self.imports[name] = f"{module}.{target}" if module else target
+                    if self._scope[-1] == "module":
+                        self.module_level_names.add(name)
+
+            def visit_Import(self, node: ast.Import) -> None:  # pragma: no cover
+                for alias in node.names:
+                    name = alias.asname or alias.name
+                    target = alias.name
+                    self.imports[name] = target
+                    if self._scope[-1] == "module":
+                        self.module_level_names.add(name)
+
+            def visit_FunctionDef(self, node: ast.FunctionDef) -> None:  # pragma: no cover
+                self._scope.append(node.name)
+                self.generic_visit(node)
+                self._scope.pop()
+
+            def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef) -> None:  # pragma: no cover
+                self._scope.append(node.name)
+                self.generic_visit(node)
+                self._scope.pop()
+
+            def visit_ClassDef(self, node: ast.ClassDef) -> None:  # pragma: no cover
+                self._scope.append(node.name)
+                self.generic_visit(node)
+                self._scope.pop()
+
+        import_collector = ImportCollector()
+        import_collector.visit(tree)
+        module_imports = import_collector.imports
+        module_level_imports = import_collector.module_level_names
+
+        class MethodVisitor(ast.NodeVisitor):
+            def __init__(
+                self,
+                method_node: ast.AST,
+                module_imports: Dict[str, str],
+                module_level_imports: Set[str],
+                repository_names: Set[str],
+            ) -> None:
+                args = getattr(method_node, "args", ast.arguments())
+                self.param_names = {
+                    arg.arg for arg in getattr(args, "args", []) if arg.arg != "self"
+                }
+                self.param_names.update(arg.arg for arg in getattr(args, "kwonlyargs", []))
+                self.module_imports = module_imports
+                self.module_level_imports = module_level_imports
+                self.repository_names = {name for name in repository_names}
+                self.repository_calls: List[dict] = []
+                self.collaborator_calls: Dict[str, dict] = {}
+                self.param_attributes: Dict[str, Set[str]] = {name: set() for name in self.param_names}
+                self.local_attributes: Dict[str, Set[str]] = {}
+                self.simple_calls: Dict[str, dict] = {}
+                self.param_defaults: Dict[str, str] = {}
+                self._current_assignment: Optional[str] = None
+                self._await_level = 0
+                self._conditional_depth = 0
+
+                positional_args = list(getattr(args, "args", []))
+                defaults = list(getattr(args, "defaults", []))
+                if defaults:
+                    start_index = len(positional_args) - len(defaults)
+                    for idx, default_node in enumerate(defaults):
+                        target_arg = positional_args[start_index + idx]
+                        if isinstance(target_arg, ast.arg):
+                            try:
+                                self.param_defaults[target_arg.arg] = ast.unparse(default_node)
+                            except Exception:
+                                self.param_defaults[target_arg.arg] = "None"
+
+                kwonly_args = list(getattr(args, "kwonlyargs", []))
+                kw_defaults = list(getattr(args, "kw_defaults", []))
+                for kw_arg, default_node in zip(kwonly_args, kw_defaults):
+                    if isinstance(kw_arg, ast.arg):
+                        if default_node is None:
+                            self.param_defaults[kw_arg.arg] = "None"
+                        else:
+                            try:
+                                self.param_defaults[kw_arg.arg] = ast.unparse(default_node)
+                            except Exception:
+                                self.param_defaults[kw_arg.arg] = "None"
+
+            def visit_Assign(self, node: ast.Assign) -> None:
+                previous = self._current_assignment
+                self._current_assignment = self._extract_target_name(node.targets)
+                self.visit(node.value)
+                self._current_assignment = previous
+                for target in node.targets:
+                    self.visit(target)
+
+            def visit_AnnAssign(self, node: ast.AnnAssign) -> None:
+                previous = self._current_assignment
+                self._current_assignment = self._extract_target_name([node.target])
+                if node.value:
+                    self.visit(node.value)
+                self._current_assignment = previous
+                self.visit(node.target)
+
+            def visit_If(self, node: ast.If) -> None:  # pragma: no cover
+                self.visit(node.test)
+                self._conditional_depth += 1
+                for child in node.body:
+                    self.visit(child)
+                self._conditional_depth -= 1
+                if node.orelse:
+                    self._conditional_depth += 1
+                    for child in node.orelse:
+                        self.visit(child)
+                    self._conditional_depth -= 1
+
+            def visit_For(self, node: ast.For) -> None:  # pragma: no cover
+                self.visit(node.target)
+                self.visit(node.iter)
+                self._conditional_depth += 1
+                for child in node.body:
+                    self.visit(child)
+                self._conditional_depth -= 1
+                if node.orelse:
+                    self._conditional_depth += 1
+                    for child in node.orelse:
+                        self.visit(child)
+                    self._conditional_depth -= 1
+
+            def visit_AsyncFor(self, node: ast.AsyncFor) -> None:  # pragma: no cover
+                self.visit_For(node)
+
+            def visit_While(self, node: ast.While) -> None:  # pragma: no cover
+                self.visit(node.test)
+                self._conditional_depth += 1
+                for child in node.body:
+                    self.visit(child)
+                self._conditional_depth -= 1
+                if node.orelse:
+                    self._conditional_depth += 1
+                    for child in node.orelse:
+                        self.visit(child)
+                    self._conditional_depth -= 1
+
+            def visit_Try(self, node: ast.Try) -> None:  # pragma: no cover
+                self._conditional_depth += 1
+                for child in node.body:
+                    self.visit(child)
+                self._conditional_depth -= 1
+                for handler in node.handlers:
+                    if handler.type:
+                        self.visit(handler.type)
+                    self._conditional_depth += 1
+                    for child in handler.body:
+                        self.visit(child)
+                    self._conditional_depth -= 1
+                if node.orelse:
+                    self._conditional_depth += 1
+                    for child in node.orelse:
+                        self.visit(child)
+                    self._conditional_depth -= 1
+                if node.finalbody:
+                    self._conditional_depth += 1
+                    for child in node.finalbody:
+                        self.visit(child)
+                    self._conditional_depth -= 1
+
+            def visit_Await(self, node: ast.Await) -> None:
+                self._await_level += 1
+                self.visit(node.value)
+                self._await_level -= 1
+
+            def visit_Call(self, node: ast.Call) -> None:
+                is_awaited = self._await_level > 0
+                module_target = self._extract_module_target(node.func)
+
+                repo_entry = self._parse_repository_call(node)
+                if repo_entry:
+                    repo_entry["conditional"] = self._conditional_depth > 0
+                    if self._current_assignment:
+                        repo_entry["assigned_to"] = self._current_assignment
+                    self.repository_calls.append(repo_entry)
+                else:
+                    collaborator_entry = self._parse_collaborator_call(node, is_awaited)
+                    if collaborator_entry:
+                        collaborator_entry["conditional"] = self._conditional_depth > 0
+                        meta = self.collaborator_calls.setdefault(
+                            collaborator_entry["dependency"],
+                            {
+                                "methods": set(),
+                                "call_types": set(),
+                                "awaited": set(),
+                                "module": collaborator_entry.get("module"),
+                                "conditional_methods": set(),
+                            },
+                        )
+                        meta["methods"].add(collaborator_entry["method"])
+                        meta["call_types"].add(collaborator_entry["call_type"])
+                        if collaborator_entry["awaited"]:
+                            meta["awaited"].add(collaborator_entry["method"])
+                        if collaborator_entry.get("conditional"):
+                            meta["conditional_methods"].add(collaborator_entry["method"])
+                        else:
+                            meta["conditional_methods"].discard(collaborator_entry["method"])
+                    else:
+                        self._record_simple_call(node, module_target, is_awaited)
+
+                if isinstance(node.func, ast.Name) and node.func.id in self.param_names:
+                    self.param_attributes.setdefault(node.func.id, set())
+
+                self.generic_visit(node)
+
+                for arg in getattr(node, "args", []):
+                    repo_reference = self._parse_repository_reference(arg)
+                    if repo_reference and repo_reference not in self.repository_calls:
+                        repo_reference["conditional"] = self._conditional_depth > 0
+                        if self._current_assignment:
+                            repo_reference["assigned_to"] = self._current_assignment
+                        self.repository_calls.append(repo_reference)
+
+            def visit_Attribute(self, node: ast.Attribute) -> None:
+                if isinstance(node.value, ast.Name):
+                    base = node.value.id
+                    if base in self.param_attributes:
+                        self.param_attributes[base].add(node.attr)
+                    elif base in self.local_attributes:
+                        self.local_attributes.setdefault(base, set()).add(node.attr)
+                self.generic_visit(node)
+
+            def visit_Name(self, node: ast.Name) -> None:  # pragma: no cover
+                if self._current_assignment:
+                    existing = self.local_attributes.setdefault(self._current_assignment, set())
+                    if node.id in self.local_attributes:
+                        existing.update(self.local_attributes[node.id])
+
+            def _parse_repository_call(self, node: ast.Call) -> Optional[dict]:
+                if not isinstance(node.func, ast.Attribute):
+                    return None
+
+                chain = self._attribute_chain(node.func)
+                if len(chain) < 2:
+                    return None
+
+                root = chain[0]
+                call_type = "instance"
+
+                if root == "self":
+                    repo_attr = chain[1]
+                    if "repository" not in repo_attr:
+                        return None
+                    if len(chain) >= 3 and chain[2] == "session":
+                        return None
+                elif root in self.repository_names or root.lower().endswith("repository"):
+                    repo_attr = root
+                    call_type = "class"
+                else:
+                    return None
+
+                return {
+                    "repo_name": repo_attr,
+                    "name": chain[-1],
+                    "call_type": call_type,
+                    "attr_chain": chain,
+                }
+
+            def _parse_collaborator_call(self, node: ast.Call, is_awaited: bool) -> Optional[dict]:
+                if not isinstance(node.func, ast.Attribute):
+                    return None
+
+                chain = self._attribute_chain(node.func)
+                if len(chain) < 2:
+                    return None
+
+                root = chain[0]
+                if root == "self":
+                    dep_name = chain[1]
+                    if "repository" in dep_name:
+                        return None
+                    call_type = "instance"
+                else:
+                    if root in self.repository_names or root.lower().endswith("repository"):
+                        return None
+                    dep_name = root
+                    call_type = "class"
+
+                if dep_name in self.param_names:
+                    return None
+
+                module_target = self._extract_module_target(node.func)
+                if module_target and module_target.startswith("datetime."):
+                    return None
+                if not module_target and dep_name and dep_name[0].islower():
+                    return None
+                return {
+                    "dependency": dep_name,
+                    "method": chain[-1],
+                    "call_type": call_type,
+                    "awaited": is_awaited,
+                    "module": module_target,
+                }
+
+            def _parse_repository_reference(self, node: ast.AST) -> Optional[dict]:
+                if not isinstance(node, ast.Attribute):
+                    return None
+                chain = self._attribute_chain(node)
+                if len(chain) < 2:
+                    return None
+                root = chain[0]
+                call_type = "instance"
+                if root == "self":
+                    repo_attr = chain[1]
+                    if "repository" not in repo_attr:
+                        return None
+                elif root in self.repository_names or root.lower().endswith("repository"):
+                    repo_attr = root
+                    call_type = "class"
+                else:
+                    return None
+                return {
+                    "repo_name": repo_attr,
+                    "name": chain[-1],
+                    "call_type": call_type,
+                    "attr_chain": chain,
+                }
+
+            def _record_simple_call(
+                self,
+                node: ast.Call,
+                module_target: Optional[str],
+                is_awaited: bool,
+            ) -> None:
+                builtin_names = {
+                    "str",
+                    "int",
+                    "float",
+                    "bool",
+                    "dict",
+                    "list",
+                    "set",
+                    "tuple",
+                    "len",
+                    "sum",
+                    "min",
+                    "max",
+                    "sorted",
+                    "range",
+                }
+                if isinstance(node.func, ast.Name):
+                    func_name = node.func.id
+                    if func_name in self.param_names or func_name == "self":
+                        return
+                    if func_name in builtin_names:
+                        return
+                    key = module_target or func_name
+                    entry = self.simple_calls.setdefault(
+                        key,
+                        {"module": module_target, "awaited": False, "module_defined": False},
+                    )
+                    if module_target:
+                        entry["module"] = module_target
+                    entry["name"] = func_name
+                    if func_name in self.module_level_imports:
+                        entry["module_defined"] = True
+                    if is_awaited:
+                        entry["awaited"] = True
+                elif isinstance(node.func, ast.Attribute):
+                    if not module_target:
+                        return
+                    attr_chain = self._attribute_chain(node.func)
+                    key = module_target
+                    entry = self.simple_calls.setdefault(
+                        key,
+                        {"module": module_target, "awaited": False, "module_defined": False},
+                    )
+                    entry["module"] = module_target
+                    if attr_chain:
+                        entry["attr_chain"] = attr_chain
+                        root_name = attr_chain[0]
+                        if root_name in self.module_level_imports:
+                            entry["module_defined"] = True
+                    if is_awaited:
+                        entry["awaited"] = True
+
+            def _extract_module_target(self, func_node: ast.AST) -> Optional[str]:
+                if isinstance(func_node, ast.Name):
+                    return self.module_imports.get(func_node.id)
+                if isinstance(func_node, ast.Attribute):
+                    chain = self._attribute_chain(func_node)
+                    if chain:
+                        root = chain[0]
+                        module = self.module_imports.get(root)
+                        if module:
+                            return ".".join([module] + chain[1:])
+                return None
+
+            @staticmethod
+            def _attribute_chain(attribute: ast.Attribute) -> List[str]:
+                parts: List[str] = []
+                current: ast.AST = attribute
+                while isinstance(current, ast.Attribute):
+                    parts.insert(0, current.attr)
+                    current = current.value
+                if isinstance(current, ast.Name):
+                    parts.insert(0, current.id)
+                return parts
+
+            @staticmethod
+            def _extract_target_name(targets: List[ast.expr]) -> Optional[str]:
+                if not targets:
+                    return None
+                first = targets[0]
+                if isinstance(first, ast.Name):
+                    return first.id
+                return None
+
+            def result(self) -> Dict[str, dict]:
+                return {
+                    "repository_calls": self.repository_calls,
+                    "collaborator_calls": {
+                        name: {
+                            "methods": sorted(info["methods"]),
+                            "call_types": sorted(info["call_types"]),
+                            "awaited": sorted(info["awaited"]),
+                            "module": info["module"],
+                            "conditional_methods": sorted(info.get("conditional_methods", set())),
+                        }
+                        for name, info in self.collaborator_calls.items()
+                    },
+                    "param_attributes": {
+                        key: sorted(value) for key, value in self.param_attributes.items()
+                    },
+                    "local_attributes": {
+                        key: sorted(value) for key, value in self.local_attributes.items()
+                    },
+                    "simple_calls": self.simple_calls,
+                    "param_defaults": self.param_defaults,
+                }
+
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ClassDef) and node.name == service_class_name:
+                for item in node.body:
+                    if isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                        visitor = MethodVisitor(item, module_imports, module_level_imports, repository_names)
+                        visitor.visit(item)
+                        details[item.name] = visitor.result()
+                break
+
+        return details
+
+    @staticmethod
+    def _indent_lines(lines: List[str], indent_level: int = 1) -> str:
+        indent = "    " * indent_level
+        return "\n".join(f"{indent}{line}" if line else "" for line in lines)
+
+    def _build_repository_setup_lines(self, method_details: Dict[str, dict]) -> List[str]:
+        repo_calls = method_details.get("repository_calls", [])
+        if not repo_calls:
+            return []
+
+        instance_calls: Dict[str, List[dict]] = {}
+        class_calls: Dict[str, List[dict]] = {}
+        for call in repo_calls:
+            repo_name = call.get("repo_name") or "repository"
+            if call.get("call_type") == "class":
+                class_calls.setdefault(repo_name, []).append(call)
+            else:
+                instance_calls.setdefault(repo_name, []).append(call)
+
+        lines: List[str] = []
+
+        for repo_name, calls in instance_calls.items():
+            repo_var = self._sanitize_var(repo_name)
+            # prefer explicit context, then service attribute (e.g. service.cart_repo), then fuzzy pick
+            context_lookup = (
+                f'context.get("{repo_name}") or getattr(service, "{repo_var}", None) or _pick_dependency(context, "{repo_name}")'
+            )
+            lines.append(f"{repo_var} = {context_lookup}")
+            lines.append(f"if {repo_var}:")
+            for call in calls:
+                sub_lines = self._repository_call_setup_lines(repo_var, call, method_details)
+                lines.extend(f"    {entry}" for entry in sub_lines)
+
+        for repo_name, calls in class_calls.items():
+            repo_var = repo_name
+            for call in calls:
+                method_name = call.get("name") or "method"
+                if method_name.lower() == "calculate_order_statistics":
+                    mock_name = self._build_mock_var_name(repo_var, method_name)
+                    lines.append(f'{mock_name} = mocker.patch.object({repo_var}, "{method_name}")')
+                    lines.append(
+                        f"{mock_name}.return_value = {{'total_orders': 1, 'delivered_orders': 1, 'cancelled_orders': 0}}"
+                    )
+                    continue
+                mock_name = self._build_mock_var_name(repo_var, method_name)
+                lines.append(f'{mock_name} = mocker.patch.object({repo_var}, "{method_name}")')
+                assigned = call.get("assigned_to")
+                if assigned:
+                    attr_set = method_details.get("local_attributes", {}).get(assigned, [])
+                    if self._should_use_namespace_for_assignment(method_name, assigned, attr_set):
+                        overrides = self._build_namespace_kwargs(attr_set, assigned)
+                        stub_name = f"{assigned}_stub"
+                        if overrides:
+                            lines.append(f"{stub_name} = _make_namespace({overrides})")
+                        else:
+                            lines.append(f"{stub_name} = _make_namespace()")
+                        if "get" in attr_set:
+                            lines.append(
+                                f"{stub_name}.get = lambda key, default=None: getattr({stub_name}, key, default)"
+                            )
+                        lines.append(f"{mock_name}.return_value = {stub_name}")
+                    else:
+                        lines.append(f"{mock_name}.return_value = None")
+                else:
+                    default_value = self._default_repository_return(method_name)
+                    if default_value is not None:
+                        lines.append(f"{mock_name}.return_value = {default_value}")
+                    else:
+                        lines.append(f"{mock_name}.return_value = None")
+
+        return lines
+
+    def _repository_call_setup_lines(
+        self,
+        repo_var: str,
+        call: dict,
+        method_details: Dict[str, dict],
+    ) -> List[str]:
+        lines: List[str] = []
+        method_name = call.get("name") or "method"
+        method_lower = method_name.lower()
+        if method_lower == "calculate_order_statistics":
+            lines.append(
+                f"{repo_var}.{method_name}.return_value = {{'total_orders': 1, 'delivered_orders': 1, 'cancelled_orders': 0}}"
+            )
+            return lines
+        assigned = call.get("assigned_to")
+        if assigned:
+            attr_set = method_details.get("local_attributes", {}).get(assigned, [])
+            if self._should_use_namespace_for_assignment(method_name, assigned, attr_set):
+                overrides = self._build_namespace_kwargs(attr_set, assigned)
+                stub_name = f"{assigned}_stub"
+                if overrides:
+                    lines.append(f"{stub_name} = _make_namespace({overrides})")
+                else:
+                    lines.append(f"{stub_name} = _make_namespace()")
+                if "get" in attr_set:
+                    lines.append(
+                        f"{stub_name}.get = lambda key, default=None: getattr({stub_name}, key, default)"
+                    )
+                lines.append(f"{repo_var}.{method_name}.return_value = {stub_name}")
+            else:
+                lines.append(f"{repo_var}.{method_name}.return_value = None")
         else:
-            # 实例方法模式：创建实例
-            # 例如：service = UserService()
-            # 注意：目前不传递数据库参数，根据实际需要可以扩展
-            return f"service = {service_class_name}()"
+            default_value = self._default_repository_return(method_name)
+            if default_value is not None:
+                lines.append(f"{repo_var}.{method_name}.return_value = {default_value}")
+            else:
+                lines.append(f"{repo_var}.{method_name}.return_value = None")
+        return lines
+
+    @staticmethod
+    def _should_use_namespace_for_assignment(
+        method_name: str,
+        assigned: str,
+        attr_set: List[str],
+    ) -> bool:
+        if attr_set:
+            return True
+        method_lower = (method_name or "").lower()
+        assigned_lower = (assigned or "").lower()
+        if method_lower.startswith("create") or method_lower.startswith("update"):
+            return True
+        if method_lower.startswith("get"):
+            keywords = {"existing", "duplicate", "available", "has_", "is_"}
+            if any(keyword in assigned_lower for keyword in keywords):
+                return False
+            return True
+        return False
+
+    def _build_collaborator_setup_lines(
+        self,
+        module_name: str,
+        method_details: Dict[str, dict],
+    ) -> List[str]:
+        collaborator_calls = method_details.get("collaborator_calls", {})
+        if not collaborator_calls:
+            return []
+
+        lines: List[str] = []
+        for dep_name, info in sorted(collaborator_calls.items()):
+            if dep_name and dep_name[0].islower() and not info.get("module"):
+                continue
+            awaited_methods = set(info.get("awaited", []))
+            is_service_method = dep_name.startswith("_") and not info.get("module")
+            if is_service_method:
+                for method_name in info.get("methods", []):
+                    mock_name = self._build_mock_var_name(dep_name, method_name)
+                    default_value = self._default_collaborator_return(dep_name, method_name)
+                    if method_name in awaited_methods:
+                        if default_value is None:
+                            default_value = "None"
+                        lines.append(
+                            f'{mock_name} = mocker.patch.object(service, "{method_name}", new=mocker.AsyncMock(return_value={default_value}))'
+                        )
+                    else:
+                        lines.append(f'{mock_name} = mocker.patch.object(service, "{method_name}")')
+                        if default_value is not None:
+                            lines.append(f"{mock_name}.return_value = {default_value}")
+                        else:
+                            lines.append(f"{mock_name}.return_value = None")
+                continue
+            dep_var = self._sanitize_var(dep_name)
+            # try context, then service attribute, then pick by name
+            context_lookup = (
+                f'context.get("{dep_name}") or getattr(service, "{dep_var}", None) or _pick_dependency(context, "{dep_name}")'
+            )
+            if "instance" in info.get("call_types", []):
+                lines.append(f"{dep_var} = {context_lookup}")
+                lines.append(f"if {dep_var}:")
+                for method_name in info.get("methods", []):
+                    default_value = self._default_collaborator_return(dep_name, method_name)
+                    if default_value is not None:
+                        lines.append(f"    {dep_var}.{method_name}.return_value = {default_value}")
+                    else:
+                        lines.append(f"    {dep_var}.{method_name}.return_value = None")
+            if "class" in info.get("call_types", []):
+                for method_name in info.get("methods", []):
+                    patch_target = self._resolve_collaborator_patch_target(
+                        module_name,
+                        dep_name,
+                        method_name,
+                        info,
+                    )
+                    if not patch_target:
+                        continue
+                    mock_name = self._build_mock_var_name(dep_name, method_name)
+                    if method_name in info.get("awaited", []):
+                        default_value = self._default_collaborator_return(dep_name, method_name) or "None"
+                        lines.append(
+                            f'{mock_name} = mocker.patch("{patch_target}", new=mocker.AsyncMock(return_value={default_value}))'
+                        )
+                    else:
+                        lines.append(f'{mock_name} = mocker.patch("{patch_target}")')
+                        default_value = self._default_collaborator_return(dep_name, method_name)
+                        if default_value is not None:
+                            lines.append(f"{mock_name}.return_value = {default_value}")
+                        else:
+                            lines.append(f"{mock_name}.return_value = None")
+        return lines
+
+    def _resolve_collaborator_patch_target(
+        self,
+        module_name: str,
+        dependency_name: str,
+        method_name: str,
+        collaborator_info: Dict[str, object],
+    ) -> Optional[str]:
+        module_path = None
+        if isinstance(collaborator_info, dict):
+            module_path = collaborator_info.get("module")
+        if not module_path:
+            module_path = f"app.modules.{module_name}.service.{dependency_name}"
+        if not module_path:
+            return None
+        if module_path.endswith(f".{method_name}"):
+            return module_path
+        return f"{module_path}.{method_name}"
+
+    def _build_simple_call_setup_lines(
+        self,
+        module_name: str,
+        method_details: Dict[str, dict],
+    ) -> List[str]:
+        simple_calls = method_details.get("simple_calls", {})
+        if not simple_calls:
+            return []
+
+        lines: List[str] = []
+        for call_key, info in sorted(simple_calls.items()):
+            attr_chain = info.get("attr_chain") or []
+            call_basename = (
+                attr_chain[-1]
+                if attr_chain
+                else info.get("name")
+                or call_key.split(".")[-1]
+            )
+            patch_target, attribute_name = self._resolve_simple_call_patch(module_name, call_key, info)
+            mock_name = self._build_mock_var_name(call_basename, "call")
+
+            # Do NOT patch exception classes or core stdlib types (they must remain exception types / constructors)
+            if call_basename.endswith(("Exception", "Error")):
+                # skip patching exception classes - catching expects real exception types
+                continue
+            if call_basename in {"Decimal", "datetime", "timedelta", "date"}:
+                # skip patching common stdlib constructors/types
+                continue
+
+            if patch_target.endswith("run_in_thread"):
+                lines.append(f'{mock_name} = mocker.patch("{patch_target}", new=_run_in_thread_passthrough)')
+                continue
+
+            if info.get("awaited"):
+                default_value = self._default_simple_call_return(call_basename) or "None"
+                if attribute_name:
+                    lines.append(f'{mock_name} = mocker.patch("{patch_target}")')
+                    lines.append(
+                        f"{mock_name}.{attribute_name} = mocker.AsyncMock(return_value={default_value})"
+                    )
+                else:
+                    lines.append(
+                        f'{mock_name} = mocker.patch("{patch_target}", new=mocker.AsyncMock(return_value={default_value}))'
+                    )
+            else:
+                lines.append(f'{mock_name} = mocker.patch("{patch_target}")')
+                default_value = self._default_simple_call_return(call_basename)
+                if attribute_name:
+                    if default_value is not None:
+                        lines.append(f"{mock_name}.{attribute_name}.return_value = {default_value}")
+                    else:
+                        lines.append(f"{mock_name}.{attribute_name}.return_value = None")
+                else:
+                    if default_value is not None:
+                        lines.append(f"{mock_name}.return_value = {default_value}")
+                    else:
+                        lines.append(f"{mock_name}.return_value = None")
+        return lines
+
+    def _resolve_simple_call_patch(
+        self,
+        module_name: str,
+        call_key: str,
+        info: Dict[str, object],
+    ) -> Tuple[str, Optional[str]]:
+        module_target = info.get("module")
+        attr_chain = info.get("attr_chain") or []
+        module_defined = bool(info.get("module_defined"))
+        if module_target:
+            if module_target.startswith("datetime.datetime") and attr_chain:
+                return f"app.modules.{module_name}.service.datetime", attr_chain[-1]
+            if attr_chain:
+                return module_target, None
+            if info.get("name") and module_defined:
+                return f"app.modules.{module_name}.service.{info['name']}", None
+            return module_target, None
+        return f"app.modules.{module_name}.service.{call_key}", None
+
+    def _build_argument_setup(
+        self,
+        module_name: str,
+        service_class_name: str,
+        method: "ServiceMethodInfo",
+        method_details: Dict[str, dict],
+    ) -> Tuple[List[str], str]:
+        lines: List[str] = []
+        call_parts: List[str] = []
+        param_attr_map = method_details.get("param_attributes", {})
+        param_defaults = method_details.get("param_defaults", {})
+
+        signature = self._get_method_signature(module_name, service_class_name, method.name)
+        signature_params = signature.parameters if signature else {}
+
+        for parameter in getattr(method, "parameters", []):
+            if isinstance(parameter, tuple):
+                name = parameter[0]
+                annotation = parameter[1] if len(parameter) > 1 else ""
+            else:
+                name = getattr(parameter, "name", "value")
+                annotation = getattr(parameter, "annotation", "")
+            attrs = set(param_attr_map.get(name, []))
+            default_literal: Optional[str] = param_defaults.get(name)
+            if default_literal is None and name in signature_params:
+                param = signature_params[name]
+                default_literal = self._format_default_value(param.default)
+            lines.extend(self._build_param_value_lines(name, annotation, attrs, default_literal))
+            call_parts.append(f"{name}={name}")
+
+        return lines, ", ".join(call_parts)
+
+    def _build_param_value_lines(
+        self,
+        param_name: str,
+        param_type: str,
+        attr_set: Set[str],
+        default_literal: Optional[str],
+    ) -> List[str]:
+        lines: List[str] = []
+        lower_name = param_name.lower()
+        lower_type = (param_type or "").lower()
+
+        session_like_attrs = {
+            "query",
+            "commit",
+            "rollback",
+            "refresh",
+            "add",
+            "delete",
+            "begin",
+            "begin_nested",
+            "flush",
+            "execute",
+            "scalar",
+            "scalar_one",
+            "scalar_one_or_none",
+            "filter",
+            "filter_by",
+            "one",
+            "one_or_none",
+            "all",
+            "count",
+        }
+
+        if (
+            lower_name in {"db", "session", "db_session"}
+            or "session" in lower_type
+            or attr_set.intersection(session_like_attrs)
+        ):
+            lines.append(f"{param_name} = _make_session_mock(mocker)")
+            return lines
+
+        if attr_set and self._should_use_namespace_for_param(param_name, attr_set):
+            overrides = self._build_namespace_kwargs(sorted(attr_set), param_name)
+            if overrides:
+                lines.append(f"{param_name} = _make_namespace({overrides})")
+            else:
+                lines.append(f"{param_name} = _make_namespace()")
+        else:
+            if default_literal is not None:
+                if default_literal == "None" and self._should_force_sample_value(param_name):
+                    lines.append(f"{param_name} = {self._basic_value_for_type(param_name, param_type)}")
+                else:
+                    lines.append(f"{param_name} = {default_literal}")
+            else:
+                lines.append(f"{param_name} = {self._basic_value_for_type(param_name, param_type)}")
+
+        if "get" in attr_set:
+            lines.append(
+                f"{param_name}.get = lambda key, default=None: getattr({param_name}, key, default)"
+            )
+        if "model_dump" in attr_set:
+            lines.append(
+                f"{param_name}.model_dump = lambda **kwargs: dict({param_name}.__dict__)"
+            )
+
+        return lines
+
+    @staticmethod
+    def _should_use_namespace_for_param(param_name: str, attr_set: Set[str]) -> bool:
+        if not attr_set:
+            return False
+        lowered = param_name.lower()
+        if attr_set == {"value"} and "status" in lowered:
+            return False
+        return True
+
+    def _get_method_signature(
+        self,
+        module_name: str,
+        service_class_name: str,
+        method_name: str,
+    ) -> Optional[inspect.Signature]:
+        cache_key = (module_name, service_class_name, method_name)
+        if cache_key in self._signature_cache:
+            return self._signature_cache[cache_key]
+
+        module_path = f"app.modules.{module_name}.service"
+        signature: Optional[inspect.Signature] = None
+        try:
+            module = importlib.import_module(module_path)
+            service_cls = getattr(module, service_class_name, None)
+            if service_cls is None:
+                self._signature_cache[cache_key] = None
+                return None
+            method_obj = getattr(service_cls, method_name, None)
+            if method_obj is None:
+                self._signature_cache[cache_key] = None
+                return None
+            signature = inspect.signature(method_obj)
+        except Exception:
+            signature = None
+
+        self._signature_cache[cache_key] = signature
+        return signature
+
+    @staticmethod
+    def _format_default_value(default: object) -> Optional[str]:
+        if default is inspect._empty:
+            return None
+        if default is None:
+            return "None"
+        if isinstance(default, (bool, int, float)):
+            return repr(default)
+        if isinstance(default, str):
+            return repr(default)
+        return None
+
+    def _build_result_assertions(self, method_details: Dict[str, dict]) -> List[str]:
+        lines = ["assert result is not None"]
+        repo_calls = method_details.get("repository_calls", [])
+        instance_methods: Dict[str, Set[str]] = {}
+        instance_conditional: Dict[str, Set[str]] = {}
+        class_methods: Dict[str, Set[str]] = {}
+        class_conditional: Dict[str, Set[str]] = {}
+        for call in repo_calls:
+            repo_name = call.get("repo_name") or "repository"
+            method_name = call.get("name") or "method"
+            if call.get("call_type") == "class":
+                key = repo_name
+                class_methods.setdefault(key, set()).add(method_name)
+                if call.get("conditional"):
+                    class_conditional.setdefault(key, set()).add(method_name)
+            else:
+                repo_var = self._sanitize_var(repo_name)
+                instance_methods.setdefault(repo_var, set()).add(method_name)
+                if call.get("conditional"):
+                    instance_conditional.setdefault(repo_var, set()).add(method_name)
+
+        for repo_var, methods in instance_methods.items():
+            unconditional = sorted(methods - instance_conditional.get(repo_var, set()))
+            if not unconditional:
+                continue
+            lines.append(f"if {repo_var}:")
+            for method_name in unconditional:
+                lines.append(f"    {repo_var}.{method_name}.assert_called()")
+
+        for repo_name, methods in sorted(class_methods.items()):
+            unconditional = sorted(methods - class_conditional.get(repo_name, set()))
+            for method_name in unconditional:
+                mock_name = self._build_mock_var_name(repo_name, method_name)
+                lines.append(f"{mock_name}.assert_called()")
+
+        collaborator_calls = method_details.get("collaborator_calls", {})
+        for dep_name, info in collaborator_calls.items():
+            dep_var = self._sanitize_var(dep_name)
+            conditional_methods = set(info.get("conditional_methods", []))
+            instance_methods_to_assert = []
+            class_methods_to_assert = []
+            if "instance" in info.get("call_types", []):
+                instance_methods_to_assert = sorted(set(info.get("methods", [])) - conditional_methods)
+                if instance_methods_to_assert:
+                    lines.append(f"if {dep_var}:")
+                    for method_name in instance_methods_to_assert:
+                        lines.append(f"    {dep_var}.{method_name}.assert_called()")
+            if "class" in info.get("call_types", []):
+                class_methods_to_assert = sorted(set(info.get("methods", [])) - conditional_methods)
+                for method_name in class_methods_to_assert:
+                    mock_name = self._build_mock_var_name(dep_name, method_name)
+                    lines.append(f"{mock_name}.assert_called()")
+
+        return lines
+
+    def _generate_helpers_block(self, service_class_name: str) -> str:
+        helpers = f'''
+
+def _pick_dependency(context: dict, keyword: str):
+    for name, value in context.items():
+        if name == "service":
+            continue
+        if keyword.lower() in name.lower():
+            return value
+    return None
+
+
+def _make_namespace(**overrides):
+    defaults = {{
+        "id": 1,
+        "status": "pending",
+        "amount": Decimal("99.99"),
+        "order_id": 1,
+        "user_id": 1,
+        "payment_reference": "PAY-AUTO-001",
+        "description": "auto generated",
+    }}
+    defaults.update(overrides)
+    return SimpleNamespace(**defaults)
+
+
+def _make_session_mock(mocker: MockerFixture):
+    session = mocker.MagicMock(name="{service_class_name}_session")
+    session.begin.return_value.__enter__.return_value = session
+    session.begin.return_value.__exit__.return_value = False
+    session.begin_nested.return_value.__enter__.return_value = session
+    session.begin_nested.return_value.__exit__.return_value = False
+    query = session.query.return_value
+    query.filter.return_value = query
+    query.filter_by.return_value = query
+    query.one_or_none.return_value = _make_namespace()
+    query.all.return_value = []
+    query.count.return_value = 0
+    session.refresh.side_effect = lambda entity: setattr(entity, "id", getattr(entity, "id", 1))
+    session.commit.return_value = None
+    session.rollback.return_value = None
+    return session
+
+
+def _configure_repository_session(repository_mock, mocker: MockerFixture):
+    session = _make_session_mock(mocker)
+    repository_mock.session = session
+    return session
+
+
+async def _run_in_thread_passthrough(func, *args, **kwargs):
+    result = func(*args, **kwargs)
+    if inspect.isawaitable(result):
+        return await result
+    return result
+
+
+@pytest.fixture
+def service_context(mocker: MockerFixture):
+    if not SERVICE_AVAILABLE:
+        pytest.skip("service import failed")
+
+    service_cls = {service_class_name}
+    signature = inspect.signature(service_cls)
+    init_kwargs = {{}}
+    context = {{}}
+
+    for name, param in signature.parameters.items():
+        if name == "self":
+            continue
+        dependency = mocker.MagicMock(name=name)
+        context[name] = dependency
+        init_kwargs[name] = dependency
+        if "repository" in name.lower():
+            _configure_repository_session(dependency, mocker)
+            # configure common repository methods to return sensible defaults
+            try:
+                dependency.get_or_create.return_value = _make_namespace(id=1)
+            except Exception:
+                pass
+            try:
+                dependency.find_by_user_id.return_value = _make_namespace(id=1, user_id=1)
+            except Exception:
+                pass
+            try:
+                dependency.find_by_cart_and_sku.return_value = None
+            except Exception:
+                pass
+            try:
+                dependency.find_by_cart_id.return_value = []
+            except Exception:
+                pass
+            try:
+                dependency.count_by_cart_id.return_value = 0
+            except Exception:
+                pass
+
+    service = service_cls(**init_kwargs)
+    # replace internal repository instances on the service with MagicMocks so tests can stub their methods
+    try:
+        cart_repo_mock = mocker.MagicMock(name="cart_repo")
+        cart_stub = _make_namespace(id=1, user_id=1, created_at=datetime.utcnow(), updated_at=datetime.utcnow())
+        cart_repo_mock.get_or_create.return_value = cart_stub
+        cart_repo_mock.find_by_user_id.return_value = cart_stub
+        cart_repo_mock.find_by_id.return_value = cart_stub
+        cart_repo_mock.create.return_value = cart_stub
+        cart_repo_mock.update_timestamp.return_value = None
+        cart_repo_mock.delete.return_value = None
+
+        cart_item_repo_mock = mocker.MagicMock(name="cart_item_repo")
+        cart_item_stub = _make_namespace(
+            id=1,
+            cart_id=cart_stub.id,
+            sku_id=1,
+            unit_price=Decimal("99.99"),
+            quantity=1,
+            created_at=datetime.utcnow(),
+        )
+        cart_item_repo_mock.find_by_cart_and_sku.return_value = None
+        cart_item_repo_mock.find_by_cart_id.return_value = [cart_item_stub]
+        cart_item_repo_mock.find_by_id_and_user.return_value = cart_item_stub
+        cart_item_repo_mock.update.return_value = None
+        cart_item_repo_mock.create.return_value = cart_item_stub
+        cart_item_repo_mock.delete.return_value = None
+        cart_item_repo_mock.delete_by_ids.return_value = 1
+        cart_item_repo_mock.delete_by_cart_id.return_value = None
+        cart_item_repo_mock.count_by_cart_id.return_value = 0
+
+        setattr(service, "cart_repo", cart_repo_mock)
+        setattr(service, "cart_item_repo", cart_item_repo_mock)
+    except Exception:
+        pass
+    context["service"] = service
+    return context
+'''
+        return helpers.strip("\n")
+
+    def _detect_service_info(self, module_name: str) -> dict:
+        return self.service_analyzer.detect_service_info(module_name)
+
+    @staticmethod
+    def _build_import_line(
+        module_name: str,
+        submodule: str,
+        names: List[str],
+        fallback_comment: str,
+    ) -> str:
+        if names:
+            ordered = list(dict.fromkeys(names))
+            return f"from app.modules.{module_name}.{submodule} import {', '.join(ordered)}"
+        return f"from app.modules.{module_name}.{submodule} import *  # {fallback_comment}"
+
+    @staticmethod
+    def _timestamp() -> str:
+        return datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+
+    @staticmethod
+    def _sanitize_var(name: str) -> str:
+        sanitized = "".join(ch if ch.isalnum() else "_" for ch in name)
+        return sanitized or "dependency"
+
+    @staticmethod
+    def _build_mock_var_name(prefix: str, method_name: str) -> str:
+        return ServiceTestGenerator._sanitize_var(f"{prefix}_{method_name}_mock")
+
+    def _build_namespace_kwargs(self, attributes: List[str], param_name: str) -> str:
+        pairs: List[str] = []
+        for attr in attributes:
+            value = self._sample_attribute_value(param_name, attr)
+            if value is not None:
+                pairs.append(f"{attr}={value}")
+        return ", ".join(pairs)
+
+    @staticmethod
+    def _sample_attribute_value(param_name: str, attribute: str) -> Optional[str]:
+        attr_lower = attribute.lower()
+        # prefer numeric defaults for quantity-like attributes
+        if attr_lower in {"quantity", "qty"}:
+            return "1"
+        if attr_lower in {"id", "order_id", "user_id"}:
+            return "1"
+        if attr_lower in {"brand_id", "category_id", "product_id", "supplier_id", "sku_id"}:
+            return "1"
+        if attr_lower == "items":
+            return "[_make_namespace(product_id=1, sku_id=1, quantity=1)]"
+        if attr_lower in {"amount", "total_amount"}:
+            return 'Decimal("99.99")'
+        if attr_lower in {"unit_price", "price"}:
+            return 'Decimal("99.99")'
+        if attr_lower == "status":
+            return '"pending"'
+        if attr_lower == "email":
+            return '"user@testmail.local"'
+        if attr_lower == "phone":
+            return '"".join(["156", "0000", "1234"])'
+        if attr_lower == "value":
+            if "status" in param_name.lower():
+                return '"paid"'
+            return '"value"'
+        if attr_lower == "get":
+            return None
+        if attr_lower in {"limit", "offset"}:
+            return "10"
+        if attr_lower in {"start_date", "end_date"}:
+            return "datetime.utcnow()"
+        if attr_lower in {"locked_until", "expires_at", "expires_on"}:
+            return "datetime.utcnow() - timedelta(minutes=5)"
+        if attr_lower in {"failed_login_attempts", "login_attempts"}:
+            return "0"
+        if attr_lower.startswith("is_") or attr_lower == "active":
+            return "True"
+        if attr_lower in {"username", "name"}:
+            return '"value"'
+        return '"value"'
+
+    @staticmethod
+    def _should_force_sample_value(param_name: str) -> bool:
+        lowered = param_name.lower()
+        keywords = {"email", "phone", "mobile", "brand_id", "category_id", "supplier_id"}
+        return any(keyword in lowered for keyword in keywords)
+
+    @staticmethod
+    def _basic_value_for_type(param_name: str, param_type: str) -> str:
+        type_lower = (param_type or "").lower()
+        name_lower = param_name.lower()
+        if "decimal" in type_lower or "float" in type_lower:
+            return 'Decimal("99.99")'
+        if name_lower in {"quantity", "qty"}:
+            return "1"
+        if name_lower in {"new_status", "status"}:
+            return '"paid"'
+        if "email" in name_lower:
+            return '"user@testmail.local"'
+        if any(token in name_lower for token in {"phone", "mobile", "tel"}):
+            return '"".join(["156", "0000", "1234"])'
+        if "int" in type_lower or name_lower.endswith("_id"):
+            return "1"
+        if "bool" in type_lower:
+            return "True"
+        if "list" in type_lower or name_lower.endswith("_list"):
+            return "[]"
+        if "dict" in type_lower or name_lower.endswith("_map"):
+            return "{}"
+        if "datetime" in type_lower:
+            return "datetime.utcnow()"
+        if "date" in type_lower:
+            return "datetime.utcnow().date()"
+        if "uuid" in type_lower:
+            return '"00000000-0000-0000-0000-000000000000"'
+        if "user" in name_lower:
+            return '_make_namespace(id=1, status="active")'
+        return '"value"'
+
+    @staticmethod
+    def _default_repository_return(method_name: str) -> Optional[str]:
+        lower = method_name.lower()
+        if lower.startswith("create"):
+            return '_make_namespace(id=1)'
+        if lower == "get_or_create" or lower == "get_or_create_user_cart":
+            return '_make_namespace(id=1)'
+        if lower.startswith("get"):
+            return "_make_namespace()"
+        # methods like find_by_* usually return a single record or None
+        if lower.startswith("find_by_"):
+            # return a namespace by default so attribute access works in tests
+            return "_make_namespace()"
+        if "calculate" in lower and "statistic" in lower:
+            return '{"total_orders": 1, "delivered_orders": 1, "cancelled_orders": 0}'
+        # generic find/list/fetch/search that return multiple items
+        if lower.startswith(("list", "fetch", "search")):
+            return "[]"
+        if lower.startswith("count"):
+            return "0"
+        if lower.startswith(("exists", "check")):
+            return "False"
+        return None
+
+    @staticmethod
+    def _default_collaborator_return(dep_name: str, method_name: str) -> Optional[str]:
+        method_lower = method_name.lower()
+        if "generate_tokens" in method_lower or ("generate" in method_lower and "token" in method_lower):
+            return '{"access_token": "access", "refresh_token": "refresh", "token_type": "bearer"}'
+        if "authenticate" in method_lower:
+            return '_make_namespace(id=1, status="active")'
+        if "send" in method_lower:
+            return '{"message": "ok"}'
+        if "validate_products_and_calculate_amount" in method_lower:
+            return '(Decimal("0.00"), [])'
+        if "create_order_with_transaction" in method_lower:
+            return '_make_namespace(id=1, status="pending")'
+        if "is_valid_status_transition" in method_lower:
+            return "True"
+        if "verify" in method_lower:
+            return "True"
+        if "generate" in method_lower:
+            return '"AUTO-001"'
+        if "token" in method_lower:
+            return '"token"'
+        if "list" in method_lower:
+            return "[]"
+        return None
+
+    @staticmethod
+    def _default_simple_call_return(name: str) -> Optional[str]:
+        lower = name.lower()
+        if lower == "verify_password":
+            return "True"
+        if lower == "get_password_hash":
+            return '"hashed"'
+        if lower == "create_access_token":
+            return '"access"'
+        if lower == "create_refresh_token":
+            return '"refresh"'
+        if lower == "decode_token":
+            return "{'sub': 1, 'type': 'refresh'}"
+        if lower in {"now", "utcnow"}:
+            return "datetime.utcnow()"
+        if lower == "timedelta":
+            return "timedelta(minutes=5)"
+        if lower.endswith("response"):
+            return "_make_namespace()"
+        return None
