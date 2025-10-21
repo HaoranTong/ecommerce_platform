@@ -1,576 +1,375 @@
+"""Payment service application layer.
+
+Encapsulates payment domain orchestration following the Router → Service →
+Repository → Model architecture. Persistence details are delegated to the
+repository layer while this module focuses on business rules, validation, and
+integration flows.
 """
-文件名：payment_service.py
-文件路径：app/services/payment_service.py
-功能描述：支付管理相关的业务逻辑服务
-主要功能：
-- 支付记录的创建、查询、更新
-- 支付状态管理和验证
-- 支付方式处理和退款管理
-使用说明：
-- 导入：from app.services.payment_service import PaymentService
-- 在路由中调用：PaymentService.create_payment(payment_data)
-"""
+
+from __future__ import annotations
 
 import json
 import uuid
+from contextlib import contextmanager
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 from decimal import Decimal
-from typing import Any, Dict, List, Optional
+from typing import Dict, List, Mapping, Optional
 
 from fastapi import HTTPException, status
 from sqlalchemy import func
-from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session, joinedload
 
 from app.adapters.payment import WechatPayAdapter
 from app.modules.order_management.models import Order
 from app.modules.user_auth.models import User
 
+from .auth_helpers import create_payment_audit_log
 from .models import Payment
+from .repository import (
+    PaymentDomainEvent,
+    PaymentRepository,
+    PaymentTransactionCreate,
+)
+from .schemas import PaymentCreate, PaymentStatusUpdate, WechatPaymentCallback
+from .utils import PaymentNumberGenerator, PaymentValidator
 
 
+@dataclass(slots=True)
 class PaymentService:
-    """支付管理业务逻辑服务"""
+    """Application service coordinating payment workflows."""
 
-    # 支持的支付方式
-    PAYMENT_METHODS = {
-        "alipay": "支付宝",
-        "wechat": "微信支付",
-        "credit_card": "信用卡",
-        "debit_card": "借记卡",
-        "bank_transfer": "银行转账",
-        "cash_on_delivery": "货到付款",
-    }
+    repository: PaymentRepository
+    wechat_adapter: WechatPayAdapter
+    number_generator: PaymentNumberGenerator
+    validator: PaymentValidator
 
-    # 支付状态
-    PAYMENT_STATUSES = {
-        "pending": "待支付",
-        "processing": "处理中",
-        "completed": "已完成",
-        "failed": "支付失败",
-        "cancelled": "已取消",
-        "refunded": "已退款",
-        "partial_refunded": "部分退款",
-    }
+    @contextmanager
+    def _transaction_scope(self):
+        session = self.repository.session
+        if session.in_transaction():
+            with session.begin_nested():
+                yield
+        else:
+            with session.begin():
+                yield
 
-    @staticmethod
-    def generate_payment_no() -> str:
-        """
-        生成支付流水号
-
-        Returns:
-            str: 格式为 PAY{timestamp}{random} 的支付流水号
-        """
-        timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
-        random_suffix = str(uuid.uuid4()).replace("-", "")[:8].upper()
-        return f"PAY{timestamp}{random_suffix}"
-
-    @staticmethod
     def create_payment(
-        db: Session,
-        order_id: int,
-        payment_method: str,
-        amount: Optional[Decimal] = None,
-        external_transaction_id: Optional[str] = None,
-        payment_data: Optional[Dict[str, Any]] = None,
+        self,
+        *,
+        order: Order,
+        payload: PaymentCreate,
+        current_user: User,
     ) -> Payment:
-        """
-        创建支付记录
-
-        Args:
-            db: 数据库会话
-            order_id: 订单ID
-            payment_method: 支付方式
-            amount: 支付金额（可选，默认使用订单金额）
-            external_transaction_id: 外部交易流水号
-            payment_data: 支付相关数据（JSON格式）
-
-        Returns:
-            Payment: 创建的支付记录
-
-        Raises:
-            HTTPException: 订单不存在或支付方式不支持时抛出错误
-        """
-        # 验证订单存在
-        order = db.query(Order).filter(Order.id == order_id).first()
-        if not order:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="订单不存在"
-            )
-
-        # 验证支付方式
-        if payment_method not in PaymentService.PAYMENT_METHODS:
+        amount = payload.amount or order.total_amount
+        if not self.validator.validate_amount(Decimal(order.total_amount), Decimal(amount)):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"不支持的支付方式：{payment_method}",
+                detail="支付金额与订单金额不符",
             )
 
-        # 使用订单金额或指定金额
-        payment_amount = amount or order.total_amount
-
-        # 验证金额
-        if payment_amount <= 0:
+        if not self.validator.validate_payment_method(payload.payment_method):
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST, detail="支付金额必须大于0"
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"不支持的支付方式：{payload.payment_method}",
             )
 
-        # 检查是否已有待支付或已完成的支付记录
-        existing_payment = (
-            db.query(Payment)
-            .filter(
-                Payment.order_id == order_id,
-                Payment.status.in_(["pending", "processing", "completed"]),
-            )
-            .first()
-        )
-
-        if existing_payment:
+        existing_payment = self.repository.find_active_for_order(order.id)
+        if existing_payment and existing_payment.status in {"pending", "processing"}:
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST, detail="订单已有有效的支付记录"
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="该订单已有待处理的支付单",
             )
 
-        # 创建支付记录
         payment = Payment(
-            payment_no=PaymentService.generate_payment_no(),
-            order_id=order_id,
-            amount=payment_amount,
-            payment_method=payment_method,
+            order_id=order.id,
+            user_id=current_user.id,
+            payment_method=payload.payment_method,
+            amount=Decimal(amount),
+            currency=payload.currency or "CNY",
+            payment_no=self.number_generator.generate_payment_no(),
             status="pending",
-            external_transaction_id=external_transaction_id,
-            payment_data=payment_data or {},
+            description=payload.description,
+            payment_data=json.dumps(payload.model_dump(exclude_none=True), ensure_ascii=False),
         )
 
-        try:
-            db.add(payment)
-            db.commit()
-            db.refresh(payment)
-            return payment
-        except IntegrityError:
-            db.rollback()
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="支付记录创建失败，数据冲突",
+        if payload.payment_method == "wechat":
+            order_reference = getattr(order, "order_no", None) or getattr(order, "order_number", None)
+            wechat_response = self.wechat_adapter.create_unified_order(
+                payment_no=payment.payment_no,
+                amount=payment.amount,
+                description=payload.description
+                or (f"订单{order_reference}支付" if order_reference else "订单支付"),
+                user_openid=getattr(current_user, "wx_openid", None),
+            )
+            payment.qr_code = wechat_response.get("code_url")
+            payment.pay_url = wechat_response.get("prepay_id")
+
+        with self._transaction_scope():
+            self.repository.create_payment(payment)
+            self.repository.enqueue_event(
+                PaymentDomainEvent(
+                    event_type="PaymentCreated",
+                    payload={
+                        "payment_id": payment.id,
+                        "payment_no": payment.payment_no,
+                        "order_id": order.id,
+                        "user_id": current_user.id,
+                        "amount": str(payment.amount),
+                        "currency": payment.currency,
+                        "payment_method": payment.payment_method,
+                        "created_at": datetime.utcnow().isoformat(),
+                    },
+                ),
+                payment_id=payment.id,
             )
 
-    @staticmethod
-    def get_payment_by_id(db: Session, payment_id: int) -> Optional[Payment]:
-        """
-        根据ID获取支付记录
-
-        Args:
-            db: 数据库会话
-            payment_id: 支付ID
-
-        Returns:
-            Payment: 支付记录或None
-        """
-        return (
-            db.query(Payment)
-            .options(joinedload(Payment.order).joinedload(Order.user))
-            .filter(Payment.id == payment_id)
-            .first()
+        create_payment_audit_log(
+            payment_id=payment.id,
+            user_id=current_user.id,
+            action="create",
+            new_status="pending",
+            db=self.repository.session,
         )
 
-    @staticmethod
-    def get_payment_by_no(db: Session, payment_no: str) -> Optional[Payment]:
-        """
-        根据支付流水号获取支付记录
+        self.repository.session.refresh(payment)
+        return payment
 
-        Args:
-            db: 数据库会话
-            payment_no: 支付流水号
-
-        Returns:
-            Payment: 支付记录或None
-        """
-        return (
-            db.query(Payment)
-            .options(joinedload(Payment.order).joinedload(Order.user))
-            .filter(Payment.payment_no == payment_no)
-            .first()
-        )
-
-    @staticmethod
-    def get_payments_by_order(db: Session, order_id: int) -> List[Payment]:
-        """
-        获取订单的所有支付记录
-
-        Args:
-            db: 数据库会话
-            order_id: 订单ID
-
-        Returns:
-            List[Payment]: 支付记录列表
-        """
-        return (
-            db.query(Payment)
-            .filter(Payment.order_id == order_id)
-            .order_by(Payment.created_at.desc())
-            .all()
-        )
-
-    @staticmethod
-    def update_payment_status(
-        db: Session,
-        payment_id: int,
-        new_status: str,
-        external_transaction_id: Optional[str] = None,
-        payment_data: Optional[Dict[str, Any]] = None,
-    ) -> Optional[Payment]:
-        """
-        更新支付状态
-
-        Args:
-            db: 数据库会话
-            payment_id: 支付ID
-            new_status: 新状态
-            external_transaction_id: 外部交易流水号
-            payment_data: 支付相关数据
-
-        Returns:
-            Payment: 更新后的支付记录或None
-
-        Raises:
-            HTTPException: 状态转换不合法时抛出错误
-        """
-        payment = db.query(Payment).filter(Payment.id == payment_id).first()
+    def get_payment(self, *, payment_id: int, current_user: User) -> Payment:
+        payment = self.repository.get_by_id(payment_id)
         if not payment:
-            return None
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="支付单不存在")
 
-        # 验证状态转换合法性
-        valid_transitions = {
-            "pending": ["processing", "completed", "failed", "cancelled"],
-            "processing": ["completed", "failed", "cancelled"],
-            "completed": ["refunded", "partial_refunded"],
-            "failed": ["pending"],
-            "cancelled": ["pending"],
-            "refunded": [],
-            "partial_refunded": ["refunded"],
-        }
+        if not self._can_view_payment(payment, current_user):
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="只能操作自己的支付单")
+        return payment
 
-        if new_status not in valid_transitions.get(payment.status, []):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"无法从状态 {payment.status} 转换到 {new_status}",
+    def list_payments_for_user(
+        self,
+        *,
+        current_user: User,
+        order_id: Optional[int],
+        status_filter: Optional[str],
+        limit: int,
+        offset: int,
+    ) -> List[Payment]:
+        return self.repository.list_user_payments(
+            user_id=current_user.id,
+            order_id=order_id,
+            status_filter=status_filter,
+            limit=limit,
+            offset=offset,
+        )
+
+    def list_payments_for_admin(
+        self,
+        *,
+        order_id: Optional[int],
+        user_id: Optional[int],
+        status_filter: Optional[str],
+        payment_method: Optional[str],
+        limit: int,
+        offset: int,
+    ) -> List[Payment]:
+        return self.repository.list_admin_payments(
+            user_id=user_id,
+            order_id=order_id,
+            status_filter=status_filter,
+            payment_method=payment_method,
+            limit=limit,
+            offset=offset,
+        )
+
+    def process_wechat_callback(
+        self,
+        *,
+        callback: WechatPaymentCallback,
+        headers: Mapping[str, str],
+        request_client: str | None,
+    ) -> Dict[str, str]:
+        signature = headers.get("Wechatpay-Signature")
+        if not signature or not self.wechat_adapter.verify_callback_signature(
+            callback.callback_data, signature
+        ):
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="回调签名无效")
+
+        with self._transaction_scope():
+            payment = self.repository.get_by_payment_no(
+                callback.out_trade_no,
+                for_update=True,
+            )
+            if not payment:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="支付单不存在")
+
+            if not self.repository.ensure_callback_idempotent(payment):
+                return {"code": "SUCCESS", "message": "重复通知已忽略"}
+
+            paid_at = datetime.utcnow()
+            self.repository.mark_callback_processed(
+                payment,
+                callback_payload=callback.callback_data,
+                external_payment_id=callback.out_trade_no,
+                external_transaction_id=callback.transaction_id,
+                paid_at=paid_at,
             )
 
-        payment.status = new_status
+            self.repository.append_transaction(
+                payment_id=payment.id,
+                transaction=PaymentTransactionCreate(
+                    transaction_no=f"TRX{uuid.uuid4().hex[:18].upper()}",
+                    transaction_type="payment",
+                    amount=payment.amount,
+                    gateway_response=callback.callback_data,
+                ),
+            )
 
-        if external_transaction_id:
-            payment.external_transaction_id = external_transaction_id
+            self.repository.enqueue_event(
+                PaymentDomainEvent(
+                    event_type="PaymentCompleted",
+                    payload={
+                        "payment_id": payment.id,
+                        "payment_no": payment.payment_no,
+                        "order_id": payment.order_id,
+                        "user_id": payment.user_id,
+                        "amount": str(payment.amount),
+                        "currency": payment.currency,
+                        "transaction_id": callback.transaction_id,
+                        "completed_at": paid_at.isoformat(),
+                    },
+                ),
+                payment_id=payment.id,
+            )
 
-        if payment_data:
-            # 处理JSON字段：如果payment_data已存在，合并数据；否则直接设置
-            if payment.payment_data:
-                existing_data = json.loads(payment.payment_data)
-                existing_data.update(payment_data)
-                payment.payment_data = json.dumps(existing_data)
-            else:
-                payment.payment_data = json.dumps(payment_data)
-
-        # 根据支付状态更新订单状态
-        if new_status == "completed":
-            order = db.query(Order).filter(Order.id == payment.order_id).first()
+            order = (
+                self.repository.session.query(Order)
+                .filter(Order.id == payment.order_id)
+                .one_or_none()
+            )
             if order and order.status == "pending":
                 order.status = "paid"
+                order.paid_at = paid_at
 
-        db.commit()
-        db.refresh(payment)
-        return payment
-
-    @staticmethod
-    def process_payment_callback(
-        db: Session, payment_no: str, callback_data: Dict[str, Any]
-    ) -> Optional[Payment]:
-        """
-        处理支付回调
-
-        Args:
-            db: 数据库会话
-            payment_no: 支付流水号
-            callback_data: 回调数据
-
-        Returns:
-            Payment: 更新后的支付记录或None
-        """
-        payment = PaymentService.get_payment_by_no(db, payment_no)
-        if not payment:
-            return None
-
-        # 根据回调数据判断支付状态
-        # 这里需要根据具体的支付接口进行实现
-        if callback_data.get("status") == "SUCCESS":
-            payment = PaymentService.update_payment_status(
-                db,
-                payment.id,
-                "completed",
-                external_transaction_id=callback_data.get("transaction_id"),
-                payment_data=callback_data,
-            )
-        elif callback_data.get("status") == "FAILED":
-            payment = PaymentService.update_payment_status(
-                db, payment.id, "failed", payment_data=callback_data
-            )
-
-        return payment
-
-    @staticmethod
-    def initiate_refund(
-        db: Session,
-        payment_id: int,
-        refund_amount: Optional[Decimal] = None,
-        reason: Optional[str] = None,
-    ) -> bool:
-        """
-        发起退款
-
-        Args:
-            db: 数据库会话
-            payment_id: 支付ID
-            refund_amount: 退款金额（可选，默认全额退款）
-            reason: 退款原因
-
-        Returns:
-            bool: 退款发起成功返回True
-
-        Raises:
-            HTTPException: 支付记录不存在或状态不允许退款时抛出错误
-        """
-        payment = db.query(Payment).filter(Payment.id == payment_id).first()
-        if not payment:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="支付记录不存在"
-            )
-
-        if payment.status != "completed":
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="只有已完成的支付才能退款",
-            )
-
-        # 默认全额退款
-        refund_amount = refund_amount or payment.amount
-
-        if refund_amount <= 0 or refund_amount > payment.amount:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST, detail="退款金额无效"
-            )
-
-        # 这里应该调用具体的支付接口进行退款
-        # 假设退款成功，更新支付状态
-        if refund_amount == payment.amount:
-            new_status = "refunded"
-        else:
-            new_status = "partial_refunded"
-
-        PaymentService.update_payment_status(
-            db,
-            payment_id,
-            new_status,
-            payment_data={
-                "refund_amount": float(refund_amount),
-                "refund_reason": reason,
-            },
+        create_payment_audit_log(
+            payment_id=payment.id,
+            user_id=payment.user_id,
+            action="callback",
+            old_status="pending",
+            new_status="completed",
+            ip_address=request_client,
+            db=self.repository.session,
         )
 
-        return True
+        return {"code": "SUCCESS", "message": "处理成功"}
 
-    @staticmethod
+    def admin_update_payment_status(
+        self,
+        *,
+        payment_id: int,
+        payload: PaymentStatusUpdate,
+        admin_user: User,
+    ) -> Payment:
+        with self._transaction_scope():
+            payment = self.repository.get_by_id(payment_id, for_update=True)
+            if not payment:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="支付单不存在")
+
+            self.repository.update_status(
+                payment,
+                new_status=payload.status,
+                external_payment_id=payload.external_payment_id,
+                external_transaction_id=payload.external_transaction_id,
+            )
+
+            if payload.callback_data:
+                payment.callback_data = json.dumps(payload.callback_data, ensure_ascii=False)
+
+        create_payment_audit_log(
+            payment_id=payment_id,
+            user_id=admin_user.id,
+            action="admin_update",
+            new_status=payload.status,
+            db=self.repository.session,
+        )
+
+        self.repository.session.refresh(payment)
+        return payment
+
     def get_payment_statistics(
-        db: Session,
+        self,
+        *,
         user_id: Optional[int] = None,
         start_date: Optional[datetime] = None,
         end_date: Optional[datetime] = None,
-    ) -> Dict[str, Any]:
-        """
-        获取支付统计信息
+    ) -> Dict[str, Decimal | int | float | List[Dict[str, object]]]:
+        session = self.repository.session
+        query = session.query(Payment)
 
-        Args:
-            db: 数据库会话
-            user_id: 用户ID（可选）
-            start_date: 开始日期（可选）
-            end_date: 结束日期（可选）
-
-        Returns:
-            Dict[str, Any]: 支付统计信息
-        """
-        query = db.query(Payment).join(Order)
-
-        if user_id:
-            query = query.filter(Order.user_id == user_id)
-
-        if start_date:
+        if user_id is not None:
+            query = query.filter(Payment.user_id == user_id)
+        if start_date is not None:
             query = query.filter(Payment.created_at >= start_date)
-
-        if end_date:
+        if end_date is not None:
             query = query.filter(Payment.created_at <= end_date)
 
         total_payments = query.count()
         completed_payments = query.filter(Payment.status == "completed").count()
         failed_payments = query.filter(Payment.status == "failed").count()
 
-        # 计算总金额
         total_amount = (
             query.filter(Payment.status == "completed")
             .with_entities(func.sum(Payment.amount))
             .scalar()
-            or 0
+            or Decimal("0")
         )
 
-        # 按支付方式统计
-        payment_methods = db.query(
-            Payment.payment_method,
-            func.count(Payment.id).label("count"),
-            func.sum(Payment.amount).label("amount"),
-        ).join(Order)
-
-        if user_id:
-            payment_methods = payment_methods.filter(Order.user_id == user_id)
-
-        if start_date:
-            payment_methods = payment_methods.filter(Payment.created_at >= start_date)
-
-        if end_date:
-            payment_methods = payment_methods.filter(Payment.created_at <= end_date)
-
-        payment_methods = (
-            payment_methods.filter(Payment.status == "completed")
+        method_rows = (
+            session.query(
+                Payment.payment_method,
+                func.count(Payment.id).label("count"),
+                func.sum(Payment.amount).label("amount"),
+            )
+            .filter(Payment.status == "completed")
             .group_by(Payment.payment_method)
             .all()
         )
 
-        method_stats = []
-        for method, count, amount in payment_methods:
-            method_stats.append(
-                {
-                    "method": method,
-                    "method_name": PaymentService.PAYMENT_METHODS.get(method, method),
-                    "count": count,
-                    "amount": float(amount or 0),
-                }
-            )
+        method_stats = [
+            {
+                "method": method,
+                "count": count,
+                "amount": float(amount or 0),
+            }
+            for method, count, amount in method_rows
+        ]
 
         return {
             "total_payments": total_payments,
             "completed_payments": completed_payments,
             "failed_payments": failed_payments,
-            "success_rate": (
-                completed_payments / total_payments if total_payments > 0 else 0
-            ),
+            "success_rate": completed_payments / total_payments if total_payments else 0.0,
             "total_amount": float(total_amount),
             "payment_methods": method_stats,
         }
 
-    @staticmethod
-    def get_pending_payments(db: Session, timeout_minutes: int = 30) -> List[Payment]:
-        """
-        获取超时的待支付记录
-
-        Args:
-            db: 数据库会话
-            timeout_minutes: 超时分钟数
-
-        Returns:
-            List[Payment]: 超时的支付记录列表
-        """
-        timeout_time = datetime.now() - timedelta(minutes=timeout_minutes)
-
+    def get_pending_payments(self, *, timeout_minutes: int = 30) -> List[Payment]:
+        threshold = datetime.utcnow() - timedelta(minutes=timeout_minutes)
         return (
-            db.query(Payment)
-            .filter(Payment.status == "pending", Payment.created_at < timeout_time)
+            self.repository.session.query(Payment)
+            .filter(Payment.status == "pending", Payment.created_at < threshold)
             .all()
         )
 
-    @staticmethod
-    def cancel_expired_payments(db: Session, timeout_minutes: int = 30) -> int:
-        """
-        取消超时的待支付记录
+    def cancel_expired_payments(self, *, timeout_minutes: int = 30) -> int:
+        pending = self.get_pending_payments(timeout_minutes=timeout_minutes)
+        cancelled = 0
+        for payment in pending:
+            with self._transaction_scope():
+                if payment.status != "pending":
+                    continue
+                self.repository.update_status(payment, new_status="cancelled")
+                cancelled += 1
+        return cancelled
 
-        Args:
-            db: 数据库会话
-            timeout_minutes: 超时分钟数
-
-        Returns:
-            int: 取消的支付记录数量
-        """
-        expired_payments = PaymentService.get_pending_payments(db, timeout_minutes)
-
-        count = 0
-        for payment in expired_payments:
-            PaymentService.update_payment_status(db, payment.id, "cancelled")
-            count += 1
-
-        return count
-
-
-# 创建服务实例
-payment_service = PaymentService()
-
-
-# 支付号生成器
-class PaymentNumberGenerator:
-    """支付单号生成器"""
-
-    @staticmethod
-    def generate_payment_no() -> str:
-        """生成支付单号"""
-        return PaymentService.generate_payment_no()
-
-
-payment_number_generator = PaymentNumberGenerator()
-
-
-# 支付验证器
-class PaymentValidator:
-    """支付验证器"""
-
-    @staticmethod
-    def validate_payment_amount(amount: Decimal, order_amount: Decimal) -> bool:
-        """验证支付金额"""
-        return amount == order_amount and amount > 0
-
-    @staticmethod
-    def validate_payment_method(method: str) -> bool:
-        """验证支付方式"""
-        return method in PaymentService.PAYMENT_METHODS
-
-
-payment_validator = PaymentValidator()
-
-
-# 微信支付服务（简化版）
-class WechatPayService:
-    """微信支付服务"""
-
-    def __init__(self):
-        self.app_id = "wx_demo_app_id"  # 演示用
-        self.mch_id = "demo_mch_id"  # 演示用
-
-    def create_unified_order(
-        self, payment_no: str, amount: Decimal, description: str
-    ) -> dict:
-        """创建统一下单"""
-        # 这里是演示实现，实际需要调用微信API
-        return {
-            "code_url": f"https://demo.qrcode.url/{payment_no}",
-            "prepay_id": f"prepay_{payment_no}",
-            "trade_type": "NATIVE",
-        }
-
-    def verify_callback(self, callback_data: dict) -> bool:
-        """验证回调签名"""
-        # 演示实现，实际需要验证微信签名
-        return True
-
-    def process_callback(self, xml_data: str) -> dict:
-        """处理回调数据"""
-        # 演示实现，实际需要解析XML
-        return {
-            "return_code": "SUCCESS",
-            "result_code": "SUCCESS",
-            "out_trade_no": "demo_payment_no",
-            "transaction_id": "demo_transaction_id",
-        }
-
-
-wechat_pay_service = WechatPayService()
+    def _can_view_payment(self, payment: Payment, user: User) -> bool:
+        if getattr(user, "role", None) in {"admin", "super_admin"}:
+            return True
+        return payment.user_id == user.id

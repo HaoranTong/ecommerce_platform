@@ -5,7 +5,7 @@
 主要功能：
 - Payment支付模型：支付记录、状态管理、第三方支付集成
 - Refund退款模型：退款申请、退款处理、状态跟踪
-- 支付流水和退款流水管理
+- 支付流水和事件外发表，支撑对账与异步通知
 使用说明：
 - 导入：from app.models.payment import Payment, Refund
 - 关系：Payment与Order的多对一关系，Payment与Refund的一对多关系
@@ -14,8 +14,19 @@
 - sqlalchemy: 数据库字段定义和关系映射
 """
 
-from sqlalchemy import (DECIMAL, Column, DateTime, ForeignKey, Index, Integer,
-                        String, Text)
+from datetime import datetime
+
+from sqlalchemy import (
+    DECIMAL,
+    JSON,
+    Column,
+    DateTime,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    Text,
+)
 from sqlalchemy.orm import relationship
 
 from app.core.database import Base
@@ -78,6 +89,16 @@ class Payment(Base, TimestampMixin):
     refunds = relationship(
         "Refund", back_populates="payment", cascade="all, delete-orphan"
     )
+    transactions = relationship(
+        "PaymentTransaction",
+        back_populates="payment",
+        cascade="all, delete-orphan",
+    )
+    outbox_events = relationship(
+        "PaymentEventOutbox",
+        back_populates="payment",
+        cascade="all, delete-orphan",
+    )
 
     # 注意：根据架构设计，Payment通过Order间接关联User
     # 访问用户信息使用：payment.order.user
@@ -139,3 +160,58 @@ class Refund(Base, TimestampMixin):
 
     def __repr__(self):
         return f"<Refund(id={self.id}, refund_no='{self.refund_no}', status='{self.status}')>"
+
+
+class PaymentTransaction(Base, TimestampMixin):
+    """支付交易流水模型，用于账务对账与审计"""
+
+    __tablename__ = "payment_transactions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    payment_id = Column(Integer, ForeignKey("payments.id"), nullable=False)
+    transaction_no = Column(String(100), unique=True, nullable=False)
+    transaction_type = Column(String(50), nullable=False)
+    amount = Column(DECIMAL(10, 2), nullable=False)
+    balance_before = Column(DECIMAL(10, 2), nullable=True)
+    balance_after = Column(DECIMAL(10, 2), nullable=True)
+    status = Column(String(20), default="success", nullable=False)
+    gateway_response = Column(Text, nullable=True)
+    remark = Column(String(500), nullable=True)
+
+    payment = relationship("Payment", back_populates="transactions")
+
+    __table_args__ = (
+        Index("idx_payment_created", "payment_id", "created_at"),
+        Index("idx_type_created", "transaction_type", "created_at"),
+    )
+
+    def __repr__(self) -> str:  # pragma: no cover - repr 辅助调试
+        return (
+            f"<PaymentTransaction(id={self.id}, transaction_no='{self.transaction_no}',"
+            f" type='{self.transaction_type}')>"
+        )
+
+
+class PaymentEventOutbox(Base, TimestampMixin):
+    """支付模块事件外发表，支撑可靠消息模式"""
+
+    __tablename__ = "payment_event_outbox"
+
+    id = Column(Integer, primary_key=True, index=True)
+    payment_id = Column(Integer, ForeignKey("payments.id"), nullable=True)
+    event_type = Column(String(100), nullable=False)
+    payload = Column(JSON, nullable=False)
+    status = Column(String(20), nullable=False, default="pending")
+    available_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    delivered_at = Column(DateTime, nullable=True)
+    retry_count = Column(Integer, nullable=False, default=0)
+    last_error = Column(Text, nullable=True)
+
+    payment = relationship("Payment", back_populates="outbox_events")
+
+    __table_args__ = (
+        Index("idx_status_available", "status", "available_at"),
+    )
+
+    def __repr__(self) -> str:  # pragma: no cover - repr 辅助调试
+        return f"<PaymentEventOutbox(id={self.id}, event_type='{self.event_type}', status='{self.status}')>"

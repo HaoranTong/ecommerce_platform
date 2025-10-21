@@ -1,326 +1,181 @@
-"""
-支付管理API路由 - V1.0 Mini-MVP
+"""Payment service API router aligned with the layered architecture."""
 
-实现基础的支付功能，包括：
-- 创建支付单
-- 查询支付状态
-- 微信支付回调处理
-- 支付记录查询
-"""
+from __future__ import annotations
 
-import uuid
-from datetime import datetime
-from decimal import Decimal
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
-from sqlalchemy import and_, desc, or_
-from sqlalchemy.orm import Session
 
 from app.core.auth import get_current_active_user, get_current_admin_user
-from app.core.database import get_db
-from app.modules.order_management.models import Order
-from app.modules.payment_service.auth_helpers import (
-    PaymentSecurityError, create_payment_audit_log, validate_payment_amount,
-    verify_order_ownership_for_payment, verify_payment_ownership)
-from app.modules.payment_service.models import Payment, Refund
-from app.modules.payment_service.schemas import (PaymentCreate, PaymentRead,
-                                                 PaymentStatusUpdate,
-                                                 WechatPaymentCallback)
-from app.modules.payment_service.service import (payment_number_generator,
-                                                 payment_validator,
-                                                 wechat_pay_service)
 from app.modules.user_auth.models import User
+from app.shared.response import ApiResponse, success_response
+
+from .auth_helpers import verify_order_ownership_for_payment
+from .dependencies import get_payment_service
+from .schemas import PaymentCreate, PaymentRead, PaymentStatusUpdate, WechatPaymentCallback
+from .service import PaymentService
+
 
 router = APIRouter()
 
 
-def generate_payment_no() -> str:
-    """生成支付单号"""
-    return payment_number_generator.generate_payment_no()
-
-
 @router.post(
     "/payment-service/payments",
-    response_model=PaymentRead,
+    response_model=ApiResponse[PaymentRead],
     status_code=status.HTTP_201_CREATED,
 )
 async def create_payment(
     payment_data: PaymentCreate,
-    db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
+    payment_service: PaymentService = Depends(get_payment_service),
 ):
-    """
-    创建支付单
+    """Create a payment order for the current user."""
 
-    用户只能为自己的订单创建支付，管理员可以为任何订单创建支付
-    """
-    # 验证订单所有权
     order = await verify_order_ownership_for_payment(
-        payment_data.order_id, current_user, db
+        payment_data.order_id,
+        current_user=current_user,
+        db=payment_service.repository.session,
     )
 
-    # 检查是否已有待支付的支付单
-    existing_payment = (
-        db.query(Payment)
-        .filter(Payment.order_id == payment_data.order_id, Payment.status == "pending")
-        .first()
-    )
-
-    if existing_payment:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="该订单已有待支付的支付单"
+    try:
+        payment = payment_service.create_payment(
+            order=order,
+            payload=payment_data,
+            current_user=current_user,
         )
-
-    # 验证支付金额与订单金额一致
-    if not validate_payment_amount(order, float(order.total_amount)):
+    except HTTPException:
+        raise
+    except Exception as exc:  # noqa: BLE001
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="支付金额与订单金额不符"
-        )
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"创建支付失败: {exc}",
+        ) from exc
 
-    # 创建支付单
-    payment = Payment(
-        order_id=payment_data.order_id,
-        user_id=current_user.id,
-        payment_method=payment_data.payment_method,
-        amount=order.total_amount,
-        currency="CNY",
-        payment_no=generate_payment_no(),
-        status="pending",
+    return success_response(
+        data=PaymentRead.model_validate(payment),
+        message="创建支付成功",
     )
 
-    db.add(payment)
-    db.commit()
-    db.refresh(payment)
 
-    # 调用第三方支付服务
-    payment_response = {}
-    if payment_data.payment_method == "wechat":
-        try:
-            wechat_response = wechat_pay_service.create_unified_order(
-                payment_no=payment.payment_no,
-                amount=payment.amount,
-                description=f"订单{order.order_no}支付",
-                user_openid=getattr(current_user, "wx_openid", None),
-            )
-            payment_response = create_payment_response(payment, wechat_response)
-        except Exception as e:
-            # 如果第三方支付创建失败，删除支付单
-            db.delete(payment)
-            db.commit()
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"创建微信支付失败: {str(e)}",
-            )
-
-    # 记录审计日志
-    create_payment_audit_log(
-        payment_id=payment.id,
-        user_id=current_user.id,
-        action="create",
-        new_status="pending",
-        db=db,
-    )
-
-    # 返回支付信息和第三方响应
-    result = payment_response if payment_response else payment
-    return result
-
-
-@router.get("/payment-service/payments/{payment_id}", response_model=PaymentRead)
+@router.get("/payment-service/payments/{payment_id}", response_model=ApiResponse[PaymentRead])
 async def get_payment(
     payment_id: int,
-    db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
+    payment_service: PaymentService = Depends(get_payment_service),
 ):
-    """查询支付状态（所有权验证）"""
+    """Retrieve a payment visible to the current user."""
 
-    payment, order = await verify_payment_ownership(payment_id, current_user, db)
-    return payment
+    payment = payment_service.get_payment(
+        payment_id=payment_id,
+        current_user=current_user,
+    )
+    return success_response(
+        data=PaymentRead.model_validate(payment),
+        message="获取支付详情成功",
+    )
 
 
-@router.get("/payment-service/payments", response_model=List[PaymentRead])
+@router.get(
+    "/payment-service/payments",
+    response_model=ApiResponse[List[PaymentRead]],
+)
 async def list_payments(
     order_id: Optional[int] = None,
     status_filter: Optional[str] = None,
     limit: int = 20,
     offset: int = 0,
-    db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
+    payment_service: PaymentService = Depends(get_payment_service),
 ):
-    """
-    获取支付记录列表
+    """List payments for the current user or all payments for admins."""
 
-    用户只能查看自己的支付记录，管理员可以查看所有记录
-    """
-    query = db.query(Payment)
+    if getattr(current_user, "role", None) in {"admin", "super_admin"}:
+        payments = payment_service.list_payments_for_admin(
+            order_id=order_id,
+            user_id=None,
+            status_filter=status_filter,
+            payment_method=None,
+            limit=limit,
+            offset=offset,
+        )
+    else:
+        payments = payment_service.list_payments_for_user(
+            current_user=current_user,
+            order_id=order_id,
+            status_filter=status_filter,
+            limit=limit,
+            offset=offset,
+        )
 
-    # 权限控制：用户只能查看自己的支付记录
-    if current_user.role not in ["admin", "super_admin"]:
-        query = query.filter(Payment.user_id == current_user.id)
-
-    # 过滤条件
-    if order_id:
-        query = query.filter(Payment.order_id == order_id)
-
-    if status_filter:
-        query = query.filter(Payment.status == status_filter)
-
-    # 排序和分页
-    payments = (
-        query.order_by(desc(Payment.created_at)).offset(offset).limit(limit).all()
+    payload = [PaymentRead.model_validate(payment) for payment in payments]
+    return success_response(
+        data=payload,
+        message="获取支付列表成功",
     )
-
-    return payments
 
 
 @router.post("/payment-service/payments/callback/wechat")
 async def wechat_payment_callback(
     callback_data: WechatPaymentCallback,
     request: Request,
-    db: Session = Depends(get_db),
+    payment_service: PaymentService = Depends(get_payment_service),
 ):
-    """
-    微信支付回调处理
+    """Handle WeChat payment callbacks."""
 
-    注意：此端点不需要用户认证，但需要验证微信签名
-    """
-    # TODO: 实现微信签名验证
-    # verify_wechat_signature(callback_data.model_dump(), request.headers.get('Wechatpay-Signature'))
-
-    # 根据商户订单号查找支付单
-    payment = (
-        db.query(Payment)
-        .filter(Payment.payment_no == callback_data.out_trade_no)
-        .first()
+    result = payment_service.process_wechat_callback(
+        callback=callback_data,
+        headers=request.headers,
+        request_client=request.client.host if request.client else None,
     )
-
-    if not payment:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="支付单不存在"
-        )
-
-    # 更新支付状态
-    old_status = payment.status
-
-    if callback_data.trade_state == "SUCCESS":
-        payment.status = "paid"
-        payment.paid_at = datetime.utcnow()
-        payment.external_payment_id = callback_data.out_trade_no
-        payment.external_transaction_id = callback_data.transaction_id
-
-        # 更新订单状态
-        order = db.query(Order).filter(Order.id == payment.order_id).first()
-        if order and order.status == "pending":
-            order.status = "paid"
-            order.paid_at = datetime.utcnow()
-
-    elif callback_data.trade_state in ["CLOSED", "REVOKED", "PAYERROR"]:
-        payment.status = "failed"
-        payment.failed_at = datetime.utcnow()
-
-    # 记录回调信息
-    payment.callback_received_at = datetime.utcnow()
-    payment.callback_data = str(
-        callback_data.model_dump()
-    )  # 简化存储，生产环境需要加密
-
-    db.commit()
-
-    # 记录审计日志
-    create_payment_audit_log(
-        payment_id=payment.id,
-        user_id=payment.user_id,
-        action="callback",
-        old_status=old_status,
-        new_status=payment.status,
-        ip_address=request.client.host,
-        user_agent=request.headers.get("user-agent"),
-        db=db,
-    )
-
-    return {"code": "SUCCESS", "message": "处理成功"}
+    return result
 
 
-@router.get("/payment-service/admin/payments", response_model=List[PaymentRead])
+@router.get(
+    "/payment-service/admin/payments",
+    response_model=ApiResponse[List[PaymentRead]],
+)
 async def admin_list_all_payments(
     user_id: Optional[int] = None,
+    order_id: Optional[int] = None,
     status_filter: Optional[str] = None,
     payment_method: Optional[str] = None,
     limit: int = 50,
     offset: int = 0,
-    db: Session = Depends(get_db),
     current_admin: User = Depends(get_current_admin_user),
+    payment_service: PaymentService = Depends(get_payment_service),
 ):
-    """管理员查看所有支付记录"""
+    """List payments for administrative views."""
 
-    query = db.query(Payment)
-
-    # 过滤条件
-    if user_id:
-        query = query.filter(Payment.user_id == user_id)
-
-    if status_filter:
-        query = query.filter(Payment.status == status_filter)
-
-    if payment_method:
-        query = query.filter(Payment.payment_method == payment_method)
-
-    # 排序和分页
-    payments = (
-        query.order_by(desc(Payment.created_at)).offset(offset).limit(limit).all()
+    payments = payment_service.list_payments_for_admin(
+        order_id=order_id,
+        user_id=user_id,
+        status_filter=status_filter,
+        payment_method=payment_method,
+        limit=limit,
+        offset=offset,
     )
-
-    return payments
+    payload = [PaymentRead.model_validate(payment) for payment in payments]
+    return success_response(data=payload, message="获取支付记录成功")
 
 
 @router.patch(
-    "/payment-service/admin/payments/{payment_id}/status", response_model=PaymentRead
+    "/payment-service/admin/payments/{payment_id}/status",
+    response_model=ApiResponse[PaymentRead],
 )
 async def admin_update_payment_status(
     payment_id: int,
     status_update: PaymentStatusUpdate,
-    db: Session = Depends(get_db),
     current_admin: User = Depends(get_current_admin_user),
+    payment_service: PaymentService = Depends(get_payment_service),
 ):
-    """管理员更新支付状态（用于处理退款等）"""
+    """Allow administrators to adjust payment status when needed."""
 
-    payment = db.query(Payment).filter(Payment.id == payment_id).first()
-    if not payment:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="支付单不存在"
-        )
-
-    old_status = payment.status
-
-    # 更新支付状态
-    payment.status = status_update.status
-
-    if status_update.status == "refunded":
-        payment.refunded_at = datetime.utcnow()
-    elif status_update.status == "failed":
-        payment.failed_at = datetime.utcnow()
-    elif status_update.status == "paid":
-        payment.paid_at = datetime.utcnow()
-
-    # 更新第三方信息
-    if status_update.external_payment_id:
-        payment.external_payment_id = status_update.external_payment_id
-
-    if status_update.external_transaction_id:
-        payment.external_transaction_id = status_update.external_transaction_id
-
-    db.commit()
-    db.refresh(payment)
-
-    # 记录审计日志
-    create_payment_audit_log(
-        payment_id=payment.id,
-        user_id=current_admin.id,
-        action="admin_update",
-        old_status=old_status,
-        new_status=payment.status,
-        db=db,
+    payment = payment_service.admin_update_payment_status(
+        payment_id=payment_id,
+        payload=status_update,
+        admin_user=current_admin,
     )
-
-    return payment
+    return success_response(
+        data=PaymentRead.model_validate(payment),
+        message="更新支付状态成功",
+    )

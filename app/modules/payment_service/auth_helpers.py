@@ -9,7 +9,11 @@ from typing import Optional
 from fastapi import Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
-from app.core.auth import get_current_active_user, get_current_admin_user
+from app.core.auth import (
+    get_current_active_user,
+    get_current_admin_user,
+    require_ownership,
+)
 from app.core.database import get_db
 from app.modules.order_management.models import Order
 from app.modules.payment_service.models import Payment

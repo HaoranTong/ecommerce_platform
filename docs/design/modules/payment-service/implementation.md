@@ -5,119 +5,70 @@
 - 使用方法：开发过程中实时记录，便于知识传承
 -->
 
-# payment-service模块 - 实现记录文档
+# payment-service 模块 - 实现记录文档
 
-📅 **创建日期**: 2025-09-16  
-👤 **开发者**: {开发人员}  
-🔄 **最后更新**: 2025-09-16  
-📊 **完成进度**: {百分比}%  
+📅 创建日期: 2025-09-16  
+👤 开发者: 支付域团队  
+🔄 最后更新: 2025-10-20  
+📊 完成进度: 68%  
 
 ## 实施概述
 
 ### 实施状态
-- **当前状态**: {开发中|测试中|已完成|部署中}
-- **完成功能**: {已完成的功能列表}
-- **待实施**: {待实施的功能列表}
-- **技术债务**: {已知的技术债务}
+- 当前状态: 开发中
+- 完成功能: 支付创建、支付查询、管理员查询、微信回调处理、审计日志、路由层与依赖注入重构
+- 待实施: 退款流程、统计报表、回调签名与幂等、支付宝适配器
+- 技术债务: 回调签名校验未实现、渠道错误码细化
 
 ### 关键里程碑
 | 日期 | 里程碑 | 状态 | 备注 |
 |------|--------|------|------|
-| 2025-09-16 | {里程碑1} | ✅ | {备注} |
-| 2025-09-16 | {里程碑2} | 🔄 | {备注} |
-
+| 2025-09-30 | Mini-MVP: 创建/查询/回调 | ✅ | 基本闭环验证 |
+| 2025-10-15 | 退款流程实现 | 🔄 | 进行中 |
+| 2025-10-31 | 风控与统计 | ⏳ | 规划中 |
 ## 代码实现
 
 ### 目录结构
 ```
 app/modules/payment_service/
 ├── __init__.py
-├── router.py           # ✅ API路由实现
-├── service.py          # ✅ 业务逻辑实现
-├── repository.py       # 🔄 数据访问层
-├── models.py           # ✅ 数据模型
-├── schemas.py          # ✅ 数据传输对象
-├── dependencies.py     # ⏳ 依赖注入
-├── exceptions.py       # ⏳ 自定义异常
-└── utils.py           # ⏳ 工具函数
+├── router.py           # API路由（支付、回调、管理员）
+├── service.py          # 业务逻辑（校验、渠道调用封装）
+├── repository.py       # 仓储层（支付/退款/流水/事件外发封装）
+├── models.py           # SQLAlchemy模型（Payment、Refund）
+├── schemas.py          # Pydantic v2 模型
+├── dependencies.py     # 依赖注入与权限
+├── auth_helpers.py     # 审计与安全校验
+└── utils.py            # 编号生成等工具
 ```
 
 ### 核心组件实现
 
 #### API路由层 (router.py)
-```python
-from fastapi import APIRouter, Depends
-from .schemas import {Schema}Request, {Schema}Response
-from .service import {Module}Service
-
-router = APIRouter()
-
-@router.post("/payment-service/{resource}", response_model={Schema}Response)
-async def create_{resource}(
-    request: {Schema}Request,
-    service: {Module}Service = Depends()
-):
-    """
-    实现说明：
-    - 功能：{功能描述}
-    - 验证：{验证逻辑}
-    - 处理：{处理逻辑}
-    """
-    return await service.create_{resource}(request)
-```
+- 路径前缀统一在 app/main.py 中注册为 `/api/v1`
+- 已实现端点：
+    - POST `/api/v1/payment-service/payments` → 创建支付
+    - GET `/api/v1/payment-service/payments/{id}` → 支付详情
+    - GET `/api/v1/payment-service/payments` → 支付列表
+    - POST `/api/v1/payment-service/payments/callback/wechat` → 微信回调（待对齐规范路径）
+    - 管理端：GET `/api/v1/payment-service/admin/payments`，PATCH `/api/v1/payment-service/admin/payments/{id}/status`
 
 #### 业务逻辑层 (service.py)
-```python
-class {Module}Service:
-    def __init__(self, repository: {Module}Repository = Depends()):
-        self.repository = repository
-    
-    async def create_{resource}(self, request: {Schema}Request):
-        """
-        业务逻辑实现：
-        1. {步骤1}
-        2. {步骤2}
-        3. {步骤3}
-        """
-        # 实现代码
-        pass
-```
+- 校验：订单所有权与金额一致性
+- 渠道：调用 `wechat_pay_service.create_unified_order` 生成支付凭证
+- 审计：`create_payment_audit_log` 记录关键行为
 
-#### 数据访问层 (repository.py)
-```python
-class {Module}Repository:
-    def __init__(self, db: Session = Depends(get_db)):
-        self.db = db
-    
-    async def create_{entity}(self, entity_data: dict):
-        """
-        数据访问实现：
-        - 表：{table_name}
-        - 操作：{操作类型}
-        - 索引使用：{索引信息}
-        """
-        # 实现代码
-        pass
-```
+#### 数据访问层 / 仓储层
+- `repository.py` 已实现 `PaymentRepository`，封装 `get_by_payment_no`、`ensure_callback_idempotent`、`mark_callback_processed`、`append_transaction`、`enqueue_event` 等操作。
+- `models.py` 新增 `PaymentTransaction`、`PaymentEventOutbox` 模型，配合仓储方法落库支付流水与事件外发记录。
+- 已完成：Service 层通过依赖注入接入仓储与渠道适配器，FastAPI 路由已切换至新的应用服务实现。
+- 已完成：仓储层补充 Outbox 扫描/状态更新接口，并在 `tasks/outbox_worker.py` 提供事件调度工具。
+- 后续：补充仓储与服务层的单元测试，并将 Outbox Worker 接入实际调度及告警闭环。
 
 ### 数据模型实现
 
 #### SQLAlchemy模型
-```python
-from app.shared.base_models import BaseModel, TimestampMixin
-
-class {Entity}(BaseModel, TimestampMixin):
-    __tablename__ = '{table_name}'
-    
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    name = Column(String(200), nullable=False, index=True)
-    # 其他字段
-    
-    # 实现说明：
-    # - 继承BaseModel提供基础功能
-    # - 使用TimestampMixin自动处理时间戳
-    # - 索引策略：{索引说明}
-```
+见 `models.py`，包含索引：payment_no、(order_id,user_id)、(status,created_at) 等。
 
 ## 技术实现细节
 
@@ -126,26 +77,43 @@ class {Entity}(BaseModel, TimestampMixin):
 - **算法2**: {算法描述和实现}
 
 ### 性能优化
-- **数据库优化**: {具体优化措施}
-- **缓存实现**: {缓存策略实现}
-- **异步处理**: {异步实现方案}
+- **数据库优化**: 依托新增索引（payment_no、status+created_at、outbox status）保持查询效率，后续按照压测结果再行调优。
+- **缓存实现**: 支付详情、统计信息缓存策略待结合仓储重构后的查询接口排期。
+- **异步处理**: 回调事件采用 Outbox + Worker 方案，详见下节。
+
+#### 异步处理（Outbox Worker 计划）
+- **调度模式**：使用 Celery Beat 或 APScheduler 每 5 秒扫描 `payment_event_outbox`（支持配置化），单批默认处理 100 条；`dispatch_outbox_events` 提供独立函数方便集成到不同执行器。
+- **处理流程**：
+    1. 将待处理事件更新为 `sending` 状态，调用 MQ 客户端发布消息；
+    2. 发布成功写回 `sent`、`delivered_at`，失败累加 `retry_count` 并根据阈值决定是否继续 `pending` 或标记 `failed`，同时记录 `last_error`；
+    3. 当 `retry_count >= 5` 触发告警（Prometheus/日志），需要人工介入或脚本补偿。
+- **示例伪代码**：
+```python
+@celery_app.task(bind=True, name="payment_event_outbox.dispatch")
+def dispatch_outbox(self):
+    with session_factory() as session:
+        repo = PaymentRepository(session)
+        events = repo.fetch_pending_outbox(limit=100)
+        for event in events:
+            repo.mark_outbox_sending(event)
+        session.flush()
+
+        for event in events:
+            try:
+                mq_client.publish(event.event_type, event.payload)
+            except Exception as exc:  # noqa: BLE001
+                repo.mark_outbox_retry(event, error=str(exc), max_retries=5)
+            else:
+                repo.mark_outbox_sent(event)
+        session.commit()
+```
+- **后续任务**：
+    - [x] 在仓储层补充 `fetch_pending_outbox`、`mark_outbox_sent`、`mark_outbox_retry` 接口（2025-10-20）。
+    - [x] 在 `dependencies.py` 注册仓储实例，Service 层通过 DI 获取（2025-10-20）。
+    - [x] 新建 `tasks/outbox_worker.py` 并在运维手册中记录告警策略（待文档更新，代码已提交于 2025-10-20）。
 
 ### 错误处理
-```python
-class {Module}Exception(Exception):
-    """模块自定义异常"""
-    def __init__(self, message: str, error_code: str):
-        self.message = message
-        self.error_code = error_code
-        super().__init__(self.message)
-
-# 使用示例
-try:
-    # 业务逻辑
-    pass
-except ValueError as e:
-    raise {Module}Exception("业务错误", "MODULE_001")
-```
+- 业务错误使用 FastAPI HTTPException 抛出 4xx/5xx；错误码映射参见 `docs/design/modules/payment-service/api-spec.md`
 
 ## 集成实现
 
@@ -155,44 +123,12 @@ except ValueError as e:
 - **接口调用**: {调用实现}
 
 ### 外部服务集成
-```python
-class External{Service}Client:
-    """外部服务客户端实现"""
-    
-    def __init__(self):
-        self.base_url = settings.{SERVICE}_URL
-        self.timeout = 30
-    
-    async def call_api(self, data):
-        """
-        集成实现：
-        - 接口：{API接口}
-        - 重试：{重试机制}
-        - 降级：{降级方案}
-        """
-        # 实现代码
-        pass
-```
+使用 `app/adapters/payment/wechat_adapter.py` 与 `alipay_adapter.py` 封装渠道差异；重试、降级策略将在接入层统一处理。
 
 ## 数据库实施
 
 ### 迁移脚本
-```python
-# alembic/versions/{timestamp}_{module}_init.py
-def upgrade():
-    op.create_table('{table_name}',
-        sa.Column('id', sa.Integer(), nullable=False),
-        sa.Column('name', sa.String(200), nullable=False),
-        # 其他字段
-        sa.PrimaryKeyConstraint('id')
-    )
-    
-    # 索引创建
-    op.create_index('idx_{table}_{field}', '{table_name}', ['field'])
-
-def downgrade():
-    op.drop_table('{table_name}')
-```
+见 Alembic 目录，按模块前缀 `payment_` 命名迁移；当前表由自动发现 create_all 创建，后续将迁移化。
 
 ### 数据初始化
 ```python
@@ -210,81 +146,27 @@ def init_{module}_data():
 ## 测试实施
 
 ### 单元测试实现
-```python
-import pytest
-from app.modules.payment_service.service import {Module}Service
-
-class Test{Module}Service:
-    def setup_method(self):
-        """测试设置"""
-        self.service = {Module}Service()
-    
-    def test_create_{resource}(self):
-        """
-        测试用例：
-        - 场景：{测试场景}
-        - 输入：{输入数据}
-        - 预期：{预期结果}
-        """
-        # 测试实现
-        pass
-```
+- 建议覆盖：金额验证、订单所有权校验、编号生成、状态流转
+- 2025-10-20：使用 `tools/generate_test_template.py payment_service` 生成模型/仓储/服务/集成/安全/性能等测试骨架，自动校验通过；待补充跨模块工厂（OrderManagementFactoryManager）并完善自定义用例。
 
 ### 集成测试实现
-```python
-def test_{module}_api_integration():
-    """
-    集成测试：
-    - 测试范围：{测试范围}
-    - 数据准备：{数据准备}
-    - 验证点：{验证内容}
-    """
-    # 测试实现
-    pass
-```
+- 场景：创建支付→模拟渠道下单成功→调用回调→校验状态与订单联动
 
 ## 配置实施
 
 ### 环境配置
-```python
-# app/core/config.py
-class {Module}Settings:
-    """模块配置"""
-    {module}_feature_enabled: bool = True
-    {module}_cache_ttl: int = 3600
-    # 其他配置项
-```
+沿用平台统一配置，支付模块无专有环境变量需求。
 
 ### 依赖注入配置
-```python
-# app/modules/payment_service/dependencies.py
-def get_{module}_service() -> {Module}Service:
-    """依赖注入工厂"""
-    repository = get_{module}_repository()
-    return {Module}Service(repository)
-```
+见 `dependencies.py` 与 `auth_helpers.py`。
 
 ## 部署实施
 
 ### Docker配置
-```dockerfile
-# 如果需要特殊配置
-FROM python:3.11-slim
-
-# 模块特定依赖
-RUN pip install {special_packages}
-
-# 配置文件
-COPY config/{module}.yaml /app/config/
-```
+无模块专有 Docker 要求，沿用项目根镜像与依赖。
 
 ### 环境变量
-```bash
-# 模块相关环境变量
-{MODULE}_FEATURE_ENABLED=true
-{MODULE}_CACHE_TTL=3600
-{MODULE}_EXTERNAL_API_URL=https://api.example.com
-```
+环境变量由平台统一管理。
 
 ## 问题和解决方案
 
@@ -322,20 +204,32 @@ COPY config/{module}.yaml /app/config/
 
 ## 后续计划
 
-### 优化计划
-- [ ] {优化项1} - {预计时间}
-- [ ] {优化项2} - {预计时间}
+### 优化计划（Coding Standards）
+- [x] 重构 `PaymentService` 以使用 `PaymentRepository`，实现事务边界、幂等锁与事件入箱（2025-10-20）
+- [x] 在 `dependencies.py` 注册仓储与适配器依赖，路由层通过 DI 获取实例（2025-10-20）
+- [x] 整合统一响应包装与错误码映射，满足 API 标准的 envelope 要求（响应包装已完成，错误码映射待细化）
+- [ ] 引入结构化日志与审计记录（支付创建、回调、退款）
 
-### 功能扩展
-- [ ] {扩展功能1} - {预计时间}
-- [ ] {扩展功能2} - {预计时间}
+### 功能/集成实现（API Standards）
+- [ ] 对齐 `api-spec.md` 的端点路径、状态码、请求/响应 schema
+- [ ] 落实 Idempotency-Key 处理（路由 → Service → Repository）
+- [ ] 实现支付回调签名校验（微信/支付宝）及重放防护
+- [ ] 完成退款流程 API（申请、审批、拒绝）与状态机联动
 
-### 技术升级
-- [ ] {升级项1} - {预计时间}
-- [ ] {升级项2} - {预计时间}
+### 数据库与基础设施（Database Standards）
+- [ ] 编写 Alembic 迁移（`payment_transactions`、`payment_event_outbox` 及字段变更）
+- [ ] 在仓储层补充 `fetch_pending_outbox`、`mark_outbox_sent`、`mark_outbox_retry`
+- [ ] 新增 Outbox Worker（Celery/APS）及告警策略实现
+- [ ] 覆盖仓储与服务层的数据库单元测试，包含并发/幂等场景
+
+### 测试与质量保障
+- [ ] 更新/新增 Pydantic schema 校验测试，确保必填字段与格式符合标准
+- [ ] 编写集成测试：创建支付→回调→事件出站→订单模块模拟消费
+- [ ] 压测与限流策略验证，输出性能测试报告
+- [ ] 安全扫描（输入校验、签名、敏感日志脱敏）并记录整改结果
 
 ## 变更记录
 
 | 日期 | 版本 | 变更内容 | 开发者 |
 |------|------|----------|--------|
-| 2025-09-16 | v1.0 | 初始实现 | {姓名} |
+| 2025-10-20 | v1.0 | 同步文档与实现现状 | 支付域团队 |

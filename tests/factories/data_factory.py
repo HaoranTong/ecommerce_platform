@@ -63,6 +63,7 @@ product = StandardTestDataFactory.create_product(db, name="测试商品")
 
 from datetime import datetime
 from decimal import Decimal
+from typing import Optional
 
 from sqlalchemy.orm import Session
 
@@ -72,6 +73,7 @@ from app.modules.inventory_management.models import (AdjustmentType,
                                                      InventoryTransaction,
                                                      ReservationType,
                                                      TransactionType)
+from app.modules.payment_service.models import Payment
 from app.modules.product_catalog.models import SKU, Brand, Category, Product
 from app.modules.shopping_cart.models import CartItem
 from app.modules.user_auth.models import Role, User
@@ -423,11 +425,11 @@ class StandardTestDataFactory:
         return cart_item
 
     @staticmethod
-    def create_order(db: Session, user_id: int, **kwargs):
+    def create_order(db: Session, user_id: Optional[int] = None, **kwargs):
         """创建测试订单
 
         Args:
-            user_id: 用户ID（整数）
+            user_id: 用户ID（整数，省略时会自动创建测试用户）
         
         Returns:
             Order对象
@@ -435,6 +437,10 @@ class StandardTestDataFactory:
         from app.modules.order_management.models import Order
         import uuid
         
+        if user_id is None:
+            user = StandardTestDataFactory.create_user(db)
+            user_id = user.id
+
         defaults = {
             "user_id": user_id,
             "order_number": f"TEST-{uuid.uuid4().hex[:12].upper()}",
@@ -455,6 +461,29 @@ class StandardTestDataFactory:
         db.commit()
         db.refresh(order)
         return order
+
+    @staticmethod
+    def create_payment(db: Session, order_id: int, user_id: int, **kwargs) -> Payment:
+        """创建测试支付记录"""
+
+        import uuid
+
+        defaults = {
+            "order_id": order_id,
+            "user_id": user_id,
+            "payment_no": f"PAY-{uuid.uuid4().hex[:10].upper()}",
+            "payment_method": "wechat",
+            "amount": Decimal("99.99"),
+            "currency": "CNY",
+            "status": "pending",
+        }
+        defaults.update(kwargs)
+
+        payment = Payment(**defaults)
+        db.add(payment)
+        db.commit()
+        db.refresh(payment)
+        return payment
 
     @staticmethod
     def create_order_item(db: Session, order_id: int, product_id: int, sku_id: int, **kwargs):

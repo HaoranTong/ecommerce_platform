@@ -1,0 +1,629 @@
+<!--
+文档说明：
+- 内容：Payment Service 模块技术设计文档
+- 作用：记录支付服务的技术设计决策、架构选择、实现方案
+- 创建日期：2025-10-20
+- 最后更新：2025-10-20
+- 版本：v1.0.0
+- 责任人：GitHub Copilot
+- 评审状态：设计完成
+-->
+
+# Payment Service 模块 - 技术设计文档
+
+� **状态**: ✅ 设计完成  
+�📅 **创建日期**: 2025-10-20  
+👤 **设计者**: GitHub Copilot  
+🔄 **最后更新**: 2025-10-20  
+📋 **版本**: v1.0.0  
+
+---
+
+## 1. 引言
+
+### 1.1 设计目标
+
+本文档定义 Payment Service（支付服务）模块的技术设计方案，确保符合项目架构标准和业务需求。
+
+**核心目标**：
+
+1. **业务闭环完整性** - 支付和退款流程形成完整业务闭环
+   - 支付请求创建→支付处理→状态更新→结果通知
+   - 退款申请→退款审核→退款处理→结果确认
+
+2. **高可用性** - 确保支付服务 99.9% 可用性
+   - 量化目标：年度停机时间 < 8.76 小时
+   - 支持故障快速恢复（RTO < 5分钟）
+   - 支付数据零丢失（RPO = 0）
+
+3. **安全可靠性** - 建立多层安全防护体系
+   - 支付数据加密存储和传输
+   - 第三方回调签名验证
+   - 防重放攻击机制
+   - 审计日志完整记录
+
+4. **可扩展性** - 支持多种支付方式灵活扩展
+   - 适配器模式隔离第三方依赖
+   - 新增支付渠道无需修改核心逻辑
+   - 支持7种支付方式（可扩展至更多）
+
+5. **高性能** - 满足高并发支付需求
+   - 量化目标：
+     - 支付请求响应时间 < 1秒（P99）
+     - 支持 1000 QPS 并发
+     - 回调处理响应时间 < 200ms
+
+### 1.2 设计范围
+
+#### 模块边界定义
+
+**包含功能**（必须引用 business-architecture.md 中的定义）：
+
+- ✅ **支付处理** - 处理订单支付请求，支持多种支付方式（REQ-payment-001）
+  - 7种支付方式：微信支付、支付宝、银行卡、企业转账、余额支付、积分支付、组合支付
+  - 支付请求创建和验证
+  - 支付状态跟踪和更新
+  - 支付超时处理（30分钟）
+
+- ✅ **退款管理** - 处理订单退款请求（REQ-payment-002）
+  - 全额退款和部分退款
+  - 退款审核流程
+  - 退款状态跟踪
+  - 退款到账确认
+
+- ✅ **支付适配器模式** - 统一的支付接口，隔离第三方支付细节（REQ-payment-003）
+  - 微信支付适配器
+  - 支付宝支付适配器
+  - 银行卡支付适配器
+  - 其他支付渠道适配器
+
+- ✅ **支付安全保障** - 支付风险防控和资金安全保护（REQ-payment-004）
+  - 支付金额校验
+  - 重复支付检测
+  - 支付token验证
+  - 大额支付额外验证（>5000元）
+
+- ✅ **对账结算** - 资金流水和结算记录管理（REQ-payment-005）
+  - 支付流水记录
+  - 结算对账
+  - 财务报表数据
+
+- ✅ **企业支付服务** - B2B企业客户支付支持（REQ-payment-006）
+  - 对公转账
+  - 月结账期
+  - 发票管理关联
+
+- ✅ **移动支付优化** - 微信生态深度集成（REQ-payment-007）
+  - 微信小程序支付
+  - 微信公众号支付
+  - 移动端优化体验
+
+**排除功能**（明确由其他模块负责）：
+
+- ❌ **订单创建和管理** → `order_management` 模块
+  - 理由：订单状态和生命周期管理是订单模块的职责
+  - 边界：支付模块只接收 order_id 和应付金额，不参与订单创建
+
+- ❌ **库存扣减** → `inventory_management` 模块
+  - 理由：库存管理和预占释放属于库存模块职责
+  - 边界：支付成功后通过事件通知库存模块，不直接操作库存
+
+- ❌ **优惠券核销** → `marketing_campaigns` 模块
+  - 理由：营销优惠逻辑属于营销模块
+  - 边界：支付模块接收折后金额，不参与优惠计算
+
+- ❌ **会员积分变动** → `member_system` 模块
+  - 理由：会员权益和积分规则属于会员模块
+  - 边界：支付成功后通过事件通知会员模块，不直接操作积分
+
+- ❌ **物流配送** → `logistics_management` 模块
+  - 理由：配送流程属于物流模块职责
+  - 边界：支付成功后通过事件触发发货流程
+
+- ❌ **消息通知** → `notification_service` 模块
+  - 理由：消息推送属于通知服务模块
+  - 边界：支付模块记录支付结果，由通知模块负责消息发送
+
+- ❌ **风险评估和反欺诈** → `risk_control_system` 模块（第三期）
+  - 理由：风控规则和策略属于风控模块
+  - 边界：支付模块调用风控接口进行风险检查，不实现风控逻辑
+
+- ❌ **用户认证和授权** → `user_auth` 模块
+  - 理由：用户身份验证属于用户认证模块
+  - 边界：支付模块依赖 JWT token，不参与用户认证
+
+**依赖关系**（必须符合 application-architecture.md）：
+
+- **依赖模块**：
+  - `user_auth`（用户身份验证）- 验证用户身份和支付权限
+  - `order_management`（订单信息查询）- 验证订单状态和金额，更新订单支付状态
+  - `risk_control_system`（风险控制，第三期）- 支付前风险评估
+
+- **被依赖模块**：
+  - `order_management`（订单支付场景）- 用户下单后发起支付
+  - `member_system`（会员充值场景，第二期）- 会员余额充值
+  - `distributor_management`（分销商提现场景，第三期）- 分销商佣金提现
+
+### 1.3 设计原则
+
+1. **单一职责原则** - 每个组件只负责一项职责
+   - 支付创建、状态管理、回调处理分离
+   - 适配器层只负责第三方接口封装
+
+2. **开放封闭原则** - 对扩展开放，对修改封闭
+   - 通过适配器模式支持新支付方式扩展
+   - 无需修改核心业务逻辑
+
+3. **依赖倒置原则** - 依赖抽象而非具体实现
+   - 业务逻辑依赖支付接口抽象
+   - 不依赖具体的支付渠道实现
+
+4. **事件驱动原则** - 跨模块交互通过事件解耦
+   - 支付成功发布事件，不直接调用其他模块
+   - 保证模块间松耦合
+
+### 1.4 关键设计决策
+
+| 决策点 | 选择方案 | 理由 | 替代方案 | ADR编号 |
+|--------|----------|------|----------|---------|
+| **支付渠道集成** | 适配器模式 | 解耦支付逻辑，易于扩展新渠道；隔离第三方变更风险 | 直接集成SDK（耦合度高，难维护） | ADR-0050 |
+| **状态管理** | 状态机模式 | 确保状态流转规范性；防止非法状态转换 | 简单枚举（缺乏流转控制） | ADR-0051 |
+| **数据存储** | MySQL主库+Redis缓存 | 事务一致性保证；高性能查询；符合项目技术栈 | PostgreSQL（项目统一使用MySQL） | ADR-0052 |
+| **安全策略** | JWT认证+回调签名验证 | 双重安全保障；符合RESTful标准 | Session认证（不适合分布式） | ADR-0053 |
+| **跨模块通信** | 事件驱动（消息队列） | 松耦合；异步处理；可靠性高 | 同步API调用（强耦合，性能差） | ADR-0054 |
+| **幂等性保证** | 唯一支付单号+数据库约束 | 防止重复支付；数据一致性 | 分布式锁（复杂度高，性能差） | ADR-0055 |
+
+### 1.5 架构约束
+
+1. **技术栈约束**
+   - 必须使用 FastAPI 0.104.1 + SQLAlchemy 2.0.23 + Pydantic 2.5.0
+   - 必须使用 MySQL 8.0 作为主数据库
+   - 必须使用 Redis 7.0 作为缓存层
+   - 禁止使用 Pydantic V1 语法
+
+2. **模块边界约束**
+   - 禁止跨模块直接数据访问
+   - 禁止在数据模型中包含其他模块职责的字段
+   - 禁止实现其他模块的业务逻辑
+   - 必须通过事件驱动方式与其他模块交互
+
+3. **安全约束**
+   - 所有支付接口必须进行 JWT 认证
+   - 敏感数据必须加密存储
+   - 第三方回调必须验证签名
+   - 必须记录完整审计日志
+
+4. **性能约束**
+   - 支付请求响应时间 < 1秒（P99）
+   - 回调处理响应时间 < 200ms
+   - 支持 1000 QPS 并发
+   - 数据库查询必须有索引支持
+
+### 1.6 术语定义
+
+| 术语 | 定义 | 说明 |
+|------|------|------|
+| **支付单** | Payment | 用户发起的支付请求记录，包含支付金额、方式、状态等信息 |
+| **退款单** | Refund | 用户申请的退款请求记录，关联原支付单 |
+| **支付流水** | PaymentTransaction | 所有资金变动的明细记录，用于对账 |
+| **支付适配器** | PaymentAdapter | 封装第三方支付接口的适配器类 |
+| **支付回调** | PaymentCallback | 第三方支付平台的异步通知 |
+| **幂等性** | Idempotency | 相同请求多次调用结果一致，防止重复支付 |
+
+## 系统架构设计
+
+### 整体架构
+```mermaid
+graph TB
+    A[API网关/路由层] --> B[业务逻辑层]
+    B --> C[支付适配器层]
+    B --> D[数据访问层]
+    C --> E[第三方支付服务]
+    D --> F[PostgreSQL数据库]
+    D --> G[Redis缓存]
+    B --> H[消息队列]
+    H --> I[异步处理服务]
+```
+
+### 模块内部架构
+```
+payment-service/
+├── router.py           # API路由层 - FastAPI路由定义
+├── service.py          # 业务逻辑层 - 支付核心业务逻辑
+├── models.py           # 数据模型层 - SQLAlchemy ORM模型
+├── schemas.py          # 数据传输对象 - Pydantic验证模型
+├── dependencies.py     # 依赖注入 - 认证授权依赖
+├── auth_helpers.py     # 安全辅助 - 权限验证和安全检查
+├── utils.py           # 工具函数 - 通用工具和辅助函数
+└── adapters/          # 支付适配器目录
+    ├── base.py        # 适配器基类
+    ├── wechat.py      # 微信支付适配器
+    ├── alipay.py      # 支付宝适配器
+    └── bank.py        # 银行卡支付适配器
+```
+├── dependencies.py     # 依赖注入
+└── utils.py            # 工具函数
+```
+
+### 层次职责
+- **API层**: 接收HTTP请求，参数验证，响应格式化，错误处理
+- **业务层**: 支付业务逻辑，状态管理，风控检查，业务规则验证
+- **适配器层**: 第三方支付接口封装，统一支付协议，异常处理
+- **数据层**: 数据持久化，事务管理，缓存策略，查询优化
+
+## 数据库设计
+
+### 表结构设计
+```sql
+-- 支付单表
+CREATE TABLE payments (
+    id BIGSERIAL PRIMARY KEY,
+    order_id BIGINT NOT NULL REFERENCES orders(id),
+    user_id BIGINT NOT NULL REFERENCES users(id),
+    payment_no VARCHAR(100) UNIQUE NOT NULL,
+    payment_method VARCHAR(50) NOT NULL,
+    amount DECIMAL(10,2) NOT NULL,
+    currency VARCHAR(3) DEFAULT 'CNY',
+    status VARCHAR(20) DEFAULT 'pending',
+    external_payment_id VARCHAR(200),
+    external_transaction_id VARCHAR(200),
+    pay_url VARCHAR(1000),
+    qr_code TEXT,
+    expires_at TIMESTAMP,
+    callback_received_at TIMESTAMP,
+    callback_data TEXT,
+    payment_data TEXT,
+    description VARCHAR(1000),
+    paid_at TIMESTAMP,
+    failed_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 退款单表  
+CREATE TABLE refunds (
+    id BIGSERIAL PRIMARY KEY,
+    payment_id BIGINT NOT NULL REFERENCES payments(id),
+    refund_no VARCHAR(100) UNIQUE NOT NULL,
+    amount DECIMAL(10,2) NOT NULL,
+    reason VARCHAR(500) NOT NULL,
+    status VARCHAR(20) DEFAULT 'pending',
+    external_refund_id VARCHAR(200),
+    gateway_response TEXT,
+    operator_id BIGINT REFERENCES users(id),
+    operator_note TEXT,
+    processed_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+### 索引设计
+| 表名 | 索引名 | 索引字段 | 索引类型 | 用途 |
+|------|--------|----------|----------|------|
+| payments | idx_payment_no | payment_no | UNIQUE | 支付单号查询 |
+| payments | idx_order_user | order_id, user_id | BTREE | 订单支付查询 |
+| payments | idx_status_created | status, created_at | BTREE | 状态统计查询 |
+| payments | idx_external_payment | external_payment_id | BTREE | 第三方单号查询 |
+| refunds | idx_payment_status | payment_id, status | BTREE | 退款状态查询 |
+| refunds | idx_external_refund | external_refund_id | BTREE | 第三方退款查询 |
+
+### 数据关系
+- **Payment ↔ Order**: 多对一关系，一个订单可有多个支付记录（支付失败重试）
+- **Payment ↔ User**: 多对一关系，一个用户可有多个支付记录  
+- **Refund ↔ Payment**: 多对一关系，一个支付可有多个退款记录（部分退款）
+- **Refund ↔ User**: 多对一关系，操作员字段关联用户表
+## API设计
+
+### API架构
+- **基础路径**: `/payment-service/`
+- **认证方式**: JWT Bearer Token  
+- **数据格式**: JSON
+- **错误处理**: 统一错误响应格式
+- **版本控制**: URL路径版本控制
+
+### 端点设计
+| 方法 | 路径 | 功能 | 权限要求 | 响应格式 |
+|------|------|------|----------|----------|
+| POST | /payment-service/payments | 创建支付单 | 登录用户 | PaymentRead |
+| GET | /payment-service/payments/{id} | 查询支付详情 | 所有者/管理员 | PaymentDetail |
+| GET | /payment-service/payments | 支付列表查询 | 登录用户 | List[PaymentRead] |
+| PUT | /payment-service/payments/{id}/cancel | 取消支付 | 所有者/管理员 | PaymentRead |
+| POST | /payment-service/refunds | 申请退款 | 支付所有者 | RefundRead |
+| GET | /payment-service/refunds | 退款列表 | 登录用户 | List[RefundRead] |
+| PUT | /payment-service/refunds/{id}/approve | 审批退款 | 管理员 | RefundRead |
+| POST | /payment-service/callbacks/{method} | 支付回调 | 无需认证 | 成功状态 |
+
+### 错误处理设计
+```json
+{
+    "error": {
+        "code": "PAYMENT_ERROR_001", 
+        "message": "支付金额不匹配",
+        "details": {
+            "order_amount": "100.00",
+            "payment_amount": "99.99"
+        }
+    }
+}
+```
+
+### 响应数据格式
+```json
+{
+    "id": 123,
+    "payment_no": "PAY202509161234567890",
+    "order_id": 456,
+    "amount": "100.00",
+    "currency": "CNY", 
+    "payment_method": "wechat",
+    "status": "completed",
+    "qr_code": "data:image/png;base64,iVBORw0KGgoAAAA...",
+    "created_at": "2025-09-16T10:30:00Z"
+}
+```
+
+## 业务逻辑设计
+
+### 支付创建流程
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant API as PaymentAPI
+    participant S as PaymentService  
+    participant A as PaymentAdapter
+    participant TP as ThirdPartyPayment
+    participant DB as Database
+    
+    U->>API: 创建支付请求
+    API->>S: 验证订单和金额
+    S->>DB: 创建支付记录
+    S->>A: 调用支付适配器
+    A->>TP: 第三方支付API
+    TP-->>A: 返回支付凭证
+    A-->>S: 支付凭证信息
+    S->>DB: 更新支付信息
+    S-->>API: 返回支付结果
+    API-->>U: 支付二维码/链接
+```
+
+### 支付回调处理流程
+```mermaid
+sequenceDiagram
+    participant TP as ThirdPartyPayment
+    participant CB as CallbackAPI
+    participant S as PaymentService
+    participant DB as Database
+    participant MQ as MessageQueue
+    
+    TP->>CB: 支付结果回调
+    CB->>S: 验证回调签名
+    S->>S: 幂等性检查
+    S->>DB: 更新支付状态
+    S->>MQ: 发送状态变更消息
+    S-->>CB: 返回成功确认
+    CB-->>TP: 确认接收
+```
+
+### 支付状态机设计
+```mermaid
+stateDiagram-v2
+    [*] --> pending: 创建支付单
+    pending --> processing: 用户发起支付
+    pending --> cancelled: 用户取消/超时
+    processing --> completed: 支付成功
+    processing --> failed: 支付失败
+    processing --> cancelled: 用户取消
+    completed --> refunding: 发起退款
+    refunding --> refunded: 退款完成
+    refunding --> completed: 退款失败
+    failed --> pending: 重新支付
+    cancelled --> pending: 重新支付
+```
+
+## 安全设计
+
+### 认证授权策略
+- **身份认证**: JWT Token验证，包含用户ID和权限信息
+- **权限控制**: RBAC模型，支付操作需验证数据所有权
+- **API签名**: 第三方回调使用数字签名验证来源合法性
+- **数据隔离**: 用户只能查看自己的支付数据
+
+### 数据安全措施  
+```python
+# 敏感数据加密存储
+class PaymentSecurityMixin:
+    def encrypt_sensitive_data(self, data):
+        """加密敏感支付数据"""
+        return AES.encrypt(data, settings.PAYMENT_ENCRYPT_KEY)
+    
+    def decrypt_sensitive_data(self, encrypted_data):
+        """解密敏感支付数据"""  
+        return AES.decrypt(encrypted_data, settings.PAYMENT_ENCRYPT_KEY)
+```
+
+### 风控策略设计
+| 风控维度 | 检查规则 | 触发阈值 | 处理措施 |
+|----------|----------|----------|----------|
+| 金额异常 | 单笔支付金额 | >5万元 | 人工审核 |
+| 频次异常 | 同用户支付频率 | 1分钟>10笔 | 暂时锁定 |
+| 设备异常 | 异地登录支付 | 地理位置跨度>1000km | 短信验证 |
+| 行为异常 | 支付失败率 | 24小时>50% | 风控标记 |
+
+## 性能设计
+
+### 缓存策略
+```python
+# Redis缓存设计
+CACHE_KEYS = {
+    'payment_detail': 'payment:{payment_id}',     # 支付详情缓存，TTL=1小时
+    'user_payments': 'user_payments:{user_id}',   # 用户支付列表，TTL=30分钟  
+    'payment_stats': 'payment_stats:{date}',      # 支付统计数据，TTL=24小时
+}
+```
+
+### 数据库优化
+- **读写分离**: 查询操作使用只读从库，写操作使用主库
+- **分库分表**: 按时间维度分表，payment_2025_09, payment_2025_10
+- **索引优化**: 基于查询模式建立复合索引
+- **连接池**: 使用连接池避免频繁建立数据库连接
+
+### 并发处理
+```python  
+# 异步处理设计
+@asyncio.coroutine
+async def process_payment_callback(callback_data):
+    """异步处理支付回调"""
+    # 1. 快速响应第三方
+    # 2. 异步处理业务逻辑
+    # 3. 消息队列解耦
+    pass
+```
+
+## 集成设计
+
+### 模块依赖
+- **用户认证模块**: 提供用户身份验证和权限检查
+- **订单管理模块**: 获取订单信息，验证订单状态和金额
+- **库存管理模块**: 支付成功后触发库存扣减
+- **通知服务模块**: 发送支付成功/失败通知
+
+### 第三方服务集成
+| 服务名 | 集成方式 | 用途 | 容错机制 |
+|--------|----------|------|----------|
+| 微信支付 | REST API | 主要支付渠道 | 自动重试+降级到支付宝 |
+| 支付宝 | REST API | 备用支付渠道 | 自动重试+人工处理 |
+| 银联支付 | REST API | 企业客户支付 | 自动重试+邮件告警 |
+
+### 事件设计
+- **发布事件**: 
+  - PaymentCreated: 支付单创建事件
+  - PaymentCompleted: 支付成功事件  
+  - PaymentFailed: 支付失败事件
+  - RefundCompleted: 退款完成事件
+- **订阅事件**: 
+  - OrderStatusChanged: 订单状态变更事件
+  - UserRegistered: 用户注册事件
+
+## 监控设计
+
+### 系统监控
+- **性能指标**: 支付成功率、响应时间、并发数、错误率
+- **业务指标**: 日支付金额、支付方式分布、退款率
+- **告警规则**: 支付成功率<99%、响应时间>5秒、错误率>1%
+
+### 日志设计
+```python
+# 支付操作审计日志
+{
+    "timestamp": "2025-09-16T10:30:00Z",
+    "operation": "create_payment", 
+    "user_id": 12345,
+    "order_id": 67890,
+    "payment_id": 111,
+    "amount": "100.00",
+    "payment_method": "wechat",
+    "ip_address": "192.168.1.100",
+    "user_agent": "Mozilla/5.0...",
+    "result": "success"
+}
+```
+
+## 测试设计
+
+### 单元测试
+- **服务层测试**: 业务逻辑正确性验证
+- **数据层测试**: 数据持久化和查询测试
+- **工具函数测试**: 支付号生成、金额计算等
+
+### 集成测试  
+- **API接口测试**: 端到端接口功能测试
+- **第三方集成测试**: 支付渠道集成测试(沙箱环境)
+- **数据库集成测试**: 事务一致性和并发测试
+
+### 性能测试
+- **负载测试**: 1000并发支付请求测试
+- **压力测试**: 系统极限承载能力测试
+- **稳定性测试**: 长时间运行稳定性验证
+
+## 部署设计
+
+### 环境配置
+- **开发环境**: 本地开发，使用支付沙箱
+- **测试环境**: 功能测试，模拟真实支付流程
+- **生产环境**: 正式环境，使用生产支付接口
+
+### 配置管理
+```python
+# 支付配置
+PAYMENT_CONFIG = {
+    'wechat': {
+        'app_id': os.getenv('WECHAT_APP_ID'),
+        'mch_id': os.getenv('WECHAT_MCH_ID'), 
+        'api_key': os.getenv('WECHAT_API_KEY'),
+        'notify_url': f"{BASE_URL}/payment-service/callbacks/wechat"
+    },
+    'timeout': 30,  # 接口超时时间
+    'retry_times': 3,  # 重试次数
+}
+```
+
+## 变更记录
+
+| 日期 | 版本 | 变更内容 | 变更人 |
+|------|------|----------|--------|
+| 2025-09-16 | v1.0 | 支付服务模块技术设计文档初稿 | 技术架构师 |
+
+### 垂直扩展
+- **资源配置**: {配置建议}
+- **性能监控**: {监控指标}
+
+### 降级策略
+- **限流**: {限流策略}
+- **熔断**: {熔断条件}
+- **降级**: {降级方案}
+
+## 监控设计
+
+### 业务监控
+- **业务指标**: {监控指标}
+- **告警规则**: {告警条件}
+
+### 技术监控
+- **性能指标**: 响应时间、QPS、错误率
+- **资源指标**: CPU、内存、磁盘
+- **日志监控**: 错误日志、访问日志
+
+## 测试策略
+
+### 单元测试
+- **测试覆盖**: 业务逻辑层100%覆盖
+- **测试框架**: pytest
+- **Mock策略**: {Mock方案}
+
+### 集成测试
+- **测试范围**: API接口测试
+- **测试环境**: {环境配置}
+- **测试数据**: {数据准备}
+
+### 性能测试
+- **压测目标**: {性能目标}
+- **测试场景**: {测试用例}
+
+## 实施计划
+
+### 开发阶段
+1. **阶段1**: 数据模型和API设计 ({时间})
+2. **阶段2**: 核心业务逻辑实现 ({时间})
+3. **阶段3**: 集成测试和优化 ({时间})
+
+### 风险控制
+- **技术风险**: {风险和缓解}
+- **进度风险**: {风险和缓解}
+- **质量风险**: {风险和缓解}
+
+## 变更记录
+
+| 日期 | 版本 | 变更内容 | 变更人 |
+|------|------|----------|--------|
+| 2025-09-16 | v1.0 | 初始设计 | {姓名} |
