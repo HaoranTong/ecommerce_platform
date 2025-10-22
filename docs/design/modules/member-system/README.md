@@ -1,53 +1,47 @@
 # 会员系统模块
 
-📝 **状态**: ✅ 已发布  
-📅 **创建日期**: 2025-09-18  
-👤 **负责人**: 开发团队  
-🔄 **最后更新**: 2025-09-18  
-📋 **版本**: v1.0.0  
+� **状态**: ✅ 已发布  
+ **负责人**: 开发团队  
+🔄 **最后更新**: 2025-10-22  
 
-## 🎯 快速导航
+## 快速导航
 
-### 📚 核心文档
-- [📋 模块概述](./overview.md) - 详细的模块功能和架构说明
-- [📊 业务需求](./requirements.md) - 完整的业务需求和功能规格
-- [🏗️ 技术设计](./design.md) - 设计决策和架构选型
-- [🔌 API规范](./api-spec.md) - 接口设计规范和契约定义
-- [⚙️ API实施](./api-implementation.md) - 接口实现记录和开发细节
-- [💻 实现细节](./implementation.md) - 代码实现和技术细节
+| 文档类型 | 文档名称 | 描述 |
+|---------|----------|------|
+| **概述** | [overview.md](./overview.md) | 模块详细概述和技术架构 |
+| **需求** | [requirements.md](./requirements.md) | 业务需求和功能规格 |
+| **设计** | [design.md](./design.md) | 技术设计和架构决策 |
+| **API规范** | [api-spec.md](./api-spec.md) | API接口规范定义 |
+| **API实施** | [api-implementation.md](./api-implementation.md) | API开发实施记录 |
+| **实现** | [implementation.md](./implementation.md) | 开发实现详细记录 |
 
-### 🔧 技术文档
-- [🗄️ 数据库设计](./database-design.md) - 数据表结构和关系设计
-- [🏛️ 系统架构](./architecture.md) - 系统架构和组件关系
-- [🧪 测试计划](./testing-plan.md) - 测试策略和用例设计
-- [🚀 部署指南](./deployment-guide.md) - 部署流程和运维指南
+## 模块简介
 
-## ⚡ 核心功能
+会员系统模块是电商平台的核心商业化模块，负责会员生命周期管理、积分经济体系和等级权益体系的全面运营。
 
-- **会员等级管理** - 基于消费金额的自动等级晋升
-- **积分系统** - 积分获得、使用、过期和冻结管理
+### 核心功能
+- **会员等级管理** - 基于消费金额的自动等级晋升体系
+- **积分系统** - 积分获得、使用、过期和冻结的完整管理
 - **会员档案** - 个人信息管理和偏好设置
-- **权益体系** - 等级权益和个性化服务
+- **权益体系** - 等级权益和个性化服务体系
 
-## 🚀 快速开始
+### 技术栈
+- **后端**: FastAPI + SQLAlchemy
+- **数据库**: MySQL 8.0
+- **缓存**: Redis
+- **其他**: JWT认证、Pydantic数据验证
 
-### API入口
-- **基础路径**: `/api/v1/member-system`
-- **认证方式**: JWT Bearer Token
-- **数据格式**: JSON
+## 快速开始
 
-### 关键接口
-- `GET /profile` - 获取会员信息
-- `POST /points/earn` - 积分获取
-- `POST /points/use` - 积分使用
-- `GET /levels` - 等级列表
+### API端点
+- **基础路径**: `/api/v1/member-system/`
+- **主要接口**: 详见 [api-spec.md](./api-spec.md)
 
-## 📞 技术支持
+### 数据模型
+- **核心表**: `members`, `member_levels`, `member_points`
+- **关联表**: 详见 [overview.md](./overview.md#数据模型)
 
-- **开发负责人**: 技术团队Leader
-- **文档维护**: 开发团队
-- **技术咨询**: 架构师团队
-
----
-📄 **文档规范**: 遵循 [document-management-standards.md](../../../docs/standards/document-management-standards.md)  
-🔄 **最后更新**: 2025-09-18 - 创建标准模块导航文档
+## 相关链接
+- **项目文档**: [MASTER.md](../../../../MASTER.md)
+- **架构标准**: [document-management-standards.md](../../../standards/document-management-standards.md)
+- **API标准**: [api-standards.md](../../../standards/api-standards.md)
