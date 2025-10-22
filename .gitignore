@@ -100,4 +100,4 @@ alembic/versions/*.pyc
 node_modules/
 
 # WeChat developer local files
-/dist/worktrees/
+worktrees/
