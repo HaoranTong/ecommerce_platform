@@ -1,13 +1,25 @@
 import { createRouter, createWebHistory, RouteRecordRaw } from 'vue-router';
-import Dashboard from '@/views/Dashboard.vue';
+import Dashboard from '../views/Dashboard.vue';
+import ProductList from '../views/ProductList.vue';
+import DefaultLayout from '../layouts/DefaultLayout.vue';
 
 const routes: RouteRecordRaw[] = [
   {
     path: '/',
-    name: 'Dashboard',
-    component: Dashboard
-  },
-  // 更多路由将在后续开发中添加
+    component: DefaultLayout,
+    children: [
+      {
+        path: '',
+        name: 'Dashboard',
+        component: Dashboard
+      },
+      {
+        path: 'products',
+        name: 'ProductList',
+        component: ProductList
+      }
+    ]
+  }
 ];
 
 const router = createRouter({

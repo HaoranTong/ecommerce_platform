@@ -47,7 +47,7 @@ class ServiceTestGenerator:
             set(repositories.keys()),
         )
 
-        helpers_block = self._generate_helpers_block(service_class_name)
+        helpers_block = self._generate_helpers_block(module_name, service_class_name)
         mock_tests = self._generate_mock_service_tests(
             module_name,
             service_info,
@@ -169,6 +169,7 @@ class {test_class_name}:
             '    pytest.skip("service import failed")',
             "context = service_context",
             'service = context[\"service\"]',
+            'service_cls = service.__class__',
         ]
 
         simple_setup = self._build_simple_call_setup_lines(module_name, method_details)
@@ -426,6 +427,7 @@ class {test_class_name}:
                                 "call_types": set(),
                                 "awaited": set(),
                                 "module": collaborator_entry.get("module"),
+                                "modules": {},
                                 "conditional_methods": set(),
                             },
                         )
@@ -437,6 +439,11 @@ class {test_class_name}:
                             meta["conditional_methods"].add(collaborator_entry["method"])
                         else:
                             meta["conditional_methods"].discard(collaborator_entry["method"])
+                        module_target = collaborator_entry.get("module")
+                        if module_target:
+                            meta["modules"][collaborator_entry["method"]] = module_target
+                            if not meta.get("module"):
+                                meta["module"] = module_target
                     else:
                         self._record_simple_call(node, module_target, is_awaited)
 
@@ -656,7 +663,12 @@ class {test_class_name}:
                             "methods": sorted(info["methods"]),
                             "call_types": sorted(info["call_types"]),
                             "awaited": sorted(info["awaited"]),
-                            "module": info["module"],
+                            "module": info.get("module"),
+                            "modules": {
+                                method: module
+                                for method, module in info.get("modules", {}).items()
+                                if module
+                            },
                             "conditional_methods": sorted(info.get("conditional_methods", set())),
                         }
                         for name, info in self.collaborator_calls.items()
@@ -730,6 +742,10 @@ class {test_class_name}:
                 lines.append(f'{mock_name} = mocker.patch.object({repo_var}, "{method_name}")')
                 assigned = call.get("assigned_to")
                 if assigned:
+                    assigned_lower = (assigned or "").lower()
+                    if any(keyword in assigned_lower for keyword in {"existing", "current", "previous"}):
+                        lines.append(f"{mock_name}.return_value = None")
+                        continue
                     attr_set = method_details.get("local_attributes", {}).get(assigned, [])
                     if self._should_use_namespace_for_assignment(method_name, assigned, attr_set):
                         overrides = self._build_namespace_kwargs(attr_set, assigned)
@@ -744,7 +760,11 @@ class {test_class_name}:
                             )
                         lines.append(f"{mock_name}.return_value = {stub_name}")
                     else:
-                        lines.append(f"{mock_name}.return_value = None")
+                        default_value = self._default_repository_return(method_name)
+                        if default_value is not None:
+                            lines.append(f"{mock_name}.return_value = {default_value}")
+                        else:
+                            lines.append(f"{mock_name}.return_value = None")
                 else:
                     default_value = self._default_repository_return(method_name)
                     if default_value is not None:
@@ -770,6 +790,15 @@ class {test_class_name}:
             return lines
         assigned = call.get("assigned_to")
         if assigned:
+            assigned_lower = (assigned or "").lower()
+            if any(keyword in assigned_lower for keyword in {"existing", "current", "previous"}):
+                if method_name == "get_inventory_by_sku":
+                    stub_var = f"{self._sanitize_var(assigned)}_fallback"
+                    lines.append(f"{stub_var} = _make_namespace()")
+                    lines.append(f"{repo_var}.{method_name}.side_effect = [None, {stub_var}, {stub_var}]")
+                else:
+                    lines.append(f"{repo_var}.{method_name}.return_value = None")
+                return lines
             attr_set = method_details.get("local_attributes", {}).get(assigned, [])
             if self._should_use_namespace_for_assignment(method_name, assigned, attr_set):
                 overrides = self._build_namespace_kwargs(attr_set, assigned)
@@ -784,7 +813,11 @@ class {test_class_name}:
                     )
                 lines.append(f"{repo_var}.{method_name}.return_value = {stub_name}")
             else:
-                lines.append(f"{repo_var}.{method_name}.return_value = None")
+                default_value = self._default_repository_return(method_name)
+                if default_value is not None:
+                    lines.append(f"{repo_var}.{method_name}.return_value = {default_value}")
+                else:
+                    lines.append(f"{repo_var}.{method_name}.return_value = None")
         else:
             default_value = self._default_repository_return(method_name)
             if default_value is not None:
@@ -803,6 +836,21 @@ class {test_class_name}:
             return True
         method_lower = (method_name or "").lower()
         assigned_lower = (assigned or "").lower()
+        plural_hints = {
+            "items",
+            "reservations",
+            "inventories",
+            "transactions",
+            "logs",
+            "entries",
+            "records",
+            "histories",
+            "results",
+            "list",
+            "batches",
+        }
+        if any(hint in assigned_lower for hint in plural_hints) or assigned_lower.endswith("s"):
+            return False
         if method_lower.startswith("create") or method_lower.startswith("update"):
             return True
         if method_lower.startswith("get"):
@@ -831,18 +879,20 @@ class {test_class_name}:
                 for method_name in info.get("methods", []):
                     mock_name = self._build_mock_var_name(dep_name, method_name)
                     default_value = self._default_collaborator_return(dep_name, method_name)
+                    patch_target_var = self._sanitize_var(f"{dep_name}_{method_name}_patch_target")
+                    lines.append(
+                        f'{patch_target_var} = service_cls if hasattr(service_cls, "{method_name}") else service'
+                    )
                     if method_name in awaited_methods:
                         if default_value is None:
                             default_value = "None"
                         lines.append(
-                            f'{mock_name} = mocker.patch.object(service, "{method_name}", new=mocker.AsyncMock(return_value={default_value}))'
+                            f'{mock_name} = mocker.patch.object({patch_target_var}, "{method_name}", new=mocker.AsyncMock(return_value={default_value}))'
                         )
                     else:
-                        lines.append(f'{mock_name} = mocker.patch.object(service, "{method_name}")')
+                        lines.append(f'{mock_name} = mocker.patch.object({patch_target_var}, "{method_name}")')
                         if default_value is not None:
                             lines.append(f"{mock_name}.return_value = {default_value}")
-                        else:
-                            lines.append(f"{mock_name}.return_value = None")
                 continue
             dep_var = self._sanitize_var(dep_name)
             # try context, then service attribute, then pick by name
@@ -860,6 +910,13 @@ class {test_class_name}:
                         lines.append(f"    {dep_var}.{method_name}.return_value = None")
             if "class" in info.get("call_types", []):
                 for method_name in info.get("methods", []):
+                    modules_map = info.get("modules") or {}
+                    module_path = modules_map.get(method_name) or info.get("module") or ""
+                    lower_module_path = (module_path or "").lower()
+                    if method_name in {"desc", "in_"}:
+                        continue
+                    if ".desc" in lower_module_path or ".in_" in lower_module_path:
+                        continue
                     patch_target = self._resolve_collaborator_patch_target(
                         module_name,
                         dep_name,
@@ -869,6 +926,23 @@ class {test_class_name}:
                     if not patch_target:
                         continue
                     mock_name = self._build_mock_var_name(dep_name, method_name)
+                    if dep_name == "logging" and method_name == "getLogger":
+                        logger_instance = self._build_mock_var_name(dep_name, "logger_instance")
+                        lines.append(f'{mock_name} = mocker.patch("{patch_target}")')
+                        lines.append(f"{logger_instance} = mocker.MagicMock(name='logger_mock')")
+                        lines.append(f"{mock_name}.return_value = {logger_instance}")
+                        continue
+                    if (dep_name == "func" or (patch_target and "sqlalchemy" in patch_target and ".func" in patch_target)):
+                        result_var = self._build_mock_var_name(method_name, "result")
+                        lines.append(f'{mock_name} = mocker.patch("{patch_target}")')
+                        lines.append(f"{result_var} = mocker.MagicMock(name='{method_name}_result')")
+                        lines.append(f"{mock_name}.return_value = {result_var}")
+                        lines.append(f"{result_var}.label.return_value = {result_var}")
+                        lines.append(f"{result_var}.scalar.return_value = Decimal(\"0\")")
+                        lines.append(f"{result_var}.scalar_one.return_value = Decimal(\"0\")")
+                        lines.append(f"{result_var}.scalar_one_or_none.return_value = Decimal(\"0\")")
+                        lines.append(f"{result_var}.all.return_value = []")
+                        continue
                     if method_name in info.get("awaited", []):
                         default_value = self._default_collaborator_return(dep_name, method_name) or "None"
                         lines.append(
@@ -892,9 +966,11 @@ class {test_class_name}:
     ) -> Optional[str]:
         module_path = None
         if isinstance(collaborator_info, dict):
-            module_path = collaborator_info.get("module")
+            modules_map = collaborator_info.get("modules") or {}
+            module_path = modules_map.get(method_name) or collaborator_info.get("module")
         if not module_path:
             module_path = f"app.modules.{module_name}.service.{dependency_name}"
+        module_path = self._qualify_module_reference(module_name, module_path)
         if not module_path:
             return None
         if module_path.endswith(f".{method_name}"):
@@ -912,6 +988,9 @@ class {test_class_name}:
 
         lines: List[str] = []
         for call_key, info in sorted(simple_calls.items()):
+            call_key_lower = call_key.lower()
+            if "created_at.desc" in call_key_lower or "transaction_type.in_" in call_key_lower:
+                continue
             attr_chain = info.get("attr_chain") or []
             call_basename = (
                 attr_chain[-1]
@@ -919,7 +998,32 @@ class {test_class_name}:
                 else info.get("name")
                 or call_key.split(".")[-1]
             )
+            skip_simple_calls = {
+                "getattr",
+                "setattr",
+                "hasattr",
+                "delattr",
+                "abs",
+                "isinstance",
+                "len",
+                "sum",
+                "min",
+                "max",
+                "sorted",
+                "all",
+                "any",
+            }
+            if call_basename in skip_simple_calls:
+                continue
+            if call_basename in {"desc", "in_"}:
+                continue
             patch_target, attribute_name = self._resolve_simple_call_patch(module_name, call_key, info)
+            if attribute_name in {"desc", "in_"}:
+                continue
+            if patch_target.endswith(".desc") or ".created_at.desc" in patch_target:
+                continue
+            if patch_target.endswith(".in_") or ".transaction_type.in_" in patch_target:
+                continue
             mock_name = self._build_mock_var_name(call_basename, "call")
 
             # Do NOT patch exception classes or core stdlib types (they must remain exception types / constructors)
@@ -946,7 +1050,37 @@ class {test_class_name}:
                         f'{mock_name} = mocker.patch("{patch_target}", new=mocker.AsyncMock(return_value={default_value}))'
                     )
             else:
+                if call_basename == "select":
+                    stmt_mock_var = self._build_mock_var_name(call_basename, "stmt")
+                    lines.append(f'{mock_name} = mocker.patch("{patch_target}")')
+                    lines.append(f"{stmt_mock_var} = mocker.MagicMock(name='select_stmt')")
+                    lines.append(f"{stmt_mock_var}.where.return_value = {stmt_mock_var}")
+                    lines.append(f"{stmt_mock_var}.order_by.return_value = {stmt_mock_var}")
+                    lines.append(f"{stmt_mock_var}.offset.return_value = {stmt_mock_var}")
+                    lines.append(f"{stmt_mock_var}.limit.return_value = {stmt_mock_var}")
+                    lines.append(f"{stmt_mock_var}.alias.return_value = {stmt_mock_var}")
+                    lines.append(f"{mock_name}.return_value = {stmt_mock_var}")
+                    continue
+                if call_basename == "getLogger":
+                    logger_instance = self._build_mock_var_name(call_basename, "instance")
+                    lines.append(f'{mock_name} = mocker.patch("{patch_target}")')
+                    lines.append(f"{logger_instance} = mocker.MagicMock(name='logger_mock')")
+                    lines.append(f"{mock_name}.return_value = {logger_instance}")
+                    continue
                 lines.append(f'{mock_name} = mocker.patch("{patch_target}")')
+                if "sqlalchemy" in patch_target and ".func" in patch_target:
+                    result_var = self._build_mock_var_name(call_basename, "result")
+                    lines.append(f"{result_var} = mocker.MagicMock(name='{call_basename}_result')")
+                    if attribute_name:
+                        lines.append(f"{mock_name}.{attribute_name}.return_value = {result_var}")
+                    else:
+                        lines.append(f"{mock_name}.return_value = {result_var}")
+                    lines.append(f"{result_var}.label.return_value = {result_var}")
+                    lines.append(f"{result_var}.scalar.return_value = Decimal(\"0\")")
+                    lines.append(f"{result_var}.scalar_one.return_value = Decimal(\"0\")")
+                    lines.append(f"{result_var}.scalar_one_or_none.return_value = Decimal(\"0\")")
+                    lines.append(f"{result_var}.all.return_value = []")
+                    continue
                 default_value = self._default_simple_call_return(call_basename)
                 if attribute_name:
                     if default_value is not None:
@@ -970,14 +1104,49 @@ class {test_class_name}:
         attr_chain = info.get("attr_chain") or []
         module_defined = bool(info.get("module_defined"))
         if module_target:
+            module_target = self._qualify_module_reference(module_name, str(module_target))
             if module_target.startswith("datetime.datetime") and attr_chain:
                 return f"app.modules.{module_name}.service.datetime", attr_chain[-1]
             if attr_chain:
+                base_target, sep, tail = module_target.rpartition(".")
+                if sep and tail == attr_chain[-1]:
+                    return base_target, tail
                 return module_target, None
             if info.get("name") and module_defined:
                 return f"app.modules.{module_name}.service.{info['name']}", None
             return module_target, None
-        return f"app.modules.{module_name}.service.{call_key}", None
+        service_target = f"app.modules.{module_name}.service.{call_key}"
+        if attr_chain:
+            base_target, sep, tail = service_target.rpartition(".")
+            if sep and tail == attr_chain[-1]:
+                return base_target, tail
+        if "." in call_key:
+            base_key, sep, tail = call_key.rpartition(".")
+            if sep:
+                base_target = f"app.modules.{module_name}.service.{base_key}"
+                return base_target, tail
+        return service_target, None
+
+    def _qualify_module_reference(self, module_name: str, module_path: Optional[str]) -> Optional[str]:
+        if not module_path:
+            return module_path
+        cleaned = module_path.lstrip(".")
+        if module_path.startswith("app."):
+            return module_path
+        top_level = cleaned.split(".")[0]
+        in_module_prefixes = {
+            "models",
+            "schemas",
+            "repository",
+            "services",
+            "tasks",
+            "validators",
+            "enums",
+            "dtos",
+        }
+        if top_level in in_module_prefixes:
+            return f"app.modules.{module_name}.{cleaned}"
+        return cleaned if module_path.startswith(".") else module_path
 
     def _build_argument_setup(
         self,
@@ -1052,6 +1221,10 @@ class {test_class_name}:
             lines.append(f"{param_name} = _make_session_mock(mocker)")
             return lines
 
+        if lower_name == "headers":
+            lines.append(f"{param_name} = {{'Wechatpay-Signature': 'signature'}}")
+            return lines
+
         if attr_set and self._should_use_namespace_for_param(param_name, attr_set):
             overrides = self._build_namespace_kwargs(sorted(attr_set), param_name)
             if overrides:
@@ -1084,6 +1257,8 @@ class {test_class_name}:
             return False
         lowered = param_name.lower()
         if attr_set == {"value"} and "status" in lowered:
+            return False
+        if attr_set == {"value"} and "type" in lowered:
             return False
         return True
 
@@ -1169,6 +1344,13 @@ class {test_class_name}:
             conditional_methods = set(info.get("conditional_methods", []))
             instance_methods_to_assert = []
             class_methods_to_assert = []
+            is_service_method = dep_name.startswith("_") and not info.get("module")
+            if is_service_method:
+                service_methods = sorted(set(info.get("methods", [])) - conditional_methods)
+                for method_name in service_methods:
+                    mock_name = self._build_mock_var_name(dep_name, method_name)
+                    lines.append(f"{mock_name}.assert_called()")
+                continue
             if "instance" in info.get("call_types", []):
                 instance_methods_to_assert = sorted(set(info.get("methods", [])) - conditional_methods)
                 if instance_methods_to_assert:
@@ -1178,12 +1360,161 @@ class {test_class_name}:
             if "class" in info.get("call_types", []):
                 class_methods_to_assert = sorted(set(info.get("methods", [])) - conditional_methods)
                 for method_name in class_methods_to_assert:
+                    modules_map = info.get("modules") or {}
+                    module_path = modules_map.get(method_name) or info.get("module") or ""
+                    lower_module_path = module_path.lower() if isinstance(module_path, str) else ""
+                    if method_name in {"desc", "in_"}:
+                        continue
+                    if ".desc" in lower_module_path or ".in_" in lower_module_path:
+                        continue
                     mock_name = self._build_mock_var_name(dep_name, method_name)
                     lines.append(f"{mock_name}.assert_called()")
 
         return lines
 
-    def _generate_helpers_block(self, service_class_name: str) -> str:
+    def _generate_helpers_block(self, module_name: str, service_class_name: str) -> str:
+        default_fields = [
+            '"id": 1',
+            '"status": "pending"',
+            '"amount": Decimal("99.99")',
+            '"order_id": 1',
+            '"user_id": 1',
+            '"description": "auto generated"',
+            '"created_at": datetime.utcnow()',
+            '"updated_at": datetime.utcnow()',
+        ]
+        if "payment" in module_name:
+            default_fields.append('"payment_reference": "PAY-AUTO-001"')
+        if "inventory" in module_name:
+            default_fields.extend(
+                [
+                    '"sku_id": 1',
+                    '"available_quantity": 1',
+                    '"reserved_quantity": 0',
+                    '"total_quantity": 1',
+                    '"warning_threshold": 1',
+                    '"critical_threshold": 1',
+                    '"quantity": 1',
+                    '"operator_id": 1',
+                    '"is_low_stock": False',
+                    '"is_critical_stock": False',
+                    '"is_out_of_stock": False',
+                    '"is_active": True',
+                ]
+            )
+        defaults_literal = ",\n        ".join(default_fields)
+
+        inventory_namespace_helpers = ""
+        if "inventory" in module_name:
+            inventory_namespace_helpers = """
+    if not hasattr(namespace, \"can_reserve\"):
+        namespace.can_reserve = lambda quantity: getattr(namespace, \"available_quantity\", 0) >= quantity
+
+    if not hasattr(namespace, \"reserve_quantity\"):
+        def _reserve(quantity):
+            available = getattr(namespace, \"available_quantity\", 0)
+            if available < quantity:
+                return False
+            namespace.available_quantity = available - quantity
+            namespace.reserved_quantity = getattr(namespace, \"reserved_quantity\", 0) + quantity
+            return True
+
+        namespace.reserve_quantity = _reserve
+
+    if not hasattr(namespace, \"release_quantity\"):
+        def _release(quantity):
+            reserved = getattr(namespace, \"reserved_quantity\", 0)
+            if reserved < quantity:
+                return False
+            namespace.reserved_quantity = reserved - quantity
+            namespace.available_quantity = getattr(namespace, \"available_quantity\", 0) + quantity
+            return True
+
+        namespace.release_quantity = _release
+
+    if not hasattr(namespace, \"deduct_quantity\"):
+        def _deduct(quantity, from_reserved=True):
+            if from_reserved:
+                reserved = getattr(namespace, \"reserved_quantity\", 0)
+                if reserved < quantity:
+                    return False
+                namespace.reserved_quantity = reserved - quantity
+            else:
+                available = getattr(namespace, \"available_quantity\", 0)
+                if available < quantity:
+                    return False
+                namespace.available_quantity = available - quantity
+            namespace.total_quantity = max(getattr(namespace, \"total_quantity\", 0) - quantity, 0)
+            return True
+
+        namespace.deduct_quantity = _deduct
+
+    if not hasattr(namespace, \"adjust_quantity\"):
+        def _adjust(adj_type, qty):
+            adj_value = getattr(adj_type, \"value\", str(adj_type))
+            if adj_value == \"increase\":
+                namespace.total_quantity = getattr(namespace, \"total_quantity\", 0) + qty
+                namespace.available_quantity = getattr(namespace, \"available_quantity\", 0) + qty
+                return True
+            if adj_value == \"decrease\":
+                available = getattr(namespace, \"available_quantity\", 0)
+                if available < qty:
+                    return False
+                namespace.total_quantity = max(getattr(namespace, \"total_quantity\", 0) - qty, 0)
+                namespace.available_quantity = available - qty
+                return True
+            if adj_value == \"set\":
+                namespace.total_quantity = qty
+                namespace.available_quantity = qty - getattr(namespace, \"reserved_quantity\", 0)
+                return True
+            return False
+
+        namespace.adjust_quantity = _adjust
+"""
+
+        inventory_repository_overrides = ""
+        if "inventory" in module_name:
+            inventory_repository_overrides = """
+        inventory_lookup_stub = _make_namespace(
+            sku_id=1,
+            available_quantity=1,
+            reserved_quantity=0,
+            total_quantity=1,
+        )
+        repository_mock.get_inventory_by_sku.return_value = inventory_lookup_stub
+        repository_mock.get_inventories_by_sku_ids.return_value = [
+            _make_namespace(sku_id=1, available_quantity=1, reserved_quantity=0, total_quantity=1)
+        ]
+        repository_mock.create_inventory.return_value = _make_namespace(id=1)
+        repository_mock.create_transaction.return_value = _make_namespace(id=1)
+        repository_mock.get_inventory_for_update.return_value = _make_namespace(
+            sku_id=1,
+            available_quantity=1,
+            reserved_quantity=0,
+            total_quantity=1,
+        )
+        repository_mock.get_reservations_by_reference.return_value = [_make_namespace(quantity=1)]
+        repository_mock.get_expired_reservations.return_value = [_make_namespace(quantity=1)]
+        repository_mock.get_transactions_by_sku.return_value = ([_make_namespace(quantity=1)], 0)
+        repository_mock.get_low_stock_items.return_value = [_make_namespace()]
+        repository_mock.invalidate_reservation.return_value = None
+        repository_mock.invalidate_reservations_batch.return_value = None
+        repository_mock.update_inventory_stock.return_value = None
+        repository_mock.get_by_sku_id.return_value = _make_namespace(
+            sku_id=1,
+            available_quantity=1,
+            reserved_quantity=0,
+            total_quantity=1,
+        )
+        repository_mock.get_inventory_by_sku_for_update.return_value = _make_namespace(
+            sku_id=1,
+            available_quantity=1,
+            reserved_quantity=0,
+            total_quantity=1,
+        )
+        repository_mock.create_reservation.return_value = _make_namespace(id=1, quantity=1)
+"""
+
         helpers = f'''
 
 def _pick_dependency(context: dict, keyword: str):
@@ -1197,16 +1528,12 @@ def _pick_dependency(context: dict, keyword: str):
 
 def _make_namespace(**overrides):
     defaults = {{
-        "id": 1,
-        "status": "pending",
-        "amount": Decimal("99.99"),
-        "order_id": 1,
-        "user_id": 1,
-        "payment_reference": "PAY-AUTO-001",
-        "description": "auto generated",
+        {defaults_literal}
     }}
     defaults.update(overrides)
-    return SimpleNamespace(**defaults)
+    namespace = SimpleNamespace(**defaults)
+{inventory_namespace_helpers}
+    return namespace
 
 
 def _make_session_mock(mocker: MockerFixture):
@@ -1258,61 +1585,22 @@ def service_context(mocker: MockerFixture):
         init_kwargs[name] = dependency
         if "repository" in name.lower():
             _configure_repository_session(dependency, mocker)
-            # configure common repository methods to return sensible defaults
-            try:
-                dependency.get_or_create.return_value = _make_namespace(id=1)
-            except Exception:
-                pass
-            try:
-                dependency.find_by_user_id.return_value = _make_namespace(id=1, user_id=1)
-            except Exception:
-                pass
-            try:
-                dependency.find_by_cart_and_sku.return_value = None
-            except Exception:
-                pass
-            try:
-                dependency.find_by_cart_id.return_value = []
-            except Exception:
-                pass
-            try:
-                dependency.count_by_cart_id.return_value = 0
-            except Exception:
-                pass
 
     service = service_cls(**init_kwargs)
-    # replace internal repository instances on the service with MagicMocks so tests can stub their methods
     try:
-        cart_repo_mock = mocker.MagicMock(name="cart_repo")
-        cart_stub = _make_namespace(id=1, user_id=1, created_at=datetime.utcnow(), updated_at=datetime.utcnow())
-        cart_repo_mock.get_or_create.return_value = cart_stub
-        cart_repo_mock.find_by_user_id.return_value = cart_stub
-        cart_repo_mock.find_by_id.return_value = cart_stub
-        cart_repo_mock.create.return_value = cart_stub
-        cart_repo_mock.update_timestamp.return_value = None
-        cart_repo_mock.delete.return_value = None
-
-        cart_item_repo_mock = mocker.MagicMock(name="cart_item_repo")
-        cart_item_stub = _make_namespace(
-            id=1,
-            cart_id=cart_stub.id,
-            sku_id=1,
-            unit_price=Decimal("99.99"),
-            quantity=1,
-            created_at=datetime.utcnow(),
-        )
-        cart_item_repo_mock.find_by_cart_and_sku.return_value = None
-        cart_item_repo_mock.find_by_cart_id.return_value = [cart_item_stub]
-        cart_item_repo_mock.find_by_id_and_user.return_value = cart_item_stub
-        cart_item_repo_mock.update.return_value = None
-        cart_item_repo_mock.create.return_value = cart_item_stub
-        cart_item_repo_mock.delete.return_value = None
-        cart_item_repo_mock.delete_by_ids.return_value = 1
-        cart_item_repo_mock.delete_by_cart_id.return_value = None
-        cart_item_repo_mock.count_by_cart_id.return_value = 0
-
-        setattr(service, "cart_repo", cart_repo_mock)
-        setattr(service, "cart_item_repo", cart_item_repo_mock)
+        db_execute_result = mocker.MagicMock(name="db_execute_result")
+        db_execute_result.scalars.return_value = mocker.MagicMock(name="db_scalars_result")
+        db_execute_result.scalars.return_value.all.return_value = []
+        service.db.execute.return_value = db_execute_result
+    except Exception:
+        pass
+    try:
+        if hasattr(service, "repository"):
+            repository_mock = mocker.MagicMock(name="repository")
+            _configure_repository_session(repository_mock, mocker)
+{inventory_repository_overrides}
+            setattr(service, "repository", repository_mock)
+            context["repository"] = repository_mock
     except Exception:
         pass
     context["service"] = service
@@ -1368,6 +1656,16 @@ def service_context(mocker: MockerFixture):
             return "1"
         if attr_lower == "items":
             return "[_make_namespace(product_id=1, sku_id=1, quantity=1)]"
+        if attr_lower == "sku_ids":
+            return "[1]"
+        if attr_lower == "transaction_types":
+            return "[TransactionType.RESTOCK]"
+        if attr_lower in {"total_quantity", "available_quantity", "reserved_quantity"}:
+            return "1"
+        if attr_lower in {"warning_threshold", "critical_threshold"}:
+            return "1"
+        if attr_lower in {"can_reserve", "reserve_quantity", "release_quantity", "deduct_quantity", "adjust_quantity"}:
+            return None
         if attr_lower in {"amount", "total_amount"}:
             return 'Decimal("99.99")'
         if attr_lower in {"unit_price", "price"}:
@@ -1418,6 +1716,12 @@ def service_context(mocker: MockerFixture):
             return '"user@testmail.local"'
         if any(token in name_lower for token in {"phone", "mobile", "tel"}):
             return '"".join(["156", "0000", "1234"])'
+        if "adjustmenttype" in type_lower or "adjustment_type" in name_lower:
+            return "AdjustmentType.INCREASE"
+        if "transactiontype" in type_lower or "transaction_type" in name_lower:
+            return "TransactionType.RESTOCK"
+        if "reservationtype" in type_lower or "reservation_type" in name_lower:
+            return "ReservationType.ORDER"
         if "int" in type_lower or name_lower.endswith("_id"):
             return "1"
         if "bool" in type_lower:
@@ -1443,7 +1747,27 @@ def service_context(mocker: MockerFixture):
             return '_make_namespace(id=1)'
         if lower == "get_or_create" or lower == "get_or_create_user_cart":
             return '_make_namespace(id=1)'
+        if lower == "get_transactions_by_sku":
+            return "([_make_namespace()], 0)"
+        if lower == "ensure_callback_idempotent":
+            return "True"
         if lower.startswith("get"):
+            plural_hints = (
+                "reservations",
+                "inventories",
+                "items",
+                "transactions",
+                "logs",
+                "entries",
+                "records",
+                "histories",
+                "list",
+                "results",
+                "batches",
+                "users",
+            )
+            if any(hint in lower for hint in plural_hints) or lower.endswith("s"):
+                return "[_make_namespace()]"
             return "_make_namespace()"
         # methods like find_by_* usually return a single record or None
         if lower.startswith("find_by_"):
@@ -1463,12 +1787,21 @@ def service_context(mocker: MockerFixture):
     @staticmethod
     def _default_collaborator_return(dep_name: str, method_name: str) -> Optional[str]:
         method_lower = method_name.lower()
+        dep_lower = dep_name.lower() if dep_name else ""
+        if dep_lower == "asyncio" and method_lower == "run":
+            return "_make_namespace()"
+        if dep_lower == "uuid" and method_lower == "uuid4":
+            return 'SimpleNamespace(hex="FAKEUUID000000000000000000000000")'
+        if method_lower == "_can_view_payment":
+            return "True"
         if "generate_tokens" in method_lower or ("generate" in method_lower and "token" in method_lower):
             return '{"access_token": "access", "refresh_token": "refresh", "token_type": "bearer"}'
         if "authenticate" in method_lower:
             return '_make_namespace(id=1, status="active")'
         if "send" in method_lower:
             return '{"message": "ok"}'
+        if "model_validate" in method_lower:
+            return "_make_namespace()"
         if "validate_products_and_calculate_amount" in method_lower:
             return '(Decimal("0.00"), [])'
         if "create_order_with_transaction" in method_lower:
@@ -1483,6 +1816,8 @@ def service_context(mocker: MockerFixture):
             return '"token"'
         if "list" in method_lower:
             return "[]"
+        if method_lower == "payment":
+            return '_make_namespace(id=1, payment_no="PAYMENT-001", amount=Decimal("99.99"), currency="CNY", payment_method="wechat")'
         return None
 
     @staticmethod
@@ -1502,6 +1837,14 @@ def service_context(mocker: MockerFixture):
             return "datetime.utcnow()"
         if lower == "timedelta":
             return "timedelta(minutes=5)"
+        if lower == "run":
+            return "_make_namespace()"
         if lower.endswith("response"):
             return "_make_namespace()"
+        if lower == "payment":
+            return "_make_namespace(id=1, payment_no='PAYMENT-001', amount=Decimal('99.99'), currency='CNY', payment_method='wechat')"
+        if "payment" in lower:
+            return "_make_namespace(payment_no='PAYMENT-001', amount=Decimal('99.99'), currency='CNY', payment_method='wechat')"
+        if lower == "uuid4":
+            return 'SimpleNamespace(hex="FAKEUUID000000000000000000000000")'
         return None
