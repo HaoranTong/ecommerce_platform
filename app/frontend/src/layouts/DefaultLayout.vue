@@ -38,21 +38,20 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, h } from 'vue';
+import { ref, computed } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { NLayout, NLayoutSider, NLayoutHeader, NLayoutContent, NMenu } from 'naive-ui';
 import type { MenuOption } from 'naive-ui';
-
-// 注册使用的组件
-// 注意：在Vue 3 Composition API中，通常不需要手动调用defineComponents
+import { h } from 'vue';
 
 const router = useRouter();
 const currentRoute = useRoute();
 
 // 简单的图标渲染函数（实际项目中可以使用真正的图标库）
 function renderIcon(iconName: string) {
+  // 不显示任何图标文字，只保留图标占位
   return () => {
-    return h('div', { style: 'font-size: 16px; text-align: center;' }, iconName.charAt(0).toUpperCase() + iconName.slice(1));
+    return h('div', { style: 'font-size: 16px; text-align: center; width: 16px; height: 16px;' }, '');
   };
 }
 

@@ -63,6 +63,10 @@
       remote
       @update:page="handlePageChange"
     />
+    
+    <div v-if="!loading && products.length === 0" style="text-align: center; padding: 20px;">
+      <p>暂无商品数据</p>
+    </div>
 
     <!-- 商品表单弹窗 -->
     <n-modal v-model:show="showModal" preset="dialog" title="商品信息" style="width: 800px;">
@@ -235,7 +239,10 @@ const pagination = ref({
   pageSize: 10,
   itemCount: 0,
   showSizePicker: true,
-  pageSizes: [10, 20, 50]
+  pageSizes: [10, 20, 50],
+  prefix ({ itemCount }) {
+    return `共有 ${itemCount} 条数据`
+  }
 });
 
 // 数据
@@ -413,6 +420,71 @@ const skuColumns = [
   }
 ];
 
+// 🔴🔴🔴 以下为补全的三个核心函数 🔴🔴🔴
+
+// 获取商品列表
+const fetchProducts = async () => {
+  loading.value = true;
+  try {
+    const params: Record<string, any> = {
+      page: pagination.value.page,
+      page_size: pagination.value.pageSize
+    };
+    if (searchForm.value.name) params.name = searchForm.value.name;
+    if (searchForm.value.category_id !== null) params.category_id = searchForm.value.category_id;
+    if (searchForm.value.brand_id !== null) params.brand_id = searchForm.value.brand_id;
+    if (searchForm.value.status !== null) {
+      params.status = searchForm.value.status === 'true';
+    }
+
+    const response = await axios.get('/api/v1/product-catalog/products', { params });
+    products.value = response.data.items || [];
+    pagination.value.itemCount = response.data.total || 0;
+  } catch (error) {
+    message.error('获取商品列表失败');
+    console.error(error);
+    products.value = [];
+  } finally {
+    loading.value = false;
+  }
+};
+
+// 获取分类列表
+const fetchCategories = async () => {
+  try {
+    const response = await axios.get('/api/v1/product-catalog/categories');
+    categories.value = response.data || [];
+  } catch (error) {
+    message.error('获取分类列表失败');
+    console.error(error);
+    categories.value = [];
+  }
+};
+
+// 获取品牌列表
+const fetchBrands = async () => {
+  try {
+    const response = await axios.get('/api/v1/product-catalog/brands');
+    brands.value = response.data || [];
+  } catch (error) {
+    message.error('获取品牌列表失败');
+    console.error(error);
+    brands.value = [];
+  }
+};
+
+// 删除商品
+const deleteProduct = async (id: number) => {
+  try {
+    await axios.delete(`/api/v1/product-catalog/products/${id}`);
+    message.success('删除商品成功');
+    fetchProducts();
+  } catch (error) {
+    message.error('删除商品失败');
+    console.error(error);
+  }
+};
+
 // 处理分页变化
 const handlePageChange = (page: number) => {
   pagination.value.page = page;
@@ -424,75 +496,6 @@ const handleSearch = () => {
   pagination.value.page = 1;
   fetchProducts();
 };
-
-// 删除商品
-const deleteProduct = (id: number) => {
-  // 这里应该有一个确认对话框
-  if (window.confirm('确定要删除这个商品吗？')) {
-    axios.delete(`/api/v1/product-catalog/products/${id}`)
-      .then(() => {
-        message.success('删除成功');
-        fetchProducts();
-      })
-      .catch(() => {
-        message.error('删除失败');
-      });
-  }
-};
-
-// 获取商品列表
-const fetchProducts = async () => {
-  loading.value = true;
-  try {
-    const response = await axios.get('/api/v1/product-catalog/products', {
-      params: {
-        page: pagination.value.page,
-        page_size: pagination.value.pageSize,
-        name: searchForm.value.name,
-        category_id: searchForm.value.category_id,
-        brand_id: searchForm.value.brand_id,
-        status: searchForm.value.status
-      }
-    });
-    
-    products.value = response.data.items || response.data.data || response.data || [];
-    pagination.value.itemCount = response.data.total || response.data.count || 0;
-  } catch (error) {
-    console.error('获取商品列表失败:', error);
-    message.error('获取商品列表失败');
-    products.value = []; // 确保在出错时设置为空数组
-  } finally {
-    loading.value = false;
-  }
-};
-
-// 获取分类列表
-const fetchCategories = async () => {
-  try {
-    const response = await axios.get('/api/v1/product-catalog/categories');
-    categories.value = response.data.items || response.data.data || response.data || [];
-  } catch (error) {
-    console.error('获取分类列表失败:', error);
-    message.error('获取分类列表失败');
-  }
-};
-
-// 获取品牌列表
-const fetchBrands = async () => {
-  try {
-    const response = await axios.get('/api/v1/product-catalog/brands');
-    brands.value = response.data.items || response.data.data || response.data || [];
-  } catch (error) {
-    console.error('获取品牌列表失败:', error);
-    message.error('获取品牌列表失败');
-  }
-};
-
-onMounted(() => {
-  fetchProducts();
-  fetchCategories();
-  fetchBrands();
-});
 
 // 显示商品模态框
 const showProductModal = (product: Partial<Product>, mode: 'create' | 'edit') => {
@@ -605,8 +608,13 @@ const submitProduct = (e: Event) => {
   });
 };
 
-</script>
+onMounted(() => {
+  fetchProducts();
+  fetchCategories();
+  fetchBrands();
+});
 
+</script>
 <style scoped>
 .product-list {
   padding: 20px;
