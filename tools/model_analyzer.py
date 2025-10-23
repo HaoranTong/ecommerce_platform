@@ -11,6 +11,27 @@
 使用方法:
     python tools/model_analyzer.py user_auth
     python tools/model_analyzer.py shopping_cart --detailed
+    
+示例:
+    # 分析用户认证模块
+    python tools/model_analyzer.py user_auth
+    
+    # 详细分析购物车模块
+    python tools/model_analyzer.py shopping_cart --detailed
+    
+    # 将分析结果保存到JSON文件
+    python tools/model_analyzer.py product_catalog --output models.json
+    
+输出格式:
+    - 默认输出: 可读性良好的文本报告
+    - JSON格式: 完整的结构化数据，可用于其他工具处理
+    - CSV格式: 表格形式的数据，便于导入电子表格软件
+
+应用场景:
+    1. 自动化测试 - 为测试框架提供精确的模型信息
+    2. 文档生成 - 自动生成数据字典和技术文档
+    3. 代码生成 - 为其他工具提供模型结构信息
+    4. 模型审计 - 检查模型设计的一致性和完整性
 """
 
 import argparse

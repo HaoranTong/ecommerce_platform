@@ -339,3 +339,104 @@ stateDiagram-v2
 | 日期 | 版本 | 变更内容 | 变更人 |
 |------|------|----------|--------|
 | 2025-09-16 | v1.0 | 初始设计 | {姓名} |
+
+<!-- FRONTEND_RULES -->
+```yaml
+frontend_rules:
+  module_name: shopping-cart
+  auth:
+    required: true
+    token_type: "Bearer"
+    header: "Authorization: Bearer <access_token>"
+  api_base_path: "/api/v1/shopping-cart"
+  endpoints:
+    - method: POST
+      path: "/items"
+      description: "添加商品到购物车"
+      request:
+        schema:
+          sku_id: integer
+          quantity: integer (1–999)
+      response:
+        success: CartResponse
+        error_codes:
+          - CART_ERROR_001: "库存不足"
+          - CART_ERROR_002: "商品不存在或已下架"
+    - method: GET
+      path: "/cart"
+      description: "获取当前用户的完整购物车内容"
+      response:
+        success: CartResponse
+        error_codes: {}
+    - method: PUT
+      path: "/items/{item_id}"
+      description: "更新购物车中某商品的数量"
+      request:
+        schema:
+          quantity: integer (1–999)
+      response:
+        success: CartResponse
+    - method: DELETE
+      path: "/items/{item_id}"
+      description: "删除购物车中单个商品项"
+      response:
+        success: SuccessResponse
+    - method: DELETE
+      path: "/items"
+      description: "批量删除多个商品项"
+      request:
+        schema:
+          item_ids: array of integers
+      response:
+        success: SuccessResponse
+    - method: DELETE
+      path: "/cart"
+      description: "清空整个购物车"
+      response:
+        success: SuccessResponse
+  response_format:
+    success:
+      structure:
+        success: true
+        data:
+          cart_id: integer
+          items:
+            - item_id: integer
+              sku_id: integer
+              quantity: integer
+              unit_price: number
+              subtotal: number
+          total_amount: number
+          total_quantity: integer
+    error:
+      structure:
+        success: false
+        error:
+          code: string
+          message: string
+          details: object (optional)
+  business_rules:
+    - "用户必须登录才能操作购物车"
+    - "单个商品数量限制：1 ≤ quantity ≤ 999"
+    - "购物车最多包含50种不同商品"
+    - "添加商品时需实时验证库存，库存不足应提示具体可用数量"
+    - "商品价格以加入购物车时的快照价格为准"
+    - "删除或清空操作需二次确认（UI 层建议）"
+  error_handling:
+    - code: "CART_ERROR_001"
+      message_pattern: "库存不足，当前可用库存：{available_stock}个"
+      user_action: "减少购买数量或稍后重试"
+    - code: "CART_ERROR_002"
+      message_pattern: "商品不存在或已下架"
+      user_action: "该商品已不可用，建议移除"
+  ui_suggestions:
+    - "购物车图标应显示总商品数量（total_quantity）"
+    - "库存不足时，输入框应标红并显示可用库存"
+    - "清空购物车操作应弹出确认对话框"
+    - "网络错误或服务降级时，显示友好提示并支持重试"
+  caching_guidance:
+    - "前端可本地缓存购物车数据，但每次操作后应以 API 响应为准"
+    - "不建议长期缓存，避免与服务端状态不一致"
+  idempotency:
+    - "PUT 和 DELETE 操作是幂等的，可安全重试"
+```

@@ -49,13 +49,24 @@ labels:
 |------|----------|----------|----------|
 | `check_quality.py` | **代码质量综合检查** | **硬编码检查、重复代码检查、质量门禁** | `python .\tools\check_quality.py --all` |
 | `ai_checkpoint.ps1` | AI检查点验证 | AI开发任务完成验证 | `.\tools\ai_checkpoint.ps1 -CardType DEV-001` |
-| `enforce_doc_reading.ps1` | 强制文档阅读验证 | 确保AI实际阅读文档内容 | `.\tools\enforce_doc_reading.ps1 -DocumentPath "docs\standards\api-standards.md"` |
-| `dev_checkpoint.ps1` | 开发质量检查 | 代码提交前质量验证 | `.\tools\dev_checkpoint.ps1 -Phase PRE_COMMIT` |
-| `validate_standards.ps1` | 标准文档验证 | 文档修改后合规检查 | `.\tools\validate_standards.ps1` |
-| `check_code_standards.ps1` | 代码规范检查 | 代码质量持续检查 | `.\tools\check_code_standards.ps1` |
-| `maintain_standards.ps1` | 标准维护工具 | 标准文档维护和更新 | `.\tools\maintain_standards.ps1` |
-| `check_naming_compliance.ps1` | 命名规范检查 | 文件和代码命名合规验证 | `.\tools\check_naming_compliance.ps1` |
-| `validate_pydantic_v2.py` | Pydantic V2验证 | 数据模型验证合规检查 | `python .\tools\validate_pydantic_v2.py` |
+
+### 🔍 分析工具
+
+| 工具 | 功能描述 | 使用场景 | 快速命令 |
+|------|----------|----------|----------|
+| `model_analyzer.py` | SQLAlchemy模型结构分析 | 模型审计、测试自动化、文档生成 | `python .\tools\model_analyzer.py user_auth` |
+| `api_service_mapping_analyzer.py` | API/Service映射分析 | 测试代码生成、代码审查、文档生成 | `python .\tools\api_service_mapping_analyzer.py --analyze user_auth` |
+| `extract_entity_schema.py` | 模型实体结构提取 | 文档生成、数据库设计对比、测试辅助 | `python .\tools\extract_entity_schema.py ./app/modules/user_auth/models.py` |
+| `extract_frontend_rules.py` | 前端规则提取 | 前端开发、自动化构建、文档同步 | `python .\tools\extract_frontend_rules.py --batch` |
+| `extract_models_jsonschema.py` | 模型JSON Schema提取 | 前端表单生成、API文档、AI辅助开发 | `python .\tools\extract_models_jsonschema.py ./app/modules/user_auth/models.py > schema.json` |
+
+### 🛠️ 维护工具
+
+| 工具 | 功能描述 | 使用场景 | 快速命令 |
+|------|----------|----------|----------|
+| `check_code_standards.ps1` | 代码规范检查 | 提交前代码审查 | `.\tools\check_code_standards.ps1` |
+| `check_naming_compliance.ps1` | 命名规范检查 | 项目一致性检查 | `.\tools\check_naming_compliance.ps1` |
+| `sync_documentation.ps1` | 文档同步 | 文档更新后同步 | `.\tools\sync_documentation.ps1` |
 
 ### 📁 项目管理工具
 
@@ -107,7 +118,7 @@ labels:
 
 ### 典型开发流程
 
-```powershell
+``powershell
 # 1. 环境准备
 .\tools\setup_test_env.ps1 -TestMode lite
 
@@ -130,7 +141,7 @@ python .\tools\check_quality.py --all
 
 ### 代码质量检查流程
 
-```powershell
+``powershell
 # 综合质量检查 (推荐)
 python .\tools\check_quality.py --all
 
@@ -149,7 +160,7 @@ python .\tools\check_quality.py --all --dir tools/test_generators/
 
 ### 完整测试流程
 
-```powershell
+``powershell
 # 1. 环境检查
 .\tools\check_test_env.ps1 -TestMode full
 
@@ -172,6 +183,11 @@ python check_tables.py
 
 #### 新增工具
 - `check_tables.py` - 数据库表结构检查工具，解决集成测试数据库模式同步问题
+- `model_analyzer.py` - SQLAlchemy模型结构分析工具，用于自动化分析模型字段、关系和混入
+- `api_service_mapping_analyzer.py` - API/Service映射分析工具，帮助生成准确的测试代码
+- `extract_entity_schema.py` - 模型实体结构提取工具，可生成Markdown或JSON格式的模型文档
+- `extract_frontend_rules.py` - 前端规则提取工具，从design.md文档中提取前端配置规则
+- `extract_models_jsonschema.py` - 模型JSON Schema提取工具，生成标准JSON Schema供前端使用
 
 #### 文档优化
 - 重构文档结构，符合文档管理规范标准
@@ -195,6 +211,10 @@ python check_tables.py
 - **质量门禁**: 建议在每次代码提交前运行 `python .\tools\check_quality.py --all`
 - **测试代码生成**: 使用更新后的生成器，自动避免常见的模板格式化错误
 - **命名规范**: 使用 `check_naming_compliance.ps1` 确保项目命名一致性
+- **模型分析**: 使用 `model_analyzer.py` 分析模型结构，辅助测试和文档生成
+- **API映射**: 使用 `api_service_mapping_analyzer.py` 确保API和服务层方法一致性
+- **文档生成**: 使用 `extract_entity_schema.py` 自动生成模型文档
+- **前端开发**: 使用 `extract_frontend_rules.py` 和 `extract_models_jsonschema.py` 为前端提供数据模型和配置规则
 
 ## 📖 相关文档
 

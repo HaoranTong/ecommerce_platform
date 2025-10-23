@@ -295,3 +295,51 @@ tools/validate_standards.ps1 -Action full -DocPath docs/design/modules/product-c
 ```bash
 tools/check_naming_compliance.ps1 -ModuleName product-catalog
 ```
+<!-- FRONTEND_RULES -->
+```yaml
+module:
+  name: product-catalog
+  path: /api/v1/product-catalog
+  level: L2
+
+entities:
+  Product:
+    exclude_fields: [is_deleted, deleted_at, view_count, sale_count]
+  SKU:
+    exclude_fields: [is_deleted, deleted_at, cost_price]  # 成本价为内部字段，库存由 inventory 模块管理
+  Category:
+    exclude_fields: [is_deleted, deleted_at]
+  Brand:
+    exclude_fields: [is_deleted, deleted_at]
+
+ui_overrides:
+  Product.status:
+    component: status-tag
+    options:
+      draft: 草稿
+      published: 已上架
+      archived: 已归档
+  Product.brand_id:
+    component: select
+    api: /api/v1/product-catalog/brands
+    label_field: name
+    value_field: id
+  Product.category_id:
+    component: tree-select
+    api: /api/v1/product-catalog/categories
+    label_field: name
+    value_field: id
+    children_field: children  # 假设后端返回树形结构
+  SKU.is_active:
+    component: switch
+    true_label: 启用
+    false_label: 禁用
+
+cross_module_calls:
+  - description: "SKU 实时库存由 inventory-management 模块提供"
+    source_entity: SKU
+    source_field: sku_code
+    target_module: inventory-management
+    target_api: /api/v1/inventory/stock?sku={value}
+    method: GET 
+```

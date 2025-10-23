@@ -1,0 +1,275 @@
+{
+  "module": "user-auth",
+  "base_path": "/api/v1/user-auth",
+  "auth_scheme": "Bearer",
+  "response_format": {
+    "success": {
+      "structure": {
+        "success": true,
+        "code": 200,
+        "message": "操作成功",
+        "data": null,
+        "metadata": null
+      }
+    },
+    "error": {
+      "structure": {
+        "success": false,
+        "code": 400,
+        "message": "错误描述",
+        "data": null,
+        "metadata": null
+      }
+    }
+  },
+  "token_schema": {
+    "access_token": "string",
+    "refresh_token": "string?",
+    "token_type": "bearer",
+    "expires_in": "integer"
+  },
+  "token_storage": {
+    "access_token": {
+      "recommended": "HttpOnly Cookie",
+      "alternative": "Encrypted LocalStorage (需自行实现加密)"
+    },
+    "refresh_token": {
+      "recommended": "Secure HttpOnly Cookie",
+      "alternative": "Encrypted LocalStorage with short auto-refresh"
+    }
+  },
+  "endpoints": [
+    {
+      "name": "send_verification_code",
+      "method": "POST",
+      "path": "/verification-code",
+      "auth_required": false,
+      "request": {
+        "email": "string",
+        "phone": "string?",
+        "code_type": "enum[register, login, reset_password, phone_login]"
+      },
+      "response": {
+        "type": "StandardResponse[null]"
+      },
+      "notes": "- 开发环境会直接返回验证码（便于调试）\n- 生产环境仅返回成功消息，验证码通过邮件/短信发送\n- 同一邮箱/手机号 10 分钟内最多发送 3 次（后端限制）\n"
+    },
+    {
+      "name": "register",
+      "method": "POST",
+      "path": "/register",
+      "auth_required": false,
+      "request": {
+        "username": "string (unique, 3-50 chars)",
+        "email": "string (valid format, unique)",
+        "password": "string (min 8 chars, letters + digits)",
+        "verification_code": "string (6-digit)",
+        "phone": "string? (optional, 11-digit CN mobile)"
+      },
+      "response": {
+        "type": "StandardResponse[UserRegisterResponse]"
+      },
+      "notes": "- 必须先调用 /verification-code?type=register\n- 密码必须包含字母和数字，至少 8 位\n- 成功后自动登录，返回 access_token + refresh_token\n"
+    },
+    {
+      "name": "login",
+      "method": "POST",
+      "path": "/login",
+      "auth_required": false,
+      "request": {
+        "username": "string (can be username or email)",
+        "password": "string",
+        "verification_code": "string? (required if failed >=3 times)"
+      },
+      "response": {
+        "type": "StandardResponse[Token]"
+      },
+      "notes": "- 登录失败 3 次后，必须提供 verification_code\n- 登录失败 5 次，账户锁定 30 分钟\n- 成功登录后重置失败计数\n"
+    },
+    {
+      "name": "phone_login",
+      "method": "POST",
+      "path": "/phone-login",
+      "auth_required": false,
+      "request": {
+        "phone": "string (11-digit CN mobile)",
+        "verification_code": "string (6-digit)"
+      },
+      "response": {
+        "type": "StandardResponse[Token]"
+      },
+      "notes": "- 独立于密码登录的流程\n- 必须先调用 /verification-code?type=phone_login\n"
+    },
+    {
+      "name": "logout",
+      "method": "POST",
+      "path": "/logout",
+      "auth_required": true,
+      "request": {},
+      "response": {
+        "type": "StandardResponse[null]"
+      },
+      "notes": "- 前端应清除本地存储的 token\n- 后端无状态，不强制使 token 失效（可选黑名单）\n"
+    },
+    {
+      "name": "refresh_token",
+      "method": "POST",
+      "path": "/refresh",
+      "auth_required": true,
+      "token_type": "refresh_token",
+      "request": {},
+      "response": {
+        "type": "StandardResponse[Token]"
+      },
+      "notes": "- 使用 refresh_token 调用（放在 Authorization Header）\n- 返回新的 access_token（refresh_token 不变）\n- 若 refresh_token 过期，需重新登录\n"
+    },
+    {
+      "name": "request_password_reset",
+      "method": "POST",
+      "path": "/password/reset-request",
+      "auth_required": false,
+      "request": {
+        "email": "string"
+      },
+      "response": {
+        "type": "StandardResponse[null]"
+      },
+      "notes": "- 用户存在时发送验证码\n- 用户不存在时也返回成功（防探测）\n"
+    },
+    {
+      "name": "confirm_password_reset",
+      "method": "POST",
+      "path": "/password/reset-confirm",
+      "auth_required": false,
+      "request": {
+        "email": "string",
+        "verification_code": "string",
+        "new_password": "string (same rules as register)"
+      },
+      "response": {
+        "type": "StandardResponse[null]"
+      }
+    },
+    {
+      "name": "change_password",
+      "method": "PUT",
+      "path": "/password",
+      "auth_required": true,
+      "request": {
+        "old_password": "string",
+        "new_password": "string"
+      },
+      "response": {
+        "type": "StandardResponse[null]"
+      }
+    },
+    {
+      "name": "get_current_user",
+      "method": "GET",
+      "path": "/me",
+      "auth_required": true,
+      "response": {
+        "type": "StandardResponse[UserRead]"
+      }
+    },
+    {
+      "name": "update_current_user",
+      "method": "PUT",
+      "path": "/me",
+      "auth_required": true,
+      "request": {
+        "email": "string?",
+        "phone": "string?",
+        "real_name": "string?"
+      },
+      "response": {
+        "type": "StandardResponse[UserRead]"
+      }
+    },
+    {
+      "name": "list_users",
+      "method": "GET",
+      "path": "/users",
+      "auth_required": true,
+      "admin_only": true,
+      "query_params": {
+        "skip": "integer (default 0)",
+        "limit": "integer (default 20)"
+      },
+      "response": {
+        "type": "StandardResponse[UserRead[]]",
+        "metadata": {
+          "total": "integer",
+          "skip": "integer",
+          "limit": "integer"
+        }
+      }
+    },
+    {
+      "name": "get_user_by_id",
+      "method": "GET",
+      "path": "/users/{user_id}",
+      "auth_required": true,
+      "admin_only": true,
+      "response": {
+        "type": "StandardResponse[UserRead]"
+      }
+    }
+  ],
+  "error_codes": {
+    "AUTH_ERROR_001": {
+      "http_code": 401,
+      "message": "用户名或密码错误",
+      "ui_hint": "请检查用户名和密码是否正确"
+    },
+    "AUTH_ERROR_002": {
+      "http_code": 401,
+      "message": "令牌无效或已过期",
+      "ui_hint": "登录已过期，请重新登录",
+      "action": "redirect_to_login"
+    },
+    "AUTH_ERROR_003": {
+      "http_code": 403,
+      "message": "权限不足",
+      "ui_hint": "您没有权限执行此操作"
+    },
+    "AUTH_ERROR_004": {
+      "http_code": 403,
+      "message": "账户已被锁定",
+      "ui_hint": "账户因多次登录失败被锁定，请 30 分钟后重试"
+    },
+    "AUTH_ERROR_005": {
+      "http_code": 400,
+      "message": "用户名或邮箱已存在",
+      "ui_hint": "该用户名或邮箱已被注册"
+    }
+  },
+  "frontend_integration": {
+    "auth_flow": [
+      "登录成功后，将 access_token 存入内存（或安全存储）",
+      "每次 API 请求在 Header 中添加: Authorization: Bearer <access_token>",
+      "拦截 401 响应，尝试用 refresh_token 刷新",
+      "refresh_token 也过期时，跳转到登录页"
+    ],
+    "password_rules": [
+      "最少 8 位",
+      "必须包含字母和数字",
+      "不允许特殊字符（简化 UX）",
+      "前端应实时校验并提示"
+    ],
+    "phone_format": [
+      "仅支持中国大陆手机号：1[3-9]\\d{9}",
+      "前端应自动格式化（如添加 +86 前缀，但提交时不带）"
+    ],
+    "real_name_handling": [
+      "敏感字段，展示时建议脱敏（如 张*三）",
+      "仅在必要场景（如实名认证、发票）要求填写"
+    ]
+  },
+  "security_notes": [
+    "禁止在 URL、LocalStorage（未加密）、Console 中打印 token",
+    "所有认证接口必须使用 HTTPS（生产环境强制）",
+    "验证码输入框应限制尝试次数（前端可做防爆破）",
+    "登出后应清除所有本地认证状态"
+  ]
+}

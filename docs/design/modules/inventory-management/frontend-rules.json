@@ -1,0 +1,148 @@
+{
+  "title": "库存管理模块前端开发规范",
+  "version": "v1.1.0",
+  "status": "active",
+  "created": "2025-09-15",
+  "updated": "2025-10-18",
+  "owner": "前端架构组",
+  "applies_to": [
+    "inventory-management",
+    "system-design",
+    "repository-pattern"
+  ],
+  "dependencies": [
+    "docs/standards/frontend-standards.md",
+    "docs/standards/api-standards.md",
+    "docs/design/modules/inventory-management/design.md"
+  ],
+  "rules": {
+    "component_structure": {
+      "directory_layout": {
+        "base": "src/modules/inventory-management",
+        "structure": [
+          "components/",
+          "pages/",
+          "hooks/",
+          "services/",
+          "types/",
+          "utils/",
+          "constants.ts",
+          "module.routes.ts"
+        ]
+      },
+      "file_naming": {
+        "convention": "kebab-case",
+        "examples": [
+          "inventory-list.vue",
+          "stock-adjustment-dialog.tsx",
+          "use-inventory-reservation.ts"
+        ]
+      }
+    },
+    "state_management": {
+      "preferred_library": "Pinia (Vue) / Zustand (React)",
+      "rules": [
+        "库存数据状态必须与后端 InventoryStock 模型字段对齐",
+        "预占状态（reservation）应独立管理，避免与主库存状态耦合",
+        "所有异步操作必须包含 loading / error / success 状态",
+        "禁止在组件内直接调用 API，必须通过 services 层封装"
+      ]
+    },
+    "api_integration": {
+      "base_url": "/api/v1/inventory-management",
+      "service_file": "services/inventory.api.ts",
+      "conventions": [
+        "使用统一的 request 封装（含 JWT、错误拦截）",
+        "所有请求必须携带 traceId 用于链路追踪",
+        "响应结构必须符合后端标准：{ code, message, data, timestamp }",
+        "错误处理必须映射 error_code 到用户友好提示（参考 INV_001~INV_006）"
+      ],
+      "endpoints": {
+        "list": "GET /stocks",
+        "detail": "GET /stocks/{skuId}",
+        "reserve": "POST /reservations",
+        "deduct": "POST /deduct",
+        "adjust": "POST /stocks/{skuId}/adjust"
+      }
+    },
+    "type_safety": {
+      "language": "TypeScript",
+      "required": [
+        "所有 API 请求/响应必须定义 interface",
+        "枚举必须与后端对齐（TransactionType, ReservationType）",
+        "库存数量字段必须为 number 且 ≥0",
+        "时间字段使用 ISO 8601 字符串（如 '2025-10-18T12:00:00Z'）"
+      ],
+      "example_types": {
+        "InventoryStock": {
+          "skuId": "number",
+          "totalQuantity": "number",
+          "availableQuantity": "number",
+          "reservedQuantity": "number",
+          "warningThreshold": "number",
+          "is_active": "boolean",
+          "createdAt": "string"
+        }
+      }
+    },
+    "ui_ux": {
+      "components": [
+        "库存数字必须使用千分位格式化（如 1,234）",
+        "低库存（≤ warningThreshold）显示为橙色，缺货（=0）显示为红色",
+        "预占操作必须显示倒计时（如 '30:00 后释放'）",
+        "批量操作必须支持全选/反选/部分选中状态"
+      ],
+      "interactions": [
+        "库存调整必须二次确认",
+        "表单提交禁用期间显示 loading 状态",
+        "错误信息需定位到具体 SKU 行"
+      ]
+    },
+    "performance": {
+      "rules": [
+        "库存列表支持虚拟滚动（>100 行时）",
+        "搜索/筛选操作需防抖（debounce 300ms）",
+        "关键页面（如库存详情）需预加载关联数据",
+        "缓存策略：库存数据本地缓存 5 分钟（与后端 TTL 一致）"
+      ]
+    },
+    "i18n": {
+      "namespace": "inventory",
+      "key_pattern": "inventory.{feature}.{key}",
+      "examples": [
+        "inventory.reservation.reserve_success",
+        "inventory.error.insufficient_stock"
+      ]
+    },
+    "testing": {
+      "unit_test": {
+        "coverage": "≥80%",
+        "tools": "Vitest / Jest"
+      },
+      "e2e_test": {
+        "scenarios": [
+          "预占库存 → 超时释放",
+          "库存不足时阻止下单",
+          "管理员调整库存后数据实时更新"
+        ]
+      }
+    },
+    "security": {
+      "rules": [
+        "禁止在前端存储敏感库存数据（如成本价）",
+        "所有用户操作需记录操作人（从 auth context 获取）",
+        "权限控制：根据 RBAC 动态渲染按钮（如 adjust 按钮仅 admin 可见）"
+      ]
+    },
+    "documentation": {
+      "component_docs": {
+        "required": true,
+        "format": "Props / Events / Slots (Vue) 或 Props / Returns (React)"
+      },
+      "code_comments": [
+        "复杂业务逻辑必须注释（如并发库存更新处理）",
+        "TODO 必须包含责任人和截止日期"
+      ]
+    }
+  }
+}

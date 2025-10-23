@@ -1,0 +1,341 @@
+{
+  "payment_service": {
+    "api_prefix": "/api/v1/payment-service",
+    "auth_required": true,
+    "endpoints": {
+      "create_payment": {
+        "method": "POST",
+        "path": "/payments",
+        "request_schema": "PaymentCreateRequest",
+        "response_schema": "PaymentInitResponse",
+        "permissions": [
+          "user"
+        ]
+      },
+      "get_payment_detail": {
+        "method": "GET",
+        "path": "/payments/{payment_no}",
+        "response_schema": "PaymentDetailResponse",
+        "permissions": [
+          "user",
+          "admin"
+        ]
+      },
+      "cancel_payment": {
+        "method": "POST",
+        "path": "/payments/{payment_no}/cancel",
+        "response_schema": "PaymentDetailResponse",
+        "permissions": [
+          "user"
+        ],
+        "allowed_only_if_status": [
+          "pending",
+          "processing"
+        ]
+      },
+      "create_refund": {
+        "method": "POST",
+        "path": "/refunds",
+        "request_schema": "RefundCreateRequest",
+        "response_schema": "RefundDetailResponse",
+        "permissions": [
+          "user"
+        ]
+      },
+      "get_refund_detail": {
+        "method": "GET",
+        "path": "/refunds/{refund_no}",
+        "response_schema": "RefundDetailResponse",
+        "permissions": [
+          "user",
+          "admin"
+        ]
+      },
+      "list_payments": {
+        "method": "GET",
+        "path": "/payments",
+        "query_params": [
+          {
+            "name": "order_id",
+            "type": "integer",
+            "optional": true
+          },
+          {
+            "name": "status",
+            "type": "string",
+            "optional": true,
+            "enum": [
+              "pending",
+              "processing",
+              "completed",
+              "failed",
+              "cancelled",
+              "refunded"
+            ]
+          },
+          {
+            "name": "page",
+            "type": "integer",
+            "default": 1
+          },
+          {
+            "name": "page_size",
+            "type": "integer",
+            "default": 20,
+            "max": 100
+          }
+        ],
+        "response_schema": "PaginatedPaymentListResponse",
+        "permissions": [
+          "user",
+          "admin"
+        ]
+      },
+      "list_refunds": {
+        "method": "GET",
+        "path": "/refunds",
+        "query_params": [
+          {
+            "name": "payment_no",
+            "type": "string",
+            "optional": true
+          },
+          {
+            "name": "status",
+            "type": "string",
+            "optional": true,
+            "enum": [
+              "pending",
+              "approved",
+              "processing",
+              "completed",
+              "rejected",
+              "failed"
+            ]
+          },
+          {
+            "name": "page",
+            "type": "integer",
+            "default": 1
+          },
+          {
+            "name": "page_size",
+            "type": "integer",
+            "default": 20,
+            "max": 100
+          }
+        ],
+        "response_schema": "PaginatedRefundListResponse",
+        "permissions": [
+          "user",
+          "admin"
+        ]
+      }
+    },
+    "schemas": {
+      "PaymentStatus": {
+        "type": "enum",
+        "values": [
+          "pending",
+          "processing",
+          "completed",
+          "failed",
+          "cancelled",
+          "refunded"
+        ],
+        "display_names": {
+          "pending": "待支付",
+          "processing": "处理中",
+          "completed": "支付成功",
+          "failed": "支付失败",
+          "cancelled": "已取消",
+          "refunded": "已退款"
+        }
+      },
+      "RefundStatus": {
+        "type": "enum",
+        "values": [
+          "pending",
+          "approved",
+          "processing",
+          "completed",
+          "rejected",
+          "failed"
+        ],
+        "display_names": {
+          "pending": "待审核",
+          "approved": "已批准",
+          "processing": "退款中",
+          "completed": "退款成功",
+          "rejected": "已拒绝",
+          "failed": "退款失败"
+        }
+      },
+      "PaymentMethod": {
+        "type": "enum",
+        "values": [
+          "wechat",
+          "alipay",
+          "bank_card",
+          "balance",
+          "points",
+          "combined"
+        ],
+        "display_names": {
+          "wechat": "微信支付",
+          "alipay": "支付宝",
+          "bank_card": "银行卡",
+          "balance": "余额支付",
+          "points": "积分抵扣",
+          "combined": "组合支付"
+        }
+      },
+      "PaymentCreateRequest": {
+        "fields": {
+          "order_id": {
+            "type": "integer",
+            "required": true
+          },
+          "payment_method": {
+            "type": "PaymentMethod",
+            "required": true
+          },
+          "amount": {
+            "type": "decimal",
+            "required": true,
+            "min_value": 0.01
+          },
+          "redirect_url": {
+            "type": "string",
+            "required": false,
+            "format": "uri"
+          },
+          "client_type": {
+            "type": "string",
+            "required": false,
+            "enum": [
+              "web",
+              "mobile",
+              "mini_program"
+            ]
+          }
+        }
+      },
+      "PaymentInitResponse": {
+        "fields": {
+          "payment_no": "string",
+          "payment_method": "PaymentMethod",
+          "amount": "decimal",
+          "status": "PaymentStatus",
+          "gateway_data": {
+            "type": "object",
+            "description": "支付网关返回的唤起参数（如微信 prepay_id、支付宝 form）"
+          },
+          "expires_at": "datetime"
+        }
+      },
+      "PaymentDetailResponse": {
+        "fields": {
+          "payment_no": "string",
+          "order_id": "integer",
+          "user_id": "integer",
+          "payment_method": "PaymentMethod",
+          "amount": "decimal",
+          "status": "PaymentStatus",
+          "external_payment_id": "string | null",
+          "paid_at": "datetime | null",
+          "created_at": "datetime",
+          "updated_at": "datetime",
+          "transactions": {
+            "type": "array",
+            "item_type": "PaymentTransactionResponse"
+          }
+        }
+      },
+      "PaymentTransactionResponse": {
+        "fields": {
+          "transaction_type": "string",
+          "amount": "decimal",
+          "status": "string",
+          "gateway_response": "string",
+          "created_at": "datetime"
+        }
+      },
+      "RefundCreateRequest": {
+        "fields": {
+          "payment_no": {
+            "type": "string",
+            "required": true
+          },
+          "amount": {
+            "type": "decimal",
+            "required": true,
+            "min_value": 0.01
+          },
+          "reason": {
+            "type": "string",
+            "required": false,
+            "max_length": 500
+          }
+        }
+      },
+      "RefundDetailResponse": {
+        "fields": {
+          "refund_no": "string",
+          "payment_no": "string",
+          "amount": "decimal",
+          "reason": "string | null",
+          "status": "RefundStatus",
+          "operator_id": "integer",
+          "processed_at": "datetime | null",
+          "created_at": "datetime"
+        }
+      },
+      "PaginatedPaymentListResponse": {
+        "fields": {
+          "items": {
+            "type": "array",
+            "item_type": "PaymentSummaryResponse"
+          },
+          "total": "integer",
+          "page": "integer",
+          "page_size": "integer"
+        }
+      },
+      "PaymentSummaryResponse": {
+        "fields": {
+          "payment_no": "string",
+          "order_id": "integer",
+          "amount": "decimal",
+          "status": "PaymentStatus",
+          "created_at": "datetime"
+        }
+      },
+      "PaginatedRefundListResponse": {
+        "fields": {
+          "items": {
+            "type": "array",
+            "item_type": "RefundSummaryResponse"
+          },
+          "total": "integer",
+          "page": "integer",
+          "page_size": "integer"
+        }
+      },
+      "RefundSummaryResponse": {
+        "fields": {
+          "refund_no": "string",
+          "payment_no": "string",
+          "amount": "decimal",
+          "status": "RefundStatus",
+          "created_at": "datetime"
+        }
+      }
+    },
+    "error_codes": {
+      "PS_001": "支付单不存在",
+      "PS_002": "订单状态不允许支付",
+      "PS_003": "支付金额与订单"
+    }
+  }
+}
