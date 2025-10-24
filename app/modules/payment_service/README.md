@@ -20,7 +20,7 @@
 
 ## 模块文件
 
-`
+```
 payment_service/
 ├── __init__.py          # 模块初始化
 ├── router.py            # API路由定义
@@ -28,30 +28,36 @@ payment_service/
 ├── models.py            # 数据模型定义
 ├── schemas.py           # 数据验证模式
 ├── dependencies.py      # 依赖注入配置
+├── repository.py        # 数据访问层
+├── utils.py             # 工具函数
+├── auth_helpers.py      # 认证辅助函数
+├── api.schema.json      # API Schema定义
+├── schema.md            # API Schema文档
+├── tasks/               # 异步任务
 └── README.md           # 模块文档(本文件)
-`
+```
 
 ## 使用入口
 
 ### API调用示例
 
-`python
+```python
 # 导入路由
 from app.modules.payment_service.router import router
 
 # 注册到主应用
 app.include_router(router, prefix="/api/payment-service/")
-`
+```
 
 ### 服务调用示例
 
-`python
+```python
 # 导入服务
 from app.modules.payment_service.service import payment_serviceService
 
 # 在其他模块中使用
 service = payment_serviceService(db)
-`
+```
 
 ## 相关文档
 

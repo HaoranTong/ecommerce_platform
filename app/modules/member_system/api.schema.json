@@ -1,0 +1,1157 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "definitions": {
+    "MemberBase": {
+      "type": "object",
+      "properties": {
+        "nickname": {
+          "type": "string",
+          "description": "会员昵称，1-50个字符"
+        },
+        "birthday": {
+          "type": "string",
+          "description": "生日日期"
+        },
+        "preferences": {
+          "type": "string",
+          "description": "用户偏好设置"
+        }
+      },
+      "required": []
+    },
+    "MemberCreate": {
+      "type": "object",
+      "properties": {
+        "nickname": {
+          "type": "string",
+          "description": "会员昵称，必填"
+        },
+        "birthday": {
+          "type": "string",
+          "description": "生日日期"
+        },
+        "preferences": {
+          "type": "string",
+          "description": "用户偏好设置"
+        }
+      },
+      "required": []
+    },
+    "MemberUpdate": {
+      "type": "object",
+      "properties": {
+        "nickname": {
+          "type": "string",
+          "description": "会员昵称，1-50个字符"
+        },
+        "birthday": {
+          "type": "string",
+          "description": "生日日期"
+        },
+        "preferences": {
+          "type": "string",
+          "description": "用户偏好设置"
+        }
+      },
+      "required": []
+    },
+    "MemberRead": {
+      "type": "object",
+      "properties": {
+        "nickname": {
+          "type": "string",
+          "description": "会员昵称，1-50个字符"
+        },
+        "birthday": {
+          "type": "string",
+          "description": "生日日期"
+        },
+        "preferences": {
+          "type": "string",
+          "description": "用户偏好设置"
+        },
+        "member_id": {
+          "type": "string",
+          "description": "会员ID"
+        },
+        "user_id": {
+          "type": "integer",
+          "description": "用户ID"
+        },
+        "level_id": {
+          "type": "integer",
+          "description": "会员等级ID"
+        },
+        "total_spent": {
+          "type": "number",
+          "description": "总消费金额"
+        },
+        "total_orders": {
+          "type": "integer",
+          "description": "总订单数"
+        },
+        "join_date": {
+          "type": "string",
+          "description": "加入日期"
+        },
+        "last_active_at": {
+          "type": "string",
+          "description": "最后活跃时间"
+        },
+        "level_upgrade_date": {
+          "type": "string",
+          "description": "等级升级时间"
+        }
+      },
+      "required": []
+    },
+    "MembershipLevelBase": {
+      "type": "object",
+      "properties": {
+        "level_name": {
+          "type": "string",
+          "description": "等级名称"
+        },
+        "level_code": {
+          "type": "string",
+          "description": "等级代码"
+        },
+        "required_spent": {
+          "type": "number",
+          "description": "升级所需消费金额"
+        },
+        "discount_rate": {
+          "type": "number",
+          "description": "折扣率"
+        },
+        "point_multiplier": {
+          "type": "number",
+          "description": "积分倍数"
+        },
+        "description": {
+          "type": "string",
+          "description": "等级描述"
+        },
+        "is_active": {
+          "type": "boolean",
+          "description": "是否激活"
+        }
+      },
+      "required": []
+    },
+    "MembershipLevelRead": {
+      "type": "object",
+      "properties": {
+        "level_name": {
+          "type": "string",
+          "description": "等级名称"
+        },
+        "level_code": {
+          "type": "string",
+          "description": "等级代码"
+        },
+        "required_spent": {
+          "type": "number",
+          "description": "升级所需消费金额"
+        },
+        "discount_rate": {
+          "type": "number",
+          "description": "折扣率"
+        },
+        "point_multiplier": {
+          "type": "number",
+          "description": "积分倍数"
+        },
+        "description": {
+          "type": "string",
+          "description": "等级描述"
+        },
+        "is_active": {
+          "type": "boolean",
+          "description": "是否激活"
+        },
+        "level_id": {
+          "type": "integer",
+          "description": "等级ID"
+        }
+      },
+      "required": []
+    },
+    "PointTransactionBase": {
+      "type": "object",
+      "properties": {
+        "transaction_type": {
+          "type": "string",
+          "description": "交易类型"
+        },
+        "event_type": {
+          "type": "string",
+          "description": "事件类型"
+        },
+        "points": {
+          "type": "integer",
+          "description": "积分数量，正数为获得，负数为使用"
+        },
+        "reference_id": {
+          "type": "string",
+          "description": "关联订单或活动ID"
+        },
+        "description": {
+          "type": "string",
+          "description": "交易描述"
+        }
+      },
+      "required": []
+    },
+    "PointTransactionCreate": {
+      "type": "object",
+      "properties": {
+        "transaction_type": {
+          "type": "string",
+          "description": "交易类型"
+        },
+        "event_type": {
+          "type": "string",
+          "description": "事件类型"
+        },
+        "points": {
+          "type": "integer",
+          "description": "积分数量，正数为获得，负数为使用"
+        },
+        "reference_id": {
+          "type": "string",
+          "description": "关联订单或活动ID"
+        },
+        "description": {
+          "type": "string",
+          "description": "交易描述"
+        },
+        "user_id": {
+          "type": "integer",
+          "description": "用户ID"
+        }
+      },
+      "required": []
+    },
+    "PointTransactionRead": {
+      "type": "object",
+      "properties": {
+        "transaction_type": {
+          "type": "string",
+          "description": "交易类型"
+        },
+        "event_type": {
+          "type": "string",
+          "description": "事件类型"
+        },
+        "points": {
+          "type": "integer",
+          "description": "积分数量，正数为获得，负数为使用"
+        },
+        "reference_id": {
+          "type": "string",
+          "description": "关联订单或活动ID"
+        },
+        "description": {
+          "type": "string",
+          "description": "交易描述"
+        },
+        "transaction_id": {
+          "type": "string",
+          "description": "交易ID"
+        },
+        "user_id": {
+          "type": "integer",
+          "description": "用户ID"
+        },
+        "balance_after": {
+          "type": "integer",
+          "description": "交易后余额"
+        },
+        "expiry_date": {
+          "type": "string",
+          "description": "过期时间"
+        },
+        "created_at": {
+          "type": "string",
+          "description": "创建时间"
+        }
+      },
+      "required": []
+    },
+    "PointSummary": {
+      "type": "object",
+      "properties": {
+        "total_points": {
+          "type": "integer",
+          "description": "总获得积分"
+        },
+        "available_points": {
+          "type": "integer",
+          "description": "可用积分"
+        },
+        "frozen_points": {
+          "type": "integer",
+          "description": "冻结积分"
+        },
+        "expiring_points": {
+          "type": "integer",
+          "description": "即将过期积分"
+        },
+        "expiring_date": {
+          "type": "string",
+          "description": "最近过期时间"
+        }
+      },
+      "required": []
+    },
+    "MembershipBenefitBase": {
+      "type": "object",
+      "properties": {
+        "benefit_type": {
+          "type": "string",
+          "description": "权益类型"
+        },
+        "benefit_name": {
+          "type": "string",
+          "description": "权益名称"
+        },
+        "description": {
+          "type": "string",
+          "description": "权益描述"
+        },
+        "usage_limit": {
+          "type": "integer",
+          "description": "使用次数限制"
+        },
+        "reset_cycle": {
+          "type": "string",
+          "description": "重置周期"
+        },
+        "is_active": {
+          "type": "boolean",
+          "description": "是否激活"
+        }
+      },
+      "required": []
+    },
+    "MembershipBenefitRead": {
+      "type": "object",
+      "properties": {
+        "benefit_type": {
+          "type": "string",
+          "description": "权益类型"
+        },
+        "benefit_name": {
+          "type": "string",
+          "description": "权益名称"
+        },
+        "description": {
+          "type": "string",
+          "description": "权益描述"
+        },
+        "usage_limit": {
+          "type": "integer",
+          "description": "使用次数限制"
+        },
+        "reset_cycle": {
+          "type": "string",
+          "description": "重置周期"
+        },
+        "is_active": {
+          "type": "boolean",
+          "description": "是否激活"
+        },
+        "benefit_id": {
+          "type": "integer",
+          "description": "权益ID"
+        },
+        "level_id": {
+          "type": "integer",
+          "description": "等级ID"
+        }
+      },
+      "required": []
+    },
+    "BenefitUsageBase": {
+      "type": "object",
+      "properties": {
+        "benefit_type": {
+          "type": "string",
+          "description": "权益类型"
+        },
+        "reference_id": {
+          "type": "string",
+          "description": "关联订单或活动ID"
+        },
+        "description": {
+          "type": "string",
+          "description": "使用描述"
+        },
+        "benefit_value": {
+          "type": "number",
+          "description": "权益价值"
+        }
+      },
+      "required": []
+    },
+    "BenefitUsageCreate": {
+      "type": "object",
+      "properties": {
+        "benefit_type": {
+          "type": "string",
+          "description": "权益类型"
+        },
+        "reference_id": {
+          "type": "string",
+          "description": "关联订单或活动ID"
+        },
+        "description": {
+          "type": "string",
+          "description": "使用描述"
+        },
+        "benefit_value": {
+          "type": "number",
+          "description": "权益价值"
+        },
+        "user_id": {
+          "type": "integer",
+          "description": "用户ID"
+        }
+      },
+      "required": []
+    },
+    "BenefitUsageRead": {
+      "type": "object",
+      "properties": {
+        "benefit_type": {
+          "type": "string",
+          "description": "权益类型"
+        },
+        "reference_id": {
+          "type": "string",
+          "description": "关联订单或活动ID"
+        },
+        "description": {
+          "type": "string",
+          "description": "使用描述"
+        },
+        "benefit_value": {
+          "type": "number",
+          "description": "权益价值"
+        },
+        "usage_id": {
+          "type": "integer",
+          "description": "使用记录ID"
+        },
+        "user_id": {
+          "type": "integer",
+          "description": "用户ID"
+        },
+        "used_at": {
+          "type": "string",
+          "description": "使用时间"
+        }
+      },
+      "required": []
+    },
+    "BenefitEligibility": {
+      "type": "object",
+      "properties": {
+        "user_id": {
+          "type": "integer",
+          "description": "用户ID"
+        },
+        "benefit_type": {
+          "type": "string",
+          "description": "权益类型"
+        },
+        "benefit_name": {
+          "type": "string",
+          "description": "权益名称"
+        },
+        "eligible": {
+          "type": "boolean",
+          "description": "是否有资格"
+        },
+        "level_required": {
+          "type": "boolean",
+          "description": "是否需要等级"
+        },
+        "usage_limit": {
+          "type": "integer",
+          "description": "使用限制"
+        },
+        "used_count": {
+          "type": "integer",
+          "description": "已使用次数"
+        },
+        "remaining_count": {
+          "type": "integer",
+          "description": "剩余次数"
+        },
+        "reset_cycle": {
+          "type": "string",
+          "description": "重置周期"
+        },
+        "next_reset_date": {
+          "type": "string",
+          "description": "下次重置时间"
+        }
+      },
+      "required": []
+    },
+    "MemberActivityBase": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string",
+          "description": "活动标题"
+        },
+        "description": {
+          "type": "string",
+          "description": "活动描述"
+        },
+        "activity_type": {
+          "type": "string",
+          "description": "活动类型"
+        },
+        "start_time": {
+          "type": "string",
+          "description": "开始时间"
+        },
+        "end_time": {
+          "type": "string",
+          "description": "结束时间"
+        },
+        "max_participants": {
+          "type": "integer",
+          "description": "最大参与人数"
+        },
+        "reward_config": {
+          "type": "string",
+          "description": "奖励配置"
+        },
+        "participation_rules": {
+          "type": "string",
+          "description": "参与规则"
+        }
+      },
+      "required": []
+    },
+    "MemberActivityCreate": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string",
+          "description": "活动标题"
+        },
+        "description": {
+          "type": "string",
+          "description": "活动描述"
+        },
+        "activity_type": {
+          "type": "string",
+          "description": "活动类型"
+        },
+        "start_time": {
+          "type": "string",
+          "description": "开始时间"
+        },
+        "end_time": {
+          "type": "string",
+          "description": "结束时间"
+        },
+        "max_participants": {
+          "type": "integer",
+          "description": "最大参与人数"
+        },
+        "reward_config": {
+          "type": "string",
+          "description": "奖励配置"
+        },
+        "participation_rules": {
+          "type": "string",
+          "description": "参与规则"
+        }
+      },
+      "required": []
+    },
+    "MemberActivityUpdate": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string",
+          "description": "活动标题"
+        },
+        "description": {
+          "type": "string",
+          "description": "活动描述"
+        },
+        "start_time": {
+          "type": "string",
+          "description": "开始时间"
+        },
+        "end_time": {
+          "type": "string",
+          "description": "结束时间"
+        },
+        "max_participants": {
+          "type": "integer",
+          "description": "最大参与人数"
+        },
+        "status": {
+          "type": "string",
+          "description": "活动状态"
+        },
+        "reward_config": {
+          "type": "string",
+          "description": "奖励配置"
+        },
+        "participation_rules": {
+          "type": "string",
+          "description": "参与规则"
+        }
+      },
+      "required": []
+    },
+    "MemberActivityRead": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string",
+          "description": "活动标题"
+        },
+        "description": {
+          "type": "string",
+          "description": "活动描述"
+        },
+        "activity_type": {
+          "type": "string",
+          "description": "活动类型"
+        },
+        "start_time": {
+          "type": "string",
+          "description": "开始时间"
+        },
+        "end_time": {
+          "type": "string",
+          "description": "结束时间"
+        },
+        "max_participants": {
+          "type": "integer",
+          "description": "最大参与人数"
+        },
+        "reward_config": {
+          "type": "string",
+          "description": "奖励配置"
+        },
+        "participation_rules": {
+          "type": "string",
+          "description": "参与规则"
+        },
+        "activity_id": {
+          "type": "integer",
+          "description": "活动ID"
+        },
+        "current_participants": {
+          "type": "integer",
+          "description": "当前参与人数"
+        },
+        "status": {
+          "type": "string",
+          "description": "活动状态"
+        },
+        "created_at": {
+          "type": "string",
+          "description": "创建时间"
+        }
+      },
+      "required": []
+    },
+    "ActivityParticipationBase": {
+      "type": "object",
+      "properties": {
+        "progress_data": {
+          "type": "string",
+          "description": "进度数据"
+        }
+      },
+      "required": []
+    },
+    "ActivityParticipationCreate": {
+      "type": "object",
+      "properties": {
+        "progress_data": {
+          "type": "string",
+          "description": "进度数据"
+        },
+        "user_id": {
+          "type": "integer",
+          "description": "用户ID"
+        },
+        "activity_id": {
+          "type": "integer",
+          "description": "活动ID"
+        }
+      },
+      "required": []
+    },
+    "ActivityParticipationRead": {
+      "type": "object",
+      "properties": {
+        "progress_data": {
+          "type": "string",
+          "description": "进度数据"
+        },
+        "participation_id": {
+          "type": "integer",
+          "description": "参与ID"
+        },
+        "user_id": {
+          "type": "integer",
+          "description": "用户ID"
+        },
+        "activity_id": {
+          "type": "integer",
+          "description": "活动ID"
+        },
+        "participation_time": {
+          "type": "string",
+          "description": "参与时间"
+        },
+        "status": {
+          "type": "string",
+          "description": "参与状态"
+        }
+      },
+      "required": []
+    },
+    "LevelInfo": {
+      "type": "object",
+      "properties": {
+        "level_id": {
+          "type": "integer",
+          "description": "等级ID"
+        },
+        "level_name": {
+          "type": "string",
+          "description": "等级名称"
+        },
+        "level_code": {
+          "type": "string",
+          "description": "等级代码"
+        },
+        "discount_rate": {
+          "type": "number",
+          "description": "折扣率"
+        },
+        "point_multiplier": {
+          "type": "number",
+          "description": "积分倍数"
+        }
+      },
+      "required": []
+    },
+    "MemberStatistics": {
+      "type": "object",
+      "properties": {
+        "total_spent": {
+          "type": "number",
+          "description": "总消费金额"
+        },
+        "total_orders": {
+          "type": "integer",
+          "description": "总订单数"
+        },
+        "join_date": {
+          "type": "string",
+          "description": "加入日期"
+        },
+        "last_active": {
+          "type": "string",
+          "description": "最后活跃时间"
+        }
+      },
+      "required": []
+    },
+    "BenefitStatus": {
+      "type": "object",
+      "properties": {
+        "free_shipping": {
+          "type": "boolean",
+          "description": "免运费"
+        },
+        "birthday_gift": {
+          "type": "boolean",
+          "description": "生日礼品"
+        },
+        "priority_service": {
+          "type": "boolean",
+          "description": "优先服务"
+        },
+        "exclusive_events": {
+          "type": "boolean",
+          "description": "专属活动"
+        },
+        "points_multiplier": {
+          "type": "boolean",
+          "description": "积分倍数"
+        },
+        "custom_service": {
+          "type": "boolean",
+          "description": "专属客服"
+        }
+      },
+      "required": []
+    },
+    "NextLevelInfo": {
+      "type": "object",
+      "properties": {
+        "level_name": {
+          "type": "string",
+          "description": "等级名称"
+        },
+        "level_code": {
+          "type": "string",
+          "description": "等级代码"
+        },
+        "required_spent": {
+          "type": "number",
+          "description": "升级所需消费"
+        },
+        "remaining_spent": {
+          "type": "number",
+          "description": "剩余所需消费"
+        },
+        "progress_percentage": {
+          "type": "number",
+          "description": "升级进度百分比"
+        }
+      },
+      "required": []
+    },
+    "MemberWithDetails": {
+      "type": "object",
+      "properties": {
+        "member_id": {
+          "type": "string",
+          "description": "会员ID"
+        },
+        "user_id": {
+          "type": "integer",
+          "description": "用户ID"
+        },
+        "level": {
+          "type": "string",
+          "description": "等级信息"
+        },
+        "points": {
+          "type": "string",
+          "description": "积分信息"
+        },
+        "statistics": {
+          "type": "string",
+          "description": "统计信息"
+        },
+        "benefits": {
+          "type": "string",
+          "description": "权益状态"
+        },
+        "next_level": {
+          "type": "string",
+          "description": "下一等级信息"
+        }
+      },
+      "required": []
+    },
+    "PaginationInfo": {
+      "type": "object",
+      "properties": {
+        "page": {
+          "type": "integer",
+          "description": "当前页码"
+        },
+        "limit": {
+          "type": "integer",
+          "description": "每页数量"
+        },
+        "total": {
+          "type": "integer",
+          "description": "总记录数"
+        },
+        "total_pages": {
+          "type": "integer",
+          "description": "总页数"
+        }
+      },
+      "required": []
+    },
+    "PointTransactionList": {
+      "type": "object",
+      "properties": {
+        "summary": {
+          "type": "string",
+          "description": "积分汇总"
+        },
+        "transactions": {
+          "type": "string",
+          "description": "交易记录"
+        },
+        "pagination": {
+          "type": "string",
+          "description": "分页信息"
+        }
+      },
+      "required": []
+    },
+    "BenefitUsageList": {
+      "type": "object",
+      "properties": {
+        "usage_history": {
+          "type": "string",
+          "description": "使用历史"
+        },
+        "pagination": {
+          "type": "string",
+          "description": "分页信息"
+        }
+      },
+      "required": []
+    },
+    "ActivityList": {
+      "type": "object",
+      "properties": {
+        "activities": {
+          "type": "string",
+          "description": "活动列表"
+        },
+        "pagination": {
+          "type": "string",
+          "description": "分页信息"
+        }
+      },
+      "required": []
+    },
+    "UserActivityList": {
+      "type": "object",
+      "properties": {
+        "activities": {
+          "type": "string",
+          "description": "参与的活动"
+        },
+        "pagination": {
+          "type": "string",
+          "description": "分页信息"
+        }
+      },
+      "required": []
+    },
+    "APIResponse": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "integer",
+          "description": "响应状态码"
+        },
+        "message": {
+          "type": "string",
+          "description": "响应消息"
+        },
+        "data": {
+          "type": "string",
+          "description": "响应数据"
+        },
+        "timestamp": {
+          "type": "string",
+          "description": "响应时间"
+        }
+      },
+      "required": []
+    },
+    "MemberProfileResponse": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "integer",
+          "description": "响应状态码"
+        },
+        "message": {
+          "type": "string",
+          "description": "响应消息"
+        },
+        "data": {
+          "type": "string",
+          "description": "会员档案数据"
+        },
+        "timestamp": {
+          "type": "string",
+          "description": "响应时间"
+        }
+      },
+      "required": []
+    },
+    "PointTransactionResponse": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "integer",
+          "description": "响应状态码"
+        },
+        "message": {
+          "type": "string",
+          "description": "响应消息"
+        },
+        "data": {
+          "type": "string",
+          "description": "积分交易数据"
+        },
+        "timestamp": {
+          "type": "string",
+          "description": "响应时间"
+        }
+      },
+      "required": []
+    },
+    "BenefitUsageResponse": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "integer",
+          "description": "响应状态码"
+        },
+        "message": {
+          "type": "string",
+          "description": "响应消息"
+        },
+        "data": {
+          "type": "string",
+          "description": "权益使用数据"
+        },
+        "timestamp": {
+          "type": "string",
+          "description": "响应时间"
+        }
+      },
+      "required": []
+    },
+    "ActivityParticipationResponse": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "integer",
+          "description": "响应状态码"
+        },
+        "message": {
+          "type": "string",
+          "description": "响应消息"
+        },
+        "data": {
+          "type": "string",
+          "description": "活动参与数据"
+        },
+        "timestamp": {
+          "type": "string",
+          "description": "响应时间"
+        }
+      },
+      "required": []
+    },
+    "SystemConfigBase": {
+      "type": "object",
+      "properties": {
+        "config_key": {
+          "type": "string",
+          "description": "配置键"
+        },
+        "config_value": {
+          "type": "string",
+          "description": "配置值"
+        },
+        "description": {
+          "type": "string",
+          "description": "配置描述"
+        },
+        "is_active": {
+          "type": "boolean",
+          "description": "是否激活"
+        }
+      },
+      "required": []
+    },
+    "SystemConfigCreate": {
+      "type": "object",
+      "properties": {
+        "config_key": {
+          "type": "string",
+          "description": "配置键"
+        },
+        "config_value": {
+          "type": "string",
+          "description": "配置值"
+        },
+        "description": {
+          "type": "string",
+          "description": "配置描述"
+        },
+        "is_active": {
+          "type": "boolean",
+          "description": "是否激活"
+        }
+      },
+      "required": []
+    },
+    "SystemConfigUpdate": {
+      "type": "object",
+      "properties": {
+        "config_value": {
+          "type": "string",
+          "description": "配置值"
+        },
+        "description": {
+          "type": "string",
+          "description": "配置描述"
+        },
+        "is_active": {
+          "type": "boolean",
+          "description": "是否激活"
+        }
+      },
+      "required": []
+    },
+    "SystemConfigRead": {
+      "type": "object",
+      "properties": {
+        "config_key": {
+          "type": "string",
+          "description": "配置键"
+        },
+        "config_value": {
+          "type": "string",
+          "description": "配置值"
+        },
+        "description": {
+          "type": "string",
+          "description": "配置描述"
+        },
+        "is_active": {
+          "type": "boolean",
+          "description": "是否激活"
+        },
+        "config_id": {
+          "type": "integer",
+          "description": "配置ID"
+        },
+        "created_at": {
+          "type": "string",
+          "description": "创建时间"
+        },
+        "updated_at": {
+          "type": "string",
+          "description": "更新时间"
+        }
+      },
+      "required": []
+    }
+  }
+}

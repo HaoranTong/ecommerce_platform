@@ -17,9 +17,32 @@ API与服务层映射分析脚本
     python tools/api_service_mapping_analyzer.py --analyze shopping_cart
     python tools/api_service_mapping_analyzer.py --analyze-all
     python tools/api_service_mapping_analyzer.py --generate-test shopping_cart
+    
+示例:
+    # 分析特定模块的API/Service映射
+    python tools/api_service_mapping_analyzer.py --analyze user_auth
+    
+    # 分析所有模块的API/Service映射
+    python tools/api_service_mapping_analyzer.py --analyze-all
+    
+    # 生成特定模块的测试代码
+    python tools/api_service_mapping_analyzer.py --generate-test product_catalog
+    
+    # 导出分析结果到JSON文件
+    python tools/api_service_mapping_analyzer.py --analyze-all --export mapping.json
 
-创建时间：2025-09-19
+输出格式:
+    - 控制台输出: 可读性良好的文本报告
+    - JSON格式: 结构化的映射数据
+    - 测试代码: 自动生成的pytest测试模板
+
+应用场景:
+    1. 测试自动化 - 生成准确的API测试代码
+    2. 代码审查 - 检查API与Service层的一致性
+    3. 文档生成 - 自动生成API文档
+    4. 重构辅助 - 识别需要同步修改的API和服务方法
 """
+
 import ast
 import json
 import os

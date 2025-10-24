@@ -20,7 +20,7 @@
 
 ## 模块文件
 
-`
+```
 batch_traceability/
 ├── __init__.py          # 模块初始化
 ├── router.py            # API路由定义
@@ -29,29 +29,29 @@ batch_traceability/
 ├── schemas.py           # 数据验证模式
 ├── dependencies.py      # 依赖注入配置
 └── README.md           # 模块文档(本文件)
-`
+```
 
 ## 使用入口
 
 ### API调用示例
 
-`python
+```python
 # 导入路由
 from app.modules.batch_traceability.router import router
 
 # 注册到主应用
 app.include_router(router, prefix="/api/batch-traceability/")
-`
+```
 
 ### 服务调用示例
 
-`python
+```python
 # 导入服务
 from app.modules.batch_traceability.service import batch_traceabilityService
 
 # 在其他模块中使用
 service = batch_traceabilityService(db)
-`
+```
 
 ## 相关文档
 

@@ -1,0 +1,31 @@
+{
+  "type": "object",
+  "properties": {
+    "total_users": {
+      "type": "integer"
+    },
+    "active_users": {
+      "type": "integer"
+    },
+    "new_users_today": {
+      "type": "integer"
+    },
+    "new_users_this_week": {
+      "type": "integer"
+    },
+    "new_users_this_month": {
+      "type": "integer"
+    },
+    "user_roles_distribution": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "total_users",
+    "active_users",
+    "new_users_today",
+    "new_users_this_week",
+    "new_users_this_month",
+    "user_roles_distribution"
+  ]
+}

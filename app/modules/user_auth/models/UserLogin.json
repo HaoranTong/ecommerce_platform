@@ -1,0 +1,18 @@
+{
+  "type": "object",
+  "properties": {
+    "username": {
+      "type": "string",
+      "description": "用户名或邮箱"
+    },
+    "password": {
+      "type": "string",
+      "description": "密码"
+    },
+    "verification_code": {
+      "type": "string",
+      "description": "验证码（登录失败3次后必填）"
+    }
+  },
+  "required": []
+}
