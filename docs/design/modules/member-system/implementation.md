@@ -1,53 +1,83 @@
-# 会员系统模块 - 实现细节文档
+---
+title: "会员系统模块 - 实现细节文档"
+version: "v1.0.0"
+status: "active"
+created: "2025-09-18"
+updated: "2025-10-22"
+owner: "后端开发工程师"
+dependencies:
+  - "docs/design/modules/member-system/design.md"
+  - "docs/design/modules/member-system/api-spec.md"
+  - "docs/standards/coding-standards.md"
+labels:
+  - "member-system"
+  - "implementation"
+  - "fastapi"
+  - "sqlalchemy"
+---
 
-📝 **状态**: ✅ 已发布  
-📅 **创建日期**: 2025-09-18  
-👤 **负责人**: 后端开发工程师  
-🔄 **最后更新**: 2025-10-22  
-📋 **版本**: v1.0.0  
+# 会员系统模块 - 实现细节文档
 
 ## 1. 实现概览
 
-### 对应设计文档章节
-本文档对应 [design.md](./design.md) 中以下章节的具体实现：
+### 文档信息与依赖
+| 项目 | 值 |
+|------|----|
+| 模块名称 | 会员系统模块 (Member System) |
+| 实现版本 | v1.0.0 |
+| 设计对齐 | [design.md](./design.md) 完整实现 |
+| API规范对齐 | [api-spec.md](./api-spec.md) 完整实现 |
+| 编码标准 | [coding-standards.md](../../../standards/coding-standards.md) |
 
-- **第3章 数据模型** → 第3节 数据库与存储实现
-- **第4章 业务流程** → 第2节 代码结构映射 
-- **第5章 接口设计** → 第4节 异常与错误处理策略
-- **第6章 安全考虑** → 第5节 性能优化手段
-- **第7章 扩展性与性能** → 第6节 日志与监控埋点
+### 技术实现栈
+| 技术层 | 技术选型 | 版本要求 | 用途 |
+|--------|----------|----------|------|
+| 应用框架 | FastAPI | 0.104.1+ | 异步API框架 |
+| ORM框架 | SQLAlchemy | 2.0.25+ | 数据库ORM |
+| 数据验证 | Pydantic | 2.5.0+ | 数据验证与序列化 |
+| 缓存 | Redis | 7.0+ | 高性能缓存 |
+| 数据库 | MySQL | 8.0+ | 主数据存储 |
 
-### 技术实现总览
-| 实现模块 | 设计文档对应 | 实现状态 | 代码位置 |
+### 模块实现状态
+| 实现组件 | 设计文档对应 | 实现状态 | 代码位置 |
 |---------|-------------|----------|----------|
-| 数据模型层 | 第3章 数据模型 | ✅ 已完成 | `app/modules/member_system/models.py` |
-| 业务逻辑层 | 第4章 业务流程 | ✅ 已完成 | `app/modules/member_system/service.py` |
-| API接口层 | 第5章 接口设计 | ✅ 已完成 | `app/modules/member_system/router.py` |
-| 数据验证层 | 第5章 接口设计 | ✅ 已完成 | `app/modules/member_system/schemas.py` |
+| 路由层 | 第5章 接口设计 | ✅ 已完成 | `app/modules/member_system/router.py` |
+| 服务层 | 第4章 业务流程 | ✅ 已完成 | `app/modules/member_system/service.py` |
+| 仓储层 | 第3章 数据模型 | ✅ 已完成 | `app/modules/member_system/repository.py` |
+| 模型层 | 第3章 数据模型 | ✅ 已完成 | `app/modules/member_system/models.py` |
+| 模式层 | 第5章 接口设计 | ✅ 已完成 | `app/modules/member_system/schemas.py` |
+| 依赖注入 | 全模块支撑 | ✅ 已完成 | `app/modules/member_system/dependencies.py` |
 
-### 关键技术决策实现
-1. **异步架构**: 基于FastAPI的异步请求处理
-2. **事务管理**: SQLAlchemy事务上下文管理器
-3. **缓存策略**: Redis多级缓存实现
-4. **错误处理**: 统一异常处理和错误码映射
+## 2. 代码结构与架构
 
-## 2. 代码结构映射
-
-### 目录结构实现
+### 四层架构实现
 ```
 app/modules/member_system/
-├── __init__.py              # 模块导出定义
-├── router.py                # FastAPI路由控制器
-├── service.py               # 业务逻辑服务层
-├── models.py                # SQLAlchemy数据模型
-├── schemas.py               # Pydantic数据验证
-├── dependencies.py          # 依赖注入配置
-├── exceptions.py            # 自定义异常定义
-└── utils.py                 # 工具函数集合
+├── __init__.py              # 模块初始化与导出
+├── router.py                # 路由层: FastAPI路由定义
+├── service.py               # 服务层: 业务逻辑实现
+├── repository.py            # 仓储层: 数据访问抽象
+├── models.py                # 模型层: SQLAlchemy数据模型
+├── schemas.py               # 模式层: Pydantic验证模型
+├── dependencies.py          # 依赖注入: FastAPI依赖管理
+├── exceptions.py            # 异常定义: 自定义异常类
+└── utils.py                 # 工具函数: 通用工具方法
 ```
 
-### 关键类/函数说明
-| 文件 | 核心类/函数 | 职责描述 | 关键实现点 |
+### 依赖关系图
+```
+Router → Service → Repository → Model
+  ↓        ↓          ↓
+Schema ←─ Schema ←─ Schema
+  ↓        ↓          ↓  
+Dependencies → Dependencies → Dependencies
+```
+
+### 关键架构原则
+1. **单向依赖**: Router → Service → Repository → Model
+2. **依赖倒置**: 通过接口抽象实现松耦合
+3. **职责分离**: 每层专注单一职责
+4. **异步支持**: 全链路异步IO优化
 |------|------------|----------|-----------|
 | `models.py` | `MemberProfile` | 会员档案ORM模型 | 关联关系、约束条件 |
 | `models.py` | `MemberPoint` | 积分账户ORM模型 | 金额计算、事务安全 |

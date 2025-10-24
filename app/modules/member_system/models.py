@@ -57,6 +57,9 @@ class MemberLevel(Base, TimestampMixin):
         Index("idx_member_levels_min_points", "min_points"),
     )
 
+    # 关系定义
+    members = relationship("MemberProfile", back_populates="level")
+
     def __repr__(self):
         return f"<MemberLevel(id={self.id}, name='{self.level_name}')>"
 
@@ -164,7 +167,14 @@ class MemberProfile(Base, TimestampMixin):
     )
 
     # 关系定义
-    level = relationship("MemberLevel")
+    level = relationship("MemberLevel", back_populates="members")
+    points = relationship(
+        "MemberPoint", 
+        back_populates="member", 
+        uselist=False,
+        foreign_keys="[MemberPoint.user_id]",
+        primaryjoin="MemberProfile.user_id==MemberPoint.user_id"
+    )
 
     @validates("member_code")
     def validate_member_code(self, key, member_code):
@@ -214,6 +224,36 @@ class MemberPoint(Base, TimestampMixin):
 
     # 关系定义
     level = relationship("MemberLevel")
+    member = relationship(
+        "MemberProfile", 
+        back_populates="points",
+        foreign_keys="[MemberPoint.user_id]",
+        primaryjoin="MemberProfile.user_id==MemberPoint.user_id"
+    )
 
     def __repr__(self):
         return f"<MemberPoint(id={self.id}, user_id={self.user_id}, current={self.current_points})"
+
+
+class MemberEventOutbox(Base, TimestampMixin):
+    """会员系统事件外发表 - 支撑可靠消息模式"""
+
+    __tablename__ = "member_event_outbox"
+
+    id = Column(Integer, primary_key=True, autoincrement=True, comment="事件ID")
+    member_id = Column(Integer, ForeignKey("member_profiles.id"), nullable=True, comment="会员ID")
+    event_type = Column(String(100), nullable=False, comment="事件类型")
+    payload = Column(JSON, nullable=False, comment="事件数据载荷")
+    status = Column(String(20), nullable=False, default="pending", comment="事件状态: pending/sending/sent/failed")
+    available_at = Column(DateTime, nullable=False, default=datetime.utcnow, comment="可发送时间")
+    delivered_at = Column(DateTime, nullable=True, comment="投递完成时间")
+    retry_count = Column(Integer, nullable=False, default=0, comment="重试次数")
+    last_error = Column(Text, nullable=True, comment="最后一次错误信息")
+
+    # 索引定义
+    __table_args__ = (
+        Index("idx_member_event_outbox_status_available", "status", "available_at"),
+    )
+
+    def __repr__(self):
+        return f"<MemberEventOutbox(id={self.id}, event_type='{self.event_type}', status='{self.status}')>"

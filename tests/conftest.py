@@ -683,6 +683,11 @@ def api_client(mysql_integration_db):
                 mysql_integration_db.commit()
                 mysql_integration_db.refresh(normal_user)
                 
+                StandardTestDataFactory.ensure_member_entities(
+                    mysql_integration_db,
+                    normal_user.id,
+                )
+
                 # 生成真实JWT token - 使用统一工具
                 from tests.utils.token_utils import create_test_token
                 access_token = create_test_token(

@@ -77,6 +77,7 @@ from app.modules.payment_service.models import Payment
 from app.modules.product_catalog.models import SKU, Brand, Category, Product
 from app.modules.shopping_cart.models import CartItem
 from app.modules.user_auth.models import Role, User
+from app.modules.member_system.models import MemberLevel, MemberProfile, MemberPoint, PointTransaction
 
 
 class StandardTestDataFactory:
@@ -195,6 +196,154 @@ class StandardTestDataFactory:
         db.commit()
         db.refresh(product)
         return product
+
+    @staticmethod
+    def create_member_level(db: Session, **kwargs) -> MemberLevel:
+        """创建会员等级，满足最小业务约束"""
+        defaults = {
+            "level_name": f"LEVEL_{datetime.now().microsecond}",
+            "min_points": 0,
+            "discount_rate": Decimal("0.90"),
+            "benefits": {"welcome_coupon": True},
+            "created_at": datetime.utcnow(),
+            "updated_at": datetime.utcnow(),
+        }
+        defaults.update(kwargs)
+
+        level = MemberLevel(**defaults)
+        db.add(level)
+        db.commit()
+        db.refresh(level)
+        return level
+
+    @staticmethod
+    def create_member_profile(
+        db: Session,
+        *,
+        user_id: int,
+        level_id: int,
+        **kwargs,
+    ) -> MemberProfile:
+        """创建会员档案并确保会员编号格式有效"""
+        sequence = db.query(MemberProfile).count() + 1
+        defaults = {
+            "user_id": user_id,
+            "member_code": f"M{datetime.utcnow().strftime('%Y%m%d')}{sequence:04d}",
+            "level_id": level_id,
+            "total_spent": Decimal("0.00"),
+            "join_date": datetime.utcnow().date(),
+            "last_active_at": datetime.utcnow(),
+            "preferences": {"preferred_language": "zh-CN"},
+            "status": 1,
+            "created_at": datetime.utcnow(),
+            "updated_at": datetime.utcnow(),
+        }
+        defaults.update(kwargs)
+
+        profile = MemberProfile(**defaults)
+        db.add(profile)
+        db.commit()
+        db.refresh(profile)
+        return profile
+
+    @staticmethod
+    def create_member_point(
+        db: Session,
+        *,
+        user_id: int,
+        level_id: int,
+        **kwargs,
+    ) -> MemberPoint:
+        """创建会员积分账户"""
+        defaults = {
+            "user_id": user_id,
+            "level_id": level_id,
+            "current_points": 200,
+            "total_earned": 200,
+            "total_used": 0,
+            "created_at": datetime.utcnow(),
+            "updated_at": datetime.utcnow(),
+        }
+        defaults.update(kwargs)
+
+        points = MemberPoint(**defaults)
+        db.add(points)
+        db.commit()
+        db.refresh(points)
+        return points
+
+    @staticmethod
+    def create_point_transaction(
+        db: Session,
+        *,
+        user_id: int,
+        points_change: int,
+        transaction_type: str = "earn",
+        **kwargs,
+    ) -> PointTransaction:
+        """创建积分交易记录，便于集成测试验证"""
+        defaults = {
+            "user_id": user_id,
+            "transaction_type": transaction_type,
+            "points_change": points_change,
+            "reference_id": f"REF-{datetime.now().microsecond}",
+            "reference_type": "integration-test",
+            "description": "automated test transaction",
+            "status": "completed",
+            "created_at": datetime.utcnow(),
+            "updated_at": datetime.utcnow(),
+        }
+        defaults.update(kwargs)
+
+        transaction = PointTransaction(**defaults)
+        db.add(transaction)
+        db.commit()
+        db.refresh(transaction)
+        return transaction
+
+    @staticmethod
+    def ensure_member_entities(db: Session, user_id: int) -> dict:
+        """确保用户具备完整的会员体系数据，方便API测试直接调用"""
+        level = (
+            db.query(MemberLevel)
+            .order_by(MemberLevel.min_points.asc())
+            .first()
+        )
+        if not level:
+            level = StandardTestDataFactory.create_member_level(db)
+
+        profile = (
+            db.query(MemberProfile)
+            .filter(MemberProfile.user_id == user_id)
+            .first()
+        )
+        if not profile:
+            profile = StandardTestDataFactory.create_member_profile(
+                db, user_id=user_id, level_id=level.id
+            )
+
+        points = (
+            db.query(MemberPoint)
+            .filter(MemberPoint.user_id == user_id)
+            .first()
+        )
+        if not points:
+            points = StandardTestDataFactory.create_member_point(
+                db, user_id=user_id, level_id=level.id
+            )
+
+        StandardTestDataFactory.create_point_transaction(
+            db,
+            user_id=user_id,
+            points_change=50,
+            transaction_type="earn",
+        )
+
+        return {
+            "level": level,
+            "profile": profile,
+            "points": points,
+        }
 
     @staticmethod
     def create_sku(db: Session, product_id: int, **kwargs) -> SKU:

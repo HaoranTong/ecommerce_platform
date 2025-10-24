@@ -1,247 +1,246 @@
 """
-文件名：dependencies.py
-文件路径：app/modules/member_system/dependencies.py
-功能描述：会员系统模块的FastAPI依赖注入组件
-主要功能：
-- 用户认证和权限验证
-- 数据库会话管理
-- 外部服务依赖注入
-- 会员系统服务实例创建
-使用说明：
-- 导入：from app.modules.member_system.dependencies import get_member_service_dep, get_current_active_user
-- 在路由中使用：member_service: MemberService = Depends(get_member_service_dep)
-依赖模块：
-- app.core.auth: 用户认证相关功能
-- app.core.database: 数据库连接管理
-- app.core.redis_client: Redis缓存客户端
-创建时间：2025-09-18
-最后修改：2025-09-18
+会员系统模块的FastAPI依赖注入组件
+
+提供会员系统相关的服务依赖注入，确保在API路由中能够正确获取服务实例。
+遵循四层架构设计，支持依赖注入和单元测试。
 """
 
 from typing import Any, Dict, Optional
 
 from fastapi import Depends, HTTPException, status
-from redis import Redis
 from sqlalchemy.orm import Session
 
 from app.core.auth import get_current_user
 from app.core.database import get_db
-from app.core.redis_client import get_redis_connection
 
-from .service import (BenefitService, EventService, MemberService,
-                      PointService, get_benefit_service, get_event_service,
-                      get_member_service, get_point_service)
+from .service import MemberService, PointService, LevelService, BenefitService
+
+
+def _resolve_user_id(current_user: Any) -> Optional[int]:
+    if isinstance(current_user, dict):
+        return current_user.get("user_id") or current_user.get("id")
+    return getattr(current_user, "id", None) or getattr(current_user, "user_id", None)
+
 
 # ================== 用户认证依赖 ==================
 
 
 async def get_current_active_user(
-    current_user: Dict[str, Any] = Depends(get_current_user),
-) -> Dict[str, Any]:
+    current_user: Any = Depends(get_current_user),
+) -> Any:
     """
     获取当前活跃用户
-
+    
     Args:
         current_user: 当前用户信息
-
+        
     Returns:
         用户信息字典
-
+        
     Raises:
-        HTTPException: 当用户不存在或未激活时
+        HTTPException: 用户状态异常时抛出
     """
-    if not current_user:
+    is_active = (
+        current_user.get("is_active", True)
+        if isinstance(current_user, dict)
+        else getattr(current_user, "is_active", True)
+    )
+    if not is_active:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="用户未认证",
-            headers={"WWW-Authenticate": "Bearer"},
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="用户账户已被禁用"
         )
-
-    # 检查用户状态（假设User对象有is_active属性）
-    if hasattr(current_user, "is_active") and not getattr(
-        current_user, "is_active", True
-    ):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="用户账户已被禁用"
-        )
-
     return current_user
 
 
-def get_user_id_from_token(current_user=Depends(get_current_active_user)) -> int:
+async def get_current_member_user(
+    current_user: Any = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+) -> Any:
     """
-    从JWT Token中提取用户ID
-
+    获取当前会员用户（确保用户已是会员）
+    
     Args:
         current_user: 当前用户信息
-
+        db: 数据库会话
+        
     Returns:
-        用户ID
-
+        会员用户信息字典
+        
     Raises:
-        HTTPException: 当用户ID不存在时
+        HTTPException: 用户不是会员时抛出
     """
-    # 处理用户对象，尝试获取ID
-    user_id = None
-    if hasattr(current_user, "id"):
-        user_id = current_user.id
-    elif hasattr(current_user, "user_id"):
-        user_id = current_user.user_id
-    elif isinstance(current_user, dict):
-        user_id = (
-            current_user.get("sub")
-            or current_user.get("user_id")
-            or current_user.get("id")
-        )
-
-    if not user_id:
+    # 检查用户是否已是会员
+    member_service = MemberService(db)
+    user_id = _resolve_user_id(current_user)
+    if user_id is None:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="无效的用户令牌"
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="未能识别当前用户",
         )
 
-    try:
-        return int(user_id)
-    except (ValueError, TypeError):
+    member_profile = member_service.get_member_profile(user_id)
+    
+    if not member_profile:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="用户ID格式错误"
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="用户不是会员，无法访问会员功能"
         )
+    
+    return current_user
 
 
-# ================== 服务层依赖注入 ==================
+# ================== 服务依赖注入 ==================
 
 
-def get_member_service_dep(
+def get_member_service(
     db: Session = Depends(get_db),
-    redis_client: Optional[Redis] = Depends(get_redis_connection),
+    redis_client: Optional[Any] = None,
 ) -> MemberService:
     """
-    获取会员服务依赖注入
-
+    获取会员服务实例
+    
     Args:
         db: 数据库会话
-        redis_client: Redis客户端
-
+        redis_client: Redis客户端（可选）
+        
     Returns:
-        MemberService: 会员服务实例
+        会员服务实例
     """
-    return get_member_service(db, redis_client)
+    return MemberService(db, redis_client)
 
 
-def get_point_service_dep(
+def get_point_service(
     db: Session = Depends(get_db),
-    redis_client: Optional[Redis] = Depends(get_redis_connection),
+    redis_client: Optional[Any] = None,
 ) -> PointService:
     """
-    获取积分服务依赖注入
-
+    获取积分服务实例
+    
     Args:
         db: 数据库会话
-        redis_client: Redis客户端
-
+        redis_client: Redis客户端（可选）
+        
     Returns:
-        PointService: 积分服务实例
+        积分服务实例
     """
-    return get_point_service(db, redis_client)
+    return PointService(db, redis_client)
 
 
-def get_benefit_service_dep(
+def get_level_service(
     db: Session = Depends(get_db),
-    redis_client: Optional[Redis] = Depends(get_redis_connection),
+    redis_client: Optional[Any] = None,
+) -> LevelService:
+    """
+    获取等级服务实例
+    
+    Args:
+        db: 数据库会话
+        redis_client: Redis客户端（可选）
+        
+    Returns:
+        等级服务实例
+    """
+    return LevelService(db, redis_client)
+
+
+def get_benefit_service(
+    db: Session = Depends(get_db),
+    redis_client: Optional[Any] = None,
 ) -> BenefitService:
     """
-    获取权益服务依赖注入
-
+    获取权益服务实例
+    
     Args:
         db: 数据库会话
-        redis_client: Redis客户端
-
+        redis_client: Redis客户端（可选）
+        
     Returns:
-        BenefitService: 权益服务实例
+        权益服务实例
     """
-    return get_benefit_service(db, redis_client)
+    return BenefitService(db, redis_client)
 
 
-def get_event_service_dep(
-    db: Session = Depends(get_db),
-    redis_client: Optional[Redis] = Depends(get_redis_connection),
-) -> EventService:
+# ================== 权限验证依赖 ==================
+
+
+async def verify_member_access(
+    user_id: int,
+    current_user: Any = Depends(get_current_active_user),
+) -> bool:
     """
-    获取活动服务依赖注入
-
+    验证会员访问权限
+    
     Args:
-        db: 数据库会话
-        redis_client: Redis客户端
-
+        user_id: 要访问的用户ID
+        current_user: 当前用户信息
+        
     Returns:
-        EventService: 活动服务实例
+        是否有权限访问
+        
+    Raises:
+        HTTPException: 权限不足时抛出
     """
-    return get_event_service(db, redis_client)
+    # 用户只能访问自己的信息，除非是管理员
+    current_user_id = _resolve_user_id(current_user)
+    is_admin = (
+        current_user.get("is_admin", False)
+        if isinstance(current_user, dict)
+        else getattr(current_user, "is_admin", False)
+    )
+    if current_user_id != user_id and not is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="权限不足，无法访问其他用户信息"
+        )
+    return True
 
 
-# ================== 业务规则验证 ==================
+# ================== 业务验证依赖 ==================
 
 
-class MemberBusinessRules:
-    """会员系统业务规则常量"""
-
-    MAX_POINTS_PER_TRANSACTION = 100000  # 单次积分交易最大值
-    MIN_POINTS_PER_TRANSACTION = 1  # 单次积分交易最小值
-    MAX_MEMBER_CODE_LENGTH = 20  # 会员编号最大长度
-    POINTS_EXPIRY_MONTHS = 24  # 积分过期月数
-    MAX_BENEFIT_USAGE_PER_DAY = 10  # 每日最大权益使用次数
-
-
-def validate_points_transaction(points: int, transaction_type: str) -> None:
+async def validate_point_operation(
+    points: int,
+    operation_type: str = "earn",
+) -> int:
     """
-    验证积分交易业务规则
-
+    验证积分操作参数
+    
     Args:
         points: 积分数量
-        transaction_type: 交易类型
-
+        operation_type: 操作类型
+        
+    Returns:
+        验证通过的积分数量
+        
     Raises:
-        HTTPException: 当违反业务规则时
+        HTTPException: 参数无效时抛出
     """
     if points <= 0:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="积分数量必须大于0"
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="积分数量必须大于0"
         )
-
-    if points > MemberBusinessRules.MAX_POINTS_PER_TRANSACTION:
+    
+    # 设置积分操作的上限
+    max_points = 100000 if operation_type == "earn" else 50000
+    if points > max_points:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"单次积分交易不能超过{MemberBusinessRules.MAX_POINTS_PER_TRANSACTION}分",
+            detail=f"单次{operation_type}积分数量不能超过{max_points}"
         )
-
-    if transaction_type not in ["earn", "use", "expire", "freeze", "unfreeze"]:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="无效的积分交易类型"
-        )
+    
+    return points
 
 
-def validate_member_data(member_data: Dict[str, Any]) -> None:
-    """
-    验证会员数据业务规则
+# ================== 导出依赖列表 ==================
 
-    Args:
-        member_data: 会员数据
-
-    Raises:
-        HTTPException: 当违反业务规则时
-    """
-    if not member_data:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="会员数据不能为空"
-        )
-
-    # 验证生日格式
-    if "birthday" in member_data and member_data["birthday"]:
-        try:
-            from datetime import datetime
-
-            datetime.fromisoformat(member_data["birthday"])
-        except ValueError:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="生日日期格式错误，请使用YYYY-MM-DD格式",
-            )
+__all__ = [
+    "get_current_active_user",
+    "get_current_member_user",
+    "get_member_service",
+    "get_point_service", 
+    "get_level_service",
+    "verify_member_access",
+    "validate_point_operation",
+]
