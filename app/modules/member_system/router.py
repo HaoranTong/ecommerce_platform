@@ -120,6 +120,17 @@ def _resolve_request_body(
         else:
             payload_dict = {}
 
+        unexpected_fields = {key for key in payload_dict.keys() if key not in valid_fields}
+        if unexpected_fields:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail={
+                    "error_code": "UNEXPECTED_FIELDS",
+                    "message": "请求包含未支持的字段",
+                    "fields": sorted(unexpected_fields),
+                },
+            )
+
         candidate.update({k: v for k, v in payload_dict.items() if k in valid_fields and v is not None})
 
     try:
@@ -255,7 +266,18 @@ async def create_member_profile(
     member_service: MemberService = Depends(get_member_service),
 ) -> StandardResponse[MemberProfileRead]:
     """创建会员档案"""
+    user_id: Optional[int] = None
     try:
+        content_type = request.headers.get("content-type", "")
+        if content_type.lower().startswith("multipart/form-data"):
+            raise HTTPException(
+                status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+                detail={
+                    "error_code": "UNSUPPORTED_MEDIA_TYPE",
+                    "message": "不支持的内容类型，请使用application/json提交会员档案数据",
+                },
+            )
+
         profile_data = _resolve_request_body(
             profile_data,
             MemberProfileCreate,
@@ -291,6 +313,8 @@ async def create_member_profile(
         
     except MemberSystemException as exc:
         _raise_member_exception(exc)
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"创建会员档案失败: user_id={user_id}, error={e}")
         raise HTTPException(
@@ -312,6 +336,7 @@ async def update_member_profile(
     member_service: MemberService = Depends(get_member_service),
 ) -> StandardResponse[MemberProfileRead]:
     """更新会员档案"""
+    user_id: Optional[int] = None
     try:
         profile_data = _resolve_request_body(
             profile_data,
@@ -355,6 +380,8 @@ async def update_member_profile(
         
     except MemberSystemException as exc:
         _raise_member_exception(exc)
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"更新会员档案失败: user_id={user_id}, error={e}")
         raise HTTPException(
@@ -421,6 +448,7 @@ async def earn_points(
     point_service: PointService = Depends(get_point_service),
 ) -> StandardResponse[PointTransactionRead]:
     """用户获得积分"""
+    user_id: Optional[int] = None
     try:
         earn_request = _resolve_request_body(
             earn_request,
@@ -456,6 +484,8 @@ async def earn_points(
         
     except MemberSystemException as exc:
         _raise_member_exception(exc)
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"积分获得失败: user_id={user_id}, error={e}")
         raise HTTPException(
@@ -478,6 +508,7 @@ async def use_points(
     point_service: PointService = Depends(get_point_service),
 ) -> StandardResponse[PointTransactionRead]:
     """用户使用积分"""
+    user_id: Optional[int] = None
     try:
         use_request = _resolve_request_body(
             use_request,
@@ -513,6 +544,8 @@ async def use_points(
         
     except MemberSystemException as exc:
         _raise_member_exception(exc)
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"积分使用失败: user_id={user_id}, error={e}")
         raise HTTPException(

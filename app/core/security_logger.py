@@ -6,13 +6,18 @@
 import json
 import logging
 import logging.handlers
+import os
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict
 
-# 创建日志目录
-log_dir = Path("logs")
-log_dir.mkdir(exist_ok=True)
+DISABLE_FILE_LOGGER = os.getenv("DISABLE_SECURITY_FILE_LOGGER") == "1"
+
+log_dir: Path | None = None
+if not DISABLE_FILE_LOGGER:
+    # 只有在启用文件日志时才创建目录，避免测试环境产生文件锁问题
+    log_dir = Path("logs")
+    log_dir.mkdir(exist_ok=True)
 
 
 class SecurityEventFilter(logging.Filter):
@@ -61,31 +66,35 @@ def setup_security_logger():
     if security_logger.handlers:
         return security_logger
 
-    # 创建文件处理器（每天轮转）
-    security_handler = logging.handlers.TimedRotatingFileHandler(
-        filename=log_dir / "security_events.log",
-        when="midnight",
-        interval=1,
-        backupCount=30,  # 保留30天的日志
-        encoding="utf-8",
-    )
+    handlers = []
+
+    if not DISABLE_FILE_LOGGER and log_dir is not None:
+        security_handler = logging.handlers.TimedRotatingFileHandler(
+            filename=log_dir / "security_events.log",
+            when="midnight",
+            interval=1,
+            backupCount=30,
+            encoding="utf-8",
+        )
+        handlers.append(security_handler)
 
     # 创建控制台处理器（开发环境）
     console_handler = logging.StreamHandler()
+    handlers.append(console_handler)
 
     # 设置格式化器
     json_formatter = SecurityJSONFormatter()
-    security_handler.setFormatter(json_formatter)
-    console_handler.setFormatter(json_formatter)
+    for handler in handlers:
+        handler.setFormatter(json_formatter)
 
     # 添加过滤器
     security_filter = SecurityEventFilter()
-    security_handler.addFilter(security_filter)
-    console_handler.addFilter(security_filter)
+    for handler in handlers:
+        handler.addFilter(security_filter)
 
     # 添加处理器
-    security_logger.addHandler(security_handler)
-    security_logger.addHandler(console_handler)
+    for handler in handlers:
+        security_logger.addHandler(handler)
 
     # 防止向父日志记录器传播
     security_logger.propagate = False

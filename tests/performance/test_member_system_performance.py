@@ -224,7 +224,9 @@ class TestMemberSystemConcurrency:
                     # PUT请求使用简单的更新数据
                     from faker import Faker
                     fake = Faker()
-                    test_data = {"real_name": f"Test {fake.random_int(min=1000, max=9999)}"}
+                    test_data = {
+                        "nickname": f"PerfUser{fake.random_int(min=1000, max=9999)}",
+                    }
                     response = await async_api_client.put(
                         "/api/v1/profile",
                         json=test_data,
@@ -235,7 +237,8 @@ class TestMemberSystemConcurrency:
                     from faker import Faker
                     fake = Faker()
                     test_data = {
-                        "data": fake.text(max_nb_chars=50)
+                        "nickname": f"PerfMember{fake.random_int(min=1000, max=9999)}",
+                        "gender": "U",
                     }
                     response = await async_api_client.post(
                         "/api/v1/profile",
@@ -320,13 +323,16 @@ class TestMemberSystemConcurrency:
                 if "PUT" == "GET":
                     response = await async_api_client.get("/api/v1/profile", headers=headers)
                 elif "PUT" == "PUT":
-                    # PUT请求使用简单的更新数据
-                    test_data = {"real_name": f"Test User {fake.random_int(min=1000, max=9999)}"}
+                    # PUT请求使用模式合法的数据
+                    test_data = {
+                        "nickname": f"TestUser{fake.random_int(min=1000, max=9999)}",
+                    }
                     response = await async_api_client.put("/api/v1/profile", json=test_data, headers=headers)
                 else:
                     # POST请求
                     test_data = {
-                        "data": fake.text(max_nb_chars=50)
+                        "nickname": f"NewMember{fake.random_int(min=1000, max=9999)}",
+                        "gender": "U",
                     }
                     response = await async_api_client.post("/api/v1/profile", json=test_data, headers=headers)
                 # ⚠️ 关键：success判断必须接受200和201（参见test_concurrent_write_requests注释）
@@ -539,7 +545,9 @@ class TestMemberSystemBenchmark:
         # 测试创建端点性能
         create_times = []
         for i in range(20):
-            test_data = {"name": f"benchmark_{i}", "value": f"test_{i}"}
+            test_data = {
+                "nickname": f"benchmark_{i}",
+            }
             start = time.time()
             response = await async_api_client.put("/api/v1/profile", json=test_data, headers=headers)
             end = time.time()
