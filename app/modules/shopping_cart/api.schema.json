@@ -1,0 +1,234 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://your-api.com/schemas",
+  "definitions": {
+    "AddItemRequest": {
+      "type": "object",
+      "properties": {
+        "sku_id": {
+          "type": "integer",
+          "description": "商品SKU ID"
+        },
+        "quantity": {
+          "type": "integer",
+          "description": "商品数量"
+        }
+      },
+      "required": []
+    },
+    "UpdateQuantityRequest": {
+      "type": "object",
+      "properties": {
+        "quantity": {
+          "type": "integer",
+          "description": "新的商品数量"
+        }
+      },
+      "required": []
+    },
+    "BatchDeleteRequest": {
+      "type": "object",
+      "properties": {
+        "item_ids": {
+          "type": "string",
+          "description": "要删除的商品项ID列表"
+        }
+      },
+      "required": []
+    },
+    "CartItemResponse": {
+      "type": "object",
+      "properties": {
+        "item_id": {
+          "type": "integer",
+          "description": "商品项ID"
+        },
+        "sku_id": {
+          "type": "integer",
+          "description": "商品SKU ID"
+        },
+        "product_name": {
+          "type": "string",
+          "description": "商品名称"
+        },
+        "product_image": {
+          "type": "string",
+          "description": "商品图片URL"
+        },
+        "unit_price": {
+          "type": "string",
+          "description": "商品单价"
+        },
+        "quantity": {
+          "type": "integer",
+          "description": "商品数量"
+        },
+        "subtotal": {
+          "type": "string",
+          "description": "小计金额"
+        },
+        "stock_status": {
+          "type": "string",
+          "description": "库存状态"
+        },
+        "available_stock": {
+          "type": "integer",
+          "description": "可用库存数量"
+        },
+        "added_at": {
+          "type": "string",
+          "description": "添加时间"
+        }
+      },
+      "required": []
+    },
+    "CartResponse": {
+      "type": "object",
+      "properties": {
+        "cart_id": {
+          "type": "integer",
+          "description": "购物车ID"
+        },
+        "user_id": {
+          "type": "integer",
+          "description": "用户ID"
+        },
+        "total_items": {
+          "type": "integer",
+          "description": "商品种类数量"
+        },
+        "total_quantity": {
+          "type": "integer",
+          "description": "商品总数量"
+        },
+        "total_amount": {
+          "type": "string",
+          "description": "购物车总金额"
+        },
+        "items": {
+          "type": "string",
+          "description": "购物车商品项列表"
+        },
+        "created_at": {
+          "type": "string",
+          "description": "创建时间"
+        },
+        "updated_at": {
+          "type": "string",
+          "description": "更新时间"
+        }
+      },
+      "required": []
+    },
+    "SuccessResponse": {
+      "type": "object",
+      "properties": {
+        "success": {
+          "type": "boolean",
+          "description": "操作是否成功"
+        },
+        "message": {
+          "type": "string",
+          "description": "响应消息"
+        }
+      },
+      "required": []
+    },
+    "UpdatedItemResponse": {
+      "type": "object",
+      "properties": {
+        "item_id": {
+          "type": "integer",
+          "description": "商品项ID"
+        },
+        "sku_id": {
+          "type": "integer",
+          "description": "商品SKU ID"
+        },
+        "quantity": {
+          "type": "integer",
+          "description": "更新后数量"
+        },
+        "subtotal": {
+          "type": "string",
+          "description": "更新后小计"
+        }
+      },
+      "required": []
+    },
+    "CartUpdateResponse": {
+      "type": "object",
+      "properties": {
+        "cart_id": {
+          "type": "integer",
+          "description": "购物车ID"
+        },
+        "total_items": {
+          "type": "integer",
+          "description": "商品种类数量"
+        },
+        "total_quantity": {
+          "type": "integer",
+          "description": "商品总数量"
+        },
+        "total_amount": {
+          "type": "string",
+          "description": "购物车总金额"
+        },
+        "updated_item": {
+          "type": "string",
+          "description": "更新的商品项"
+        },
+        "updated_at": {
+          "type": "string",
+          "description": "更新时间"
+        }
+      },
+      "required": []
+    },
+    "ErrorDetail": {
+      "type": "object",
+      "properties": {
+        "sku_id": {
+          "type": "integer",
+          "description": "相关商品SKU ID"
+        },
+        "item_id": {
+          "type": "integer",
+          "description": "相关商品项ID"
+        },
+        "requested_quantity": {
+          "type": "integer",
+          "description": "请求数量"
+        },
+        "available_stock": {
+          "type": "integer",
+          "description": "可用库存"
+        },
+        "adjusted_quantity": {
+          "type": "integer",
+          "description": "调整后数量"
+        }
+      },
+      "required": []
+    },
+    "ErrorInfo": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string",
+          "description": "错误码"
+        },
+        "message": {
+          "type": "string",
+          "description": "错误消息"
+        },
+        "details": {
+          "type": "string",
+          "description": "错误详情"
+        }
+      },
+      "required": []
+    }
+  }
+}

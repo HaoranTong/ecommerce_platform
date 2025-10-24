@@ -1,0 +1,1188 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://your-api.com/schemas",
+  "definitions": {
+    "ApiResponse": {
+      "type": "object",
+      "properties": {
+        "success": {
+          "type": "boolean"
+        },
+        "message": {
+          "type": "string"
+        },
+        "data": {
+          "type": "string"
+        }
+      },
+      "required": []
+    },
+    "PaginatedResponse": {
+      "type": "object",
+      "properties": {
+        "success": {
+          "type": "boolean"
+        },
+        "message": {
+          "type": "string"
+        },
+        "data": {
+          "type": "string"
+        },
+        "total": {
+          "type": "integer"
+        },
+        "page": {
+          "type": "integer"
+        },
+        "limit": {
+          "type": "integer"
+        },
+        "total_pages": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "data",
+        "total",
+        "total_pages"
+      ]
+    },
+    "BrandBase": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "品牌名称"
+        },
+        "slug": {
+          "type": "string",
+          "description": "SEO友好的URL标识"
+        },
+        "description": {
+          "type": "string",
+          "description": "品牌描述"
+        },
+        "logo_url": {
+          "type": "string",
+          "description": "品牌Logo URL"
+        },
+        "website_url": {
+          "type": "string",
+          "description": "品牌官网URL"
+        },
+        "is_active": {
+          "type": "boolean",
+          "description": "是否活跃"
+        }
+      },
+      "required": []
+    },
+    "BrandCreate": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "品牌名称"
+        },
+        "slug": {
+          "type": "string",
+          "description": "SEO友好的URL标识"
+        },
+        "description": {
+          "type": "string",
+          "description": "品牌描述"
+        },
+        "logo_url": {
+          "type": "string",
+          "description": "品牌Logo URL"
+        },
+        "website_url": {
+          "type": "string",
+          "description": "品牌官网URL"
+        },
+        "is_active": {
+          "type": "boolean",
+          "description": "是否活跃"
+        }
+      },
+      "required": []
+    },
+    "BrandUpdate": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "slug": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "logo_url": {
+          "type": "string"
+        },
+        "website_url": {
+          "type": "string"
+        },
+        "is_active": {
+          "type": "boolean"
+        }
+      },
+      "required": []
+    },
+    "BrandRead": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "品牌名称"
+        },
+        "slug": {
+          "type": "string",
+          "description": "SEO友好的URL标识"
+        },
+        "description": {
+          "type": "string",
+          "description": "品牌描述"
+        },
+        "logo_url": {
+          "type": "string",
+          "description": "品牌Logo URL"
+        },
+        "website_url": {
+          "type": "string",
+          "description": "品牌官网URL"
+        },
+        "is_active": {
+          "type": "boolean",
+          "description": "是否活跃"
+        },
+        "id": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id"
+      ]
+    },
+    "CategoryCreate": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "分类名称"
+        },
+        "parent_id": {
+          "type": "integer",
+          "description": "父分类ID"
+        },
+        "sort_order": {
+          "type": "integer",
+          "description": "排序顺序"
+        },
+        "is_active": {
+          "type": "boolean",
+          "description": "是否激活"
+        },
+        "description": {
+          "type": "string",
+          "description": "分类描述"
+        },
+        "meta_data": {
+          "type": "string",
+          "description": "元数据"
+        }
+      },
+      "required": []
+    },
+    "CategoryUpdate": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "分类名称"
+        },
+        "parent_id": {
+          "type": "integer",
+          "description": "父分类ID"
+        },
+        "sort_order": {
+          "type": "integer",
+          "description": "排序顺序"
+        },
+        "is_active": {
+          "type": "boolean",
+          "description": "是否激活"
+        },
+        "description": {
+          "type": "string",
+          "description": "分类描述"
+        }
+      },
+      "required": []
+    },
+    "CategoryRead": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer"
+        },
+        "name": {
+          "type": "string"
+        },
+        "parent_id": {
+          "type": "integer"
+        },
+        "sort_order": {
+          "type": "integer"
+        },
+        "is_active": {
+          "type": "boolean"
+        },
+        "description": {
+          "type": "string"
+        },
+        "product_count": {
+          "type": "integer"
+        },
+        "meta_data": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "sort_order",
+        "is_active"
+      ]
+    },
+    "CategoryTreeRead": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer"
+        },
+        "name": {
+          "type": "string"
+        },
+        "parent_id": {
+          "type": "integer"
+        },
+        "sort_order": {
+          "type": "integer"
+        },
+        "is_active": {
+          "type": "boolean"
+        },
+        "description": {
+          "type": "string"
+        },
+        "product_count": {
+          "type": "integer"
+        },
+        "meta_data": {
+          "type": "string"
+        },
+        "children": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "sort_order",
+        "is_active"
+      ]
+    },
+    "CategoryStats": {
+      "type": "object",
+      "properties": {
+        "total_categories": {
+          "type": "integer"
+        },
+        "active_categories": {
+          "type": "integer"
+        },
+        "top_level_categories": {
+          "type": "integer"
+        },
+        "categories_with_products": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "total_categories",
+        "active_categories",
+        "top_level_categories",
+        "categories_with_products"
+      ]
+    },
+    "ProductCreate": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "商品名称"
+        },
+        "description": {
+          "type": "string",
+          "description": "商品描述"
+        },
+        "brand_id": {
+          "type": "integer",
+          "description": "品牌ID"
+        },
+        "category_id": {
+          "type": "integer",
+          "description": "分类ID"
+        },
+        "status": {
+          "type": "string",
+          "description": "商品状态（draft, published, archived）"
+        },
+        "seo_title": {
+          "type": "string",
+          "description": "SEO标题"
+        },
+        "seo_description": {
+          "type": "string",
+          "description": "SEO描述"
+        },
+        "seo_keywords": {
+          "type": "string",
+          "description": "SEO关键词"
+        },
+        "sort_order": {
+          "type": "integer",
+          "description": "排序序号"
+        }
+      },
+      "required": []
+    },
+    "ProductUpdate": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "商品名称"
+        },
+        "description": {
+          "type": "string",
+          "description": "商品描述"
+        },
+        "brand_id": {
+          "type": "integer",
+          "description": "品牌ID"
+        },
+        "category_id": {
+          "type": "integer",
+          "description": "分类ID"
+        },
+        "status": {
+          "type": "string",
+          "description": "商品状态（draft, published, archived）"
+        },
+        "seo_title": {
+          "type": "string",
+          "description": "SEO标题"
+        },
+        "seo_description": {
+          "type": "string",
+          "description": "SEO描述"
+        },
+        "seo_keywords": {
+          "type": "string",
+          "description": "SEO关键词"
+        },
+        "sort_order": {
+          "type": "integer",
+          "description": "排序序号"
+        }
+      },
+      "required": []
+    },
+    "ProductPublish": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string",
+          "description": "发布状态（draft, published, archived）"
+        }
+      },
+      "required": []
+    },
+    "ProductRead": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer"
+        },
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "brand_id": {
+          "type": "integer"
+        },
+        "category_id": {
+          "type": "integer"
+        },
+        "status": {
+          "type": "string"
+        },
+        "published_at": {
+          "type": "string"
+        },
+        "seo_title": {
+          "type": "string"
+        },
+        "seo_description": {
+          "type": "string"
+        },
+        "seo_keywords": {
+          "type": "string"
+        },
+        "sort_order": {
+          "type": "integer"
+        },
+        "view_count": {
+          "type": "integer"
+        },
+        "sale_count": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "status",
+        "sort_order",
+        "view_count",
+        "sale_count"
+      ]
+    },
+    "ProductDetail": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer"
+        },
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "brand_id": {
+          "type": "integer"
+        },
+        "category_id": {
+          "type": "integer"
+        },
+        "status": {
+          "type": "string"
+        },
+        "published_at": {
+          "type": "string"
+        },
+        "seo_title": {
+          "type": "string"
+        },
+        "seo_description": {
+          "type": "string"
+        },
+        "seo_keywords": {
+          "type": "string"
+        },
+        "sort_order": {
+          "type": "integer"
+        },
+        "view_count": {
+          "type": "integer"
+        },
+        "sale_count": {
+          "type": "integer"
+        },
+        "brand": {
+          "type": "string"
+        },
+        "category": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "status",
+        "sort_order",
+        "view_count",
+        "sale_count"
+      ]
+    },
+    "ProductSearch": {
+      "type": "object",
+      "properties": {
+        "keyword": {
+          "type": "string",
+          "description": "搜索关键词"
+        },
+        "brand_id": {
+          "type": "integer",
+          "description": "品牌筛选"
+        },
+        "category_id": {
+          "type": "integer",
+          "description": "分类筛选"
+        },
+        "status": {
+          "type": "string",
+          "description": "状态筛选"
+        },
+        "sort_by": {
+          "type": "string",
+          "description": "排序字段"
+        },
+        "sort_order": {
+          "type": "string",
+          "description": "排序方向（asc 或 desc）"
+        }
+      },
+      "required": []
+    },
+    "ProductStats": {
+      "type": "object",
+      "properties": {
+        "total_products": {
+          "type": "integer"
+        },
+        "draft_products": {
+          "type": "integer"
+        },
+        "published_products": {
+          "type": "integer"
+        },
+        "archived_products": {
+          "type": "integer"
+        },
+        "total_views": {
+          "type": "integer"
+        },
+        "total_sales": {
+          "type": "integer"
+        },
+        "brands_count": {
+          "type": "integer"
+        },
+        "categories_count": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "total_products",
+        "draft_products",
+        "published_products",
+        "archived_products",
+        "total_views",
+        "total_sales",
+        "brands_count",
+        "categories_count"
+      ]
+    },
+    "SKUAttributeBase": {
+      "type": "object",
+      "properties": {
+        "attribute_name": {
+          "type": "string"
+        },
+        "attribute_value": {
+          "type": "string"
+        }
+      },
+      "required": []
+    },
+    "SKUAttributeCreate": {
+      "type": "object",
+      "properties": {
+        "attribute_name": {
+          "type": "string"
+        },
+        "attribute_value": {
+          "type": "string"
+        }
+      },
+      "required": []
+    },
+    "SKUAttributeRead": {
+      "type": "object",
+      "properties": {
+        "attribute_name": {
+          "type": "string"
+        },
+        "attribute_value": {
+          "type": "string"
+        },
+        "id": {
+          "type": "integer"
+        },
+        "sku_id": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "sku_id"
+      ]
+    },
+    "SKUBase": {
+      "type": "object",
+      "properties": {
+        "sku_code": {
+          "type": "string",
+          "description": "SKU编码"
+        },
+        "name": {
+          "type": "string",
+          "description": "SKU名称"
+        },
+        "price": {
+          "type": "string",
+          "description": "价格"
+        },
+        "cost_price": {
+          "type": "string",
+          "description": "成本价"
+        },
+        "market_price": {
+          "type": "string",
+          "description": "市场价"
+        },
+        "weight": {
+          "type": "string",
+          "description": "重量（千克）"
+        },
+        "volume": {
+          "type": "string",
+          "description": "体积（立方米）"
+        },
+        "is_active": {
+          "type": "boolean",
+          "description": "是否活跃"
+        }
+      },
+      "required": []
+    },
+    "SKUCreate": {
+      "type": "object",
+      "properties": {
+        "sku_code": {
+          "type": "string",
+          "description": "SKU编码"
+        },
+        "name": {
+          "type": "string",
+          "description": "SKU名称"
+        },
+        "price": {
+          "type": "string",
+          "description": "价格"
+        },
+        "cost_price": {
+          "type": "string",
+          "description": "成本价"
+        },
+        "market_price": {
+          "type": "string",
+          "description": "市场价"
+        },
+        "weight": {
+          "type": "string",
+          "description": "重量（千克）"
+        },
+        "volume": {
+          "type": "string",
+          "description": "体积（立方米）"
+        },
+        "is_active": {
+          "type": "boolean",
+          "description": "是否活跃"
+        },
+        "product_id": {
+          "type": "integer",
+          "description": "所属商品ID"
+        },
+        "attributes": {
+          "type": "string",
+          "description": "SKU属性列表"
+        }
+      },
+      "required": []
+    },
+    "SKUUpdate": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "price": {
+          "type": "string"
+        },
+        "cost_price": {
+          "type": "string"
+        },
+        "market_price": {
+          "type": "string"
+        },
+        "weight": {
+          "type": "string"
+        },
+        "volume": {
+          "type": "string"
+        },
+        "is_active": {
+          "type": "boolean"
+        }
+      },
+      "required": []
+    },
+    "SKURead": {
+      "type": "object",
+      "properties": {
+        "sku_code": {
+          "type": "string",
+          "description": "SKU编码"
+        },
+        "name": {
+          "type": "string",
+          "description": "SKU名称"
+        },
+        "price": {
+          "type": "string",
+          "description": "价格"
+        },
+        "cost_price": {
+          "type": "string",
+          "description": "成本价"
+        },
+        "market_price": {
+          "type": "string",
+          "description": "市场价"
+        },
+        "weight": {
+          "type": "string",
+          "description": "重量（千克）"
+        },
+        "volume": {
+          "type": "string",
+          "description": "体积（立方米）"
+        },
+        "is_active": {
+          "type": "boolean",
+          "description": "是否活跃"
+        },
+        "id": {
+          "type": "integer"
+        },
+        "product_id": {
+          "type": "integer"
+        },
+        "attributes_rel": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "product_id"
+      ]
+    },
+    "ProductAttributeBase": {
+      "type": "object",
+      "properties": {
+        "attribute_name": {
+          "type": "string"
+        },
+        "attribute_value": {
+          "type": "string"
+        },
+        "attribute_type": {
+          "type": "string"
+        },
+        "is_searchable": {
+          "type": "boolean",
+          "description": "是否可搜索"
+        }
+      },
+      "required": []
+    },
+    "ProductAttributeCreate": {
+      "type": "object",
+      "properties": {
+        "attribute_name": {
+          "type": "string"
+        },
+        "attribute_value": {
+          "type": "string"
+        },
+        "attribute_type": {
+          "type": "string"
+        },
+        "is_searchable": {
+          "type": "boolean",
+          "description": "是否可搜索"
+        }
+      },
+      "required": []
+    },
+    "ProductAttributeUpdate": {
+      "type": "object",
+      "properties": {
+        "attribute_value": {
+          "type": "string"
+        },
+        "is_searchable": {
+          "type": "boolean"
+        }
+      },
+      "required": []
+    },
+    "ProductAttributeRead": {
+      "type": "object",
+      "properties": {
+        "attribute_name": {
+          "type": "string"
+        },
+        "attribute_value": {
+          "type": "string"
+        },
+        "attribute_type": {
+          "type": "string"
+        },
+        "is_searchable": {
+          "type": "boolean",
+          "description": "是否可搜索"
+        },
+        "id": {
+          "type": "integer"
+        },
+        "product_id": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "product_id"
+      ]
+    },
+    "ProductImageBase": {
+      "type": "object",
+      "properties": {
+        "image_url": {
+          "type": "string",
+          "description": "图片URL"
+        },
+        "alt_text": {
+          "type": "string",
+          "description": "图片描述"
+        },
+        "sort_order": {
+          "type": "integer",
+          "description": "排序序号"
+        },
+        "is_primary": {
+          "type": "boolean",
+          "description": "是否主图"
+        }
+      },
+      "required": []
+    },
+    "ProductImageCreate": {
+      "type": "object",
+      "properties": {
+        "image_url": {
+          "type": "string",
+          "description": "图片URL"
+        },
+        "alt_text": {
+          "type": "string",
+          "description": "图片描述"
+        },
+        "sort_order": {
+          "type": "integer",
+          "description": "排序序号"
+        },
+        "is_primary": {
+          "type": "boolean",
+          "description": "是否主图"
+        },
+        "product_id": {
+          "type": "integer",
+          "description": "商品ID"
+        },
+        "sku_id": {
+          "type": "integer",
+          "description": "SKU ID"
+        }
+      },
+      "required": []
+    },
+    "ProductImageUpdate": {
+      "type": "object",
+      "properties": {
+        "alt_text": {
+          "type": "string"
+        },
+        "sort_order": {
+          "type": "integer"
+        },
+        "is_primary": {
+          "type": "boolean"
+        }
+      },
+      "required": []
+    },
+    "ProductImageRead": {
+      "type": "object",
+      "properties": {
+        "image_url": {
+          "type": "string",
+          "description": "图片URL"
+        },
+        "alt_text": {
+          "type": "string",
+          "description": "图片描述"
+        },
+        "sort_order": {
+          "type": "integer",
+          "description": "排序序号"
+        },
+        "is_primary": {
+          "type": "boolean",
+          "description": "是否主图"
+        },
+        "id": {
+          "type": "integer"
+        },
+        "product_id": {
+          "type": "integer"
+        },
+        "sku_id": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id"
+      ]
+    },
+    "ProductTagBase": {
+      "type": "object",
+      "properties": {
+        "tag_name": {
+          "type": "string",
+          "description": "标签名称"
+        },
+        "tag_type": {
+          "type": "string",
+          "description": "标签类型"
+        }
+      },
+      "required": []
+    },
+    "ProductTagCreate": {
+      "type": "object",
+      "properties": {
+        "tag_name": {
+          "type": "string",
+          "description": "标签名称"
+        },
+        "tag_type": {
+          "type": "string",
+          "description": "标签类型"
+        }
+      },
+      "required": []
+    },
+    "ProductTagRead": {
+      "type": "object",
+      "properties": {
+        "tag_name": {
+          "type": "string",
+          "description": "标签名称"
+        },
+        "tag_type": {
+          "type": "string",
+          "description": "标签类型"
+        },
+        "id": {
+          "type": "integer"
+        },
+        "product_id": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "product_id"
+      ]
+    },
+    "ProductComplete": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer"
+        },
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "brand_id": {
+          "type": "integer"
+        },
+        "category_id": {
+          "type": "integer"
+        },
+        "status": {
+          "type": "string"
+        },
+        "published_at": {
+          "type": "string"
+        },
+        "seo_title": {
+          "type": "string"
+        },
+        "seo_description": {
+          "type": "string"
+        },
+        "seo_keywords": {
+          "type": "string"
+        },
+        "sort_order": {
+          "type": "integer"
+        },
+        "view_count": {
+          "type": "integer"
+        },
+        "sale_count": {
+          "type": "integer"
+        },
+        "brand": {
+          "type": "string"
+        },
+        "category": {
+          "type": "string"
+        },
+        "skus": {
+          "type": "string"
+        },
+        "attributes_rel": {
+          "type": "string"
+        },
+        "images_rel": {
+          "type": "string"
+        },
+        "tags_rel": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "status",
+        "sort_order",
+        "view_count",
+        "sale_count"
+      ]
+    },
+    "ProductPublic": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer"
+        },
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "price": {
+          "type": "string"
+        },
+        "image_url": {
+          "type": "string"
+        },
+        "category_name": {
+          "type": "string"
+        },
+        "is_available": {
+          "type": "boolean"
+        },
+        "rating": {
+          "type": "number"
+        },
+        "review_count": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "price"
+      ]
+    },
+    "ProductBatch": {
+      "type": "object",
+      "properties": {
+        "product_ids": {
+          "type": "string",
+          "description": "商品ID列表"
+        },
+        "action": {
+          "type": "string",
+          "description": "操作类型"
+        },
+        "params": {
+          "type": "string",
+          "description": "操作参数"
+        }
+      },
+      "required": []
+    },
+    "ProductImport": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "sku": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "category_name": {
+          "type": "string"
+        },
+        "price": {
+          "type": "string"
+        },
+        "stock_quantity": {
+          "type": "integer"
+        },
+        "image_url": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "sku",
+        "price",
+        "stock_quantity"
+      ]
+    }
+  }
+}

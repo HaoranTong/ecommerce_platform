@@ -1,0 +1,650 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://your-api.com/schemas",
+  "definitions": {
+    "PaymentCreate": {
+      "type": "object",
+      "properties": {
+        "order_id": {
+          "type": "integer",
+          "description": "订单ID"
+        },
+        "payment_method": {
+          "type": "string",
+          "description": "支付方式"
+        },
+        "amount": {
+          "type": "string",
+          "description": "支付金额，为空时使用订单金额"
+        },
+        "currency": {
+          "type": "string",
+          "description": "货币类型"
+        },
+        "return_url": {
+          "type": "string",
+          "description": "前端回调URL"
+        },
+        "notify_url": {
+          "type": "string",
+          "description": "后端通知URL"
+        },
+        "description": {
+          "type": "string",
+          "description": "支付描述"
+        }
+      },
+      "required": []
+    },
+    "PaymentUpdate": {
+      "type": "object",
+      "properties": {
+        "external_payment_id": {
+          "type": "string",
+          "description": "第三方支付ID"
+        },
+        "external_transaction_id": {
+          "type": "string",
+          "description": "第三方交易ID"
+        },
+        "pay_url": {
+          "type": "string",
+          "description": "支付页面URL"
+        },
+        "qr_code": {
+          "type": "string",
+          "description": "支付二维码"
+        },
+        "description": {
+          "type": "string",
+          "description": "支付描述"
+        }
+      },
+      "required": []
+    },
+    "PaymentStatusUpdate": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string",
+          "description": "支付状态"
+        },
+        "external_payment_id": {
+          "type": "string",
+          "description": "第三方支付ID"
+        },
+        "external_transaction_id": {
+          "type": "string",
+          "description": "第三方交易ID"
+        },
+        "callback_data": {
+          "type": "string",
+          "description": "回调数据"
+        }
+      },
+      "required": []
+    },
+    "PaymentRead": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer"
+        },
+        "order_id": {
+          "type": "integer"
+        },
+        "user_id": {
+          "type": "integer"
+        },
+        "payment_no": {
+          "type": "string"
+        },
+        "payment_method": {
+          "type": "string"
+        },
+        "amount": {
+          "type": "string"
+        },
+        "currency": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "external_payment_id": {
+          "type": "string"
+        },
+        "external_transaction_id": {
+          "type": "string"
+        },
+        "pay_url": {
+          "type": "string"
+        },
+        "qr_code": {
+          "type": "string"
+        },
+        "expires_at": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "paid_at": {
+          "type": "string"
+        },
+        "failed_at": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "order_id",
+        "user_id",
+        "payment_no",
+        "payment_method",
+        "amount",
+        "currency",
+        "status"
+      ]
+    },
+    "PaymentDetail": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer"
+        },
+        "order_id": {
+          "type": "integer"
+        },
+        "user_id": {
+          "type": "integer"
+        },
+        "payment_no": {
+          "type": "string"
+        },
+        "payment_method": {
+          "type": "string"
+        },
+        "amount": {
+          "type": "string"
+        },
+        "currency": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "external_payment_id": {
+          "type": "string"
+        },
+        "external_transaction_id": {
+          "type": "string"
+        },
+        "pay_url": {
+          "type": "string"
+        },
+        "qr_code": {
+          "type": "string"
+        },
+        "expires_at": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "paid_at": {
+          "type": "string"
+        },
+        "failed_at": {
+          "type": "string"
+        },
+        "callback_received_at": {
+          "type": "string"
+        },
+        "payment_data": {
+          "type": "string"
+        },
+        "refunds": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "order_id",
+        "user_id",
+        "payment_no",
+        "payment_method",
+        "amount",
+        "currency",
+        "status"
+      ]
+    },
+    "PaymentSearch": {
+      "type": "object",
+      "properties": {
+        "payment_no": {
+          "type": "string",
+          "description": "支付单号"
+        },
+        "order_id": {
+          "type": "integer",
+          "description": "订单ID"
+        },
+        "user_id": {
+          "type": "integer",
+          "description": "用户ID"
+        },
+        "payment_method": {
+          "type": "string",
+          "description": "支付方式"
+        },
+        "status": {
+          "type": "string",
+          "description": "支付状态"
+        },
+        "start_date": {
+          "type": "string",
+          "description": "开始日期"
+        },
+        "end_date": {
+          "type": "string",
+          "description": "结束日期"
+        },
+        "min_amount": {
+          "type": "string",
+          "description": "最小金额"
+        },
+        "max_amount": {
+          "type": "string",
+          "description": "最大金额"
+        }
+      },
+      "required": []
+    },
+    "RefundCreate": {
+      "type": "object",
+      "properties": {
+        "amount": {
+          "type": "string",
+          "description": "退款金额"
+        },
+        "reason": {
+          "type": "string",
+          "description": "退款原因"
+        },
+        "operator_note": {
+          "type": "string",
+          "description": "操作员备注"
+        }
+      },
+      "required": []
+    },
+    "RefundUpdate": {
+      "type": "object",
+      "properties": {
+        "external_refund_id": {
+          "type": "string",
+          "description": "第三方退款ID"
+        },
+        "gateway_response": {
+          "type": "string",
+          "description": "网关响应"
+        },
+        "operator_note": {
+          "type": "string",
+          "description": "操作员备注"
+        }
+      },
+      "required": []
+    },
+    "RefundStatusUpdate": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string",
+          "description": "退款状态"
+        },
+        "operator_note": {
+          "type": "string",
+          "description": "操作员备注"
+        }
+      },
+      "required": []
+    },
+    "RefundRead": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer"
+        },
+        "payment_id": {
+          "type": "integer"
+        },
+        "refund_no": {
+          "type": "string"
+        },
+        "amount": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "external_refund_id": {
+          "type": "string"
+        },
+        "operator_id": {
+          "type": "integer"
+        },
+        "operator_note": {
+          "type": "string"
+        },
+        "processed_at": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "payment_id",
+        "refund_no",
+        "amount",
+        "reason",
+        "status"
+      ]
+    },
+    "RefundDetail": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer"
+        },
+        "payment_id": {
+          "type": "integer"
+        },
+        "refund_no": {
+          "type": "string"
+        },
+        "amount": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "external_refund_id": {
+          "type": "string"
+        },
+        "operator_id": {
+          "type": "integer"
+        },
+        "operator_note": {
+          "type": "string"
+        },
+        "processed_at": {
+          "type": "string"
+        },
+        "payment": {
+          "type": "string"
+        },
+        "gateway_response": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "payment_id",
+        "refund_no",
+        "amount",
+        "reason",
+        "status"
+      ]
+    },
+    "PaymentCallback": {
+      "type": "object",
+      "properties": {
+        "payment_no": {
+          "type": "string",
+          "description": "支付单号"
+        },
+        "status": {
+          "type": "string",
+          "description": "支付状态"
+        },
+        "transaction_id": {
+          "type": "string",
+          "description": "第三方交易ID"
+        },
+        "amount": {
+          "type": "string",
+          "description": "支付金额"
+        },
+        "callback_data": {
+          "type": "string",
+          "description": "回调原始数据"
+        }
+      },
+      "required": []
+    },
+    "WechatPaymentCallback": {
+      "type": "object",
+      "properties": {
+        "payment_no": {
+          "type": "string",
+          "description": "支付单号"
+        },
+        "status": {
+          "type": "string",
+          "description": "支付状态"
+        },
+        "transaction_id": {
+          "type": "string",
+          "description": "微信支付订单号"
+        },
+        "amount": {
+          "type": "string",
+          "description": "支付金额"
+        },
+        "callback_data": {
+          "type": "string",
+          "description": "回调原始数据"
+        },
+        "out_trade_no": {
+          "type": "string",
+          "description": "商户订单号"
+        },
+        "trade_state": {
+          "type": "string",
+          "description": "交易状态"
+        },
+        "trade_state_desc": {
+          "type": "string",
+          "description": "交易状态描述"
+        },
+        "bank_type": {
+          "type": "string",
+          "description": "银行类型"
+        },
+        "success_time": {
+          "type": "string",
+          "description": "支付完成时间"
+        }
+      },
+      "required": []
+    },
+    "AlipayCallback": {
+      "type": "object",
+      "properties": {
+        "payment_no": {
+          "type": "string",
+          "description": "支付单号"
+        },
+        "status": {
+          "type": "string",
+          "description": "支付状态"
+        },
+        "transaction_id": {
+          "type": "string",
+          "description": "第三方交易ID"
+        },
+        "amount": {
+          "type": "string",
+          "description": "支付金额"
+        },
+        "callback_data": {
+          "type": "string",
+          "description": "回调原始数据"
+        },
+        "out_trade_no": {
+          "type": "string",
+          "description": "商户订单号"
+        },
+        "trade_no": {
+          "type": "string",
+          "description": "支付宝交易号"
+        },
+        "trade_status": {
+          "type": "string",
+          "description": "交易状态"
+        },
+        "total_amount": {
+          "type": "string",
+          "description": "订单金额"
+        },
+        "gmt_payment": {
+          "type": "string",
+          "description": "交易付款时间"
+        }
+      },
+      "required": []
+    },
+    "PaymentStats": {
+      "type": "object",
+      "properties": {
+        "total_payments": {
+          "type": "integer"
+        },
+        "completed_payments": {
+          "type": "integer"
+        },
+        "failed_payments": {
+          "type": "integer"
+        },
+        "success_rate": {
+          "type": "number"
+        },
+        "total_amount": {
+          "type": "string"
+        },
+        "payment_methods": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "total_payments",
+        "completed_payments",
+        "failed_payments",
+        "success_rate",
+        "total_amount",
+        "payment_methods"
+      ]
+    },
+    "PaymentTrend": {
+      "type": "object",
+      "properties": {
+        "date": {
+          "type": "string"
+        },
+        "payment_count": {
+          "type": "integer"
+        },
+        "payment_amount": {
+          "type": "string"
+        },
+        "success_count": {
+          "type": "integer"
+        },
+        "success_amount": {
+          "type": "string"
+        },
+        "success_rate": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "date",
+        "payment_count",
+        "payment_amount",
+        "success_count",
+        "success_amount",
+        "success_rate"
+      ]
+    },
+    "PaymentAnalysis": {
+      "type": "object",
+      "properties": {
+        "period": {
+          "type": "string"
+        },
+        "summary": {
+          "type": "string"
+        },
+        "trends": {
+          "type": "string"
+        },
+        "top_methods": {
+          "type": "string"
+        },
+        "hourly_distribution": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "period",
+        "summary",
+        "trends",
+        "top_methods",
+        "hourly_distribution"
+      ]
+    },
+    "PaymentBatch": {
+      "type": "object",
+      "properties": {
+        "payment_ids": {
+          "type": "string",
+          "description": "支付ID列表"
+        },
+        "action": {
+          "type": "string",
+          "description": "操作类型"
+        },
+        "params": {
+          "type": "string",
+          "description": "操作参数"
+        }
+      },
+      "required": []
+    },
+    "RefundBatch": {
+      "type": "object",
+      "properties": {
+        "refund_ids": {
+          "type": "string",
+          "description": "退款ID列表"
+        },
+        "action": {
+          "type": "string",
+          "description": "操作类型"
+        },
+        "params": {
+          "type": "string",
+          "description": "操作参数"
+        }
+      },
+      "required": []
+    }
+  }
+}
