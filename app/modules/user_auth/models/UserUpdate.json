@@ -1,0 +1,18 @@
+{
+  "type": "object",
+  "properties": {
+    "email": {
+      "type": "string",
+      "description": "邮箱地址"
+    },
+    "phone": {
+      "type": "string",
+      "description": "手机号"
+    },
+    "real_name": {
+      "type": "string",
+      "description": "真实姓名"
+    }
+  },
+  "required": []
+}

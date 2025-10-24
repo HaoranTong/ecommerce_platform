@@ -1,0 +1,68 @@
+{
+  "method": "POST",
+  "path": "/verification-code",
+  "auth_required": false,
+  "admin_only": false,
+  "request_schema": {
+    "type": "object",
+    "properties": {
+      "email": {
+        "type": "string",
+        "description": "string"
+      },
+      "phone": {
+        "type": "string",
+        "description": "string?"
+      },
+      "code_type": {
+        "type": "string",
+        "description": "enum[register, login, reset_password, phone_login]"
+      }
+    },
+    "required": [
+      "email",
+      "code_type"
+    ]
+  },
+  "response_schema": {
+    "type": "object"
+  },
+  "errors": [
+    {
+      "code": "AUTH_ERROR_001",
+      "http_status": 401,
+      "message": "用户名或密码错误",
+      "ui_hint": "请检查用户名和密码是否正确",
+      "action": ""
+    },
+    {
+      "code": "AUTH_ERROR_002",
+      "http_status": 401,
+      "message": "令牌无效或已过期",
+      "ui_hint": "登录已过期，请重新登录",
+      "action": "redirect_to_login"
+    },
+    {
+      "code": "AUTH_ERROR_003",
+      "http_status": 403,
+      "message": "权限不足",
+      "ui_hint": "您没有权限执行此操作",
+      "action": ""
+    },
+    {
+      "code": "AUTH_ERROR_004",
+      "http_status": 403,
+      "message": "账户已被锁定",
+      "ui_hint": "账户因多次登录失败被锁定，请 30 分钟后重试",
+      "action": ""
+    },
+    {
+      "code": "AUTH_ERROR_005",
+      "http_status": 400,
+      "message": "用户名或邮箱已存在",
+      "ui_hint": "该用户名或邮箱已被注册",
+      "action": ""
+    }
+  ],
+  "notes": "- 开发环境会直接返回验证码（便于调试）\n- 生产环境仅返回成功消息，验证码通过邮件/短信发送\n- 同一邮箱/手机号 10 分钟内最多发送 3 次（后端限制）\n"
+}

@@ -186,22 +186,28 @@ def render_markdown(models: Dict[str, Any], output_path: Path):
     output_path.write_text("".join(lines), encoding="utf-8")
 
 def convert_to_json_schema(models: Dict[str, Any]) -> Dict[str, Any]:
-    """生成符合 JSON Schema Draft 2020-12 的结构（简化版）"""
+    """生成兼容 Draft 7 的 JSON Schema"""
     definitions = {}
     for name, info in models.items():
         props = {}
         required = []
         for fname, f in info["fields"].items():
-            # 简化类型映射（实际可更复杂）
-            type_map = {
-                "str": "string",
-                "int": "integer",
-                "float": "number",
-                "bool": "boolean",
-                "datetime": "string",  # format: date-time
-            }
-            raw_type = f["type"].replace("Optional[", "").replace("]", "").split(".")[-1]
-            json_type = type_map.get(raw_type, "string")
+            # 简化类型映射（支持常见类型）
+            raw_type = f["type"].replace("Optional[", "").replace("]", "").split(".")[-1].lower()
+            if raw_type in ("str", "string"):
+                json_type = "string"
+            elif raw_type in ("int", "integer"):
+                json_type = "integer"
+            elif raw_type in ("float", "decimal", "number"):
+                json_type = "number"
+            elif raw_type in ("bool", "boolean"):
+                json_type = "boolean"
+            elif raw_type in ("datetime", "date"):
+                json_type = "string"
+                # 可选：添加 format
+                # prop["format"] = "date-time"
+            else:
+                json_type = "string"  # 默认回退
 
             prop = {"type": json_type}
             if f["description"]:
@@ -217,11 +223,9 @@ def convert_to_json_schema(models: Dict[str, Any]) -> Dict[str, Any]:
         }
 
     return {
-        "$schema": "https://json-schema.org/draft/2020-12/schema",
-        "$id": "https://your-api.com/schemas",
-        "definitions": definitions,
+        "$schema": "http://json-schema.org/draft-07/schema#",  # ← 关键：改用 Draft 7
+        "definitions": definitions,  # Draft 7 仍支持 definitions
     }
-
 # ==============================
 # 主程序
 # ==============================

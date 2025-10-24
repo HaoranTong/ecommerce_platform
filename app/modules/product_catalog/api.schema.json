@@ -1,6 +1,5 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://your-api.com/schemas",
+  "$schema": "http://json-schema.org/draft-07/schema#",
   "definitions": {
     "ApiResponse": {
       "type": "object",
@@ -649,23 +648,23 @@
           "description": "SKU名称"
         },
         "price": {
-          "type": "string",
+          "type": "number",
           "description": "价格"
         },
         "cost_price": {
-          "type": "string",
+          "type": "number",
           "description": "成本价"
         },
         "market_price": {
-          "type": "string",
+          "type": "number",
           "description": "市场价"
         },
         "weight": {
-          "type": "string",
+          "type": "number",
           "description": "重量（千克）"
         },
         "volume": {
-          "type": "string",
+          "type": "number",
           "description": "体积（立方米）"
         },
         "is_active": {
@@ -687,23 +686,23 @@
           "description": "SKU名称"
         },
         "price": {
-          "type": "string",
+          "type": "number",
           "description": "价格"
         },
         "cost_price": {
-          "type": "string",
+          "type": "number",
           "description": "成本价"
         },
         "market_price": {
-          "type": "string",
+          "type": "number",
           "description": "市场价"
         },
         "weight": {
-          "type": "string",
+          "type": "number",
           "description": "重量（千克）"
         },
         "volume": {
-          "type": "string",
+          "type": "number",
           "description": "体积（立方米）"
         },
         "is_active": {
@@ -728,19 +727,19 @@
           "type": "string"
         },
         "price": {
-          "type": "string"
+          "type": "number"
         },
         "cost_price": {
-          "type": "string"
+          "type": "number"
         },
         "market_price": {
-          "type": "string"
+          "type": "number"
         },
         "weight": {
-          "type": "string"
+          "type": "number"
         },
         "volume": {
-          "type": "string"
+          "type": "number"
         },
         "is_active": {
           "type": "boolean"
@@ -760,23 +759,23 @@
           "description": "SKU名称"
         },
         "price": {
-          "type": "string",
+          "type": "number",
           "description": "价格"
         },
         "cost_price": {
-          "type": "string",
+          "type": "number",
           "description": "成本价"
         },
         "market_price": {
-          "type": "string",
+          "type": "number",
           "description": "市场价"
         },
         "weight": {
-          "type": "string",
+          "type": "number",
           "description": "重量（千克）"
         },
         "volume": {
-          "type": "string",
+          "type": "number",
           "description": "体积（立方米）"
         },
         "is_active": {
@@ -1110,7 +1109,7 @@
           "type": "string"
         },
         "price": {
-          "type": "string"
+          "type": "number"
         },
         "image_url": {
           "type": "string"
@@ -1168,7 +1167,7 @@
           "type": "string"
         },
         "price": {
-          "type": "string"
+          "type": "number"
         },
         "stock_quantity": {
           "type": "integer"

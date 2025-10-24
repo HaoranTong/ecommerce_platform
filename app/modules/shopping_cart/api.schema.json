@@ -1,6 +1,5 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://your-api.com/schemas",
+  "$schema": "http://json-schema.org/draft-07/schema#",
   "definitions": {
     "AddItemRequest": {
       "type": "object",
@@ -56,7 +55,7 @@
           "description": "商品图片URL"
         },
         "unit_price": {
-          "type": "string",
+          "type": "number",
           "description": "商品单价"
         },
         "quantity": {
@@ -64,7 +63,7 @@
           "description": "商品数量"
         },
         "subtotal": {
-          "type": "string",
+          "type": "number",
           "description": "小计金额"
         },
         "stock_status": {
@@ -102,7 +101,7 @@
           "description": "商品总数量"
         },
         "total_amount": {
-          "type": "string",
+          "type": "number",
           "description": "购物车总金额"
         },
         "items": {
@@ -150,7 +149,7 @@
           "description": "更新后数量"
         },
         "subtotal": {
-          "type": "string",
+          "type": "number",
           "description": "更新后小计"
         }
       },
@@ -172,7 +171,7 @@
           "description": "商品总数量"
         },
         "total_amount": {
-          "type": "string",
+          "type": "number",
           "description": "购物车总金额"
         },
         "updated_item": {

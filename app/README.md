@@ -6,39 +6,48 @@
 
 ```
 app/
-├── � core/                        # 核心基础设施
-│   ├── database.py                 # 数据库连接管理
-│   ├── redis_client.py             # Redis缓存客户端
-│   ├── auth.py                     # 认证中间件
-│   └── __init__.py                 # 核心组件导出
-├── 🔄 shared/                      # 共享组件
-│   ├── models.py                   # 共享数据模型
-│   └── __init__.py                 # 共享组件导出
-├── 🔌 adapters/                    # 第三方适配器
-│   ├── payment/                    # 支付适配器（待开发）
-│   ├── blockchain/                 # 区块链适配器（待开发）
-│   └── ai/                         # AI服务适配器（待开发）
-├── 🏢 modules/                     # 业务模块
-│   ├── ✅ user_auth/               # 用户认证模块
-│   ├── ✅ product_catalog/         # 商品管理模块
-│   ├── ✅ shopping_cart/           # 购物车模块
-│   ├── ✅ order_management/        # 订单管理模块
-│   ├── ✅ payment_service/         # 支付服务模块
-│   ├── � batch_traceability/      # 批次溯源模块（待开发）
-│   ├── 📋 logistics_management/    # 物流管理模块（待开发）
-│   ├── � member_system/           # 会员系统模块（待开发）
-│   ├── � distributor_management/  # 分销商管理模块（待开发）
-│   ├── 📋 marketing_campaigns/     # 营销活动模块（待开发）
-│   ├── � social_features/         # 社交功能模块（待开发）
-│   ├── 📋 inventory_management/    # 库存管理模块（待开发）
-│   ├── � notification_service/    # 通知服务模块（待开发）
-│   ├── 📋 supplier_management/     # 供应商管理模块（待开发）
-│   ├── � recommendation_system/   # 推荐系统模块（待开发）
-│   ├── � customer_service_system/ # 客服系统模块（待开发）
-│   ├── � risk_control_system/     # 风控系统模块（待开发）
-│   └── 📋 data_analytics_platform/ # 数据分析模块（待开发）
-├── 🚀 main.py                      # FastAPI应用入口点
-└── __init__.py                     # 包初始化文件
+├── core/                        # 核心基础设施
+│   ├── async_utils.py           # 异步工具函数
+│   ├── auth.py                  # 认证中间件
+│   ├── database.py              # 数据库连接管理
+│   ├── exceptions.py            # 自定义异常
+│   ├── model_discovery.py       # 模型发现工具
+│   ├── redis_client.py          # Redis缓存客户端
+│   ├── security_logger.py       # 安全日志
+│   ├── verification.py          # 验证工具
+│   └── __init__.py              # 核心组件导出
+├── shared/                      # 共享组件
+│   ├── api_schemas.py           # API公共模型
+│   ├── base_models.py           # 基础模型
+│   ├── response.py              # 响应处理
+│   └── __init__.py              # 共享组件导出
+├── adapters/                    # 第三方适配器
+│   ├── payment/                 # 支付适配器
+│   └── __init__.py              # 适配器导出
+├── modules/                     # 业务模块
+│   ├── user_auth/               # 用户认证模块
+│   ├── product_catalog/         # 商品管理模块
+│   ├── shopping_cart/           # 购物车模块
+│   ├── order_management/        # 订单管理模块
+│   ├── payment_service/         # 支付服务模块
+│   ├── batch_traceability/      # 批次溯源模块
+│   ├── customer_service_system/ # 客服系统模块
+│   ├── data_analytics_platform/ # 数据分析模块
+│   ├── distributor_management/  # 分销商管理模块
+│   ├── inventory_management/    # 库存管理模块
+│   ├── logistics_management/    # 物流管理模块
+│   ├── marketing_campaigns/     # 营销活动模块
+│   ├── member_system/           # 会员系统模块
+│   ├── notification_service/    # 通知服务模块
+│   ├── quality_control/         # 质量控制模块
+│   ├── recommendation_system/  # 推荐系统模块
+│   ├── risk_control_system/     # 风控系统模块
+│   ├── social_features/         # 社交功能模块
+│   ├── supplier_management/     # 供应商管理模块
+│   └── __init__.py              # 模块初始化
+├── frontend/                    # 前端代码
+├── main.py                      # FastAPI应用入口点
+└── __init__.py                  # 包初始化文件
 ```
 
 ## 🔑 架构层次说明
@@ -53,7 +62,9 @@ app/
 ### 🔄 共享组件层 (shared/)
 | 组件 | 作用 | 依赖 |
 |-----|------|------|
-| **models.py** | 跨模块共享的数据模型 | SQLAlchemy |
+| **api_schemas.py** | 跨模块共享的API模型 | Pydantic |
+| **base_models.py** | 基础模型定义 | SQLAlchemy |
+| **response.py** | 统一响应处理 | FastAPI |
 
 ### 🏢 业务模块层 (modules/)
 每个业务模块包含完整的垂直切片：
@@ -68,6 +79,6 @@ app/
 
 ## 🔗 相关文档
 
-- [API接口文档](api/README.md) - API路由详细说明
-- [基础模型文档](../docs/design/modules/base-models/) - 数据库设计
-- [业务服务文档](services/README.md) - 服务层架构
+- [API接口文档](../docs/api/) - API路由详细说明
+- [基础模型文档](../docs/design/base-models/) - 数据库设计
+- [业务服务文档](../docs/services/) - 服务层架构

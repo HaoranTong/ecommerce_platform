@@ -85,15 +85,16 @@ GET /api/v1/member-system/benefits/available  # 查看可用权益
 
 ```
 member_system/
-├── __init__.py          # 模块初始化
-├── router.py            # API路由定义 (待实现)
-├── service.py           # 业务逻辑服务 (待实现)
-├── models.py            # 数据模型定义 (待实现)
-├── schemas.py           # 数据验证模式 (待实现)
-├── dependencies.py      # 依赖注入配置 (待实现)
-├── exceptions.py        # 业务异常定义 (待创建)
-├── constants.py         # 常量定义 (待创建)
-└── utils.py            # 工具函数 (待创建)
+├── __init__.py              # 模块初始化
+├── router.py                # API路由定义 (待实现)
+├── service.py               # 业务逻辑服务 (待实现)
+├── models.py                # 数据模型定义 (待实现)
+├── schemas.py               # 数据验证模式 (待实现)
+├── dependencies.py          # 依赖注入配置 (待实现)
+├── api.schema.json          # API Schema定义
+├── schema.md                # API Schema文档
+├── service_original.py      # 原始服务实现（备份）
+└── README.md                # 模块文档(本文件)
 ```
 
 ## 🔧 技术实现方案

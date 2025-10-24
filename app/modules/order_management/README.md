@@ -29,7 +29,9 @@ order_management/
 ├── models.py            # 领域层：SQLAlchemy ORM 模型
 ├── schemas.py           # Pydantic 请求/响应模型
 ├── dependencies.py      # 依赖注入与权限校验（get_order_repository / get_order_service）
-├── category_service.py  # 辅助服务（分类快照扩展，规划中）
+├── error_codes.py       # 错误码定义
+├── api.schema.json      # API Schema定义
+├── schema.md            # API Schema文档
 └── README.md            # 模块文档（本文件）
 ```
 
