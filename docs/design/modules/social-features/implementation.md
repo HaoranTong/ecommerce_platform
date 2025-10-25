@@ -1,341 +1,113 @@
-<!--
-文档说明：
-- 内容：模块实现记录文档模板
-- 作用：记录开发过程、实现细节、技术问题和解决方案
-- 使用方法：开发过程中实时记录，便于知识传承
--->
+<!-- 文档用于跟踪 social-features 模块从设计到上线的实施细节 -->
 
-# social-features模块 - 实现记录文档
+# social-features 模块实施记录
 
-📅 **创建日期**: 2025-09-16  
-👤 **开发者**: {开发人员}  
-🔄 **最后更新**: 2025-09-16  
-📊 **完成进度**: {百分比}%  
+📅 **创建日期**: 2025-10-25  
+� **负责团队**: Growth Experience 团队  
+🔄 **最后更新**: 2025-10-25  
+📊 **整体进度**: 10%（设计完成，开发待启动）
 
-## 实施概述
+## 1. 实施概述
 
-### 实施状态
-- **当前状态**: {开发中|测试中|已完成|部署中}
-- **完成功能**: {已完成的功能列表}
-- **待实施**: {待实施的功能列表}
-- **技术债务**: {已知的技术债务}
+- **当前状态**: 准备中（需求冻结，API 规范锁定）
+- **完成功能**: 文档体系、数据模型、API 设计
+- **待实施**: 代码开发、数据库迁移、异步任务、监控告警
+- **技术债务**: 无已知债务，等待开发阶段评估
 
 ### 关键里程碑
+
 | 日期 | 里程碑 | 状态 | 备注 |
 |------|--------|------|------|
-| 2025-09-16 | {里程碑1} | ✅ | {备注} |
-| 2025-09-16 | {里程碑2} | 🔄 | {备注} |
+| 2025-10-18 | 完成业务需求澄清 | ✅ | 与产品、运营对齐目标指标 |
+| 2025-10-25 | 设计文档冻结 | ✅ | README/overview/requirements/design/api-spec 全量完成 |
+| 2025-11-05 | 启动开发冲刺 | 📋 Planned | 完成开发前准备与任务拆分 |
+| 2025-11-19 | 开发完成进入测试 | 📋 Planned | 包含单元/集成/契约测试 |
+| 2025-11-26 | 预发布验证 | � Planned | 压测+灰度发布计划 |
 
-## 代码实现
+## 2. 代码实施计划
 
-### 目录结构
+### 模块目录布局（计划）
 ```
 app/modules/social_features/
 ├── __init__.py
-├── router.py           # ✅ API路由实现
-├── service.py          # ✅ 业务逻辑实现
-├── repository.py       # 🔄 数据访问层
-├── models.py           # ✅ 数据模型
-├── schemas.py          # ✅ 数据传输对象
-├── dependencies.py     # ⏳ 依赖注入
-├── exceptions.py       # ⏳ 自定义异常
-└── utils.py           # ⏳ 工具函数
+├── router.py                # 路由与依赖声明
+├── schemas.py               # Pydantic DTOs
+├── service.py               # 业务服务层
+├── repository.py            # ORM 访问封装
+├── models.py                # SQLAlchemy 实体
+├── tasks.py                 # Celery 异步任务
+├── dependencies.py          # DI 工厂
+├── events.py                # 事件发布/订阅
+├── exceptions.py            # 领域异常定义
+└── validators.py            # 复杂校验逻辑
 ```
 
-### 核心组件实现
+### 核心组件实施要点
 
-#### API路由层 (router.py)
-```python
-from fastapi import APIRouter, Depends
-from .schemas import {Schema}Request, {Schema}Response
-from .service import {Module}Service
+- `router.py`: 组装子路由与速率限制依赖，暴露 `/shares`, `/share-events`, `/referrals`, `/rewards`, `/admin` 等前缀。
+- `schemas.py`: 复用 `design.md` 数据字典，确保请求体和响应模型与 `api-spec.md` 一致。
+- `service.py`: 拆分 `ShareService`, `ReferralService`, `RewardService`, `MetricsService`，以接口职责为单位。
+- `repository.py`: 使用 SQLAlchemy 2.0 ORM style（`async_session`），封装常用查询 + 写入，统一事务控制。
+- `tasks.py`: 定义 `dispatch_reward_task`, `sync_referral_status_task`，落地异步补偿与对外同步。
+- `events.py`: 使用 `event_bus.publish/subscribe`，处理 `social.share_event.received` 与 `member.reward_issued`。
+- `exceptions.py`: 对应错误码 `SOCIAL_100~SOCIAL_500`，继承 `PlatformException`，在路由层统一捕获转换。
 
-router = APIRouter()
+## 3. 数据与迁移实施
 
-@router.post("/social-features/{resource}", response_model={Schema}Response)
-async def create_{resource}(
-    request: {Schema}Request,
-    service: {Module}Service = Depends()
-):
-    """
-    实现说明：
-    - 功能：{功能描述}
-    - 验证：{验证逻辑}
-    - 处理：{处理逻辑}
-    """
-    return await service.create_{resource}(request)
-```
+- **表结构**: `social_share`, `social_share_event`, `social_referral`, `social_reward`, `social_violation`, `social_share_aggregate`。
+- **迁移策略**: 编写两阶段 Alembic 脚本
+  1. `2025-11-05_init_social_features` 创建核心表及索引
+  2. `2025-11-08_add_aggregates_and_views` 添加聚合视图与物化视图刷新任务
+- **索引规划**: `social_share` 按 `user_id`, `resource_type`, `resource_id` 建复合索引；`social_share_event` 使用 `(share_id,event_type,occurred_at)`。
+- **数据初始化**: 预置热门渠道配置、违规关键词列表，脚本位于 `tools/seed_social_features.py`（待实现）。
 
-#### 业务逻辑层 (service.py)
-```python
-class {Module}Service:
-    def __init__(self, repository: {Module}Repository = Depends()):
-        self.repository = repository
-    
-    async def create_{resource}(self, request: {Schema}Request):
-        """
-        业务逻辑实现：
-        1. {步骤1}
-        2. {步骤2}
-        3. {步骤3}
-        """
-        # 实现代码
-        pass
-```
+## 4. 集成实施
 
-#### 数据访问层 (repository.py)
-```python
-class {Module}Repository:
-    def __init__(self, db: Session = Depends(get_db)):
-        self.db = db
-    
-    async def create_{entity}(self, entity_data: dict):
-        """
-        数据访问实现：
-        - 表：{table_name}
-        - 操作：{操作类型}
-        - 索引使用：{索引信息}
-        """
-        # 实现代码
-        pass
-```
+- **用户中心** (`user_auth`): 引入 `UserProfileClient` 获取邀请人实名状态。
+- **会员系统** (`member_system`): 通过 gRPC `RedeemReward` 接口发放积分/优惠券，失败走 Celery 重试。
+- **营销活动** (`marketing_campaigns`): 同步活动配置，限制邀请规则与奖励上限。
+- **通知服务** (`notification_service`): 发布 `InviteeFirstOrder` 事件后推送消息。
+- **数据分析**: 通过 `Kafka` topic `social.feature.metrics` 输出实时事件，供埋点系统消费。
 
-### 数据模型实现
+## 5. 测试实施计划
 
-#### SQLAlchemy模型
-```python
-from app.shared.base_models import BaseModel, TimestampMixin
+- **单元测试**: 覆盖服务层和仓储层关键逻辑，使用 pytest + async fixtures，目标覆盖率 ≥ 85%。
+- **集成测试**: 借助 FastAPI TestClient + 测试数据库，验证 API 整体行为、权限和错误码。
+- **契约测试**: 使用 `schemathesis` 校验 `api-spec.md`，持续集成流水线执行。
+- **性能测试**: JMeter 脚本模拟分享高峰，确保 P95 延迟达标；重点关注 `share-events` 吞吐与 Redis 限流表现。
+- **安全测试**: 注入攻击、越权场景、限流绕过等，联合安全团队复核。
 
-class {Entity}(BaseModel, TimestampMixin):
-    __tablename__ = '{table_name}'
-    
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    name = Column(String(200), nullable=False, index=True)
-    # 其他字段
-    
-    # 实现说明：
-    # - 继承BaseModel提供基础功能
-    # - 使用TimestampMixin自动处理时间戳
-    # - 索引策略：{索引说明}
-```
+## 6. 部署与运维
 
-## 技术实现细节
+- **配置项**: 在 `app/core/settings.py` 引入 `SOCIAL_FEATURES_ENABLED`, `SOCIAL_FEATURES_RATE_LIMIT`, `SOCIAL_REWARD_TASK_QUEUE`。
+- **环境变量**: `SOCIAL_FEATURES_REDIS_PREFIX`, `SOCIAL_FEATURES_EVENT_TOPIC`, `SOCIAL_FEATURES_REWARD_TIMEOUT`。
+- **监控告警**:
+  - Prometheus 指标：分享创建成功率、邀请转化率、奖励发放失败数、限流命中次数。
+  - 日志：结构化日志（包含 `request_id`, `share_code`），违规事件单独打标签。
+  - 告警规则：奖励发放失败 5 分钟内 > 20 次触发 PagerDuty。
+- **灰度发布**: 先行开启 10% 用户分享功能，观察 24 小时再全量；奖励发放模块提供安全开关。
 
-### 关键算法实现
-- **算法1**: {算法描述和实现}
-- **算法2**: {算法描述和实现}
+## 7. 风险与应对
 
-### 性能优化
-- **数据库优化**: {具体优化措施}
-- **缓存实现**: {缓存策略实现}
-- **异步处理**: {异步实现方案}
+- **高并发写入**: 分享事件写入量大 → 使用批量异步入库 + Redis 去重，预留扩展到 ClickHouse 的接口。
+- **奖励成本控制**: 奖励发放需实时核对活动预算 → 与营销系统建立额度校验，失败立即回滚。
+- **合规风险**: 需监控违规内容 → 构建敏感词过滤与人工审核流程。
 
-### 错误处理
-```python
-class {Module}Exception(Exception):
-    """模块自定义异常"""
-    def __init__(self, message: str, error_code: str):
-        self.message = message
-        self.error_code = error_code
-        super().__init__(self.message)
+## 8. 知识沉淀
 
-# 使用示例
-try:
-    # 业务逻辑
-    pass
-except ValueError as e:
-    raise {Module}Exception("业务错误", "MODULE_001")
-```
+- **经验**: 在设计阶段提前锁定错误码与事件格式，降低后续契约变更成本。
+- **改进**: 计划在开发期同步编写 Swagger 示例，提前让前端联调 mock。
+- **最佳实践**: 使用 `Idempotency-Key` 保障分享创建幂等；事件消费与数据库写入保持事务一致性。
 
-## 集成实现
+## 9. 后续待办
 
-### 模块间集成
-- **依赖模块**: {集成实现}
-- **事件发布**: {事件实现}
-- **接口调用**: {调用实现}
+- [ ] 完成任务拆分并录入 Jira（SOCIAL-101 ~ SOCIAL-118）
+- [ ] 编写 Alembic 首版迁移脚本草稿并走 DB review
+- [ ] 建立 Redis 限流与幂等 POC，验证配置可行性
+- [ ] 与数据团队确认指标字段与上报频率
 
-### 外部服务集成
-```python
-class External{Service}Client:
-    """外部服务客户端实现"""
-    
-    def __init__(self):
-        self.base_url = settings.{SERVICE}_URL
-        self.timeout = 30
-    
-    async def call_api(self, data):
-        """
-        集成实现：
-        - 接口：{API接口}
-        - 重试：{重试机制}
-        - 降级：{降级方案}
-        """
-        # 实现代码
-        pass
-```
+## 10. 变更记录
 
-## 数据库实施
-
-### 迁移脚本
-```python
-# alembic/versions/{timestamp}_{module}_init.py
-def upgrade():
-    op.create_table('{table_name}',
-        sa.Column('id', sa.Integer(), nullable=False),
-        sa.Column('name', sa.String(200), nullable=False),
-        # 其他字段
-        sa.PrimaryKeyConstraint('id')
-    )
-    
-    # 索引创建
-    op.create_index('idx_{table}_{field}', '{table_name}', ['field'])
-
-def downgrade():
-    op.drop_table('{table_name}')
-```
-
-### 数据初始化
-```python
-# 初始化数据脚本
-def init_{module}_data():
-    """
-    数据初始化：
-    - 基础数据：{基础数据说明}
-    - 测试数据：{测试数据说明}
-    """
-    # 实现代码
-    pass
-```
-
-## 测试实施
-
-### 单元测试实现
-```python
-import pytest
-from app.modules.social_features.service import {Module}Service
-
-class Test{Module}Service:
-    def setup_method(self):
-        """测试设置"""
-        self.service = {Module}Service()
-    
-    def test_create_{resource}(self):
-        """
-        测试用例：
-        - 场景：{测试场景}
-        - 输入：{输入数据}
-        - 预期：{预期结果}
-        """
-        # 测试实现
-        pass
-```
-
-### 集成测试实现
-```python
-def test_{module}_api_integration():
-    """
-    集成测试：
-    - 测试范围：{测试范围}
-    - 数据准备：{数据准备}
-    - 验证点：{验证内容}
-    """
-    # 测试实现
-    pass
-```
-
-## 配置实施
-
-### 环境配置
-```python
-# app/core/config.py
-class {Module}Settings:
-    """模块配置"""
-    {module}_feature_enabled: bool = True
-    {module}_cache_ttl: int = 3600
-    # 其他配置项
-```
-
-### 依赖注入配置
-```python
-# app/modules/social_features/dependencies.py
-def get_{module}_service() -> {Module}Service:
-    """依赖注入工厂"""
-    repository = get_{module}_repository()
-    return {Module}Service(repository)
-```
-
-## 部署实施
-
-### Docker配置
-```dockerfile
-# 如果需要特殊配置
-FROM python:3.11-slim
-
-# 模块特定依赖
-RUN pip install {special_packages}
-
-# 配置文件
-COPY config/{module}.yaml /app/config/
-```
-
-### 环境变量
-```bash
-# 模块相关环境变量
-{MODULE}_FEATURE_ENABLED=true
-{MODULE}_CACHE_TTL=3600
-{MODULE}_EXTERNAL_API_URL=https://api.example.com
-```
-
-## 问题和解决方案
-
-### 技术问题记录
-| 日期 | 问题描述 | 解决方案 | 状态 |
-|------|----------|----------|------|
-| 2025-09-16 | {问题描述} | {解决方案} | ✅ |
-| 2025-09-16 | {问题描述} | {解决方案} | 🔄 |
-
-### 性能问题
-- **问题**: {性能问题描述}
-- **原因**: {问题原因分析}
-- **解决**: {解决方案实施}
-- **效果**: {优化效果}
-
-### 集成问题
-- **问题**: {集成问题}
-- **影响**: {问题影响}
-- **解决**: {解决过程}
-
-## 知识总结
-
-### 经验教训
-- **经验1**: {具体经验}
-- **教训1**: {具体教训}
-- **改进**: {改进建议}
-
-### 最佳实践
-- **实践1**: {最佳实践描述}
-- **实践2**: {最佳实践描述}
-
-### 技术债务
-- **债务1**: {技术债务描述和还债计划}
-- **债务2**: {技术债务描述和还债计划}
-
-## 后续计划
-
-### 优化计划
-- [ ] {优化项1} - {预计时间}
-- [ ] {优化项2} - {预计时间}
-
-### 功能扩展
-- [ ] {扩展功能1} - {预计时间}
-- [ ] {扩展功能2} - {预计时间}
-
-### 技术升级
-- [ ] {升级项1} - {预计时间}
-- [ ] {升级项2} - {预计时间}
-
-## 变更记录
-
-| 日期 | 版本 | 变更内容 | 开发者 |
-|------|------|----------|--------|
-| 2025-09-16 | v1.0 | 初始实现 | {姓名} |
+| 日期 | 版本 | 变更内容 | 作者 |
+|------|------|----------|------|
+| 2025-10-25 | v0.1 | 初始化实施计划，结合设计文档输出开发路线 | Zhang Wei |
