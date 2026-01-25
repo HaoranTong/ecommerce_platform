@@ -1890,3 +1890,235 @@ CREATE INDEX idx_status_created_at ON orders(status, created_at DESC);
 ---
 
 **文档结束**
+
+<!-- FRONTEND_RULES -->
+```yaml
+order_management:
+  api_prefix: "/api/v1/order-management"
+  auth_required: true
+  endpoints:
+    create_order:
+      method: "POST"
+      path: "/orders"
+      request_schema: "OrderCreateRequest"
+      response_schema: "OrderDetailResponse"
+      permissions: ["user"]
+    get_order_detail:
+      method: "GET"
+      path: "/orders/{order_id}"
+      response_schema: "OrderDetailResponse"
+      permissions: ["user", "admin"]
+    list_orders:
+      method: "GET"
+      path: "/orders"
+      query_params:
+        - name: "status"
+          type: "string"
+          optional: true
+          enum:
+            - "pending_payment"
+            - "paid"
+            - "processing"
+            - "shipped"
+            - "completed"
+            - "cancelled"
+            - "refunding"
+            - "refunded"
+        - name: "page"
+          type: "integer"
+          default: 1
+        - name: "page_size"
+          type: "integer"
+          default: 20
+          max: 100
+      response_schema: "PaginatedOrderListResponse"
+      permissions: ["user", "admin"]
+    update_order:
+      method: "PUT"
+      path: "/orders/{order_id}"
+      request_schema: "OrderUpdateRequest"
+      response_schema: "OrderDetailResponse"
+      permissions: ["user"]  # 仅限待支付状态修改
+      allowed_fields:
+        - "shipping_address"
+        - "receiver_name"
+        - "receiver_phone"
+        - "notes"
+    cancel_order:
+      method: "POST"
+      path: "/orders/{order_id}/cancel"
+      request_body:
+        reason: "string (optional)"
+      response_schema: "OrderDetailResponse"
+      permissions: ["user"]
+    get_order_history:
+      method: "GET"
+      path: "/orders/{order_id}/history"
+      response_schema: "OrderStatusHistoryListResponse"
+      permissions: ["user", "admin"]
+    search_orders:
+      method: "POST"
+      path: "/orders/search"
+      request_schema: "OrderSearchRequest"
+      response_schema: "PaginatedOrderListResponse"
+      permissions: ["admin"]  # 用户端不开放全文搜索
+
+  schemas:
+    OrderStatus:
+      type: "enum"
+      values:
+        - "pending_payment"
+        - "paid"
+        - "processing"
+        - "shipped"
+        - "completed"
+        - "cancelled"
+        - "refunding"
+        - "refunded"
+      display_names:
+        pending_payment: "待支付"
+        paid: "已支付"
+        processing: "处理中"
+        shipped: "已发货"
+        completed: "已完成"
+        cancelled: "已取消"
+        refunding: "退款中"
+        refunded: "已退款"
+
+    OrderCreateRequest:
+      fields:
+        cart_item_ids:
+          type: "array[int]"
+          required: true
+        shipping_address:
+          type: "string"
+          required: true
+          max_length: 500
+        receiver_name:
+          type: "string"
+          required: true
+          max_length: 100
+        receiver_phone:
+          type: "string"
+          required: true
+          pattern: "^[0-9\\-\\+\\s()]{6,20}$"
+        notes:
+          type: "string"
+          required: false
+          max_length: 1000
+
+    OrderUpdateRequest:
+      fields:
+        shipping_address:
+          type: "string"
+          required: false
+        receiver_name:
+          type: "string"
+          required: false
+        receiver_phone:
+          type: "string"
+          required: false
+        notes:
+          type: "string"
+          required: false
+
+    OrderDetailResponse:
+      fields:
+        order_id: "int"
+        order_number: "string"
+        status: "OrderStatus"
+        total_amount: "decimal"
+        subtotal: "decimal"
+        shipping_fee: "decimal"
+        discount_amount: "decimal"
+        shipping_address: "string"
+        receiver_name: "string"
+        receiver_phone: "string"
+        notes: "string"
+        created_at: "datetime"
+        updated_at: "datetime"
+        items:
+          type: "array"
+          item_type: "OrderItemResponse"
+        history:
+          type: "array"
+          item_type: "OrderStatusHistoryResponse"
+
+    OrderItemResponse:
+      fields:
+        product_name: "string"
+        sku_code: "string"
+        unit_price: "decimal"
+        quantity: "int"
+        product_attributes: "object"
+        product_image_url: "string"
+        subtotal_amount: "decimal"
+
+    OrderStatusHistoryResponse:
+      fields:
+        old_status: "OrderStatus | null"
+        new_status: "OrderStatus"
+        operator_id: "int"
+        remark: "string"
+        created_at: "datetime"
+
+    PaginatedOrderListResponse:
+      fields:
+        items:
+          type: "array"
+          item_type: "OrderResponse"
+        total: "int"
+        page: "int"
+        page_size: "int"
+
+    OrderResponse:
+      fields:
+        order_id: "int"
+        order_number: "string"
+        status: "OrderStatus"
+        total_amount: "decimal"
+        receiver_name: "string"
+        created_at: "datetime"
+
+    OrderSearchRequest:
+      fields:
+        order_number:
+          type: "string"
+          required: false
+        user_id:
+          type: "int"
+          required: false
+        status:
+          type: "OrderStatus"
+          required: false
+        date_from:
+          type: "date"
+          required: false
+        date_to:
+          type: "date"
+          required: false
+
+  error_codes:
+    OM_001: "订单不存在"
+    OM_002: "订单状态不允许此操作"
+    OM_003: "订单已取消，无法修改"
+    OM_004: "库存不足，无法创建订单"
+    OM_005: "商品信息异常，请稍后重试"
+    OM_006: "订单号生成失败"
+    OM_007: "无权限访问该订单"
+    OM_008: "订单金额计算不一致"
+    OM_009: "购物车为空，无法下单"
+
+  ui_rules:
+    order_status_color:
+      pending_payment: "#FFA500"   # 橙色
+      paid: "#1E90FF"              # 道奇蓝
+      processing: "#4682B4"        # 钢青色
+      shipped: "#32CD32"           # 石灰绿
+      completed: "#008000"         # 绿色
+      cancelled: "#808080"         # 灰色
+      refunding: "#FFD700"         # 金色
+      refunded: "#C0C0C0"          # 银色
+    allowed_modify_status: ["pending_payment"]
+    auto_refresh_interval: 30  # 秒，用于支付页订单状态轮询
+```

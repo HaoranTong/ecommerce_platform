@@ -1,0 +1,775 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "definitions": {
+    "SKUInventoryBase": {
+      "type": "object",
+      "properties": {
+        "sku_id": {
+          "type": "integer",
+          "description": "SKU唯一标识符"
+        },
+        "available_quantity": {
+          "type": "integer",
+          "description": "可用库存数量"
+        },
+        "reserved_quantity": {
+          "type": "integer",
+          "description": "预占库存数量"
+        },
+        "total_quantity": {
+          "type": "integer",
+          "description": "总库存数量"
+        },
+        "warning_threshold": {
+          "type": "integer",
+          "description": "库存预警阈值"
+        },
+        "critical_threshold": {
+          "type": "integer",
+          "description": "库存严重不足阈值"
+        }
+      },
+      "required": []
+    },
+    "SKUInventoryCreate": {
+      "type": "object",
+      "properties": {
+        "sku_id": {
+          "type": "integer",
+          "description": "SKU ID"
+        },
+        "initial_quantity": {
+          "type": "integer",
+          "description": "初始库存数量"
+        },
+        "warning_threshold": {
+          "type": "integer",
+          "description": "库存预警阈值"
+        },
+        "critical_threshold": {
+          "type": "integer",
+          "description": "库存严重不足阈值"
+        }
+      },
+      "required": []
+    },
+    "SKUInventoryUpdate": {
+      "type": "object",
+      "properties": {
+        "warning_threshold": {
+          "type": "integer",
+          "description": "库存预警阈值"
+        },
+        "critical_threshold": {
+          "type": "integer",
+          "description": "库存严重不足阈值"
+        },
+        "is_active": {
+          "type": "boolean",
+          "description": "是否启用库存管理"
+        }
+      },
+      "required": []
+    },
+    "SKUInventoryRead": {
+      "type": "object",
+      "properties": {
+        "sku_id": {
+          "type": "integer",
+          "description": "SKU唯一标识符"
+        },
+        "available_quantity": {
+          "type": "integer",
+          "description": "可用库存数量"
+        },
+        "reserved_quantity": {
+          "type": "integer",
+          "description": "预占库存数量"
+        },
+        "total_quantity": {
+          "type": "integer",
+          "description": "总库存数量"
+        },
+        "warning_threshold": {
+          "type": "integer",
+          "description": "库存预警阈值"
+        },
+        "critical_threshold": {
+          "type": "integer",
+          "description": "库存严重不足阈值"
+        },
+        "id": {
+          "type": "integer"
+        },
+        "is_low_stock": {
+          "type": "boolean",
+          "description": "是否库存不足"
+        },
+        "is_critical_stock": {
+          "type": "boolean",
+          "description": "是否库存严重不足"
+        },
+        "is_out_of_stock": {
+          "type": "boolean",
+          "description": "是否缺货"
+        },
+        "is_active": {
+          "type": "boolean",
+          "description": "是否启用库存管理"
+        },
+        "updated_at": {
+          "type": "string",
+          "description": "最后更新时间"
+        }
+      },
+      "required": [
+        "id"
+      ]
+    },
+    "BatchInventoryQuery": {
+      "type": "object",
+      "properties": {
+        "sku_ids": {
+          "type": "string",
+          "description": "SKU ID列表"
+        }
+      },
+      "required": []
+    },
+    "SKUInventorySimple": {
+      "type": "object",
+      "properties": {
+        "sku_id": {
+          "type": "integer"
+        },
+        "available_quantity": {
+          "type": "integer"
+        },
+        "reserved_quantity": {
+          "type": "integer"
+        },
+        "total_quantity": {
+          "type": "integer"
+        },
+        "is_low_stock": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "sku_id",
+        "available_quantity",
+        "reserved_quantity",
+        "total_quantity",
+        "is_low_stock"
+      ]
+    },
+    "ReservationItem": {
+      "type": "object",
+      "properties": {
+        "sku_id": {
+          "type": "integer",
+          "description": "SKU ID"
+        },
+        "quantity": {
+          "type": "integer",
+          "description": "预占数量"
+        }
+      },
+      "required": []
+    },
+    "ReserveRequest": {
+      "type": "object",
+      "properties": {
+        "reservation_type": {
+          "type": "string",
+          "description": "预占类型"
+        },
+        "reference_id": {
+          "type": "string",
+          "description": "关联ID（用户ID或订单ID）"
+        },
+        "items": {
+          "type": "string",
+          "description": "预占商品列表"
+        },
+        "expires_minutes": {
+          "type": "integer",
+          "description": "预占有效期（分钟）"
+        }
+      },
+      "required": []
+    },
+    "ReservationItemResponse": {
+      "type": "object",
+      "properties": {
+        "sku_id": {
+          "type": "integer"
+        },
+        "reserved_quantity": {
+          "type": "integer"
+        },
+        "available_after_reserve": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "sku_id",
+        "reserved_quantity",
+        "available_after_reserve"
+      ]
+    },
+    "ReservationResponse": {
+      "type": "object",
+      "properties": {
+        "reservation_id": {
+          "type": "string"
+        },
+        "expires_at": {
+          "type": "string"
+        },
+        "reserved_items": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "reservation_id",
+        "expires_at",
+        "reserved_items"
+      ]
+    },
+    "ReleaseReservationRequest": {
+      "type": "object",
+      "properties": {
+        "reservation_id": {
+          "type": "string",
+          "description": "预占记录ID"
+        },
+        "user_id": {
+          "type": "string",
+          "description": "用户ID（释放该用户所有预占）"
+        }
+      },
+      "required": []
+    },
+    "DeductItem": {
+      "type": "object",
+      "properties": {
+        "sku_id": {
+          "type": "integer",
+          "description": "SKU ID"
+        },
+        "quantity": {
+          "type": "integer",
+          "description": "扣减数量"
+        },
+        "reservation_id": {
+          "type": "string",
+          "description": "对应的预占记录ID"
+        }
+      },
+      "required": []
+    },
+    "InventoryDeductRequest": {
+      "type": "object",
+      "properties": {
+        "order_id": {
+          "type": "string",
+          "description": "订单ID"
+        },
+        "items": {
+          "type": "string",
+          "description": "扣减商品列表"
+        }
+      },
+      "required": []
+    },
+    "DeductItemResponse": {
+      "type": "object",
+      "properties": {
+        "sku_id": {
+          "type": "integer"
+        },
+        "deducted_quantity": {
+          "type": "integer"
+        },
+        "remaining_quantity": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "sku_id",
+        "deducted_quantity",
+        "remaining_quantity"
+      ]
+    },
+    "DeductResponse": {
+      "type": "object",
+      "properties": {
+        "order_id": {
+          "type": "string"
+        },
+        "deducted_items": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "order_id",
+        "deducted_items"
+      ]
+    },
+    "InventoryAdjustment": {
+      "type": "object",
+      "properties": {
+        "sku_id": {
+          "type": "integer",
+          "description": "SKU ID"
+        },
+        "adjustment_type": {
+          "type": "string",
+          "description": "调整类型"
+        },
+        "quantity": {
+          "type": "integer",
+          "description": "调整数量"
+        },
+        "reason": {
+          "type": "string",
+          "description": "调整原因"
+        },
+        "reference": {
+          "type": "string",
+          "description": "参考单号"
+        }
+      },
+      "required": []
+    },
+    "AdjustmentResponse": {
+      "type": "object",
+      "properties": {
+        "sku_id": {
+          "type": "integer"
+        },
+        "old_quantity": {
+          "type": "integer"
+        },
+        "new_quantity": {
+          "type": "integer"
+        },
+        "adjustment_quantity": {
+          "type": "integer"
+        },
+        "transaction_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "sku_id",
+        "old_quantity",
+        "new_quantity",
+        "adjustment_quantity",
+        "transaction_id"
+      ]
+    },
+    "ThresholdUpdate": {
+      "type": "object",
+      "properties": {
+        "warning_threshold": {
+          "type": "integer",
+          "description": "库存预警阈值"
+        },
+        "critical_threshold": {
+          "type": "integer",
+          "description": "库存严重不足阈值"
+        }
+      },
+      "required": []
+    },
+    "LowStockItem": {
+      "type": "object",
+      "properties": {
+        "sku_id": {
+          "type": "integer"
+        },
+        "current_quantity": {
+          "type": "integer"
+        },
+        "warning_threshold": {
+          "type": "integer"
+        },
+        "critical_threshold": {
+          "type": "integer"
+        },
+        "level": {
+          "type": "string",
+          "description": "预警级别: warning/critical"
+        }
+      },
+      "required": [
+        "sku_id",
+        "current_quantity",
+        "warning_threshold",
+        "critical_threshold"
+      ]
+    },
+    "LowStockQuery": {
+      "type": "object",
+      "properties": {
+        "level": {
+          "type": "string",
+          "description": "预警级别"
+        },
+        "limit": {
+          "type": "integer"
+        },
+        "offset": {
+          "type": "integer"
+        }
+      },
+      "required": []
+    },
+    "InventoryTransactionRead": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer"
+        },
+        "sku_id": {
+          "type": "integer"
+        },
+        "transaction_type": {
+          "type": "string"
+        },
+        "quantity_change": {
+          "type": "integer"
+        },
+        "quantity_before": {
+          "type": "integer"
+        },
+        "quantity_after": {
+          "type": "integer"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "reference_id": {
+          "type": "string"
+        },
+        "operator_id": {
+          "type": "integer"
+        },
+        "created_at": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "sku_id",
+        "transaction_type",
+        "quantity_change",
+        "quantity_before",
+        "quantity_after",
+        "created_at"
+      ]
+    },
+    "TransactionQuery": {
+      "type": "object",
+      "properties": {
+        "sku_ids": {
+          "type": "string",
+          "description": "SKU ID列表"
+        },
+        "transaction_types": {
+          "type": "string",
+          "description": "变动类型列表"
+        },
+        "operator_id": {
+          "type": "integer",
+          "description": "操作人ID"
+        },
+        "start_date": {
+          "type": "string",
+          "description": "开始日期"
+        },
+        "end_date": {
+          "type": "string",
+          "description": "结束日期"
+        },
+        "limit": {
+          "type": "integer"
+        },
+        "offset": {
+          "type": "integer"
+        }
+      },
+      "required": []
+    },
+    "TransactionSearchResponse": {
+      "type": "object",
+      "properties": {
+        "sku_id": {
+          "type": "integer"
+        },
+        "total": {
+          "type": "integer"
+        },
+        "logs": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "sku_id",
+        "total",
+        "logs"
+      ]
+    },
+    "CleanupResponse": {
+      "type": "object",
+      "properties": {
+        "cleaned_reservations": {
+          "type": "integer"
+        },
+        "released_quantity": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "cleaned_reservations",
+        "released_quantity"
+      ]
+    },
+    "ConsistencyCheckItem": {
+      "type": "object",
+      "properties": {
+        "sku_id": {
+          "type": "integer"
+        },
+        "issue": {
+          "type": "string"
+        },
+        "suggested_action": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "sku_id",
+        "issue",
+        "suggested_action"
+      ]
+    },
+    "ConsistencyCheckResponse": {
+      "type": "object",
+      "properties": {
+        "total_skus": {
+          "type": "integer"
+        },
+        "inconsistent_skus": {
+          "type": "integer"
+        },
+        "details": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "total_skus",
+        "inconsistent_skus",
+        "details"
+      ]
+    },
+    "PaginatedResponse": {
+      "type": "object",
+      "properties": {
+        "total": {
+          "type": "integer"
+        },
+        "items": {
+          "type": "string"
+        },
+        "page": {
+          "type": "integer"
+        },
+        "page_size": {
+          "type": "integer"
+        },
+        "total_pages": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "total",
+        "items",
+        "page",
+        "page_size",
+        "total_pages"
+      ]
+    },
+    "APIResponse": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "integer"
+        },
+        "message": {
+          "type": "string"
+        },
+        "data": {
+          "type": "string"
+        },
+        "timestamp": {
+          "type": "string"
+        }
+      },
+      "required": []
+    },
+    "ErrorDetail": {
+      "type": "object",
+      "properties": {
+        "sku_id": {
+          "type": "string"
+        },
+        "requested": {
+          "type": "integer"
+        },
+        "available": {
+          "type": "integer"
+        },
+        "message": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "message"
+      ]
+    },
+    "InventoryEvent": {
+      "type": "object",
+      "properties": {
+        "event_type": {
+          "type": "string",
+          "description": "事件类型"
+        },
+        "event_id": {
+          "type": "string",
+          "description": "事件ID"
+        },
+        "timestamp": {
+          "type": "string"
+        },
+        "data": {
+          "type": "string",
+          "description": "事件数据"
+        }
+      },
+      "required": []
+    },
+    "StockReservedEvent": {
+      "type": "object",
+      "properties": {
+        "sku_id": {
+          "type": "integer"
+        },
+        "quantity": {
+          "type": "integer"
+        },
+        "reservation_id": {
+          "type": "string"
+        },
+        "user_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "sku_id",
+        "quantity",
+        "reservation_id"
+      ]
+    },
+    "StockReleasedEvent": {
+      "type": "object",
+      "properties": {
+        "sku_id": {
+          "type": "integer"
+        },
+        "quantity": {
+          "type": "integer"
+        },
+        "reservation_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "sku_id",
+        "quantity",
+        "reservation_id"
+      ]
+    },
+    "StockDeductedEvent": {
+      "type": "object",
+      "properties": {
+        "sku_id": {
+          "type": "integer"
+        },
+        "quantity": {
+          "type": "integer"
+        },
+        "order_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "sku_id",
+        "quantity",
+        "order_id"
+      ]
+    },
+    "StockAdjustedEvent": {
+      "type": "object",
+      "properties": {
+        "sku_id": {
+          "type": "integer"
+        },
+        "old_quantity": {
+          "type": "integer"
+        },
+        "new_quantity": {
+          "type": "integer"
+        },
+        "adjustment_type": {
+          "type": "string"
+        },
+        "operator_id": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "sku_id",
+        "old_quantity",
+        "new_quantity",
+        "adjustment_type",
+        "operator_id"
+      ]
+    },
+    "LowStockWarningEvent": {
+      "type": "object",
+      "properties": {
+        "sku_id": {
+          "type": "integer"
+        },
+        "current_quantity": {
+          "type": "integer"
+        },
+        "threshold": {
+          "type": "integer"
+        },
+        "level": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "sku_id",
+        "current_quantity",
+        "threshold",
+        "level"
+      ]
+    }
+  }
+}

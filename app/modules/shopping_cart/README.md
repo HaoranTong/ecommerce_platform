@@ -21,6 +21,10 @@
 - `models.py` - 数据模型定义
 - `schemas.py` - 请求/响应模型
 - `dependencies.py` - 模块依赖注入
+- `repository.py` - 数据访问层
+- `exceptions.py` - 自定义异常
+- `api.schema.json` - API Schema定义
+- `schema.md` - API Schema文档
 
 ### 🚀 快速开始
 ```python

@@ -1,0 +1,519 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "definitions": {
+    "TimestampMixin": {
+      "type": "object",
+      "properties": {
+        "created_at": {
+          "type": "string"
+        },
+        "updated_at": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "created_at",
+        "updated_at"
+      ]
+    },
+    "ApiResponse": {
+      "type": "object",
+      "properties": {
+        "success": {
+          "type": "boolean"
+        },
+        "code": {
+          "type": "integer"
+        },
+        "message": {
+          "type": "string"
+        },
+        "data": {
+          "type": "string"
+        },
+        "metadata": {
+          "type": "string"
+        }
+      },
+      "required": []
+    },
+    "PaginatedResponse": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "string",
+          "description": "数据项列表"
+        },
+        "page": {
+          "type": "integer",
+          "description": "当前页码"
+        },
+        "page_size": {
+          "type": "integer",
+          "description": "每页数量"
+        },
+        "total_count": {
+          "type": "integer",
+          "description": "总数据量"
+        }
+      },
+      "required": []
+    },
+    "OrderItemRequest": {
+      "type": "object",
+      "properties": {
+        "product_id": {
+          "type": "integer",
+          "description": "商品ID"
+        },
+        "sku_id": {
+          "type": "integer",
+          "description": "SKU ID"
+        },
+        "quantity": {
+          "type": "integer",
+          "description": "购买数量"
+        }
+      },
+      "required": []
+    },
+    "OrderItemResponse": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer"
+        },
+        "order_id": {
+          "type": "integer"
+        },
+        "product_id": {
+          "type": "integer"
+        },
+        "sku_id": {
+          "type": "integer"
+        },
+        "sku_code": {
+          "type": "string"
+        },
+        "product_name": {
+          "type": "string"
+        },
+        "sku_name": {
+          "type": "string"
+        },
+        "product_attributes": {
+          "type": "string"
+        },
+        "product_image_url": {
+          "type": "string"
+        },
+        "quantity": {
+          "type": "integer"
+        },
+        "unit_price": {
+          "type": "number"
+        },
+        "total_price": {
+          "type": "number"
+        },
+        "created_at": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "order_id",
+        "product_id",
+        "sku_id",
+        "sku_code",
+        "product_name",
+        "sku_name",
+        "quantity",
+        "unit_price",
+        "total_price",
+        "created_at"
+      ]
+    },
+    "ShippingAddressRequest": {
+      "type": "object",
+      "properties": {
+        "recipient": {
+          "type": "string",
+          "description": "收货人"
+        },
+        "phone": {
+          "type": "string",
+          "description": "联系电话"
+        },
+        "address": {
+          "type": "string",
+          "description": "详细地址"
+        }
+      },
+      "required": []
+    },
+    "ShippingAddressResponse": {
+      "type": "object",
+      "properties": {
+        "recipient": {
+          "type": "string",
+          "description": "收货人"
+        },
+        "phone": {
+          "type": "string",
+          "description": "联系电话"
+        },
+        "address": {
+          "type": "string",
+          "description": "详细地址"
+        }
+      },
+      "required": []
+    },
+    "OrderCreateRequest": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "string",
+          "description": "订单商品列表"
+        },
+        "shipping_address": {
+          "type": "string",
+          "description": "收货地址"
+        },
+        "notes": {
+          "type": "string",
+          "description": "订单备注"
+        }
+      },
+      "required": []
+    },
+    "OrderStatusUpdateRequest": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string",
+          "description": "订单状态"
+        },
+        "remark": {
+          "type": "string",
+          "description": "状态变更备注"
+        }
+      },
+      "required": []
+    },
+    "OrderCancelRequest": {
+      "type": "object",
+      "properties": {
+        "reason": {
+          "type": "string",
+          "description": "取消原因"
+        }
+      },
+      "required": []
+    },
+    "OrderResponse": {
+      "type": "object",
+      "properties": {
+        "created_at": {
+          "type": "string"
+        },
+        "updated_at": {
+          "type": "string"
+        },
+        "id": {
+          "type": "integer"
+        },
+        "order_number": {
+          "type": "string"
+        },
+        "user_id": {
+          "type": "integer"
+        },
+        "status": {
+          "type": "string"
+        },
+        "subtotal": {
+          "type": "number"
+        },
+        "shipping_fee": {
+          "type": "number"
+        },
+        "discount_amount": {
+          "type": "number"
+        },
+        "total_amount": {
+          "type": "number"
+        },
+        "shipping_address": {
+          "type": "string"
+        },
+        "receiver_name": {
+          "type": "string"
+        },
+        "receiver_phone": {
+          "type": "string"
+        },
+        "shipping_method": {
+          "type": "string"
+        },
+        "notes": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "created_at",
+        "updated_at",
+        "id",
+        "order_number",
+        "user_id",
+        "status",
+        "subtotal",
+        "shipping_fee",
+        "discount_amount",
+        "total_amount"
+      ]
+    },
+    "OrderDetailResponse": {
+      "type": "object",
+      "properties": {
+        "created_at": {
+          "type": "string"
+        },
+        "updated_at": {
+          "type": "string"
+        },
+        "id": {
+          "type": "integer"
+        },
+        "order_number": {
+          "type": "string"
+        },
+        "user_id": {
+          "type": "integer"
+        },
+        "status": {
+          "type": "string"
+        },
+        "subtotal": {
+          "type": "number"
+        },
+        "shipping_fee": {
+          "type": "number"
+        },
+        "discount_amount": {
+          "type": "number"
+        },
+        "total_amount": {
+          "type": "number"
+        },
+        "shipping_address": {
+          "type": "string"
+        },
+        "receiver_name": {
+          "type": "string"
+        },
+        "receiver_phone": {
+          "type": "string"
+        },
+        "shipping_method": {
+          "type": "string"
+        },
+        "notes": {
+          "type": "string"
+        },
+        "items": {
+          "type": "string"
+        },
+        "status_history": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "created_at",
+        "updated_at",
+        "id",
+        "order_number",
+        "user_id",
+        "status",
+        "subtotal",
+        "shipping_fee",
+        "discount_amount",
+        "total_amount"
+      ]
+    },
+    "OrderListQueryParams": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string",
+          "description": "订单状态筛选"
+        },
+        "page": {
+          "type": "integer",
+          "description": "页码"
+        },
+        "size": {
+          "type": "integer",
+          "description": "每页数量"
+        },
+        "start_date": {
+          "type": "string",
+          "description": "开始日期(YYYY-MM-DD)"
+        },
+        "end_date": {
+          "type": "string",
+          "description": "结束日期(YYYY-MM-DD)"
+        }
+      },
+      "required": []
+    },
+    "OrderStatusHistoryResponse": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer"
+        },
+        "order_id": {
+          "type": "integer"
+        },
+        "old_status": {
+          "type": "string"
+        },
+        "new_status": {
+          "type": "string"
+        },
+        "remark": {
+          "type": "string"
+        },
+        "operator_id": {
+          "type": "integer"
+        },
+        "created_at": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "order_id",
+        "new_status",
+        "created_at"
+      ]
+    },
+    "OrderErrorDetail": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string"
+        },
+        "details": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "type"
+      ]
+    },
+    "OrderErrorResponse": {
+      "type": "object",
+      "properties": {
+        "success": {
+          "type": "boolean"
+        },
+        "code": {
+          "type": "integer"
+        },
+        "message": {
+          "type": "string"
+        },
+        "error": {
+          "type": "string"
+        },
+        "metadata": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "code",
+        "message"
+      ]
+    },
+    "PaginationInfo": {
+      "type": "object",
+      "properties": {
+        "page": {
+          "type": "integer"
+        },
+        "page_size": {
+          "type": "integer"
+        },
+        "total_pages": {
+          "type": "integer"
+        },
+        "total_items": {
+          "type": "integer"
+        },
+        "has_next": {
+          "type": "boolean"
+        },
+        "has_prev": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "page",
+        "page_size",
+        "total_pages",
+        "total_items",
+        "has_next",
+        "has_prev"
+      ]
+    },
+    "OrderStatisticsResponse": {
+      "type": "object",
+      "properties": {
+        "total_orders": {
+          "type": "integer",
+          "description": "订单总数"
+        },
+        "pending_orders": {
+          "type": "integer",
+          "description": "待支付订单数"
+        },
+        "paid_orders": {
+          "type": "integer",
+          "description": "已支付订单数"
+        },
+        "shipped_orders": {
+          "type": "integer",
+          "description": "已发货订单数"
+        },
+        "delivered_orders": {
+          "type": "integer",
+          "description": "已送达订单数"
+        },
+        "cancelled_orders": {
+          "type": "integer",
+          "description": "已取消订单数"
+        },
+        "returned_orders": {
+          "type": "integer",
+          "description": "已退货订单数"
+        },
+        "total_amount": {
+          "type": "number",
+          "description": "订单总金额"
+        },
+        "completion_rate": {
+          "type": "number",
+          "description": "订单完成率（%）"
+        },
+        "cancellation_rate": {
+          "type": "number",
+          "description": "订单取消率（%）"
+        }
+      },
+      "required": []
+    }
+  }
+}

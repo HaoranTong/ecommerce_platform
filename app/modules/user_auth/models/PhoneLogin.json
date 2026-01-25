@@ -1,0 +1,14 @@
+{
+  "type": "object",
+  "properties": {
+    "phone": {
+      "type": "string",
+      "description": "手机号"
+    },
+    "verification_code": {
+      "type": "string",
+      "description": "短信验证码"
+    }
+  },
+  "required": []
+}

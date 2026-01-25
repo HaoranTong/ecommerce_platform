@@ -1,7 +1,7 @@
 <template>
   <div class="product-list">
     <h1>商品列表</h1>
-    
+
     <!-- 搜索过滤区 -->
     <n-card>
       <n-form inline :model="searchForm" @submit.prevent="handleSearch">
@@ -9,38 +9,34 @@
           <n-input v-model:value="searchForm.name" placeholder="请输入商品名称" clearable />
         </n-form-item>
         <n-form-item label="分类">
-          <n-select 
-            v-model:value="searchForm.category_id" 
-            :options="categories" 
-            label-field="name" 
+          <n-select
+            v-model:value="searchForm.category_id"
+            :options="categories"
+            label-field="name"
             value-field="id"
             placeholder="请选择分类"
             clearable
           />
         </n-form-item>
         <n-form-item label="品牌">
-          <n-select 
-            v-model:value="searchForm.brand_id" 
-            :options="brands" 
-            label-field="name" 
+          <n-select
+            v-model:value="searchForm.brand_id"
+            :options="brands"
+            label-field="name"
             value-field="id"
             placeholder="请选择品牌"
             clearable
           />
         </n-form-item>
         <n-form-item label="状态">
-          <n-switch 
-            v-model:value="searchForm.status" 
-            checked-value="true" 
+          <n-switch
+            v-model:value="searchForm.status"
+            checked-value="true"
             unchecked-value="false"
             :round="false"
           >
-            <template #checked>
-              启用
-            </template>
-            <template #unchecked>
-              禁用
-            </template>
+            <template #checked> 启用 </template>
+            <template #unchecked> 禁用 </template>
           </n-switch>
         </n-form-item>
         <n-form-item>
@@ -63,13 +59,13 @@
       remote
       @update:page="handlePageChange"
     />
-    
-    <div v-if="!loading && products.length === 0" style="text-align: center; padding: 20px;">
+
+    <div v-if="!loading && products.length === 0" style="text-align: center; padding: 20px">
       <p>暂无商品数据</p>
     </div>
 
     <!-- 商品表单弹窗 -->
-    <n-modal v-model:show="showModal" preset="dialog" title="商品信息" style="width: 800px;">
+    <n-modal v-model:show="showModal" preset="dialog" title="商品信息" style="width: 800px">
       <n-form
         ref="formRef"
         :model="currentProduct"
@@ -80,61 +76,57 @@
         <n-form-item label="商品名称" path="name">
           <n-input v-model:value="currentProduct.name" placeholder="请输入商品名称" />
         </n-form-item>
-        
+
         <n-form-item label="分类" path="category_id">
-          <n-select 
-            v-model:value="currentProduct.category_id" 
-            :options="categories" 
-            label-field="name" 
+          <n-select
+            v-model:value="currentProduct.category_id"
+            :options="categories"
+            label-field="name"
             value-field="id"
             placeholder="请选择分类"
           />
         </n-form-item>
-        
+
         <n-form-item label="品牌" path="brand_id">
-          <n-select 
-            v-model:value="currentProduct.brand_id" 
-            :options="brands" 
-            label-field="name" 
+          <n-select
+            v-model:value="currentProduct.brand_id"
+            :options="brands"
+            label-field="name"
             value-field="id"
             placeholder="请选择品牌"
           />
         </n-form-item>
-        
+
         <n-form-item label="状态" path="status">
           <n-switch v-model:value="currentProduct.status">
-            <template #checked>
-              启用
-            </template>
-            <template #unchecked>
-              禁用
-            </template>
+            <template #checked> 启用 </template>
+            <template #unchecked> 禁用 </template>
           </n-switch>
         </n-form-item>
-        
+
         <!-- SKU管理区域 -->
         <n-divider title-placement="center">SKU管理</n-divider>
-        
+
         <div class="sku-section">
           <n-button @click="addNewSku">添加SKU</n-button>
-          
+
           <n-data-table
             :columns="skuColumns"
             :data="currentSkus"
             :pagination="false"
-            style="margin-top: 16px;"
+            style="margin-top: 16px"
           />
         </div>
       </n-form>
-      
+
       <template #action>
-        <n-button @click="showModal = false" style="margin-right: 10px;">取消</n-button>
-        <n-button type="primary" @click="submitProduct" :loading="submitting">确定</n-button>
+        <n-button style="margin-right: 10px" @click="showModal = false">取消</n-button>
+        <n-button type="primary" :loading="submitting" @click="submitProduct">确定</n-button>
       </template>
     </n-modal>
-    
+
     <!-- SKU表单弹窗 -->
-    <n-modal v-model:show="showSkuModal" preset="dialog" title="SKU信息" style="width: 600px;">
+    <n-modal v-model:show="showSkuModal" preset="dialog" title="SKU信息" style="width: 600px">
       <n-form
         ref="skuFormRef"
         :model="currentSku"
@@ -145,18 +137,18 @@
         <n-form-item label="规格描述" path="spec">
           <n-input v-model:value="currentSku.spec" placeholder="例如：红色, XL" />
         </n-form-item>
-        
+
         <n-form-item label="价格(分)" path="price">
           <n-input-number v-model:value="currentSku.price" :min="0" />
         </n-form-item>
-        
+
         <n-form-item label="库存" path="stock">
           <n-input-number v-model:value="currentSku.stock" :min="0" />
         </n-form-item>
       </n-form>
-      
+
       <template #action>
-        <n-button @click="showSkuModal = false" style="margin-right: 10px;">取消</n-button>
+        <n-button style="margin-right: 10px" @click="showSkuModal = false">取消</n-button>
         <n-button type="primary" @click="saveSku">确定</n-button>
       </template>
     </n-modal>
@@ -178,7 +170,7 @@ import {
   NImage,
   NModal,
   NDivider,
-  useMessage
+  useMessage,
 } from 'naive-ui';
 import axios from 'axios';
 
@@ -221,12 +213,12 @@ const searchForm = ref({
   name: '',
   category_id: null,
   brand_id: null,
-  status: null
+  status: null,
 });
 
 // 当前商品和SKU
 const currentProduct = ref<Partial<Product>>({
-  status: true
+  status: true,
 });
 const currentSkus = ref<Sku[]>([]);
 const currentSku = ref<Partial<Sku>>({});
@@ -240,9 +232,9 @@ const pagination = ref({
   itemCount: 0,
   showSizePicker: true,
   pageSizes: [10, 20, 50],
-  prefix ({ itemCount }) {
-    return `共有 ${itemCount} 条数据`
-  }
+  prefix({ itemCount }) {
+    return `共有 ${itemCount} 条数据`;
+  },
 });
 
 // 数据
@@ -259,20 +251,20 @@ const rules = {
   name: {
     required: true,
     message: '请输入商品名称',
-    trigger: ['input', 'blur']
+    trigger: ['input', 'blur'],
   },
   category_id: {
     required: true,
     type: 'number',
     message: '请选择分类',
-    trigger: ['change']
+    trigger: ['change'],
   },
   brand_id: {
     required: true,
     type: 'number',
     message: '请选择品牌',
-    trigger: ['change']
-  }
+    trigger: ['change'],
+  },
 };
 
 // SKU表单校验规则
@@ -280,22 +272,22 @@ const skuRules = {
   spec: {
     required: true,
     message: '请输入规格描述',
-    trigger: ['input', 'blur']
+    trigger: ['input', 'blur'],
   },
   price: {
     required: true,
     type: 'number',
     min: 0,
     message: '请输入价格且不小于0',
-    trigger: ['input', 'blur']
+    trigger: ['input', 'blur'],
   },
   stock: {
     required: true,
     type: 'number',
     min: 0,
     message: '请输入库存且不小于0',
-    trigger: ['input', 'blur']
-  }
+    trigger: ['input', 'blur'],
+  },
 };
 
 // 商品表格列定义
@@ -303,11 +295,11 @@ const columns = [
   {
     title: 'ID',
     key: 'id',
-    width: 80
+    width: 80,
   },
   {
     title: '商品名称',
-    key: 'name'
+    key: 'name',
   },
   {
     title: '主图',
@@ -316,108 +308,130 @@ const columns = [
       return h(NImage, {
         width: 60,
         src: row.cover_image,
-        alt: row.name
+        alt: row.name,
       });
-    }
+    },
   },
   {
     title: '分类',
     key: 'category_id',
     render(row: Product) {
-      const category = categories.value.find(c => c.id === row.category_id);
+      const category = categories.value.find((c) => c.id === row.category_id);
       return category ? category.name : '-';
-    }
+    },
   },
   {
     title: '品牌',
     key: 'brand_id',
     render(row: Product) {
-      const brand = brands.value.find(b => b.id === row.brand_id);
+      const brand = brands.value.find((b) => b.id === row.brand_id);
       return brand ? brand.name : '-';
-    }
+    },
   },
   {
     title: '状态',
     key: 'status',
     render(row: Product) {
-      return h(NSwitch, {
-        value: row.status,
-        disabled: true,
-        round: false
-      }, {
-        checked: () => '启用',
-        unchecked: () => '禁用'
-      });
-    }
+      return h(
+        NSwitch,
+        {
+          value: row.status,
+          disabled: true,
+          round: false,
+        },
+        {
+          checked: () => '启用',
+          unchecked: () => '禁用',
+        },
+      );
+    },
   },
   {
     title: '创建时间',
     key: 'created_at',
     render(row: Product) {
-      return new Date(row.created_at).toLocaleString('zh-CN', {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit'
-      }).replace(/\//g, '-');
-    }
+      return new Date(row.created_at)
+        .toLocaleString('zh-CN', {
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+        })
+        .replace(/\//g, '-');
+    },
   },
   {
     title: '操作',
     key: 'actions',
     render(row: Product) {
       return [
-        h(NButton, {
-          size: 'small',
-          onClick: () => showProductModal(row, 'edit'),
-          style: 'margin-right: 10px;'
-        }, { default: () => '编辑' }),
-        h(NButton, {
-          size: 'small',
-          type: 'error',
-          onClick: () => deleteProduct(row.id)
-        }, { default: () => '删除' })
+        h(
+          NButton,
+          {
+            size: 'small',
+            onClick: () => showProductModal(row, 'edit'),
+            style: 'margin-right: 10px;',
+          },
+          { default: () => '编辑' },
+        ),
+        h(
+          NButton,
+          {
+            size: 'small',
+            type: 'error',
+            onClick: () => deleteProduct(row.id),
+          },
+          { default: () => '删除' },
+        ),
       ];
-    }
-  }
+    },
+  },
 ];
 
 // SKU表格列定义
 const skuColumns = [
   {
     title: '规格',
-    key: 'spec'
+    key: 'spec',
   },
   {
     title: '价格',
     key: 'price',
     render(row: Sku) {
       return `¥${(row.price / 100).toFixed(2)}`;
-    }
+    },
   },
   {
     title: '库存',
-    key: 'stock'
+    key: 'stock',
   },
   {
     title: '操作',
     key: 'actions',
     render(row: Sku, index: number) {
       return [
-        h(NButton, {
-          size: 'small',
-          onClick: () => editSku(index),
-          style: 'margin-right: 10px;'
-        }, { default: () => '编辑' }),
-        h(NButton, {
-          size: 'small',
-          type: 'error',
-          onClick: () => removeSku(index)
-        }, { default: () => '删除' })
+        h(
+          NButton,
+          {
+            size: 'small',
+            onClick: () => editSku(index),
+            style: 'margin-right: 10px;',
+          },
+          { default: () => '编辑' },
+        ),
+        h(
+          NButton,
+          {
+            size: 'small',
+            type: 'error',
+            onClick: () => removeSku(index),
+          },
+          { default: () => '删除' },
+        ),
       ];
-    }
-  }
+    },
+  },
 ];
 
 // 🔴🔴🔴 以下为补全的三个核心函数 🔴🔴🔴
@@ -428,7 +442,7 @@ const fetchProducts = async () => {
   try {
     const params: Record<string, any> = {
       page: pagination.value.page,
-      page_size: pagination.value.pageSize
+      page_size: pagination.value.pageSize,
     };
     if (searchForm.value.name) params.name = searchForm.value.name;
     if (searchForm.value.category_id !== null) params.category_id = searchForm.value.category_id;
@@ -500,7 +514,7 @@ const handleSearch = () => {
 // 显示商品模态框
 const showProductModal = (product: Partial<Product>, mode: 'create' | 'edit') => {
   modalMode.value = mode;
-  
+
   if (mode === 'create') {
     currentProduct.value = { status: true };
     currentSkus.value = [];
@@ -509,7 +523,7 @@ const showProductModal = (product: Partial<Product>, mode: 'create' | 'edit') =>
     // 获取该商品的SKU列表
     fetchSkus(product.id!);
   }
-  
+
   showModal.value = true;
 };
 
@@ -568,34 +582,39 @@ const submitProduct = (e: Event) => {
       submitting.value = true;
       try {
         let productId: number;
-        
+
         if (modalMode.value === 'create') {
           // 创建商品
-          const response = await axios.post('/api/v1/product-catalog/products', currentProduct.value);
+          const response = await axios.post(
+            '/api/v1/product-catalog/products',
+            currentProduct.value,
+          );
           productId = response.data.id;
           message.success('创建商品成功');
         } else {
           // 更新商品
-          const response = await axios.put(
-            `/api/v1/product-catalog/products/${currentProduct.value.id}`, 
-            currentProduct.value
+          const _response = await axios.put(
+            `/api/v1/product-catalog/products/${currentProduct.value.id}`,
+            currentProduct.value,
           );
           productId = currentProduct.value.id!;
           message.success('更新商品成功');
         }
-        
+
         // 处理SKU
-        await Promise.all(currentSkus.value.map(async (sku) => {
-          const skuData = { ...sku, product_id: productId };
-          if (sku.id) {
-            // 更新SKU
-            return axios.put(`/api/v1/product-catalog/skus/${sku.id}`, skuData);
-          } else {
-            // 创建SKU
-            return axios.post('/api/v1/product-catalog/skus', skuData);
-          }
-        }));
-        
+        await Promise.all(
+          currentSkus.value.map(async (sku) => {
+            const skuData = { ...sku, product_id: productId };
+            if (sku.id) {
+              // 更新SKU
+              return axios.put(`/api/v1/product-catalog/skus/${sku.id}`, skuData);
+            } else {
+              // 创建SKU
+              return axios.post('/api/v1/product-catalog/skus', skuData);
+            }
+          }),
+        );
+
         showModal.value = false;
         fetchProducts();
       } catch (error) {
@@ -613,7 +632,6 @@ onMounted(() => {
   fetchCategories();
   fetchBrands();
 });
-
 </script>
 <style scoped>
 .product-list {

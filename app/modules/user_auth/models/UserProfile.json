@@ -1,0 +1,55 @@
+{
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "integer"
+    },
+    "username": {
+      "type": "string"
+    },
+    "email": {
+      "type": "string"
+    },
+    "phone": {
+      "type": "string"
+    },
+    "real_name": {
+      "type": "string"
+    },
+    "role": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string"
+    },
+    "is_active": {
+      "type": "boolean"
+    },
+    "email_verified": {
+      "type": "boolean"
+    },
+    "phone_verified": {
+      "type": "boolean"
+    },
+    "two_factor_enabled": {
+      "type": "boolean"
+    },
+    "wx_openid": {
+      "type": "string"
+    },
+    "wx_unionid": {
+      "type": "string"
+    },
+    "last_login_at": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "id",
+    "username",
+    "email",
+    "role",
+    "status",
+    "is_active"
+  ]
+}

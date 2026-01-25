@@ -1,0 +1,370 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "definitions": {
+    "UserRegister": {
+      "type": "object",
+      "properties": {
+        "username": {
+          "type": "string",
+          "description": "用户名"
+        },
+        "email": {
+          "type": "string",
+          "description": "邮箱地址"
+        },
+        "password": {
+          "type": "string",
+          "description": "密码（至少8位，包含字母和数字）"
+        },
+        "phone": {
+          "type": "string",
+          "description": "手机号"
+        },
+        "verification_code": {
+          "type": "string",
+          "description": "验证码"
+        },
+        "real_name": {
+          "type": "string",
+          "description": "真实姓名"
+        }
+      },
+      "required": []
+    },
+    "UserLogin": {
+      "type": "object",
+      "properties": {
+        "username": {
+          "type": "string",
+          "description": "用户名或邮箱"
+        },
+        "password": {
+          "type": "string",
+          "description": "密码"
+        },
+        "verification_code": {
+          "type": "string",
+          "description": "验证码（登录失败3次后必填）"
+        }
+      },
+      "required": []
+    },
+    "PhoneLogin": {
+      "type": "object",
+      "properties": {
+        "phone": {
+          "type": "string",
+          "description": "手机号"
+        },
+        "verification_code": {
+          "type": "string",
+          "description": "短信验证码"
+        }
+      },
+      "required": []
+    },
+    "PasswordResetRequest": {
+      "type": "object",
+      "properties": {
+        "email": {
+          "type": "string",
+          "description": "邮箱地址"
+        }
+      },
+      "required": []
+    },
+    "PasswordResetConfirm": {
+      "type": "object",
+      "properties": {
+        "email": {
+          "type": "string",
+          "description": "邮箱地址"
+        },
+        "verification_code": {
+          "type": "string",
+          "description": "邮箱验证码"
+        },
+        "new_password": {
+          "type": "string",
+          "description": "新密码（至少8位，包含字母和数字）"
+        }
+      },
+      "required": []
+    },
+    "UserCreate": {
+      "type": "object",
+      "properties": {
+        "username": {
+          "type": "string",
+          "description": "用户名"
+        },
+        "email": {
+          "type": "string",
+          "description": "邮箱地址"
+        },
+        "password": {
+          "type": "string",
+          "description": "密码（至少8位，包含字母和数字）"
+        },
+        "phone": {
+          "type": "string",
+          "description": "手机号"
+        },
+        "real_name": {
+          "type": "string",
+          "description": "真实姓名"
+        },
+        "role": {
+          "type": "string",
+          "description": "用户角色"
+        },
+        "is_active": {
+          "type": "boolean",
+          "description": "是否激活"
+        }
+      },
+      "required": []
+    },
+    "UserUpdate": {
+      "type": "object",
+      "properties": {
+        "email": {
+          "type": "string",
+          "description": "邮箱地址"
+        },
+        "phone": {
+          "type": "string",
+          "description": "手机号"
+        },
+        "real_name": {
+          "type": "string",
+          "description": "真实姓名"
+        }
+      },
+      "required": []
+    },
+    "UserChangePassword": {
+      "type": "object",
+      "properties": {
+        "old_password": {
+          "type": "string",
+          "description": "原密码"
+        },
+        "new_password": {
+          "type": "string",
+          "description": "新密码（至少8位，包含字母和数字）"
+        }
+      },
+      "required": []
+    },
+    "UserRead": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer"
+        },
+        "username": {
+          "type": "string"
+        },
+        "email": {
+          "type": "string"
+        },
+        "phone": {
+          "type": "string"
+        },
+        "real_name": {
+          "type": "string"
+        },
+        "role": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "is_active": {
+          "type": "boolean"
+        },
+        "email_verified": {
+          "type": "boolean"
+        },
+        "phone_verified": {
+          "type": "boolean"
+        },
+        "two_factor_enabled": {
+          "type": "boolean"
+        },
+        "wx_openid": {
+          "type": "string"
+        },
+        "wx_unionid": {
+          "type": "string"
+        },
+        "last_login_at": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "username",
+        "email",
+        "role",
+        "status",
+        "is_active"
+      ]
+    },
+    "UserProfile": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer"
+        },
+        "username": {
+          "type": "string"
+        },
+        "email": {
+          "type": "string"
+        },
+        "phone": {
+          "type": "string"
+        },
+        "real_name": {
+          "type": "string"
+        },
+        "role": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "is_active": {
+          "type": "boolean"
+        },
+        "email_verified": {
+          "type": "boolean"
+        },
+        "phone_verified": {
+          "type": "boolean"
+        },
+        "two_factor_enabled": {
+          "type": "boolean"
+        },
+        "wx_openid": {
+          "type": "string"
+        },
+        "wx_unionid": {
+          "type": "string"
+        },
+        "last_login_at": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "username",
+        "email",
+        "role",
+        "status",
+        "is_active"
+      ]
+    },
+    "UserPublic": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer"
+        },
+        "username": {
+          "type": "string"
+        },
+        "real_name": {
+          "type": "string"
+        },
+        "role": {
+          "type": "string"
+        },
+        "created_at": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "username",
+        "role",
+        "created_at"
+      ]
+    },
+    "Token": {
+      "type": "object",
+      "properties": {
+        "access_token": {
+          "type": "string"
+        },
+        "refresh_token": {
+          "type": "string"
+        },
+        "token_type": {
+          "type": "string"
+        },
+        "expires_in": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "access_token",
+        "expires_in"
+      ]
+    },
+    "UserStats": {
+      "type": "object",
+      "properties": {
+        "total_users": {
+          "type": "integer"
+        },
+        "active_users": {
+          "type": "integer"
+        },
+        "new_users_today": {
+          "type": "integer"
+        },
+        "new_users_this_week": {
+          "type": "integer"
+        },
+        "new_users_this_month": {
+          "type": "integer"
+        },
+        "user_roles_distribution": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "total_users",
+        "active_users",
+        "new_users_today",
+        "new_users_this_week",
+        "new_users_this_month",
+        "user_roles_distribution"
+      ]
+    },
+    "UserRegisterResponse": {
+      "type": "object",
+      "properties": {
+        "user": {
+          "type": "string"
+        },
+        "access_token": {
+          "type": "string"
+        },
+        "refresh_token": {
+          "type": "string"
+        },
+        "token_type": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "user",
+        "access_token"
+      ]
+    }
+  }
+}

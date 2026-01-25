@@ -7,9 +7,16 @@
 4. 每个步骤都要明确输出结果"
 
 
+## 🧠 AI 前端契约生成
 
+每个业务模块需提供：
+- `docs/design/modules/<module>/frontend-rules.json`
+- `app/modules/<module>/api.schema.json`
 
-
+运行以下命令生成 AI 可读契约：
+```bash
+python tools/generate_ai_contract.py user-auth
+输出位于 app/modules/<module>/ai-frontend-contract.json，AI 应优先读取此文件。
 
 
 

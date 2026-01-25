@@ -7,8 +7,8 @@ export default defineConfig({
   plugins: [vue()],
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, './src')
-    }
+      '@': path.resolve(__dirname, './src'),
+    },
   },
   server: {
     proxy: {
@@ -16,7 +16,7 @@ export default defineConfig({
         target: 'http://127.0.0.1:8000', // FastAPI 地址
         changeOrigin: true,
         // rewrite: (path) => path.replace(/^\/api/, '')
-      }
-    }
-  }
+      },
+    },
+  },
 });

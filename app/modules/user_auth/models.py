@@ -36,7 +36,7 @@ class User(Base, TimestampMixin, SoftDeleteMixin):
 
     根据数据模型文档规范实现，包含：
     - 主键使用Integer
-    - 唯一约束字段（username, email, wx_openid, wx_unionid）
+    - 唯一约束字段(username, email, wx_openid, wx_unionid)
     - 软删除支持
     - 微信集成字段
     - 时间戳自动维护
@@ -73,7 +73,7 @@ class User(Base, TimestampMixin, SoftDeleteMixin):
     real_name = Column(String(100), nullable=True, comment="真实姓名")
     role = Column(String(50), default="user", nullable=False, comment="基础角色")
 
-    # 微信相关字段（业务扩展）
+    # 微信相关字段(业务扩展)
     wx_openid = Column(String(100), unique=True, nullable=True, comment="微信OpenID")
     wx_unionid = Column(String(100), unique=True, nullable=True, comment="微信UnionID")
 
@@ -223,3 +223,4 @@ class Session(Base, TimestampMixin):
 
     def __repr__(self):
         return f"<Session(id={self.id}, user_id={self.user_id}, is_active={self.is_active})>"
+

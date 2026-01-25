@@ -21,6 +21,10 @@ product_catalog/
 ├── models.py           # 商品数据模型
 ├── schemas.py          # 请求/响应模型
 ├── dependencies.py     # 模块依赖注入
+├── repository.py       # 数据访问层
+├── category_service.py # 分类服务
+├── api.schema.json     # API Schema定义
+├── schema.md           # API Schema文档
 └── __init__.py         # 模块导出
 ```
 
