@@ -35,7 +35,15 @@
       "cert": "QualityCertificate"
     },
     "member_system": {
-      "activity": "MemberActivity"
+      "activity": "MemberActivity",
+      "profile": "MemberProfile",
+      "level": "MemberLevel",
+      "point": "MemberPoint",
+      "transaction": "PointTransaction",
+      "benefit": "MemberBenefit"
+    },
+    "levels": {
+      "level": "MemberLevel"
     }
   }
 }

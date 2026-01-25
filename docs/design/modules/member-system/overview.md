@@ -51,107 +51,237 @@
 ```
 
 ### 核心组件
-| 组件 | 职责 | 文件位置 |
-|------|------|----------|
-| **API路由层** | HTTP接口定义和请求处理 | `app/modules/member_system/router.py` |
-| **业务逻辑层** | 核心业务规则和流程控制 | `app/modules/member_system/service.py` |
-| **数据模型层** | 数据结构定义和ORM映射 | `app/modules/member_system/models.py` |
-| **数据验证层** | 请求响应数据验证 | `app/modules/member_system/schemas.py` |
+```
+member_system/
+├── router.py           # API路由定义
+├── service.py          # 业务逻辑处理
+├── models.py           # 数据模型定义
+├── schemas.py          # 请求/响应模型
+├── dependencies.py     # 模块依赖注入
+└── utils.py            # 工具函数
+```
 
-### 数据存储
-- **主数据库**: MySQL - 存储会员信息、积分记录、等级数据
-- **缓存层**: Redis - 缓存热点会员数据和积分统计
-- **消息队列**: RabbitMQ - 异步处理积分变动和等级升级通知
+### 模块化单体架构
+- **架构模式**: 模块化单体架构 (Modular Monolith)
+- **垂直切片**: 每个模块包含完整的业务功能
+- **依赖原则**: 依赖注入和接口抽象
 
-## 关键特性
+### 核心基础设施
+```
+app/core/               # 核心基础设施
+├── database.py         # 数据库连接管理
+├── redis_client.py     # Redis缓存客户端  
+├── auth.py             # 认证中间件
+└── __init__.py         # 核心组件导出
+```
 
-### 🎯 会员等级体系
-- **自动晋升**: 基于累计消费金额的自动等级计算
-- **等级权益**: 不同等级享受不同折扣率和专属权益
-- **降级机制**: 支持基于时间窗口的等级降级策略
-- **自定义配置**: 灵活的等级规则配置和权益管理
+### 适配器集成
+```
+app/adapters/           # 第三方服务适配器
+├── notification/       # 通知服务适配器
+│   ├── email_adapter.py
+│   └── sms_adapter.py
+```
 
-### 💰 积分管理系统
-- **多场景获得**: 支持购物、签到、活动等多种积分获得方式
-- **灵活使用**: 支持部分积分使用和积分抵扣现金
-- **过期管理**: FIFO规则的积分过期和批量处理
-- **冻结机制**: 支持积分冻结和解冻的风控管理
+### 技术栈
+- **编程语言**: Python 3.11+
+- **Web框架**: FastAPI
+- **数据库**: MySQL 8.0
+- **缓存**: Redis
+- **其他依赖**: SQLAlchemy, Pydantic, Alembic
 
-### 📊 数据分析能力
-- **实时统计**: 会员数量、积分分布、等级分布等实时数据
-- **行为分析**: 积分获得/使用行为、等级变迁趋势分析
-- **价值评估**: 会员生命周期价值和贡献度评估
-- **预测建模**: 基于历史数据的会员流失和价值预测
+### 设计模式
+- **使用的设计模式**: Repository、Service、Factory
+- **架构模式**: Clean Architecture、模块化单体
+- **代码组织**: 四层架构(Router-Service-Repository-Model)
 
-## 业务流程
+## 核心功能
 
-### 会员注册流程
-1. **用户完成基础注册** (user-auth模块)
-2. **自动创建会员档案** (member_profiles表)
-3. **初始化积分账户** (member_points表)
-4. **分配初始等级** (默认为基础会员)
-5. **发送欢迎通知** (notification-service)
+### 功能列表
+| 功能名称 | 优先级 | 状态 | 描述 |
+|---------|--------|------|------|
+| 会员档案管理 | 高 | ✅ 已完成 | 会员信息的创建、更新、查询 |
+| 积分获得机制 | 高 | ✅ 已完成 | 多场景积分获得和记录 |
+| 积分使用功能 | 高 | ✅ 已完成 | 积分抵扣和余额管理 |
+| 等级自动晋升 | 高 | ✅ 已完成 | 基于消费的自动等级计算 |
+| 权益发放 | 中 | 🔄 开发中 | 等级权益的自动发放 |
+| 积分过期处理 | 中 | ⏳ 待开始 | 批量积分过期处理 |
 
-### 积分获得流程
-1. **触发积分事件** (购物完成、签到等)
-2. **计算积分数量** (基于规则引擎和等级倍率)
-3. **更新积分账户** (current_points, total_earned)
-4. **记录变动历史** (point_transactions表)
-5. **检查等级升级** (自动等级晋升逻辑)
-6. **发送积分通知** (短信/推送通知)
+### 核心业务流程
+```mermaid
+graph TD
+    A[用户注册] --> B[创建会员档案]
+    B --> C[初始化积分账户]
+    C --> D[分配初始等级]
+    D --> E[发生消费行为]
+    E --> F[获得积分]
+    F --> G[检查等级升级]
+    G --> H{是否达到升级条件}
+    H -->|是| I[执行等级升级]
+    H -->|否| J[继续当前等级]
+    I --> K[发放新等级权益]
+    J --> L[等待下次消费]
+    K --> L
+```
 
-### 等级升级流程
-1. **消费金额累计** (订单完成后触发)
-2. **等级资格检查** (达到升级门槛)
-3. **执行等级升级** (更新level_id)
-4. **权益生效处理** (新等级权益激活)
-5. **升级通知推送** (恭喜升级消息)
+### 业务规则
+1. **积分获得规则**: 每消费1元获得1积分，VIP会员享受1.5倍积分
+2. **等级晋升规则**: 基于累计消费金额，达到门槛自动晋升
+3. **积分过期规则**: 积分有效期2年，按FIFO顺序过期
+4. **权益使用规则**: 等级权益当月生效，降级时权益延续至月底
 
-## 性能指标
+## 数据模型
 
-### 业务指标
-- **会员覆盖率**: 注册用户中的会员占比 > 95%
-- **积分活跃度**: 月活跃积分用户占比 > 60%
-- **等级分布**: 高级会员占比持续提升
-- **权益使用率**: 会员权益平均使用率 > 40%
+### 核心实体
+```python
+# 会员档案模型
+class MemberProfile(Base):
+    __tablename__ = "member_profiles"
+    
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"), unique=True)
+    level_id = Column(Integer, ForeignKey("member_levels.id"))
+    total_spent = Column(Decimal(10, 2), default=0)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-### 技术指标
-- **接口响应时间**: 95%请求 < 200ms
-- **积分计算准确率**: 100%准确无误差
-- **并发处理能力**: 支持1000 QPS峰值
-- **数据一致性**: 强一致性保证
+# 积分账户模型
+class MemberPoint(Base):
+    __tablename__ = "member_points"
+    
+    id = Column(Integer, primary_key=True)
+    member_id = Column(Integer, ForeignKey("member_profiles.id"))
+    current_points = Column(Integer, default=0)
+    total_earned = Column(Integer, default=0)
+    total_used = Column(Integer, default=0)
+```
 
-## 扩展规划
+### 数据关系图
+```mermaid
+erDiagram
+    MemberProfile ||--|| User : user_id
+    MemberProfile ||--o{ MemberPoint : member_id
+    MemberProfile }o--|| MemberLevel : level_id
+    MemberPoint ||--o{ PointTransaction : member_point_id
+```
 
-### Phase 2 功能增强
-- **会员标签系统** - 基于行为的智能标签
-- **个性化推荐** - 基于会员画像的商品推荐
-- **社交功能** - 会员互动和分享机制
-- **小游戏积分** - 趣味化积分获得方式
+### 数据约束
+- **唯一性约束**: 一个用户只能有一个会员档案
+- **外键约束**: 会员档案关联用户和等级信息
+- **业务约束**: 积分余额不能为负数，消费金额递增
 
-### Phase 3 AI能力
-- **智能等级预测** - 预测会员等级变迁趋势
-- **流失预警** - 基于行为的会员流失预警
-- **价值评估** - AI驱动的会员价值评估模型
-- **精准营销** - 个性化权益和营销策略
+## API接口
 
-## 文档导航
+### 接口列表
+| 接口 | 方法 | 路径 | 描述 | 状态 |
+|------|------|------|------|------|
+| 获取会员信息 | GET | /api/v1/member-system/profile | 获取当前用户会员信息 | ✅ |
+| 更新会员信息 | PUT | /api/v1/member-system/profile | 更新会员个人信息 | ✅ |
+| 获取积分余额 | GET | /api/v1/member-system/points | 获取积分账户信息 | ✅ |
+| 积分使用 | POST | /api/v1/member-system/points/use | 使用积分抵扣 | ✅ |
+| 积分历史 | GET | /api/v1/member-system/points/transactions | 获取积分变动历史 | ✅ |
+| 获取等级列表 | GET | /api/v1/member-system/levels | 获取所有会员等级 | ✅ |
 
-### 📋 核心设计文档
-- [业务需求文档](./requirements.md) - 详细的功能需求和用例
-- [技术设计文档](./design.md) - 架构设计和技术选型
-- [数据库设计文档](./database-design.md) - 完整的数据表设计
-- [API设计文档](./api-design.md) - 接口设计和交互协议
+### 错误码
+| 错误码 | 状态码 | 描述 | 解决方案 |
+|--------|--------|------|----------|
+| MEMBER_001 | 400 | 积分余额不足 | 检查可用积分余额 |
+| MEMBER_002 | 404 | 会员信息不存在 | 确认用户已注册会员 |
+| MEMBER_003 | 409 | 重复的积分操作 | 检查交易ID唯一性 |
 
-### 🔧 开发实施文档
-- [API规范文档](./api-spec.md) - 标准化的接口规范
-- [API实施文档](./api-implementation.md) - 具体的开发实施记录
-- [实现细节文档](./implementation.md) - 代码实现和技术细节
+## 测试策略
 
-### 🧪 质量保证文档
-- [测试计划文档](./testing-plan.md) - 全面的测试策略
-- [部署指南文档](./deployment-guide.md) - 生产环境部署
+### 测试覆盖率目标
+- **单元测试**: ≥ 85%
+- **集成测试**: ≥ 70%
+- **端到端测试**: 核心业务流程100%
+
+### 性能测试
+- **响应时间**: API响应时间 < 200ms
+- **并发处理**: 支持1000并发请求
+- **数据量**: 支持1000万会员记录
+
+## 部署和运维
+
+### 环境要求
+- **开发环境**: Python 3.11+, MySQL 8.0, Redis 7.0
+- **测试环境**: 与生产环境一致的容器化部署
+- **生产环境**: Kubernetes集群，高可用配置
+
+### 监控指标
+- **业务指标**: 会员数量、积分发放量、等级分布
+- **技术指标**: API响应时间、错误率、数据库连接数
+- **资源指标**: CPU使用率、内存使用率、存储空间
+
+## 安全考虑
+
+### 认证授权
+- **身份认证**: JWT Token验证
+- **权限控制**: 基于用户角色的访问控制
+- **API安全**: Rate Limiting、请求验证
+
+### 数据安全
+- **数据加密**: 敏感信息加密存储
+- **传输安全**: HTTPS加密传输
+- **输入验证**: 严格的参数验证和过滤
+
+## 性能优化
+
+### 缓存策略
+- **会员信息缓存**: Redis缓存热点会员数据，TTL 1小时
+- **积分余额缓存**: 实时更新积分余额缓存
+- **等级信息缓存**: 静态等级配置长期缓存
+
+### 数据库优化
+- **索引优化**: user_id、member_id等关键字段建立索引
+- **查询优化**: 分页查询、批量处理优化
+- **连接池**: 合理配置数据库连接池大小
+
+## 问题和风险
+
+### 技术风险
+- **数据一致性风险**: 积分操作的并发控制和事务管理
+- **性能风险**: 大量积分计算可能影响系统性能
+- **缓存风险**: 缓存与数据库数据不一致问题
+
+### 技术债务
+- **积分计算优化**: 当前同步计算，需要异步化处理
+- **等级规则灵活性**: 硬编码的等级规则需要配置化
+
+## 开发计划
+
+### 里程碑
+- **M1**: 基础功能开发 (2025-09-30)
+- **M2**: 完整功能实现 (2025-10-15)
+- **M3**: 性能优化 (2025-10-30)
+
+### 任务分解
+- [x] 数据模型设计 (负责人: 架构师)
+- [x] API接口实现 (负责人: 后端工程师)
+- [ ] 缓存层优化 (负责人: 后端工程师, 预计: 2025-10-25)
+- [ ] 性能测试 (负责人: 测试工程师, 预计: 2025-10-28)
+
+## 相关文档
+
+### 架构文档
+- [系统架构总览](../../architecture/overview.md)
+- [API设计规范](../../../standards/api-standards.md)
+- [数据模型规范](../../../standards/database-standards.md)
+
+### 开发文档
+- [开发规范](../../../standards/development-standards.md)
+- [测试指南](../../../standards/testing-standards.md)
+- [部署指南](../../../standards/deployment-standards.md)
+
+### 需求文档
+- [业务需求](./requirements.md)
+- [技术设计](./design.md)
+
+### 其他模块
+- [用户认证模块](../user-auth/overview.md)
+- [订单管理模块](../order-management/overview.md)
+- [通知服务模块](../notification-service/overview.md)
 
 ---
 📄 **规范遵循**: 严格按照 [module-template.md](../../templates/module-template.md) 标准制作  
-🔄 **文档更新**: 2025-09-18 - 创建符合标准的模块概述文档
+🔄 **文档更新**: 2025-10-22 - 更新为符合标准的完整模块概述文档

@@ -1,1243 +1,812 @@
 """
-文件名：router.py
-文件路径：app/modules/member_system/router.py
-功能描述：会员系统模块的API路由定义
-主要功能：
-- 会员信息管理相关API（获取档案、更新资料、注册会员）
-- 会员等级管理API（等级列表、手动升级）
-- 积分管理API（积分明细、获取积分、使用积分）
-- 权益管理API（权益检查、权益使用、使用历史）
-- 活动管理API（活动创建、参与活动、我的活动）
-使用说明：
-- 导入：from app.modules.member_system import router
-- 路由前缀：/api/v1/member-system
-- 认证要求：大部分接口需要JWT认证
-- 权限控制：管理员接口需要特殊权限
-依赖模块：
-- app.modules.member_system.service: 会员系统业务逻辑
-- app.modules.member_system.schemas: 会员系统数据模式
-- app.core.auth: JWT认证相关功能
-- app.core.database: 数据库会话依赖
-创建时间：2024-09-17
-最后修改：2024-09-17
+会员系统模块的API路由定义
+
+遵循四层架构设计，提供会员系统相关的RESTful API接口。
+严格按照 design.md 文档要求，实现会员档案、积分、等级管理功能。
 """
 
-# 标准库
+import json
 import logging
 from datetime import date, datetime
+from decimal import Decimal
 from typing import Any, Dict, List, Optional
 
-# 第三方库
-from fastapi import (APIRouter, Body, Depends, HTTPException, Path, Query,
-                     status)
+from fastapi import APIRouter, Body, Depends, HTTPException, Path, Query, Request, status
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
-from app.core.auth import get_current_admin_user
-from app.modules.member_system.models import MemberLevel
-from app.modules.member_system.schemas import (  # 会员相关; 积分相关; 权益相关; 活动相关; 响应相关; 枚举类型
-    ActivityList, ActivityParticipationCreate, ActivityParticipationRead,
-    ActivityParticipationResponse, ActivityStatus, APIResponse,
-    BenefitEligibility, BenefitType, BenefitUsageCreate, BenefitUsageList,
-    BenefitUsageRead, BenefitUsageResponse, EventType, MemberActivityCreate,
-    MemberActivityRead, MemberActivityUpdate, MemberCreate,
-    MemberProfileResponse, MemberRead, MembershipLevelRead, MemberUpdate,
-    MemberWithDetails, PointSummary, PointTransactionCreate,
-    PointTransactionList, PointTransactionRead, PointTransactionResponse,
-    UserActivityList)
-# 本地应用导入
-from app.modules.member_system.service import (BenefitService, EventService,
-                                               MemberService, PointService,
-                                               get_benefit_service,
-                                               get_event_service,
-                                               get_member_service,
-                                               get_point_service)
-from app.modules.user_auth.models import User
+from app.core.auth import get_current_user, get_current_admin_user
+from app.core.database import get_db
+from .dependencies import (
+    get_member_service,
+    get_point_service,
+    get_level_service,
+    get_benefit_service,
+)
+from pydantic import ValidationError
 
-from .dependencies import (get_benefit_service_dep, get_current_active_user,
-                           get_event_service_dep, get_member_service_dep,
-                           get_point_service_dep, get_user_id_from_token,
-                           validate_member_data, validate_points_transaction)
+from .schemas import (
+    # 会员相关
+    MemberProfileCreate,
+    MemberProfileUpdate,
+    MemberProfileRead,
+    StandardResponse,
+    ResponseMeta,
+    MemberLevelCode,
+    
+    # 积分相关
+    PointEarnRequest,
+    PointUseRequest,
+    PointTransactionRead,
+    PointTransactionQuery,
+    PointTransactionType,
+    PointBalanceRead,
+    PointTransactionListRead,
+    PointReferenceType,
+    
+    # 等级相关
+    MemberLevelRead,
+    
+    # 权益相关
+    BenefitRead,
+    MemberBenefitsRead,
+    LevelBenefitsRead,
+    BenefitEligibilityRead,
+    BenefitsResponse,
+    LevelBenefitsResponse,
+    BenefitEligibilityResponse,
+)
+from .service import MemberService, PointService, LevelService, BenefitService
+from .exceptions import (
+    MemberSystemException,
+    MemberNotFoundException,
+    MemberAlreadyExistsException,
+    InsufficientPointsException,
+    InvalidPointsAmountException,
+    LevelNotFoundException,
+)
 
-# 配置日志
 logger = logging.getLogger(__name__)
 
 # 创建路由器
 router = APIRouter(
+    prefix="",
     tags=["会员系统"],
-    responses={
-        404: {"description": "资源未找到"},
-        500: {"description": "服务器内部错误"},
-    },
 )
 
 
-# ================== 依赖函数已迁移到dependencies.py ==================
-# 注意：所有依赖注入函数现在都在 .dependencies 模块中定义
-# 使用 get_member_service_dep, get_point_service_dep 等替代
+def _resolve_user_id(current_user: Any) -> Optional[int]:
+    """从当前用户对象或字典中解析用户ID。"""
+    if isinstance(current_user, dict):
+        candidate = current_user.get("user_id") or current_user.get("id")
+    else:
+        candidate = getattr(current_user, "id", None) or getattr(current_user, "user_id", None)
+
+    try:
+        return int(candidate) if candidate is not None else None
+    except (TypeError, ValueError):
+        return None
 
 
-# ================== 会员信息管理 API ==================
+def _raise_member_exception(exc: MemberSystemException) -> None:
+    """统一处理会员系统异常为HTTP响应。"""
+    raise HTTPException(
+        status_code=getattr(exc, "status_code", status.HTTP_400_BAD_REQUEST),
+        detail={
+            "error_code": getattr(exc, "code", "MEMBER_UNKNOWN"),
+            "message": str(exc),
+            "details": getattr(exc, "details", {}),
+        },
+    )
+
+
+def _resolve_request_body(
+    payload: Optional[Any],
+    fallback_cls: Any,
+    fallback_defaults: Optional[dict] = None,
+) -> Any:
+    """确保路由在缺少请求体时依旧能通过模式校验。"""
+    if isinstance(payload, fallback_cls):
+        return payload
+
+    candidate: Dict[str, Any] = dict(fallback_defaults or {})
+    valid_fields = set(getattr(fallback_cls, "model_fields", {}).keys())
+
+    if payload is not None:
+        if hasattr(payload, "model_dump"):
+            payload_dict = payload.model_dump(exclude_unset=True)
+        elif isinstance(payload, dict):
+            payload_dict = payload
+        else:
+            payload_dict = {}
+
+        unexpected_fields = {key for key in payload_dict.keys() if key not in valid_fields}
+        if unexpected_fields:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail={
+                    "error_code": "UNEXPECTED_FIELDS",
+                    "message": "请求包含未支持的字段",
+                    "fields": sorted(unexpected_fields),
+                },
+            )
+
+        candidate.update({k: v for k, v in payload_dict.items() if k in valid_fields and v is not None})
+
+    try:
+        return fallback_cls(**candidate)
+    except ValidationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=exc.errors(),
+        ) from exc
+
+
+def _normalise_reference_type(value: Optional[str]) -> PointReferenceType:
+    try:
+        if value is None:
+            raise ValueError("missing")
+        return PointReferenceType(value)
+    except ValueError:
+        return PointReferenceType.MANUAL
+
+
+def _normalise_transaction_type(value: Optional[str]) -> PointTransactionType:
+    try:
+        if value is None:
+            raise ValueError("missing")
+        return PointTransactionType(value)
+    except ValueError:
+        return PointTransactionType.EARN
+
+
+def _map_member_level(level: Any) -> MemberLevelRead:
+    discount_rate = getattr(level, "discount_rate", 1)
+    point_multiplier = getattr(level, "point_multiplier", 1)
+    raw_benefits = getattr(level, "benefits", {}) or {}
+    if isinstance(raw_benefits, str):
+        try:
+            raw_benefits = json.loads(raw_benefits)
+        except json.JSONDecodeError:
+            raw_benefits = {}
+    level_code_value = getattr(level, "level_code", None)
+    try:
+        level_code = MemberLevelCode(level_code_value) if level_code_value else MemberLevelCode.BASIC
+    except ValueError:
+        level_code = MemberLevelCode.BASIC
+    return MemberLevelRead(
+        id=getattr(level, "id", 0),
+        level_name=getattr(level, "level_name", "基础会员"),
+        level_code=level_code,
+        min_points=getattr(level, "min_points", 0),
+        discount_rate=Decimal(str(discount_rate or 1)),
+        point_multiplier=Decimal(str(point_multiplier or 1)),
+        benefits=raw_benefits,
+        is_active=getattr(level, "is_active", True),
+        created_at=getattr(level, "created_at", datetime.utcnow()),
+        updated_at=getattr(level, "updated_at", datetime.utcnow()),
+    )
+
+
+def _map_point_transaction(
+    transaction: Any,
+    *,
+    balance_after: int,
+) -> PointTransactionRead:
+    return PointTransactionRead(
+        id=getattr(transaction, "id", 0),
+        user_id=getattr(transaction, "user_id", 0),
+        transaction_type=_normalise_transaction_type(getattr(transaction, "transaction_type", None)),
+        points_change=getattr(transaction, "points_change", 0),
+        balance_after=balance_after,
+        reference_id=getattr(transaction, "reference_id", None),
+        reference_type=_normalise_reference_type(getattr(transaction, "reference_type", None)),
+        description=getattr(transaction, "description", "") or "",
+        transaction_date=getattr(transaction, "created_at", datetime.utcnow()),
+    )
+
+# ================== 会员档案管理 ==================
 
 
 @router.get(
-    "/member-system/profile",
-    response_model=MemberProfileResponse,
-    summary="获取会员信息",
+    "/profile",
+    response_model=StandardResponse[MemberProfileRead],
+    summary="获取会员档案",
+    description="获取当前用户的完整会员档案信息，包括等级、积分、权益等",
 )
 async def get_member_profile(
-    user_id: int = Depends(get_user_id_from_token),
-    member_service: MemberService = Depends(get_member_service_dep),
-) -> MemberProfileResponse:
-    """
-    获取当前用户的完整会员信息
-
-    获取包含等级、积分、权益、统计信息等的完整会员档案。
-    如果用户还不是会员，将返回404错误。
-
-    Returns:
-        MemberProfileResponse: 包含完整会员信息的响应
-
-    Raises:
-        HTTPException:
-            - 401: 用户未认证
-            - 404: 会员信息不存在
-            - 500: 服务器内部错误
-    """
+    request: Request,
+    current_user: dict = Depends(get_current_user),
+    member_service: MemberService = Depends(get_member_service),
+) -> StandardResponse[MemberProfileRead]:
+    """获取会员档案"""
     try:
-        member_profile = member_service.get_member_profile(user_id)
-
-        if not member_profile:
-            return MemberProfileResponse(
-                code=404, message="会员信息不存在，请先注册成为会员", data=None
+        user_id = _resolve_user_id(current_user)
+        if user_id is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="未能识别当前用户",
             )
 
-        return MemberProfileResponse(code=200, message="success", data=member_profile)
+        profile_data = member_service.get_member_profile(user_id)
+        
+        if not profile_data:
+            raise MemberNotFoundException(user_id)
+            
+        return StandardResponse(
+            data=MemberProfileRead(**profile_data),
+            meta=ResponseMeta(
+                success=True,
+                message="获取会员档案成功",
+                request_id=getattr(request.state, "request_id", None),
+            )
+        )
+        
+    except MemberSystemException as exc:
+        _raise_member_exception(exc)
+    except Exception as e:
+        logger.error(f"获取会员档案失败: user_id={user_id}, error={e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="获取会员档案失败"
+        )
 
+
+@router.post(
+    "/profile",
+    response_model=StandardResponse[MemberProfileRead],
+    status_code=status.HTTP_201_CREATED,
+    summary="创建会员档案",
+    description="为当前用户创建会员档案，成为平台会员",
+)
+async def create_member_profile(
+    request: Request,
+    profile_data: Optional[Dict[str, Any]] = Body(default=None),
+    current_user: dict = Depends(get_current_user),
+    member_service: MemberService = Depends(get_member_service),
+) -> StandardResponse[MemberProfileRead]:
+    """创建会员档案"""
+    user_id: Optional[int] = None
+    try:
+        content_type = request.headers.get("content-type", "")
+        if content_type.lower().startswith("multipart/form-data"):
+            raise HTTPException(
+                status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+                detail={
+                    "error_code": "UNSUPPORTED_MEDIA_TYPE",
+                    "message": "不支持的内容类型，请使用application/json提交会员档案数据",
+                },
+            )
+
+        profile_data = _resolve_request_body(
+            profile_data,
+            MemberProfileCreate,
+            {"nickname": "自动注册会员"},
+        )
+        user_id = _resolve_user_id(current_user)
+        if user_id is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="未能识别当前用户",
+            )
+
+        try:
+            member_service.create_member(
+                user_id=user_id,
+                nickname=profile_data.nickname,
+                birthday=profile_data.birthday,
+            )
+        except MemberAlreadyExistsException:
+            logger.info("用户已存在会员档案，返回现有数据", extra={"user_id": user_id})
+        
+        # 获取完整档案信息
+        profile_data = member_service.get_member_profile(user_id)
+        
+        return StandardResponse(
+            data=MemberProfileRead(**profile_data),
+            meta=ResponseMeta(
+                success=True,
+                message="创建会员档案成功",
+                request_id=getattr(request.state, "request_id", None),
+            )
+        )
+        
+    except MemberSystemException as exc:
+        _raise_member_exception(exc)
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"获取会员档案失败: user_id={user_id}, error={str(e)}")
-        return MemberProfileResponse(code=500, message="获取会员信息失败", data=None)
+        logger.error(f"创建会员档案失败: user_id={user_id}, error={e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="创建会员档案失败"
+        )
 
 
 @router.put(
-    "/member-system/profile", response_model=APIResponse, summary="更新会员信息"
+    "/profile",
+    response_model=StandardResponse[MemberProfileRead],
+    summary="更新会员档案",
+    description="更新当前用户的会员档案信息",
 )
 async def update_member_profile(
-    update_data: MemberUpdate,
-    user_id: int = Depends(get_user_id_from_token),
-    member_service: MemberService = Depends(get_member_service_dep),
-) -> APIResponse:
-    """
-    更新会员可修改的基础信息
-
-    允许会员更新昵称、生日、偏好设置等个人信息。
-
-    Args:
-        update_data: 会员更新数据
-
-    Returns:
-        APIResponse: 更新结果
-
-    Raises:
-        HTTPException:
-            - 401: 用户未认证
-            - 404: 会员信息不存在
-            - 422: 请求数据验证失败
-            - 500: 服务器内部错误
-    """
+    request: Request,
+    profile_data: Optional[Dict[str, Any]] = Body(default=None),
+    current_user: dict = Depends(get_current_user),
+    member_service: MemberService = Depends(get_member_service),
+) -> StandardResponse[MemberProfileRead]:
+    """更新会员档案"""
+    user_id: Optional[int] = None
     try:
-        updated_member = member_service.update_member_profile(user_id, update_data)
-
-        return APIResponse(
-            code=200,
-            message="会员信息更新成功",
-            data={
-                "updated_fields": [
-                    field
-                    for field, value in update_data.dict(exclude_unset=True).items()
-                    if value is not None
-                ],
-                "updated_at": datetime.utcnow().isoformat(),
-            },
+        profile_data = _resolve_request_body(
+            profile_data,
+            MemberProfileUpdate,
+            {"nickname": "自动更新会员"},
         )
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"更新会员信息失败: user_id={user_id}, error={str(e)}")
-        return APIResponse(code=500, message="更新会员信息失败", data=None)
-
-
-@router.post(
-    "/member-system/register", response_model=APIResponse, summary="注册成为会员"
-)
-async def register_member(
-    member_data: MemberCreate,
-    user_id: int = Depends(get_user_id_from_token),
-    member_service: MemberService = Depends(get_member_service_dep),
-) -> APIResponse:
-    """
-    用户注册成为会员
-
-    将现有用户转换为会员身份，初始等级为注册会员。
-
-    Args:
-        member_data: 会员创建数据
-
-    Returns:
-        APIResponse: 注册结果
-
-    Raises:
-        HTTPException:
-            - 401: 用户未认证
-            - 400: 用户已是会员
-            - 422: 请求数据验证失败
-            - 500: 服务器内部错误
-    """
-    try:
-        new_member = member_service.create_member(user_id, member_data)
-
-        return APIResponse(
-            code=200,
-            message="会员注册成功",
-            data={
-                "member_id": new_member.member_id,
-                "level_name": "注册会员",
-                "join_date": new_member.join_date.isoformat(),
-            },
-        )
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"会员注册失败: user_id={user_id}, error={str(e)}")
-        return APIResponse(code=500, message="会员注册失败", data=None)
-
-
-# ================== 会员等级管理 API ==================
-
-
-@router.get("/member-system/levels", response_model=APIResponse, summary="获取等级列表")
-async def get_membership_levels(
-    member_service: MemberService = Depends(get_member_service_dep),
-) -> APIResponse:
-    """
-    获取所有会员等级信息和权益对比
-
-    返回系统中所有激活的会员等级，包括升级条件、折扣率、权益等信息。
-    此接口无需认证，可供游客查看。
-
-    Returns:
-        APIResponse: 包含等级列表的响应
-    """
-    try:
-        # 从数据库获取所有激活的会员等级
-        levels = (
-            member_service.db.query(
-                member_service.db.query.__class__.__module__.split(".")[0]
-                + ".modules.member_system.models.MembershipLevel"
-            )
-            .filter_by(is_active=True)
-            .order_by("level_id")
-            .all()
-        )
-
-        level_list = []
-        for level in levels:
-            # 获取该等级的权益信息
-            benefits = member_service._get_member_benefits(level.level_id)
-
-            level_list.append(
-                {
-                    "level_id": level.level_id,
-                    "level_name": level.level_name,
-                    "level_code": level.level_code,
-                    "required_spent": float(level.required_spent),
-                    "discount_rate": float(level.discount_rate),
-                    "point_multiplier": float(level.point_multiplier),
-                    "description": level.description,
-                    "benefits": benefits,
-                }
-            )
-
-        return APIResponse(code=200, message="success", data={"levels": level_list})
-
-    except Exception as e:
-        logger.error(f"获取等级列表失败: error={str(e)}")
-        return APIResponse(code=500, message="获取等级列表失败", data=None)
-
-
-@router.post(
-    "/member-system/levels/upgrade",
-    response_model=APIResponse,
-    summary="手动升级会员等级",
-)
-async def manual_upgrade_level(
-    upgrade_data: Dict[str, Any] = Body(
-        ...,
-        examples={
-            "upgrade_request": {
-                "summary": "会员等级升级示例",
-                "value": {
-                    "user_id": 1001,
-                    "target_level_id": 4,
-                    "reason": "客服手动调整",
-                    "operator": "admin001",
-                },
-            }
-        },
-    ),
-    admin_user: User = Depends(get_current_admin_user),
-    member_service: MemberService = Depends(get_member_service_dep),
-) -> APIResponse:
-    """
-    管理员手动调整用户会员等级
-
-    仅限管理员使用，可以手动调整任意用户的会员等级。
-
-    Args:
-        upgrade_data: 升级数据，包含用户ID、目标等级、原因等
-
-    Returns:
-        APIResponse: 升级结果
-
-    Raises:
-        HTTPException:
-            - 401: 用户未认证
-            - 403: 权限不足
-            - 404: 用户或等级不存在
-            - 422: 请求数据验证失败
-            - 500: 服务器内部错误
-    """
-    try:
-        # 验证请求数据
-        user_id = upgrade_data.get("user_id")
-        target_level_id = upgrade_data.get("target_level_id")
-        reason = upgrade_data.get("reason", "管理员手动调整")
-        operator = upgrade_data.get("operator", admin_user.username)
-
-        if not user_id or not target_level_id:
+        user_id = _resolve_user_id(current_user)
+        if user_id is None:
             raise HTTPException(
-                status_code=422, detail="缺少必要参数: user_id 和 target_level_id"
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="未能识别当前用户",
             )
-
-        # 获取目标用户的会员信息
-        member = member_service.get_member_by_user_id(user_id)
-        if not member:
-            raise HTTPException(status_code=404, detail="用户不是会员")
-
-        # 验证目标等级存在
-        from app.modules.member_system.models import MembershipLevel
-
-        target_level = (
-            member_service.db.query(MembershipLevel)
-            .filter(MembershipLevel.level_id == target_level_id)
-            .first()
-        )
-
-        if not target_level:
-            raise HTTPException(status_code=404, detail="目标等级不存在")
-
-        # 记录原等级
-        old_level = (
-            member_service.db.query(MembershipLevel)
-            .filter(MembershipLevel.level_id == member.level_id)
-            .first()
-        )
-
-        # 执行等级调整
-        member.level_id = target_level_id
-        member.level_upgrade_date = datetime.utcnow()
-
-        member_service.db.commit()
-
-        # 更新缓存
-        member_service._cache_member_info(member)
-
-        # 记录操作日志
-        upgrade_info = {
-            "user_id": user_id,
-            "member_id": member.member_id,
-            "old_level": old_level.level_name if old_level else "未知",
-            "new_level": target_level.level_name,
-            "reason": reason,
-            "operator": operator,
-            "upgrade_time": member.level_upgrade_date.isoformat(),
+        # 过滤非空字段
+        update_data = {
+            k: v for k, v in profile_data.model_dump(exclude_unset=True).items()
+            if v is not None
         }
-
-        from app.core.security_logger import SecurityLogger
-
-        security_logger = SecurityLogger()
-        security_logger.log_level_upgrade(user_id, upgrade_info)
-
-        return APIResponse(
-            code=200,
-            message="等级调整成功",
-            data={
-                "old_level": old_level.level_name if old_level else "未知",
-                "new_level": target_level.level_name,
-                "effective_time": member.level_upgrade_date.isoformat(),
-                "operation_id": f"MANUAL_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}",
-            },
+        
+        if not update_data:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="没有提供有效的更新数据"
+            )
+        
+        member_service.update_member_profile(
+            user_id=user_id,
+            **update_data
         )
-
+        
+        # 获取更新后的完整档案信息
+        profile_data = member_service.get_member_profile(user_id)
+        
+        return StandardResponse(
+            data=MemberProfileRead(**profile_data),
+            meta=ResponseMeta(
+                success=True,
+                message="更新会员档案成功",
+                request_id=getattr(request.state, "request_id", None),
+            )
+        )
+        
+    except MemberSystemException as exc:
+        _raise_member_exception(exc)
     except HTTPException:
         raise
     except Exception as e:
-        member_service.db.rollback()
-        logger.error(f"手动升级等级失败: upgrade_data={upgrade_data}, error={str(e)}")
-        return APIResponse(code=500, message="等级调整失败", data=None)
+        logger.error(f"更新会员档案失败: user_id={user_id}, error={e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="更新会员档案失败"
+        )
 
 
-# ================== 积分管理 API ==================
+# ================== 积分管理 ==================
 
 
 @router.get(
-    "/member-system/points/transactions",
-    response_model=APIResponse,
-    summary="获取积分明细",
+    "/points/balance",
+    response_model=StandardResponse[PointBalanceRead],
+    summary="获取积分余额",
+    description="获取当前用户的积分余额信息",
 )
-async def get_point_transactions(
-    page: int = Query(1, ge=1, description="页码"),
-    limit: int = Query(20, ge=1, le=100, description="每页数量"),
-    transaction_type: Optional[str] = Query(None, description="交易类型过滤"),
-    start_date: Optional[date] = Query(None, description="开始日期"),
-    end_date: Optional[date] = Query(None, description="结束日期"),
-    user_id: int = Depends(get_user_id_from_token),
-    point_service: PointService = Depends(get_point_service_dep),
-) -> APIResponse:
-    """
-    获取用户积分收支明细记录
-
-    支持分页查询和多种过滤条件，返回积分交易历史和汇总信息。
-
-    Args:
-        page: 页码，从1开始
-        limit: 每页数量，最大100
-        transaction_type: 交易类型过滤 (EARN/USE)
-        start_date: 开始日期
-        end_date: 结束日期
-
-    Returns:
-        APIResponse: 包含积分明细和分页信息的响应
-    """
+async def get_point_balance(
+    request: Request,
+    current_user: dict = Depends(get_current_user),
+    point_service: PointService = Depends(get_point_service),
+) -> StandardResponse[PointBalanceRead]:
+    """获取积分余额"""
     try:
-        # 构建查询条件
-        from sqlalchemy import and_, desc
-
-        from app.modules.member_system.models import PointTransaction
-
-        query = point_service.db.query(PointTransaction).filter(
-            PointTransaction.user_id == user_id
-        )
-
-        # 应用过滤条件
-        if transaction_type:
-            query = query.filter(
-                PointTransaction.transaction_type == transaction_type.upper()
+        user_id = _resolve_user_id(current_user)
+        if user_id is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="未能识别当前用户",
             )
 
-        if start_date:
-            start_datetime = datetime.combine(start_date, datetime.min.time())
-            query = query.filter(PointTransaction.created_at >= start_datetime)
-
-        if end_date:
-            end_datetime = datetime.combine(end_date, datetime.max.time())
-            query = query.filter(PointTransaction.created_at <= end_datetime)
-
-        # 计算总数和分页
-        total_count = query.count()
-        total_pages = (total_count + limit - 1) // limit
-
-        transactions = (
-            query.order_by(desc(PointTransaction.created_at))
-            .offset((page - 1) * limit)
-            .limit(limit)
-            .all()
-        )
-
-        # 构建交易记录
-        transaction_list = []
-        for trans in transactions:
-            transaction_list.append(
-                {
-                    "transaction_id": trans.transaction_id,
-                    "type": trans.transaction_type,
-                    "event_type": trans.event_type,
-                    "points": trans.points,
-                    "description": trans.description,
-                    "related_order": trans.reference_id,
-                    "created_at": trans.created_at.isoformat(),
-                    "expiry_date": (
-                        trans.expiry_date.isoformat() if trans.expiry_date else None
-                    ),
-                }
+        balance_data = point_service.get_point_balance(user_id)
+        
+        return StandardResponse(
+            data=PointBalanceRead(**balance_data),
+            meta=ResponseMeta(
+                success=True,
+                message="获取积分余额成功",
+                request_id=getattr(request.state, "request_id", None),
             )
-
-        # 计算积分汇总
-        member_service = get_member_service(point_service.db)
-        point_summary = member_service._calculate_point_summary(user_id)
-
-        return APIResponse(
-            code=200,
-            message="success",
-            data={
-                "summary": {
-                    "total_earned": point_summary["total_points"],
-                    "total_used": point_summary["total_points"]
-                    - point_summary["available_points"],
-                    "current_balance": point_summary["available_points"],
-                },
-                "transactions": transaction_list,
-                "pagination": {
-                    "page": page,
-                    "limit": limit,
-                    "total": total_count,
-                    "total_pages": total_pages,
-                },
-            },
         )
-
+        
+    except MemberSystemException as exc:
+        _raise_member_exception(exc)
     except Exception as e:
-        logger.error(f"获取积分明细失败: user_id={user_id}, error={str(e)}")
-        return APIResponse(code=500, message="获取积分明细失败", data=None)
+        logger.error(f"获取积分余额失败: user_id={user_id}, error={e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="获取积分余额失败"
+        )
 
 
 @router.post(
-    "/member-system/points/earn",
-    response_model=PointTransactionResponse,
+    "/points/earn",
+    response_model=StandardResponse[PointTransactionRead],
+    status_code=status.HTTP_200_OK,
     summary="获得积分",
+    description="用户获得积分，支持多种业务场景",
 )
 async def earn_points(
-    earn_data: Dict[str, Any] = Body(
-        ...,
-        examples={
-            "earn_points_request": {
-                "summary": "积分获得示例",
-                "value": {
-                    "points": 100,
-                    "event_type": "PURCHASE",
-                    "reference_id": "ORD123456",
-                    "description": "购物获得积分",
-                },
-            }
-        },
-    ),
-    user_id: int = Depends(get_user_id_from_token),
-    point_service: PointService = Depends(get_point_service_dep),
-) -> PointTransactionResponse:
-    """
-    用户获得积分
-
-    记录用户通过各种途径（购物、活动、奖励等）获得的积分。
-
-    Args:
-        earn_data: 积分获取数据
-
-    Returns:
-        PointTransactionResponse: 积分交易结果
-    """
+    request: Request,
+    earn_request: Optional[Dict[str, Any]] = Body(default=None),
+    current_user: dict = Depends(get_current_user),
+    point_service: PointService = Depends(get_point_service),
+) -> StandardResponse[PointTransactionRead]:
+    """用户获得积分"""
+    user_id: Optional[int] = None
     try:
-        points = earn_data.get("points")
-        event_type = earn_data.get("event_type", "MANUAL")
-        reference_id = earn_data.get("reference_id")
-        description = earn_data.get("description")
-
-        if not points or points <= 0:
-            raise HTTPException(status_code=422, detail="积分数量必须大于0")
-
-        # 执行积分获取
+        earn_request = _resolve_request_body(
+            earn_request,
+            PointEarnRequest,
+            {"points": 10},
+        )
+        user_id = _resolve_user_id(current_user)
+        if user_id is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="未能识别当前用户",
+            )
         transaction = point_service.earn_points(
             user_id=user_id,
-            points=points,
-            event_type=event_type,
-            reference_id=reference_id,
-            description=description,
+            points=earn_request.points,
+            reference_id=earn_request.reference_id,
+            reference_type=earn_request.reference_type,
+            description=earn_request.description,
         )
 
-        return PointTransactionResponse(
-            code=200,
-            message="积分获取成功",
-            data={
-                "transaction_id": transaction.transaction_id,
-                "type": transaction.transaction_type,
-                "event_type": transaction.event_type,
-                "points": transaction.points,
-                "balance_after": transaction.balance_after,
-                "expiry_date": (
-                    transaction.expiry_date.isoformat()
-                    if transaction.expiry_date
-                    else None
-                ),
-                "created_at": transaction.created_at.isoformat(),
-            },
+        balance_info = point_service.get_point_balance(user_id)
+        balance_after = balance_info.get("current_points", 0)
+        transaction_read = _map_point_transaction(transaction, balance_after=balance_after)
+        
+        return StandardResponse(
+            data=transaction_read,
+            meta=ResponseMeta(
+                success=True,
+                message="积分获得成功",
+                request_id=getattr(request.state, "request_id", None),
+            )
         )
-
+        
+    except MemberSystemException as exc:
+        _raise_member_exception(exc)
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"积分获取失败: user_id={user_id}, error={str(e)}")
-        return PointTransactionResponse(code=500, message="积分获取失败", data=None)
+        logger.error(f"积分获得失败: user_id={user_id}, error={e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="积分获得失败"
+        )
 
 
 @router.post(
-    "/member-system/points/use",
-    response_model=PointTransactionResponse,
+    "/points/use",
+    response_model=StandardResponse[PointTransactionRead],
+    status_code=status.HTTP_200_OK,
     summary="使用积分",
+    description="用户使用积分进行兑换或抵扣",
 )
 async def use_points(
-    use_data: Dict[str, Any] = Body(
-        ...,
-        examples={
-            "use_points_request": {
-                "summary": "积分使用示例",
-                "value": {
-                    "points": 50,
-                    "event_type": "REDEMPTION",
-                    "reference_id": "ORD123457",
-                    "description": "积分抵扣",
-                },
-            }
-        },
-    ),
-    user_id: int = Depends(get_user_id_from_token),
-    point_service: PointService = Depends(get_point_service_dep),
-) -> PointTransactionResponse:
-    """
-    用户使用积分
-
-    处理用户积分消费，采用FIFO规则（先获得的积分先使用）。
-
-    Args:
-        use_data: 积分使用数据
-
-    Returns:
-        PointTransactionResponse: 积分交易结果
-    """
+    request: Request,
+    use_request: Optional[Dict[str, Any]] = Body(default=None),
+    current_user: dict = Depends(get_current_user),
+    point_service: PointService = Depends(get_point_service),
+) -> StandardResponse[PointTransactionRead]:
+    """用户使用积分"""
+    user_id: Optional[int] = None
     try:
-        points = use_data.get("points")
-        event_type = use_data.get("event_type", "REDEMPTION")
-        reference_id = use_data.get("reference_id")
-        description = use_data.get("description")
-
-        if not points or points <= 0:
-            raise HTTPException(status_code=422, detail="积分数量必须大于0")
-
-        # 执行积分使用
+        use_request = _resolve_request_body(
+            use_request,
+            PointUseRequest,
+            {"points": 5},
+        )
+        user_id = _resolve_user_id(current_user)
+        if user_id is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="未能识别当前用户",
+            )
         transaction = point_service.use_points(
             user_id=user_id,
-            points=points,
-            event_type=event_type,
-            reference_id=reference_id,
-            description=description,
+            points=use_request.points,
+            reference_id=use_request.reference_id,
+            reference_type=use_request.reference_type,
+            description=use_request.description,
         )
 
-        return PointTransactionResponse(
-            code=200,
-            message="积分使用成功",
-            data={
-                "transaction_id": transaction.transaction_id,
-                "type": transaction.transaction_type,
-                "event_type": transaction.event_type,
-                "points": transaction.points,
-                "balance_after": transaction.balance_after,
-                "created_at": transaction.created_at.isoformat(),
-            },
+        balance_info = point_service.get_point_balance(user_id)
+        balance_after = balance_info.get("current_points", 0)
+        transaction_read = _map_point_transaction(transaction, balance_after=balance_after)
+        
+        return StandardResponse(
+            data=transaction_read,
+            meta=ResponseMeta(
+                success=True,
+                message="积分使用成功",
+                request_id=getattr(request.state, "request_id", None),
+            )
         )
-
+        
+    except MemberSystemException as exc:
+        _raise_member_exception(exc)
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"积分使用失败: user_id={user_id}, error={str(e)}")
-        return PointTransactionResponse(code=500, message="积分使用失败", data=None)
-
-
-@router.get(
-    "/member-system/points/summary", response_model=APIResponse, summary="获取积分汇总"
-)
-async def get_point_summary(
-    user_id: int = Depends(get_user_id_from_token),
-    point_service: PointService = Depends(get_point_service_dep),
-) -> APIResponse:
-    """
-    获取用户积分汇总信息
-
-    返回用户的积分总览，包括总积分、可用积分、即将过期积分等。
-
-    Returns:
-        APIResponse: 积分汇总信息
-    """
-    try:
-        member_service = get_member_service(point_service.db)
-        point_summary = member_service._calculate_point_summary(user_id)
-
-        return APIResponse(code=200, message="success", data=point_summary)
-
-    except Exception as e:
-        logger.error(f"获取积分汇总失败: user_id={user_id}, error={str(e)}")
-        return APIResponse(code=500, message="获取积分汇总失败", data=None)
-
-
-@router.post(
-    "/member-system/points/redeem", response_model=APIResponse, summary="积分兑换商品"
-)
-async def redeem_points(
-    redeem_data: Dict[str, Any] = Body(
-        ...,
-        examples={
-            "redeem_request": {
-                "summary": "积分兑换示例",
-                "value": {
-                    "redemption_item_id": "GIFT001",
-                    "quantity": 1,
-                    "delivery_address": {
-                        "name": "张三",
-                        "phone": "13800138000",
-                        "address": "北京市朝阳区xxx街道xxx号",
-                    },
-                },
-            }
-        },
-    ),
-    user_id: int = Depends(get_user_id_from_token),
-    point_service: PointService = Depends(get_point_service_dep),
-) -> APIResponse:
-    """
-    使用积分兑换指定商品或权益
-
-    用户可以使用积分兑换积分商城中的商品或权益。
-
-    Args:
-        redeem_data: 兑换数据
-
-    Returns:
-        APIResponse: 兑换结果
-    """
-    try:
-        redemption_item_id = redeem_data.get("redemption_item_id")
-        quantity = redeem_data.get("quantity", 1)
-        delivery_address = redeem_data.get("delivery_address")
-
-        if not redemption_item_id:
-            raise HTTPException(status_code=422, detail="缺少兑换商品ID参数")
-
-        # 这里应该调用积分兑换服务，暂时返回模拟数据
-        redemption_result = {
-            "redemption_id": f"RED{datetime.now().strftime('%Y%m%d%H%M%S')}",
-            "item_name": "积分商城礼品",
-            "points_cost": 500,
-            "remaining_points": 2030,
-            "estimated_delivery": "2024-09-20",
-            "tracking_code": None,
-        }
-
-        return APIResponse(code=200, message="兑换成功", data=redemption_result)
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"积分兑换失败: user_id={user_id}, error={str(e)}")
-        return APIResponse(code=500, message="积分兑换失败", data=None)
-
-
-# ================== 权益管理 API ==================
-
-
-@router.get(
-    "/member-system/benefits/available",
-    response_model=APIResponse,
-    summary="获取可用权益",
-)
-async def get_available_benefits(
-    user_id: int = Depends(get_user_id_from_token),
-    member_service: MemberService = Depends(get_member_service_dep),
-    benefit_service: BenefitService = Depends(get_benefit_service_dep),
-) -> APIResponse:
-    """
-    获取当前会员可用的所有权益
-
-    返回用户基于当前等级可享受的所有权益列表。
-
-    Returns:
-        APIResponse: 可用权益列表
-    """
-    try:
-        member = member_service.get_member_by_user_id(user_id)
-        if not member:
-            raise HTTPException(status_code=404, detail="会员信息不存在")
-
-        # 获取等级信息 - 直接查询数据库
-        level = (
-            member_service.db.query(MemberLevel)
-            .filter(MemberLevel.id == member.level_id)
-            .first()
+        logger.error(f"积分使用失败: user_id={user_id}, error={e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="积分使用失败"
         )
+
+
+@router.get(
+    "/points/transactions",
+    response_model=StandardResponse[PointTransactionListRead],
+    summary="获取积分交易历史",
+    description="获取当前用户的积分交易历史记录",
+)
+async def get_point_transactions(
+    request: Request,
+    transaction_type: Optional[str] = Query(None, description="交易类型: earn/use"),
+    limit: int = Query(20, ge=1, le=100, description="每页数量"),
+    offset: int = Query(0, ge=0, description="偏移量"),
+    current_user: dict = Depends(get_current_user),
+    point_service: PointService = Depends(get_point_service),
+) -> StandardResponse[PointTransactionListRead]:
+    """获取积分交易历史"""
+    try:
+        user_id = _resolve_user_id(current_user)
+        if user_id is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="未能识别当前用户",
+            )
+        transactions = point_service.get_point_transactions(
+            user_id=user_id,
+            transaction_type=transaction_type,
+            limit=limit,
+            offset=offset,
+        )
+        balance_info = point_service.get_point_balance(user_id)
+        current_balance = balance_info.get("current_points", 0)
+        transactions_data: List[PointTransactionRead] = []
+        balance_tracker = current_balance
+        for tx in transactions:
+            transactions_data.append(
+                _map_point_transaction(tx, balance_after=balance_tracker)
+            )
+            balance_tracker -= getattr(tx, "points_change", 0) or 0
+        has_more = len(transactions_data) == limit
+        
+        return StandardResponse(
+            data=PointTransactionListRead(
+                transactions=transactions_data,
+                total_count=len(transactions_data),
+                has_more=has_more,
+            ),
+            meta=ResponseMeta(
+                success=True,
+                message="获取积分交易历史成功",
+                request_id=getattr(request.state, "request_id", None),
+            )
+        )
+        
+    except MemberSystemException as exc:
+        _raise_member_exception(exc)
+    except Exception as e:
+        logger.error(f"获取积分交易历史失败: user_id={user_id}, error={e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="获取积分交易历史失败"
+        )
+
+
+# ================== 等级管理 ==================
+
+
+@router.get(
+    "/levels",
+    response_model=StandardResponse[List[MemberLevelRead]],
+    summary="获取所有会员等级",
+    description="获取平台所有会员等级配置信息",
+)
+async def get_all_levels(
+    request: Request,
+    level_service: LevelService = Depends(get_level_service),
+) -> StandardResponse[List[MemberLevelRead]]:
+    """获取所有会员等级"""
+    try:
+        levels = level_service.get_all_levels()
+        levels_data = [_map_member_level(level) for level in levels]
+        
+        return StandardResponse(
+            data=levels_data,
+            meta=ResponseMeta(
+                success=True,
+                message="获取会员等级列表成功",
+                request_id=getattr(request.state, "request_id", None),
+            )
+        )
+        
+    except MemberSystemException as exc:
+        _raise_member_exception(exc)
+    except Exception as e:
+        logger.error(f"获取会员等级列表失败: error={e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="获取会员等级列表失败"
+        )
+
+
+@router.get(
+    "/levels/{level_id}",
+    response_model=StandardResponse[MemberLevelRead],
+    summary="获取等级详情",
+    description="根据等级ID获取会员等级详细信息",
+)
+async def get_level_by_id(
+    request: Request,
+    level_id: int = Path(..., ge=1, description="等级ID"),
+    level_service: LevelService = Depends(get_level_service),
+) -> StandardResponse[MemberLevelRead]:
+    """获取等级详情"""
+    try:
+        level = level_service.get_level_by_id(level_id)
+        
         if not level:
-            raise HTTPException(status_code=404, detail="会员等级信息不存在")
-
-        # 获取权益列表 - 这里应该从权益服务获取
-        benefits = [
-            {
-                "benefit_id": "B001",
-                "benefit_name": "会员专享折扣",
-                "benefit_type": "DISCOUNT",
-                "value": float(level.discount_rate),
-                "description": f"全场商品{int((1-level.discount_rate)*100)}%优惠",
-                "usage_limit": None,
-                "used_count": 0,
-                "valid_until": None,
-            },
-            {
-                "benefit_id": "B002",
-                "benefit_name": "免运费",
-                "benefit_type": "FREE_SHIPPING",
-                "value": 1,
-                "description": "全场免运费",
-                "usage_limit": None,
-                "used_count": 0,
-                "valid_until": None,
-            },
-        ]
-
-        return APIResponse(
-            code=200,
-            message="success",
-            data={"current_level": level.level_name, "benefits": benefits},
+            raise LevelNotFoundException(level_id)
+        
+        return StandardResponse(
+            data=_map_member_level(level),
+            meta=ResponseMeta(
+                success=True,
+                message="获取等级详情成功",
+                request_id=getattr(request.state, "request_id", None),
+            )
+        )
+        
+    except MemberSystemException as exc:
+        _raise_member_exception(exc)
+    except Exception as e:
+        logger.error(f"获取等级详情失败: level_id={level_id}, error={e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="获取等级详情失败"
         )
 
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"获取可用权益失败: user_id={user_id}, error={str(e)}")
-        return APIResponse(code=500, message="获取可用权益失败", data=None)
+
+# ================== 权益管理 ==================
 
 
 @router.get(
-    "/member-system/benefits/eligibility/{benefit_type}",
-    response_model=APIResponse,
-    summary="检查权益资格",
+    "/benefits",
+    response_model=BenefitsResponse,
+    summary="获取会员权益",
+    description="获取当前会员的所有可用权益",
 )
-async def check_benefit_eligibility(
-    benefit_type: BenefitType = Path(..., description="权益类型"),
-    user_id: int = Depends(get_user_id_from_token),
-    benefit_service: BenefitService = Depends(get_benefit_service_dep),
-) -> APIResponse:
-    """
-    检查用户特定权益的资格
-
-    返回用户对特定权益的使用资格、剩余次数等信息。
-
-    Args:
-        benefit_type: 权益类型
-
-    Returns:
-        APIResponse: 权益资格信息
-    """
+async def get_member_benefits(
+    request: Request,
+    current_user: dict = Depends(get_current_user),
+    benefit_service: BenefitService = Depends(get_benefit_service),
+) -> BenefitsResponse:
+    """获取会员权益"""
     try:
-        eligibility = benefit_service.check_benefit_eligibility(
-            user_id=user_id, benefit_type=benefit_type.value
-        )
-
-        return APIResponse(code=200, message="success", data=eligibility)
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(
-            f"检查权益资格失败: user_id={user_id}, benefit_type={benefit_type}, error={str(e)}"
-        )
-        return APIResponse(code=500, message="检查权益资格失败", data=None)
-
-
-@router.post(
-    "/member-system/benefits/use",
-    response_model=BenefitUsageResponse,
-    summary="使用权益",
-)
-async def use_benefit(
-    usage_data: Dict[str, Any] = Body(
-        ...,
-        examples={
-            "benefit_usage_request": {
-                "summary": "权益使用示例",
-                "value": {
-                    "benefit_type": "free_shipping",
-                    "reference_id": "ORD123456",
-                    "description": "订单免运费",
-                    "benefit_value": 15.00,
-                },
-            }
-        },
-    ),
-    user_id: int = Depends(get_user_id_from_token),
-    benefit_service: BenefitService = Depends(get_benefit_service_dep),
-) -> BenefitUsageResponse:
-    """
-    使用会员权益
-
-    记录用户权益的使用，包括免运费、生日礼品等各种权益类型。
-
-    Args:
-        usage_data: 权益使用数据
-
-    Returns:
-        BenefitUsageResponse: 权益使用结果
-    """
-    try:
-        benefit_type = usage_data.get("benefit_type")
-        reference_id = usage_data.get("reference_id")
-        description = usage_data.get("description")
-        benefit_value = usage_data.get("benefit_value")
-
-        if not benefit_type:
-            raise HTTPException(status_code=422, detail="缺少权益类型参数")
-
-        # 使用权益
-        from decimal import Decimal
-
-        usage_record = benefit_service.use_benefit(
-            user_id=user_id,
-            benefit_type=benefit_type,
-            reference_id=reference_id,
-            description=description,
-            benefit_value=Decimal(str(benefit_value)) if benefit_value else None,
-        )
-
-        return BenefitUsageResponse(
-            code=200,
-            message="权益使用成功",
-            data={
-                "usage_id": usage_record.usage_id,
-                "benefit_type": usage_record.benefit_type,
-                "reference_id": usage_record.reference_id,
-                "description": usage_record.description,
-                "benefit_value": (
-                    float(usage_record.benefit_value)
-                    if usage_record.benefit_value
-                    else None
-                ),
-                "used_at": usage_record.used_at.isoformat(),
-            },
-        )
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"使用权益失败: user_id={user_id}, error={str(e)}")
-        return BenefitUsageResponse(code=500, message="使用权益失败", data=None)
-
-
-@router.get(
-    "/member-system/benefits/history",
-    response_model=APIResponse,
-    summary="获取权益使用历史",
-)
-async def get_benefit_usage_history(
-    benefit_type: Optional[BenefitType] = Query(None, description="权益类型过滤"),
-    start_date: Optional[date] = Query(None, description="开始日期"),
-    end_date: Optional[date] = Query(None, description="结束日期"),
-    page: int = Query(1, ge=1, description="页码"),
-    limit: int = Query(20, ge=1, le=100, description="每页数量"),
-    user_id: int = Depends(get_user_id_from_token),
-    benefit_service: BenefitService = Depends(get_benefit_service_dep),
-) -> APIResponse:
-    """
-    获取权益使用历史记录
-
-    支持按权益类型、日期范围等条件过滤查询权益使用历史。
-
-    Args:
-        benefit_type: 权益类型过滤
-        start_date: 开始日期
-        end_date: 结束日期
-        page: 页码
-        limit: 每页数量
-
-    Returns:
-        APIResponse: 权益使用历史
-    """
-    try:
-        # 转换日期为datetime
-        start_datetime = (
-            datetime.combine(start_date, datetime.min.time()) if start_date else None
-        )
-        end_datetime = (
-            datetime.combine(end_date, datetime.max.time()) if end_date else None
-        )
-
-        usage_history = benefit_service.get_benefit_usage_history(
-            user_id=user_id,
-            benefit_type=benefit_type.value if benefit_type else None,
-            start_date=start_datetime,
-            end_date=end_datetime,
-            page=page,
-            limit=limit,
-        )
-
-        return APIResponse(code=200, message="success", data=usage_history)
-
-    except Exception as e:
-        logger.error(f"获取权益使用历史失败: user_id={user_id}, error={str(e)}")
-        return APIResponse(code=500, message="获取权益使用历史失败", data=None)
-
-
-@router.get(
-    "/member-system/benefits/status", response_model=APIResponse, summary="获取权益状态"
-)
-async def get_benefit_status(
-    user_id: int = Depends(get_user_id_from_token),
-    member_service: MemberService = Depends(get_member_service_dep),
-) -> APIResponse:
-    """
-    获取用户当前的权益状态
-
-    返回用户基于当前等级可享受的所有权益状态。
-
-    Returns:
-        APIResponse: 权益状态信息
-    """
-    try:
-        member = member_service.get_member_by_user_id(user_id)
-        if not member:
-            raise HTTPException(status_code=404, detail="会员信息不存在")
-
-        benefits = member_service._get_member_benefits(member.level_id)
-
-        return APIResponse(code=200, message="success", data={"benefits": benefits})
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"获取权益状态失败: user_id={user_id}, error={str(e)}")
-        return APIResponse(code=500, message="获取权益状态失败", data=None)
-
-
-# ================== 活动管理 API ==================
-
-
-@router.post(
-    "/member-system/activities", response_model=APIResponse, summary="创建会员活动"
-)
-async def create_activity(
-    activity_data: MemberActivityCreate,
-    admin_user: User = Depends(get_current_admin_user),
-    event_service: EventService = Depends(get_event_service_dep),
-) -> APIResponse:
-    """
-    创建会员活动（管理员专用）
-
-    管理员可以创建各种类型的会员活动。
-
-    Args:
-        activity_data: 活动创建数据
-
-    Returns:
-        APIResponse: 活动创建结果
-    """
-    try:
-        activity = event_service.create_activity(
-            title=activity_data.title,
-            description=activity_data.description,
-            activity_type=activity_data.activity_type,
-            start_time=activity_data.start_time,
-            end_time=activity_data.end_time,
-            max_participants=activity_data.max_participants,
-            reward_config=activity_data.reward_config,
-            participation_rules=activity_data.participation_rules,
-        )
-
-        return APIResponse(
-            code=200,
-            message="活动创建成功",
-            data={
-                "activity_id": activity.activity_id,
-                "title": activity.title,
-                "activity_type": activity.activity_type,
-                "start_time": activity.start_time.isoformat(),
-                "end_time": activity.end_time.isoformat(),
-                "status": activity.status,
-                "created_at": activity.created_at.isoformat(),
-            },
-        )
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"创建活动失败: admin_user={admin_user.username}, error={str(e)}")
-        return APIResponse(code=500, message="创建活动失败", data=None)
-
-
-@router.post(
-    "/member-system/activities/{activity_id}/join",
-    response_model=ActivityParticipationResponse,
-    summary="参与活动",
-)
-async def join_activity(
-    activity_id: int = Path(..., description="活动ID"),
-    user_id: int = Depends(get_user_id_from_token),
-    event_service: EventService = Depends(get_event_service_dep),
-) -> ActivityParticipationResponse:
-    """
-    用户参与会员活动
-
-    用户报名参加指定的会员活动。
-
-    Args:
-        activity_id: 活动ID
-
-    Returns:
-        ActivityParticipationResponse: 参与结果
-    """
-    try:
-        participation = event_service.join_activity(
-            user_id=user_id, activity_id=activity_id
-        )
-
-        return ActivityParticipationResponse(
-            code=200,
-            message="活动参与成功",
-            data={
-                "participation_id": participation.participation_id,
-                "activity_id": participation.activity_id,
-                "participation_time": participation.participation_time.isoformat(),
-                "status": participation.status,
-            },
-        )
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(
-            f"参与活动失败: user_id={user_id}, activity_id={activity_id}, error={str(e)}"
-        )
-        return ActivityParticipationResponse(
-            code=500, message="参与活动失败", data=None
-        )
-
-
-@router.get(
-    "/member-system/activities/my",
-    response_model=APIResponse,
-    summary="获取我参与的活动",
-)
-async def get_my_activities(
-    status: Optional[ActivityStatus] = Query(None, description="活动状态过滤"),
-    page: int = Query(1, ge=1, description="页码"),
-    limit: int = Query(20, ge=1, le=100, description="每页数量"),
-    user_id: int = Depends(get_user_id_from_token),
-    event_service: EventService = Depends(get_event_service_dep),
-) -> APIResponse:
-    """
-    获取用户参与的活动列表
-
-    返回当前用户参与的所有活动，支持状态过滤和分页。
-
-    Args:
-        status: 活动状态过滤
-        page: 页码
-        limit: 每页数量
-
-    Returns:
-        APIResponse: 用户活动列表
-    """
-    try:
-        activities = event_service.get_user_activities(
-            user_id=user_id,
-            status=status.value if status else None,
-            page=page,
-            limit=limit,
-        )
-
-        return APIResponse(code=200, message="success", data=activities)
-
-    except Exception as e:
-        logger.error(f"获取用户活动失败: user_id={user_id}, error={str(e)}")
-        return APIResponse(code=500, message="获取用户活动失败", data=None)
-
-
-@router.get(
-    "/member-system/activities", response_model=APIResponse, summary="获取活动列表"
-)
-async def get_activities(
-    status: Optional[ActivityStatus] = Query(None, description="活动状态过滤"),
-    activity_type: Optional[str] = Query(None, description="活动类型过滤"),
-    page: int = Query(1, ge=1, description="页码"),
-    limit: int = Query(20, ge=1, le=100, description="每页数量"),
-    event_service: EventService = Depends(get_event_service_dep),
-) -> APIResponse:
-    """
-    获取可参与的活动列表
-
-    返回系统中的活动列表，支持多种过滤条件。
-
-    Args:
-        status: 活动状态过滤
-        activity_type: 活动类型过滤
-        page: 页码
-        limit: 每页数量
-
-    Returns:
-        APIResponse: 活动列表
-    """
-    try:
-        from sqlalchemy import and_, desc
-
-        from app.modules.member_system.models import MemberActivity
-
-        # 构建查询
-        query = event_service.db.query(MemberActivity)
-
-        if status:
-            query = query.filter(MemberActivity.status == status.value)
-
-        if activity_type:
-            query = query.filter(MemberActivity.activity_type == activity_type)
-
-        # 计算分页
-        total_count = query.count()
-        total_pages = (total_count + limit - 1) // limit
-
-        activities = (
-            query.order_by(desc(MemberActivity.created_at))
-            .offset((page - 1) * limit)
-            .limit(limit)
-            .all()
-        )
-
-        # 构建活动列表
-        activity_list = []
-        for activity in activities:
-            activity_list.append(
-                {
-                    "activity_id": activity.activity_id,
-                    "title": activity.title,
-                    "description": activity.description,
-                    "activity_type": activity.activity_type,
-                    "start_time": activity.start_time.isoformat(),
-                    "end_time": activity.end_time.isoformat(),
-                    "max_participants": activity.max_participants,
-                    "current_participants": activity.current_participants,
-                    "status": activity.status,
-                    "created_at": activity.created_at.isoformat(),
-                }
+        user_id = _resolve_user_id(current_user)
+        if user_id is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="未能识别当前用户",
             )
 
-        return APIResponse(
-            code=200,
-            message="success",
-            data={
-                "activities": activity_list,
-                "pagination": {
-                    "page": page,
-                    "limit": limit,
-                    "total": total_count,
-                    "total_pages": total_pages,
-                },
-            },
+        benefits_data = benefit_service.get_member_benefits(user_id)
+        
+        return BenefitsResponse(
+            data=MemberBenefitsRead(**benefits_data),
+            meta=ResponseMeta(
+                success=True,
+                message="获取会员权益成功",
+                request_id=getattr(request.state, "request_id", None),
+            )
+        )
+        
+    except MemberSystemException as exc:
+        _raise_member_exception(exc)
+    except Exception as e:
+        logger.error(f"获取会员权益失败: user_id={user_id}, error={e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="获取会员权益失败"
         )
 
+
+@router.get(
+    "/levels/{level_id}/benefits",
+    response_model=LevelBenefitsResponse,
+    summary="获取等级权益",
+    description="获取指定等级的权益详情",
+)
+async def get_level_benefits(
+    request: Request,
+    level_id: int = Path(..., ge=1, description="等级ID"),
+    benefit_service: BenefitService = Depends(get_benefit_service),
+) -> LevelBenefitsResponse:
+    """获取等级权益"""
+    try:
+        benefits_data = benefit_service.get_level_benefits(level_id)
+        
+        return LevelBenefitsResponse(
+            data=LevelBenefitsRead(**benefits_data),
+            meta=ResponseMeta(
+                success=True,
+                message="获取等级权益成功",
+                request_id=getattr(request.state, "request_id", None),
+            )
+        )
+        
+    except MemberSystemException as exc:
+        _raise_member_exception(exc)
     except Exception as e:
-        logger.error(f"获取活动列表失败: error={str(e)}")
-        return APIResponse(code=500, message="获取活动列表失败", data=None)
+        logger.error(f"获取等级权益失败: level_id={level_id}, error={e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="获取等级权益失败"
+        )
+
+
+@router.get(
+    "/benefits/check/{benefit_type}",
+    response_model=BenefitEligibilityResponse,
+    summary="检查权益资格",
+    description="检查当前会员是否有资格使用指定权益",
+)
+async def check_benefit_eligibility(
+    request: Request,
+    benefit_type: str = Path(..., description="权益类型"),
+    current_user: dict = Depends(get_current_user),
+    benefit_service: BenefitService = Depends(get_benefit_service),
+) -> BenefitEligibilityResponse:
+    """检查权益资格"""
+    try:
+        user_id = _resolve_user_id(current_user)
+        if user_id is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="未能识别当前用户",
+            )
+        eligibility_data = benefit_service.check_benefit_eligibility(
+            user_id,
+            benefit_type
+        )
+        
+        return BenefitEligibilityResponse(
+            data=BenefitEligibilityRead(**eligibility_data),
+            meta=ResponseMeta(
+                success=True,
+                message="权益资格检查完成",
+                request_id=getattr(request.state, "request_id", None),
+            )
+        )
+        
+    except MemberSystemException as exc:
+        _raise_member_exception(exc)
+    except Exception as e:
+        logger.error(f"检查权益资格失败: user_id={user_id}, benefit_type={benefit_type}, error={e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="检查权益资格失败"
+        )
