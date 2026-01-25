@@ -11,20 +11,20 @@ const routes: RouteRecordRaw[] = [
       {
         path: '',
         name: 'Dashboard',
-        component: Dashboard
+        component: Dashboard,
       },
       {
         path: 'products',
         name: 'ProductList',
-        component: ProductList
-      }
-    ]
-  }
+        component: ProductList,
+      },
+    ],
+  },
 ];
 
 const router = createRouter({
   history: createWebHistory(),
-  routes
+  routes,
 });
 
 export default router;
