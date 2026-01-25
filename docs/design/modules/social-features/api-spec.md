@@ -1,39 +1,37 @@
+# social-features 模块 API 规范
+
 ---
 title: "social-features 模块 API 规范"
-version: "v0.4.0"
-status: "Draft"
-created: "2025-10-18"
+version: "v1.0.0"
+status: "draft"
+created: "2025-10-25"
 updated: "2025-10-25"
 owner: "Growth Experience API 团队"
 dependencies:
-	- "../../standards/api-standards.md"
-	- "./design.md"
+	- "docs/standards/api-standards.md"
+	- "docs/design/modules/social-features/design.md"
 labels:
-	- "api"
-	- "spec"
+	- "social-features"
+	- "api-specification"
+	- "restful"
 ---
-
-# social-features 模块 API 规范
 
 ## 1. 文档信息与对齐
 
 | 项目 | 值 |
 |------|----|
-| 模块名称 | social-features |
+| 模块名称 | 社交功能模块 (social-features) |
 | API 版本 | v1 |
-| 文档版本 | v0.4.0 |
-| 设计参考 | [design.md](./design.md) §5 接口设计 |
+| 文档版本 | v1.0.0 |
+| 设计对齐 | [design.md](./design.md) §5 接口设计 |
 
 ## 2. 基础信息与约束
 
 - 基础路径: `/api/v1/social-features/`
-- 认证方式: JWT Bearer Token（`POST /share-events` 支持匿名，但需提供 client 指纹）
-- 数据格式: `application/json; charset=utf-8`
-- 版本策略: 在 URL 中维护主版本号；若发生不兼容变更，新增 `/api/v2/social-features`；旧版本保留 6 个月
-- 幂等策略:
-	- `POST /shares` 支持 `Idempotency-Key`
-	- `POST /share-events` 使用 session 去重，重复返回 `deduplicated=true`
-	- 其他写操作默认非幂等
+- 认证方式: JWT Bearer Token（匿名事件接口可选）
+- 数据格式: 请求/响应使用 `application/json; charset=utf-8`
+- 版本策略: 路径携带主版本号，非兼容变更发布 `/api/v2` 并保留旧版本 6 个月
+- 幂等性: 带 `Idempotency-Key` 的 POST 接口需实现幂等
 
 统一响应结构：
 
@@ -51,37 +49,39 @@ labels:
 }
 ```
 
-## 3. 数据模型概览
+## 3. 数据模型概要
 
-- `ShareCreateRequest`: `resource_type`(`enum`), `resource_id`, `channel`(`enum`), `metadata?`
-- `ShareResponse`: `share_id`, `share_code`, `share_url`, `qr_code_url`, `status`, `expires_at`
-- `ShareEventCreateRequest`: `share_code`, `event_type`(`enum`), `session_id`, `actor_user_id?`, `order_id?`, `client{ip,user_agent,device_id}`
-- `ReferralUpsertRequest`: `inviter_user_id`, `invitee_user_id`, `share_code`, `activity_id`, `event`
-- `RewardResponse`: `reward_id`, `reward_type`, `value`, `status`, `claimed_at?`, `expires_at?`
-- `DailyMetricsResponse`: `stat_date`, `channel`, `resource_type`, `resource_id`, `share_count`, `click_count`, `register_count`, `first_order_count`, `reward_cost`
+- **ShareCreateRequest**: `resource_type (enum)`, `resource_id`, `channel (enum)`, `metadata?`
+- **ShareResponse**: `share_id`, `share_code`, `share_url`, `qr_code_url`, `status`, `expires_at`
+- **ShareEventCreateRequest**: `share_code`, `event_type (enum)`, `session_id`, `actor_user_id?`, `order_id?`, `client(ip,user_agent,device_id)`
+- **ReferralResponse**: `referral_id`, `inviter_user_id`, `invitee_user_id`, `status`, `first_order_id?`, `reward_status`
+- **RewardResponse**: `reward_id`, `reward_type`, `value`, `status`, `claimed_at?`, `expires_at?`
+- **DailyMetricsResponse**: `stat_date`, `channel`, `resource_type`, `resource_id`, `share_count`, `click_count`, `register_count`, `first_order_count`, `reward_cost`
 
-详细字段与约束参见 [design.md](./design.md#3-数据模型)。
+字段类型与长度界限详见 [design.md §3 数据模型](./design.md)。
 
 ## 4. 端点列表
 
-| 方法 | 路径 | 名称 | 描述 | 认证 | 权限 | 幂等 | 状态 |
-|------|------|------|------|------|------|------|------|
-| POST | /shares | CreateShare | 创建分享链接 | Bearer | 登录用户 | ✅ | 📋 Planned |
-| GET | /shares | ListShares | 查询我的分享列表 | Bearer | 登录用户 | ❌ | 📋 Planned |
-| GET | /shares/{share_id} | GetShareDetail | 获取分享详情与统计 | Bearer | 分享所有者/管理员 | ❌ | 📋 Planned |
-| POST | /share-events | IngestShareEvent | 记录分享事件 | 可选 Bearer | 匿名/登录 | 部分 (去重) | 📋 Planned |
-| POST | /referrals | UpsertReferral | 创建或更新邀请关系（内部调用） | Bearer (Service) | 系统 | ✅ | 📋 Planned |
-| PATCH | /referrals/{referral_id}/status | UpdateReferralStatus | 人工调整邀请状态 | Bearer | 管理员 | ❌ | 📋 Planned |
-| GET | /rewards/pending | ListPendingRewards | 查询待领取奖励 | Bearer | 登录用户 | ❌ | 📋 Planned |
-| POST | /rewards/{reward_id}/claim | ClaimReward | 领取奖励 | Bearer | 登录用户 | ❌ | 📋 Planned |
-| GET | /admin/metrics/daily | GetDailyMetrics | 查询日指标 | Bearer | 管理员 | ❌ | 📋 Planned |
-| GET | /admin/violations | ListViolations | 查询违规记录 | Bearer | 管理员 | ❌ | 📋 Planned |
+| 方法 | 路径 | 描述 | 认证 | 权限 | 状态 |
+|------|------|------|------|------|------|
+| POST | /api/v1/social-features/shares | 创建分享链接 | Bearer | 登录用户 | 📋 Planned |
+| GET | /api/v1/social-features/shares | 查询我的分享链接（分页） | Bearer | 登录用户 | 📋 Planned |
+| GET | /api/v1/social-features/shares/{share_id} | 获取分享详情与统计 | Bearer | 分享所有者/管理员 | 📋 Planned |
+| POST | /api/v1/social-features/share-events | 记录分享事件（支持匿名） | 可选 Bearer | 匿名/登录均可 | 📋 Planned |
+| POST | /api/v1/social-features/referrals | 创建/更新邀请关系（内部服务调用） | Bearer(Service) | 系统 | 📋 Planned |
+| PATCH | /api/v1/social-features/referrals/{referral_id}/status | 人工调整邀请状态 | Bearer | 管理员 | 📋 Planned |
+| GET | /api/v1/social-features/rewards/pending | 查询待领取奖励 | Bearer | 登录用户 | 📋 Planned |
+| POST | /api/v1/social-features/rewards/{reward_id}/claim | 领取奖励 | Bearer | 登录用户 | 📋 Planned |
+| GET | /api/v1/social-features/admin/metrics/daily | 查询日指标 | Bearer | 管理员 | 📋 Planned |
+| GET | /api/v1/social-features/admin/violations | 违规记录查询 | Bearer | 管理员 | 📋 Planned |
 
 ## 5. 接口详情
 
-### 5.1 `POST /shares` — 创建分享链接
+### 5.1 创建分享链接
 
-- **请求头**: `Idempotency-Key`(必填), `Authorization: Bearer <token>`
+- **方法**: POST
+- **路径**: `/api/v1/social-features/shares`
+- **认证/权限**: 登录用户；需具备分享功能开关权限
 - **请求体**:
 
 ```json
@@ -96,7 +96,7 @@ labels:
 }
 ```
 
-- **响应 201**:
+- **响应** `201 Created`:
 
 ```json
 {
@@ -114,51 +114,27 @@ labels:
 }
 ```
 
-- **错误**: `409` (`SOCIAL_103`) 资源不可分享；`400` (`SOCIAL_100`) 参数错误。
-
-### 5.2 `GET /shares` — 查询分享列表
-
-- **查询参数**: `page` 默认 1, `page_size` ≤ 50, `status?`, `channel?`。
-- **响应 200**:
+- **失败** `409 Conflict`：资源禁止分享
 
 ```json
 {
-	"success": true,
-	"code": 200,
-	"message": "ok",
-	"data": {
-		"items": [
-			{
-				"share_id": 1001,
-				"share_code": "SHR8Y1ZK",
-				"resource_type": "product",
-				"resource_id": "SKU-20251025",
-				"channel": "wechat",
-				"status": "active",
-				"expires_at": "2025-11-24T10:00:00Z",
-				"metrics": {
-					"clicks": 128,
-					"registers": 34,
-					"first_orders": 12
-				}
-			}
-		],
-		"pagination": {
-			"page": 1,
-			"page_size": 20,
-			"total": 240
+	"success": false,
+	"code": 409,
+	"message": "该商品暂不支持分享",
+	"error": {
+		"code": "SOCIAL_103",
+		"details": {
+			"resource_id": "SKU-20251025"
 		}
 	}
 }
 ```
 
-### 5.3 `GET /shares/{share_id}` — 获取分享详情
+### 5.2 分享事件采集
 
-- **路径参数**: `share_id` (int)
-- **响应**: 包含基本信息、渠道指标、最近事件列表。
-
-### 5.4 `POST /share-events` — 记录分享事件
-
+- **方法**: POST
+- **路径**: `/api/v1/social-features/share-events`
+- **认证**: 可选（匿名点击无需 token）
 - **请求体**:
 
 ```json
@@ -166,8 +142,6 @@ labels:
 	"share_code": "SHR8Y1ZK",
 	"event_type": "click",
 	"session_id": "f7d5c1ab-6afe-4b6e-b172-ff23e0a9d0a1",
-	"actor_user_id": null,
-	"order_id": null,
 	"client": {
 		"ip": "203.0.113.24",
 		"user_agent": "Mozilla/5.0",
@@ -176,7 +150,7 @@ labels:
 }
 ```
 
-- **响应 202**:
+- **响应** `202 Accepted`:
 
 ```json
 {
@@ -191,11 +165,40 @@ labels:
 }
 ```
 
-- **错误**: `404` (`SOCIAL_101`) 分享不存在；`429` (`SOCIAL_301`) 触发限流；`400` (`SOCIAL_100`) 参数错误。
+### 5.3 查询分享详情
 
-### 5.5 `POST /referrals` — 创建/更新邀请关系
+- **方法**: GET
+- **路径**: `/api/v1/social-features/shares/{share_id}`
+- **响应** `200 OK`:
 
-- **用途**: 服务间调用，绑定注册事件与分享。
+```json
+{
+	"success": true,
+	"code": 200,
+	"message": "ok",
+	"data": {
+		"share_id": 1001,
+		"share_code": "SHR8Y1ZK",
+		"resource_type": "product",
+		"resource_id": "SKU-20251025",
+		"channel": "wechat",
+		"status": "active",
+		"expires_at": "2025-11-24T10:00:00Z",
+		"metrics": {
+			"clicks": 128,
+			"registers": 34,
+			"first_orders": 12,
+			"rewards_dispatched": 10
+		}
+	}
+}
+```
+
+### 5.4 创建/更新邀请关系（内部）
+
+- **方法**: POST
+- **路径**: `/api/v1/social-features/referrals`
+- **认证**: 服务账号（系统内部调用）
 - **请求体**:
 
 ```json
@@ -208,11 +211,26 @@ labels:
 }
 ```
 
-- **响应**: 返回最新邀请状态与冲突信息。
-- **错误**: `409` (`SOCIAL_201`) 邀请关系冲突；`403` (`SOCIAL_102`) 无权限调用。
+- **响应** `200 OK`:
 
-### 5.6 `POST /rewards/{reward_id}/claim` — 奖励领取
+```json
+{
+	"success": true,
+	"code": 200,
+	"message": "ok",
+	"data": {
+		"referral_id": 3001,
+		"status": "registered",
+		"first_order_id": null,
+		"reward_status": "pending"
+	}
+}
+```
 
+### 5.5 奖励领取
+
+- **方法**: POST
+- **路径**: `/api/v1/social-features/rewards/{reward_id}/claim`
 - **请求体**:
 
 ```json
@@ -222,7 +240,7 @@ labels:
 }
 ```
 
-- **响应 200**:
+- **响应** `200 OK`:
 
 ```json
 {
@@ -239,68 +257,79 @@ labels:
 }
 ```
 
-- **错误**: `409` (`SOCIAL_202`) 奖励状态异常；`403` (`SOCIAL_102`) 非资源所有者。
+### 5.6 运营指标查询
 
-### 5.7 `GET /admin/metrics/daily` — 日指标查询
+- **方法**: GET
+- **路径**: `/api/v1/social-features/admin/metrics/daily`
+- **查询参数**: `start_date` (必填), `end_date` (必填), `channel?`, `resource_type?`, `resource_id?`, `page`, `page_size`
+- **响应** `200 OK`:
 
-- **查询参数**: `start_date`、`end_date` (必填, YYYY-MM-DD)；`channel?`, `resource_type?`, `resource_id?`, `page`, `page_size`。
-- **响应 200**: 返回 `items` 数组与分页信息。
-- **CSV 导出**: 通过 `Accept: text/csv` 触发。
+```json
+{
+	"success": true,
+	"code": 200,
+	"message": "ok",
+	"data": {
+		"items": [
+			{
+				"stat_date": "2025-10-24",
+				"channel": "wechat",
+				"resource_type": "campaign",
+				"resource_id": "CAMP-202510",
+				"share_count": 560,
+				"click_count": 2380,
+				"register_count": 420,
+				"first_order_count": 180,
+				"reward_cost": "1280.50"
+			}
+		],
+		"pagination": {
+			"page": 1,
+			"page_size": 50,
+			"total": 12
+		}
+	}
+}
+```
 
-### 5.8 `GET /admin/violations` — 违规列表
+## 6. 错误码
 
-- **功能**: 支持按 `status`, `rule_code`, `date_range` 过滤；支持分页与导出。
-- **响应字段**: `violation_id`, `share_id`, `rule_code`, `severity`, `status`, `blocked_reward_ids`, `operator`, `updated_at`。
-
-## 6. 错误码定义
-
-| 错误码 | HTTP 状态 | 描述 | 常见触发场景 |
-|--------|-----------|------|--------------|
-| `SOCIAL_100` | 400 | 请求参数无效 | 缺少必填字段、格式不正确 |
-| `SOCIAL_101` | 404 | 分享链接不存在或已过期 | share_code/ID 不存在 |
-| `SOCIAL_102` | 403 | 无访问权限 | 非资源所有者或缺少管理员权限 |
-| `SOCIAL_103` | 409 | 分享资源冲突 | 资源禁用分享、重复创建 |
-| `SOCIAL_201` | 409 | 邀请关系冲突 | 被邀请人已绑定其他邀请人 |
-| `SOCIAL_202` | 409 | 奖励状态异常 | 重复领取、奖励过期或被阻断 |
-| `SOCIAL_301` | 429 | 限流或风控触发 | IP/session 超过阈值 |
-| `SOCIAL_500` | 500 | 内部服务错误 | 数据库/外部服务异常 |
+| 错误码 | HTTP 状态 | 描述 | 说明 |
+|--------|-----------|------|------|
+| SOCIAL_100 | 400 | 请求参数无效 | Schema 校验失败，返回字段错误详情 |
+| SOCIAL_101 | 404 | 分享链接不存在 | share_id 或 share_code 未找到 |
+| SOCIAL_102 | 403 | 无访问权限 | 非资源所有者或角色未授权 |
+| SOCIAL_103 | 409 | 分享资源冲突 | 资源被禁止分享或重复创建 |
+| SOCIAL_201 | 409 | 邀请关系冲突 | 被邀请人已绑定其他邀请人 |
+| SOCIAL_202 | 409 | 奖励状态异常 | 重复领取或奖励失效 |
+| SOCIAL_301 | 429 | 触发限流或风控 | 返回重试时间 `retry_after` |
+| SOCIAL_500 | 500 | 内部服务错误 | 记录 request_id 以便排查 |
 
 错误响应示例：
 
 ```json
 {
 	"success": false,
-	"code": 409,
-	"message": "邀请关系已存在",
+	"code": 429,
+	"message": "触发限流，请稍后重试",
 	"error": {
-		"code": "SOCIAL_201",
+		"code": "SOCIAL_301",
 		"details": {
-			"invitee_user_id": 6200
+			"retry_after": 30
 		}
-	},
-	"metadata": {
-		"request_id": "req-20251025-0042"
 	}
 }
 ```
 
-## 7. 安全与速率限制
+## 7. 安全与合规
 
-- 所有非匿名端点必须传入 `Authorization` header。
-- 管理员端点额外要求 `X-Admin-Role` header 存在且角色 >= `admin`。
-- 默认限流：普通用户 60 req/min；管理员端 30 req/min；匿名事件 150 req/5min（按 IP+session）。
-- 所有响应头带 `X-Request-ID`、`X-RateLimit-Remaining` 等信息。
+- 分享事件接口对 IP + session 实施限流，默认 150 req / 5 min
+- 管理员接口需二次验证（依赖 `user_auth` 模块）
+- 所有响应头必携带 `X-Request-ID`，供日志追踪
+- 记录审计日志：创建分享、奖励发放、违规处理必须写入审计表
 
-## 8. 合规与审计
+## 8. 变更日志
 
-- 记录关键操作日志：人工调整邀请、奖励领取、违规状态变更。
-- 数据保留：事件数据保留 365 天，违规日志 730 天。
-- 敏感字段（IP、User-Agent）在响应中脱敏，不向普通用户暴露。
-
-## 9. 变更日志
-
-| 日期 | 版本 | 说明 | 作者 |
-|------|------|------|------|
-| 2025-10-18 | v0.2 | 初版接口清单 | Chen Hao |
-| 2025-10-21 | v0.3 | 增加错误码、幂等策略 | Zhang Wei |
-| 2025-10-25 | v0.4 | 对齐文档标准，补充详细示例与安全约束 | Zhang Wei |
+| 日期 | 版本 | 说明 |
+|------|------|------|
+| 2025-10-25 | v1.0.0 | 首次发布，覆盖分享、事件、邀请、奖励、指标相关端点定义 |

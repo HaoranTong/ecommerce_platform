@@ -1,173 +1,113 @@
----
-title: "social-features 模块实施记录"
-version: "v0.3.0"
-status: "Planning"
-created: "2025-10-18"
-updated: "2025-10-25"
-owner: "Growth Experience 开发团队"
-dependencies:
-  - "./design.md"
-  - "./api-implementation.md"
-labels:
-  - "implementation"
-  - "module"
----
+<!-- 文档用于跟踪 social-features 模块从设计到上线的实施细节 -->
 
 # social-features 模块实施记录
 
-📅 **创建日期**: 2025-10-18  
-� **责任团队**: Growth Experience 开发小组  
+📅 **创建日期**: 2025-10-25  
+� **负责团队**: Growth Experience 团队  
 🔄 **最后更新**: 2025-10-25  
-📊 **当前进度**: 10%（设计冻结，开发待启动）
+📊 **整体进度**: 10%（设计完成，开发待启动）
 
 ## 1. 实施概述
 
-- **状态**: 准备中（需求与设计已冻结，等待 2025-11-05 Sprint 开发启动）。
-- **完成功能**: 文档体系、数据模型、接口设计、监控指标定义。
-- **待实施**: API 开发、数据库迁移、异步任务、运营后台联调、性能压测。
-- **技术债务**: 暂无，开发阶段评估后更新。
+- **当前状态**: 准备中（需求冻结，API 规范锁定）
+- **完成功能**: 文档体系、数据模型、API 设计
+- **待实施**: 代码开发、数据库迁移、异步任务、监控告警
+- **技术债务**: 无已知债务，等待开发阶段评估
 
-### 1.1 项目里程碑
+### 关键里程碑
 
-| 日期 | 里程碑 | 状态 | 说明 |
+| 日期 | 里程碑 | 状态 | 备注 |
 |------|--------|------|------|
-| 2025-10-18 | 完成需求澄清 | ✅ | REQ 文档确认 |
-| 2025-10-24 | 设计评审通过 | ✅ | 关键风险与方案确认 |
-| 2025-11-05 | 开发启动 | 📋 Planned | 任务拆分完成后执行 |
-| 2025-11-19 | 功能开发完成 | 📋 Planned | 包含单元/集成/契约测试 |
-| 2025-11-26 | 预发布验证 | � Planned | 压测与灰度计划执行 |
-| 2025-12-05 | 灰度上线 | 📋 Planned | Feature flag 控制 |
+| 2025-10-18 | 完成业务需求澄清 | ✅ | 与产品、运营对齐目标指标 |
+| 2025-10-25 | 设计文档冻结 | ✅ | README/overview/requirements/design/api-spec 全量完成 |
+| 2025-11-05 | 启动开发冲刺 | 📋 Planned | 完成开发前准备与任务拆分 |
+| 2025-11-19 | 开发完成进入测试 | 📋 Planned | 包含单元/集成/契约测试 |
+| 2025-11-26 | 预发布验证 | � Planned | 压测+灰度发布计划 |
 
-## 2. 代码结构映射
+## 2. 代码实施计划
 
+### 模块目录布局（计划）
 ```
 app/modules/social_features/
 ├── __init__.py
-├── router.py                # 路由注册与依赖
-├── schemas.py               # Pydantic DTO
-├── service.py               # Share/Referral/Reward/Metrics 服务
-├── repository.py            # SQLAlchemy async 仓储
-├── models.py                # ORM 实体定义
-├── tasks.py                 # Celery 任务
-├── events.py                # Kafka 事件封装
-├── validators.py            # 资源/风控校验
+├── router.py                # 路由与依赖声明
+├── schemas.py               # Pydantic DTOs
+├── service.py               # 业务服务层
+├── repository.py            # ORM 访问封装
+├── models.py                # SQLAlchemy 实体
+├── tasks.py                 # Celery 异步任务
 ├── dependencies.py          # DI 工厂
-├── exceptions.py            # 领域异常
-└── config.py                # 模块配置读取
+├── events.py                # 事件发布/订阅
+├── exceptions.py            # 领域异常定义
+└── validators.py            # 复杂校验逻辑
 ```
 
-### 2.1 模块与设计对应关系
+### 核心组件实施要点
 
-| 模块文件 | 对应设计章节 | 实施要点 |
-|----------|--------------|----------|
-| `router.py` | Design §2.1 | 子路由拆分、限流依赖、统一响应封装 |
-| `service.py` | Design §4 | 业务流程与规则执行、幂等控制 |
-| `repository.py` | Design §3.2/§3.3 | 提供事务 helper、批量写入、视图查询 |
-| `tasks.py` | Design §4.3/§4.4 | 奖励发放、指标聚合、违规复查 |
-| `events.py` | Design §6.2 | Avro 契约、Kafka Producer/Consumer |
-| `validators.py` | Design §7 | 分享白名单、风控策略、限流判断 |
+- `router.py`: 组装子路由与速率限制依赖，暴露 `/shares`, `/share-events`, `/referrals`, `/rewards`, `/admin` 等前缀。
+- `schemas.py`: 复用 `design.md` 数据字典，确保请求体和响应模型与 `api-spec.md` 一致。
+- `service.py`: 拆分 `ShareService`, `ReferralService`, `RewardService`, `MetricsService`，以接口职责为单位。
+- `repository.py`: 使用 SQLAlchemy 2.0 ORM style（`async_session`），封装常用查询 + 写入，统一事务控制。
+- `tasks.py`: 定义 `dispatch_reward_task`, `sync_referral_status_task`，落地异步补偿与对外同步。
+- `events.py`: 使用 `event_bus.publish/subscribe`，处理 `social.share_event.received` 与 `member.reward_issued`。
+- `exceptions.py`: 对应错误码 `SOCIAL_100~SOCIAL_500`，继承 `PlatformException`，在路由层统一捕获转换。
 
-## 3. 开发计划
+## 3. 数据与迁移实施
 
-### 3.1 迭代拆分
+- **表结构**: `social_share`, `social_share_event`, `social_referral`, `social_reward`, `social_violation`, `social_share_aggregate`。
+- **迁移策略**: 编写两阶段 Alembic 脚本
+  1. `2025-11-05_init_social_features` 创建核心表及索引
+  2. `2025-11-08_add_aggregates_and_views` 添加聚合视图与物化视图刷新任务
+- **索引规划**: `social_share` 按 `user_id`, `resource_type`, `resource_id` 建复合索引；`social_share_event` 使用 `(share_id,event_type,occurred_at)`。
+- **数据初始化**: 预置热门渠道配置、违规关键词列表，脚本位于 `tools/seed_social_features.py`（待实现）。
 
-| Sprint Day | 工作内容 | 负责人 |
-|------------|----------|--------|
-| D1-D3 | 分享 API（create/list/detail）+ Redis 幂等 | Zhang Wei |
-| D2-D5 | 分享事件流水 + Kafka 出站 + 限流模块 | Chen Hao |
-| D4-D7 | 邀请关系绑定、冲突处理、审计日志 | Liu Yan |
-| D6-D9 | 奖励领取流程、Celery 任务、member_system 适配 | Wang Jie |
-| D8-D11 | 指标视图、违规查询、管理员接口 | Zhang Wei |
-| D10-D12 | 测试、性能压测、文档修订 | 全员 |
+## 4. 集成实施
 
-### 3.2 依赖准备
+- **用户中心** (`user_auth`): 引入 `UserProfileClient` 获取邀请人实名状态。
+- **会员系统** (`member_system`): 通过 gRPC `RedeemReward` 接口发放积分/优惠券，失败走 Celery 重试。
+- **营销活动** (`marketing_campaigns`): 同步活动配置，限制邀请规则与奖励上限。
+- **通知服务** (`notification_service`): 发布 `InviteeFirstOrder` 事件后推送消息。
+- **数据分析**: 通过 `Kafka` topic `social.feature.metrics` 输出实时事件，供埋点系统消费。
 
-- 与 DevOps 协调创建 Redis 命名空间 `social_features:*`。
-- 申请 Kafka topic `social.feature.events`、`social.feature.metrics`。
-- 创建 Celery 队列 `social_features_reward`、`social_features_metrics`。
-- 落地 feature flag `SOCIAL_FEATURES_ENABLED`、`SOCIAL_FEATURES_REWARD_ASYNC`。
+## 5. 测试实施计划
 
-## 4. 数据库与存储实施
+- **单元测试**: 覆盖服务层和仓储层关键逻辑，使用 pytest + async fixtures，目标覆盖率 ≥ 85%。
+- **集成测试**: 借助 FastAPI TestClient + 测试数据库，验证 API 整体行为、权限和错误码。
+- **契约测试**: 使用 `schemathesis` 校验 `api-spec.md`，持续集成流水线执行。
+- **性能测试**: JMeter 脚本模拟分享高峰，确保 P95 延迟达标；重点关注 `share-events` 吞吐与 Redis 限流表现。
+- **安全测试**: 注入攻击、越权场景、限流绕过等，联合安全团队复核。
 
-- Alembic 迁移脚本：
-  - `20251105_social_features_init.py`：创建 `social_share`, `social_share_event`, `social_referral`, `social_reward`, `social_violation` 表。
-  - `20251108_social_features_metrics.py`：创建物化视图 `social_share_daily_metrics` 与相关索引。
-- 迁移执行策略：
-  1. 在 staging 环境先执行迁移并跑回归测试。
-  2. 生产迁移采用 `--sql` Dry-run 审核后执行。
-  3. 迁移后运行数据初始化脚本 `tools/seed_social_features.py`（预置渠道配置、违规规则）。
-- 数据回填：将旧系统分享数据导入 `social_share`，保留原始 share_code 映射。
+## 6. 部署与运维
 
-## 5. 异步与事件实现
+- **配置项**: 在 `app/core/settings.py` 引入 `SOCIAL_FEATURES_ENABLED`, `SOCIAL_FEATURES_RATE_LIMIT`, `SOCIAL_REWARD_TASK_QUEUE`。
+- **环境变量**: `SOCIAL_FEATURES_REDIS_PREFIX`, `SOCIAL_FEATURES_EVENT_TOPIC`, `SOCIAL_FEATURES_REWARD_TIMEOUT`。
+- **监控告警**:
+  - Prometheus 指标：分享创建成功率、邀请转化率、奖励发放失败数、限流命中次数。
+  - 日志：结构化日志（包含 `request_id`, `share_code`），违规事件单独打标签。
+  - 告警规则：奖励发放失败 5 分钟内 > 20 次触发 PagerDuty。
+- **灰度发布**: 先行开启 10% 用户分享功能，观察 24 小时再全量；奖励发放模块提供安全开关。
 
-- Celery Worker 镜像沿用平台基础镜像，安装模块依赖（`protobuf`, `grpcio`, `aiokafka`）。
-- 任务列表：
-  - `dispatch_reward_task(reward_id)`：调用 `member_system` 兑换奖励。
-  - `retry_reward_task(reward_id)`：针对失败奖励的补偿。
-  - `aggregate_daily_metrics()`：刷新日指标视图。
-  - `review_violations()`：复核违规记录并通知运营。
-- Kafka 消费者部署：使用共享 `event-consumer` 服务，新增 Handler `social_features_order_handler`。
+## 7. 风险与应对
 
-## 6. 错误处理与风控
+- **高并发写入**: 分享事件写入量大 → 使用批量异步入库 + Redis 去重，预留扩展到 ClickHouse 的接口。
+- **奖励成本控制**: 奖励发放需实时核对活动预算 → 与营销系统建立额度校验，失败立即回滚。
+- **合规风险**: 需监控违规内容 → 构建敏感词过滤与人工审核流程。
 
-- 统一异常：`SocialFeaturesException`，在 `router.py` 注册全局 handler。
-- 风控规则：
-  - Redis 计数 `rc:share:{fingerprint}`；阈值可动态调整。
-  - 黑名单来自 `marketing_campaigns`，每日同步。
-- 审计：人工操作（邀请状态、违规处理）记录 `audit_log`，并写入 `security_logger`。
+## 8. 知识沉淀
 
-## 7. 日志与监控落地
+- **经验**: 在设计阶段提前锁定错误码与事件格式，降低后续契约变更成本。
+- **改进**: 计划在开发期同步编写 Swagger 示例，提前让前端联调 mock。
+- **最佳实践**: 使用 `Idempotency-Key` 保障分享创建幂等；事件消费与数据库写入保持事务一致性。
 
-- 日志采用 JSON 格式输出，字段包含 `request_id`, `user_id`, `share_code`, `event_type`, `reward_id`。
-- Prometheus 指标：
-  - API: `social_features_api_latency_seconds`, `social_features_api_errors_total`
-  - 事件: `social_features_events_ingested_total`, `social_features_rate_limit_rejections_total`
-  - 奖励: `social_features_reward_latency_seconds`, `social_features_reward_retry_total`
-- Grafana 仪表板：`dashboards/social-features.json`（待创建）。
+## 9. 后续待办
 
-## 8. 部署与回滚
+- [ ] 完成任务拆分并录入 Jira（SOCIAL-101 ~ SOCIAL-118）
+- [ ] 编写 Alembic 首版迁移脚本草稿并走 DB review
+- [ ] 建立 Redis 限流与幂等 POC，验证配置可行性
+- [ ] 与数据团队确认指标字段与上报频率
 
-- 配置项新增：
-  - `SOCIAL_FEATURES_REDIS_PREFIX`
-  - `SOCIAL_FEATURES_EVENT_TOPIC`
-  - `SOCIAL_FEATURES_REWARD_TIMEOUT`
-- 环境变量在 `config/social_features.yaml` 中集中管理，使用 Vault 注入。
-- 回滚策略：
-  - Feature flag 关闭入口 → 切回旧分享服务。
-  - 数据库迁移提供 `downgrade`（谨慎使用，仅限紧急回滚）。
-  - Celery 队列可通过 Helm 回滚旧版本。
+## 10. 变更记录
 
-## 9. 测试与质量保障
-
-- 单元测试覆盖率目标 ≥ 85%，重点覆盖服务层逻辑。
-- 集成测试：
-  - 使用 pytest + async fixtures + SQLite 内存库。
-  - 关键场景：幂等、限流、邀请冲突、奖励补偿、管理员查询。
-- 契约测试：`schemathesis` 基于 `api-spec.md` 自动生成场景。
-- 性能测试：JMeter 脚本 `tests/perf/social_features_share_events.jmx`，目标：P95 < 80ms。
-- 联调计划：与前端、member_system、notification_service 在 staging 环境完成至少一次端到端演练。
-
-## 10. 风险与问题追踪
-
-| 编号 | 描述 | 状态 | 对策 |
-|------|------|------|------|
-| RISK-01 | member_system 新接口上线时间紧张 | 开放 | 准备 Mock 服务 + 补偿方案 |
-| RISK-02 | Redis 使用量激增 | 开放 | 申请独立 Redis 集群或分区；监控内存 |
-| RISK-03 | Kafka Schema 变更审批周期长 | 开放 | 提前提交 Schema，准备临时 JSON fallback |
-| ISSUE-01 | 指标对账脚本尚未开发 | 进行中 | 数据组负责，11-15 前完成 |
-
-## 11. 待办清单
-
-- [ ] 将任务拆分同步至 Jira（SOCIAL-101 ~ SOCIAL-118）。
-- [ ] 编写 Alembic 迁移脚本初稿并发起数据库评审。
-- [ ] 实现 Redis 限流与幂等 PoC，验证性能指标。
-- [ ] 准备 Kafka Schema 并提交审批。
-- [ ] 跟进数据团队的指标对账脚本。
-
-## 12. 变更记录
-
-| 日期 | 版本 | 变更内容 | 责任人 |
-|------|------|----------|--------|
-| 2025-10-18 | v0.1 | 初始实施规划 | Zhang Wei |
-| 2025-10-22 | v0.2 | 增补异步任务、监控计划 | Chen Hao |
-| 2025-10-25 | v0.3 | 对齐文档标准，完善风险、待办、回滚策略 | Zhang Wei |
+| 日期 | 版本 | 变更内容 | 作者 |
+|------|------|----------|------|
+| 2025-10-25 | v0.1 | 初始化实施计划，结合设计文档输出开发路线 | Zhang Wei |

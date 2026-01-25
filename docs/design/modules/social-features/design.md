@@ -1,334 +1,373 @@
----
-title: "social-features 模块技术设计"
-version: "v0.4.0"
-status: "Design Frozen"
-created: "2025-10-18"
-updated: "2025-10-25"
-owner: "Tech Lead Chen Hao"
-dependencies:
-    - "./requirements.md"
-    - "./api-spec.md"
-labels:
-    - "design"
-    - "module"
+# social-features 模块 - 技术设计文档
+
+📅 **创建日期**: 2025-10-25  
+👤 **设计者**: GitHub Copilot  
+✅ **评审状态**: 待评审  
+🔄 **最后更新**: 2025-10-25
+
 ---
 
-# social-features 模块 - 技术设计
+## 1. 引言
 
-📅 **创建日期**: 2025-10-18  
-👤 **设计负责人**: Chen Hao  
-✅ **评审状态**: 2025-10-24 设计评审通过（会议记录 #DESIGN-2025-10-24）  
-🔄 **最后更新**: 2025-10-25  
+### 1.1 设计目标
 
-## 1. 设计概述
+1. **闭环驱动**：实现“分享 → 事件采集 → 奖励判定 → 奖励履约”完整链路，满足 `requirements.md` 中 `REQ-social-features-001~004`。
+2. **边界清晰**：严格遵循营销域职责，通过 API / 事件与外部模块交互，杜绝跨表访问。
+3. **扩展友好**：采用模块化单体分层结构，未来可平滑拆分为独立微服务。
+4. **可靠可观测**：内置幂等、重试、审计日志、指标采集，满足合规和运维需求。
 
-- **设计目标**:
-    1. 满足 [requirements.md](./requirements.md) 中 `REQ-SOCIAL-001`~`REQ-SOCIAL-006` 的功能诉求。
-    2. 确保分享事件高并发写入场景下的数据一致性与反作弊能力。
-    3. 打通奖励发放全链路并落实可观测性与可回滚方案。
-- **约束条件**: 复用现有 FastAPI 模块化架构；数据库使用 MySQL 8.0；事件总线统一走 Kafka；异步执行框架采用现有 Celery 集群。
-- **设计原则**: 领域职责清晰、接口幂等、可观测、易扩展、优先异步化写入。
+### 1.2 设计范围
 
-## 2. 架构概览
+- **范围内**：分享链接管理、事件采集、邀请关系、奖励协调、运营指标、风控限流
+- **范围外**：优惠券/积分实际发放、通知推送、复杂风控模型（通过外部模块完成）
 
-### 2.1 模块分层
+### 1.3 参考文档
 
-| 层级 | 主要构件 | 说明 |
-|------|----------|------|
-| API 层 (`router.py`) | FastAPI 路由、依赖、权限 | 解析请求、鉴权、注入服务与限流器 |
-| 服务层 (`service.py`) | `ShareService`, `EventService`, `ReferralService`, `RewardService`, `MetricsService` | 实现业务流程、规则校验、幂等控制 |
-| 领域校验层 (`validators.py`) | 资源白名单、反作弊、活动策略 | 对外部依赖结果进行组合校验 |
-| 仓储层 (`repository.py`) | SQLAlchemy async session | 提供原子事务、查询优化、批量写入 |
-| 异步层 (`tasks.py`) | Celery 任务 | 奖励补偿、指标刷新、违规回查 |
-| 事件层 (`events.py`) | Kafka producer/consumer | 分享事件、奖励结果事件发布与订阅 |
+- `docs/requirements/functional.md §13` – 社交购物功能需求
+- `docs/standards/api-standards.md`、`docs/standards/database-standards.md`
+- `docs/architecture/application-architecture.md` – 模块依赖与分层要求
+- `docs/standards/performance-standards.md` – 性能指标基线
 
-### 2.2 组件关系图
+---
+
+## 2. 设计概览
+
+### 2.1 架构概述
 
 ```mermaid
 graph LR
-        Request-->Router
-        Router-->RateLimiter
-        Router-->Auth
-        Router-->Service
-        Service-->Validators
-        Service-->Repository
-        Service-->RedisCache
-        Service-->EventBus
-        Service-->CeleryQueue
-        Repository-->MySQL
-        CeleryQueue-->RewardWorker
-        RewardWorker-->MemberSystem
-        RewardWorker-->Notification
-        EventBus-->AnalyticsConsumers
-        EventBus-->OrderManagement
+        FE[前端 / 第三方渠道] -->|REST/JS SDK| RT[Router]
+        RT --> SV[Service]
+        SV --> RP[Repository]
+        RP --> DB[(MySQL)]
+        SV --> CCH[(Redis 限流/幂等)]
+        SV --> EVT[[事件总线]]
+        EVT --> OM[order_management]
+        SV --> MS[member_system API]
+        SV --> MC[marketing_campaigns API]
+        SV --> AUD[security_logger]
 ```
 
-### 2.3 关键设计决策
+- **Router 层**：定义 `/api/v1/social-features` 路由，完成鉴权、请求体验证、统一响应包装。
+- **Service 层**：处理业务编排（分享生命周期、邀请判定、奖励协调、风控限流、事件发布）。
+- **Repository 层**：封装 SQLAlchemy CRUD，保障事务一致性，提供批量写入、分页查询等能力。
+- **Model 层**：继承统一 Base，定义 ORM 模型与索引；使用 Alembic 管理迁移。
+- **缓存/限流**：Redis 用于分享点击去重、限流计数、奖励幂等锁。
+- **事件驱动**：通过事件总线消费注册/订单事件，发布奖励完成事件供通知模块订阅。
 
-| 决策点 | 选定方案 | 理由 | 替代方案 |
-|--------|----------|------|----------|
-| 分享事件去重 | Redis Set + TTL（Key=share_code:session:event_type） | 写性能高、天然过期、满足去重窗口 ≤ 24h | MySQL 唯一索引 (写放大大) |
-| 邀请绑定策略 | 最早有效点击优先 + 冲突记录 | 与业务规则一致，便于审计 | 随机分配或最后点击 |
-| 奖励发放 | 同步写记录 + 异步调用 member_system | 降低 API 响应时间，易做补偿 | API 同步调用（影响延迟） |
-| 指标产出 | MySQL 物化视图 + Celery 定时刷新 | 减少复杂 SQL，满足运维查询性能 | 实时 BI 聚合（开发周期长） |
-| 风控规则 | 配置化规则引擎 + Redis 计数 + 黑名单 | 快速调整、高并发友好 | 仅依赖第三方风控（耗费较大） |
+### 2.2 模块边界分析
 
-## 3. 数据模型
+```markdown
+## social-features 模块边界自检
 
-### 3.1 实体关系图
+### 数据模型检查
+- [x] 所有模型字段仅描述分享、邀请、奖励业务
+- [x] 未包含商品、订单、会员等其他模块的私有字段
+- [x] 外键仅引用本模块主键，跨模块关系通过 ID + 事件维护
+
+### 业务逻辑检查
+- [x] 分享、邀请、奖励判定均在模块职责内
+- [x] 不直接实现优惠券发放、积分结算等他域业务
+- [x] 跨模块交互统一使用 API/事件
+
+### API接口检查
+- [x] 所有端点前缀 `/api/v1/social-features`
+- [x] 未暴露他域职责的接口
+- [x] 响应仅包含模块内管理的数据
+
+### 依赖关系检查
+- [x] 依赖方向与 application-architecture.md 一致
+- [x] 无反向依赖或循环依赖
+- [x] 仅依赖必要核心组件（database、redis、auth）
+```
+
+### 2.3 设计原则
+
+- **单一职责**：Router 与 Service 分离，Repository 只负责数据访问。
+- **开放封闭**：奖励类型通过策略/映射扩展，新活动在不改核心代码的情况下配置。
+- **依赖倒置**：Service 依赖抽象接口（Repository、发放适配器、事件发送器）。
+- **文档驱动**：所有命名、接口、模型均在文档中先定义再开发。
+- **可观测性**：关键流程打点（Prometheus 指标）、审计日志、可追踪 request_id。
+
+### 2.4 关键设计决策
+
+| 决策点 | 方案 | 理由 | 替代方案 |
+|--------|------|------|----------|
+| 奖励发放方式 | 适配器调用外部 API + 幂等锁 | 与现有模块解耦，易于扩展积分/优惠券/余额 | 通过数据库触发器调用（耦合严重） |
+| 分享事件采集 | REST 接口 + Redis 去重 | 兼容 Web/App/H5，多渠道接入简单 | 仅依赖埋点服务（需额外组件） |
+| 指标统计 | 日快照表 + 实时查询 | 平衡实时性与性能，可离线生成报表 | 仅实时聚合（高负载） |
+| 风控限流 | Redis 计数 + 配置中心阈值 | 快速调节阈值，支持分渠道 | 数据库计数（锁冲突严重） |
+
+---
+
+## 3. 数据模型设计
+
+### 3.1 数据字典
+
+| 表名 | 说明 | 关键字段 | 备注 |
+|------|------|----------|------|
+| `social_share_links` | 分享链接主表 | `share_code (unique)`、`user_id`、`resource_type`、`resource_id`、`channel`、`status`、`expires_at` | 记录分享来源及有效期 |
+| `social_share_events` | 分享及转化事件表 | `share_id`、`event_type`、`actor_user_id`、`session_id`、`order_id`、`metadata` | 存储 click/register/first_order 等事件 |
+| `social_referrals` | 邀请关系表 | `inviter_user_id`、`invitee_user_id`、`share_id`、`status`、`first_order_id`、`reward_id` | 维护邀请状态机 |
+| `social_rewards` | 奖励履约记录 | `reward_code`、`reward_type`、`value`、`status`、`external_reference` | 与积分/优惠券模块对账 |
+| `social_share_daily_stats` | 日统计快照表 | `stat_date`、`channel`、`resource_type`、`resource_id`、`share_count`、`click_count`、`register_count`、`first_order_count`、`reward_cost` | 供运营报表使用 |
+
+### 3.2 字段定义与约束
+
+**social_share_links**
+
+- 主键：`id` INTEGER 自增
+- 索引：
+    - `uq_share_code` 唯一索引
+    - `idx_share_links_user_resource` (`user_id`, `resource_type`, `resource_id`)
+    - `idx_share_links_status_expires` (`status`, `expires_at`)
+- 关键字段：
+    - `share_code` VARCHAR(32) – 生成的唯一短码（base62）
+    - `share_url` VARCHAR(512)
+    - `channel` ENUM('wechat','moments','copy_link','qrcode','mini_program')
+    - `status` ENUM('active','disabled','expired')
+
+**social_share_events**
+
+- 主键：`id` BIGINT 自增
+- 索引：
+    - `idx_events_share_event_type` (`share_id`, `event_type`, `occurred_at`)
+    - `idx_events_session_type` (`session_id`, `event_type`)
+    - `idx_events_order` (`order_id`)
+- 事件类型：`event_type` ENUM('click','register','first_order','reward_granted','reward_failed')
+- `metadata` JSON – 存储 UA、IP、设备指纹等
+
+**social_referrals**
+
+- 主键：`id`
+- 索引：
+    - `uq_invitee` (`invitee_user_id`) 保证单一邀请归属
+    - `idx_inviter_status` (`inviter_user_id`, `status`)
+- 状态枚举：`status` ENUM('pending','registered','qualified','reward_dispatched','reward_failed')
+- 软删除：`deleted_at`（默认为 NULL）
+
+**social_rewards**
+
+- 主键：`id`
+- 索引：`uq_reward_code`、`idx_reward_status`
+- `reward_type` ENUM('points','coupon','balance','gift')
+- `status` ENUM('pending','processing','succeeded','failed','cancelled')
+- `retry_count` INT – 默认 0，失败后递增
+
+**social_share_daily_stats**
+
+- 主键：`id`
+- 唯一约束：`uq_stats_date_channel_resource` (`stat_date`,`channel`,`resource_type`,`resource_id`)
+- 核心字段：`share_count`、`click_count`、`register_count`、`first_order_count`、`reward_cost_cents`
+
+### 3.3 实体关系
 
 ```mermaid
 erDiagram
-        SOCIAL_SHARE ||--o{ SOCIAL_SHARE_EVENT : has
-        SOCIAL_SHARE ||--o{ SOCIAL_REFERRAL : seeds
-        SOCIAL_REFERRAL ||--o{ SOCIAL_REWARD : grants
-        SOCIAL_SHARE ||--o{ SOCIAL_VIOLATION : flags
-        SOCIAL_SHARE ||--o{ SOCIAL_SHARE_DAILY_METRICS : aggregates
+        social_share_links ||--o{ social_share_events : "has"
+        social_share_links ||--o{ social_referrals : "origin"
+        social_referrals ||--o{ social_rewards : "produces"
+        social_rewards ||--o{ social_share_events : "emits"
 ```
 
-### 3.2 数据字典（节选）
+- `social_share_events.share_id` 外键引用 `social_share_links.id`
+- `social_referrals.share_id` 可为 NULL（例如通过邀请码注册）
+- `social_rewards.referral_id`（待添加）绑定奖励来源
+- 统计表通过 ETL 任务从事件表聚合生成
 
-| 表 | 字段 | 类型 | 约束 | 说明 |
-|----|------|------|------|------|
-| `social_share` | `id` | BIGINT | PK | 自增主键 |
-|  | `share_code` | CHAR(8) | UNIQUE | 雪花算法生成，用户可见 |
-|  | `user_id` | BIGINT | NOT NULL, INDEX | 分享发起人 |
-|  | `resource_type` | VARCHAR(32) | NOT NULL | `product`/`campaign`/`landing_page` |
-|  | `resource_id` | VARCHAR(64) | NOT NULL, INDEX | 外部资源标识 |
-|  | `channel` | VARCHAR(32) | NOT NULL | 分享渠道 |
-|  | `status` | VARCHAR(16) | NOT NULL | `active`/`expired`/`revoked` |
-|  | `expires_at` | DATETIME | NOT NULL | 过期时间 |
-|  | `metadata` | JSON | NULL | 自定义字段 |
-| `social_share_event` | `id` | BIGINT | PK | |
-|  | `share_id` | BIGINT | FK -> social_share.id | |
-|  | `event_type` | VARCHAR(16) | NOT NULL | `click`/`register`/`first_order` |
-|  | `session_id` | VARCHAR(64) | NOT NULL | 去重标识 |
-|  | `actor_user_id` | BIGINT | NULL | 参与用户 |
-|  | `order_id` | BIGINT | NULL | 首购订单 |
-|  | `client_ip` | VARBINARY(16) | NOT NULL | IP (IPv4/6) |
-|  | `user_agent_hash` | CHAR(40) | NOT NULL | HASH(UA) |
-|  | `deduplicated` | TINYINT | 默认 0 | 是否命中去重 |
-|  | `occurred_at` | DATETIME | NOT NULL | 事件时间 |
-| `social_referral` | `id` | BIGINT | PK | |
-|  | `inviter_user_id` | BIGINT | NOT NULL | 邀请人 |
-|  | `invitee_user_id` | BIGINT | UNIQUE | 被邀请人（唯一约束） |
-|  | `share_id` | BIGINT | FK -> social_share.id | |
-|  | `activity_id` | VARCHAR(32) | NOT NULL | 活动配置引用 |
-|  | `status` | VARCHAR(16) | NOT NULL | `pending`/`registered`/`first_order`/`blocked`/`closed` |
-|  | `first_order_id` | BIGINT | NULL | 首购订单 |
-|  | `blocked_reason` | VARCHAR(128) | NULL | 违规原因码 |
-| `social_reward` | `id` | BIGINT | PK | |
-|  | `referral_id` | BIGINT | FK -> social_referral.id | |
-|  | `reward_type` | VARCHAR(16) | NOT NULL | `points`/`coupon`/`cashback` |
-|  | `value` | DECIMAL(12,2) | NOT NULL | 奖励值 |
-|  | `currency` | VARCHAR(8) | 默认 `CNY` | |
-|  | `status` | VARCHAR(16) | NOT NULL | `pending`/`available`/`claimed`/`blocked`/`failed` |
-|  | `external_ref` | VARCHAR(64) | NULL | member_system 回执 |
-|  | `available_at` | DATETIME | NULL | 可领取时间 |
-|  | `claimed_at` | DATETIME | NULL | 领取时间 |
-| `social_violation` | `id` | BIGINT | PK | |
-|  | `share_id` | BIGINT | FK -> social_share.id | |
-|  | `rule_code` | VARCHAR(32) | NOT NULL | 命中规则 |
-|  | `severity` | VARCHAR(16) | NOT NULL | `high`/`medium`/`low` |
-|  | `status` | VARCHAR(16) | NOT NULL | `open`/`resolved` |
-|  | `memo` | TEXT | NULL | 备注 |
+### 3.4 迁移计划
 
-### 3.3 索引策略
+- 新建上述 5 张表，使用 Alembic 生成迁移脚本 `V20251025_social_features_init`
+- 添加必要的检查约束与默认值
+- 建立初始配置表（可选）存储限流阈值、奖励策略映射
 
-- `social_share`：组合索引 `(user_id, status, expires_at)` 支撑列表查询；`share_code` 唯一索引。
-- `social_share_event`：组合索引 `(share_id, event_type, occurred_at)`；`session_id` 单列索引支撑去重查询。
-- `social_referral`：唯一索引 `invitee_user_id`；组合索引 `(inviter_user_id, status)`。
-- `social_reward`：组合索引 `(status, available_at)`，支持查询待领取/待补偿。
-- 建议 MySQL 表使用 InnoDB，字符集 `utf8mb4`。
+---
 
-## 4. 核心流程设计
+## 4. 业务流程设计
 
-### 4.1 分享创建流程（REQ-SOCIAL-001）
+### 4.1 分享链接创建流程
 
 ```mermaid
 sequenceDiagram
-        actor U as User
-        participant API as FastAPI Router
-        participant SVC as ShareService
-        participant VAL as Validators
-        participant REPO as Repository
-        participant REDIS as Redis
+        participant U as User
+        participant FE as Frontend
+        participant API as Router
+        participant SV as Service
+        participant RP as Repository
+        participant BC as Catalog/Activity API
 
-        U->>API: POST /shares
-        API->>SVC: create_share(request)
-        SVC->>VAL: validate_resource()
-        VAL->>product_catalog: 检查可分享资源
-        product_catalog-->>VAL: OK
-        SVC->>REDIS: check_idempotency(key)
-        REDIS-->>SVC: miss
-        SVC->>REPO: create_share(tx)
-        REPO-->>SVC: share_entity
-        SVC->>REDIS: set_idempotency(key, share)
-        SVC-->>API: ShareResponse
-        API-->>U: 201 Created
+        U->>FE: 请求生成分享链接
+        FE->>API: POST /shares (resource_type, resource_id, channel)
+        API->>SV: 校验请求 & 鉴权
+        SV->>BC: 校验资源有效性
+        BC-->>SV: OK
+        SV->>RP: 创建 share_link 记录
+        RP-->>SV: share_id, share_code
+        SV-->>API: ShareResponse
+        API-->>FE: share_url, qr_code_url
+        FE-->>U: 展示链接/二维码
 ```
 
-### 4.2 分享事件采集流程（REQ-SOCIAL-002）
+### 4.2 分享事件与奖励流程
 
 ```mermaid
 sequenceDiagram
-        participant Client
-        participant API
-        participant SVC as EventService
-        participant Redis
-        participant Repo
-        participant Kafka
+        participant CL as Click API
+        participant SV as Service
+        participant RP as Repository
+        participant EV as Event Bus
+        participant OM as order_management
+        participant RS as Reward Service
 
-        Client->>API: POST /share-events
-        API->>SVC: ingest_event(payload)
-        SVC->>Redis: rate_limit(key)
-        Redis-->>SVC: allow/deny
-        alt allow
-                SVC->>Redis: dedupe_check(key)
-                Redis-->>SVC: miss/hit
-                SVC->>Repo: persist_event()
-                Repo-->>SVC: event_id
-                SVC->>Kafka: publish social.share_event.received
-                SVC-->>API: 202 Accepted
-        else deny
-                SVC-->>API: 429 Limit Reached
-        end
+        CL->>SV: POST /share-events (share_code, event=click)
+        SV->>RP: 记录 click 事件, Redis 去重
+        OM-->>EV: OrderCreated(order_id, user_id, is_first_order)
+        SV->>SV: 消费 OrderCreated -> 定位 referral
+        SV->>RP: 更新 referral 状态 = qualified
+        SV->>RS: 调用积分/优惠券发放适配器
+        RS-->>SV: 发放结果
+        SV->>RP: 更新 social_rewards 状态
+        SV-->>EV: 发布 RewardDispatched 事件
+
 ```
 
-### 4.3 邀请绑定与奖励发放（REQ-SOCIAL-003/004）
+### 4.3 邀请关系状态机
 
 ```mermaid
-sequenceDiagram
-        participant Order as order_management
-        participant Consumer as Kafka Consumer
-        participant RefSvc as ReferralService
-        participant RewardSvc as RewardService
-        participant Repo as Repository
-        participant Celery as Celery Queue
-        participant Member as member_system
-
-        Order-->>Kafka: order.completed(first_order)
-        Kafka-->>Consumer: event payload
-        Consumer->>RefSvc: mark_first_order(referral)
-        RefSvc->>Repo: update_referral_status()
-        Repo-->>RefSvc: OK
-        RefSvc->>RewardSvc: generate_reward(referral)
-        RewardSvc->>Repo: create_reward()
-        Repo-->>RewardSvc: reward
-        RewardSvc->>Celery: dispatch_reward_task(reward)
-        Celery->>Member: RedeemReward
-        Member-->>Celery: success/failure
-        Celery->>Repo: update_reward_status()
+stateDiagram-v2
+        [*] --> pending
+        pending --> registered: 注册成功
+        registered --> qualified: 完成首单 & 未退款
+        qualified --> reward_dispatched: 奖励发放成功
+        qualified --> reward_failed: 发放失败
+        reward_failed --> qualified: 重试成功
+        registered --> pending: 注册撤销/违规
+        reward_dispatched --> [*]
 ```
 
-### 4.4 运营指标生成（REQ-SOCIAL-005）
+状态机实现位于 `ReferralService`，通过显式方法控制状态流转并写入审计日志，非法流转抛出 `ReferralStateException`。
 
-1. 每 5 分钟通过 Celery Beat 触发增量聚合任务 `aggregate_share_metrics`。
-2. 任务读取 `social_share_event`、`social_referral`、`social_reward`，更新物化视图 `social_share_daily_metrics`。
-3. 生成数据推送至 Kafka topic `social.feature.metrics`，供 BI 消费。
-4. 管理员 API `/admin/metrics/daily` 查询视图，支持分页与过滤。
+---
 
-### 4.5 违规检测（REQ-SOCIAL-006）
+## 5. 接口设计
 
-- 在事件写入后执行 `validators.detect_anomalies`：包括 IP 频率、设备黑名单、分享黑名单。
-- 命中时写入 `social_violation`，若严重则自动将关联奖励标记为 `blocked`。
-- 提供 Celery 异步任务每日扫描并重新评估存在争议的记录。
+### 5.1 REST API 概览
 
-## 5. 接口设计概述
+| 方法 | 路径 | 描述 | 认证 | 参考 REQ |
+|------|------|------|------|----------|
+| POST | `/api/v1/social-features/shares` | 创建分享链接 | Bearer | REQ-001 |
+| GET | `/api/v1/social-features/shares` | 查询我的分享链接列表 | Bearer | REQ-001 |
+| GET | `/api/v1/social-features/shares/{share_id}` | 获取分享详情与统计 | Bearer | REQ-002 |
+| POST | `/api/v1/social-features/share-events` | 记录分享事件（匿名可用） | Optional | REQ-002 |
+| POST | `/api/v1/social-features/referrals` | 记录邀请注册事件（后台调用） | Bearer(服务) | REQ-003 |
+| PATCH | `/api/v1/social-features/referrals/{referral_id}/status` | 人工纠偏邀请状态 | Bearer(管理员) | REQ-003 |
+| GET | `/api/v1/social-features/rewards/pending` | 查询待领取奖励 | Bearer | REQ-004 |
+| POST | `/api/v1/social-features/rewards/{reward_id}/claim` | 用户主动领取奖励 | Bearer | REQ-004 |
+| GET | `/api/v1/social-features/admin/metrics/daily` | 运营指标查询 | Bearer(管理员) | REQ-006 |
+| GET | `/api/v1/social-features/admin/violations` | 违规分享列表 | Bearer(管理员) | REQ-005 |
 
-- REST API 定义详见 [api-spec.md](./api-spec.md)。
-- 核心端点：`POST /shares`, `GET /shares`, `POST /share-events`, `POST /referrals`, `POST /rewards/{id}/claim`, `GET /admin/metrics/daily`, `GET /admin/violations`。
-- 幂等策略：
-    - `POST /shares` 要求客户端提供 `Idempotency-Key`；服务器在 Redis 记录 24 小时。
-    - `POST /share-events` 采用 session + event_type 去重，重复请求返回 `deduplicated=true`。
-- 错误码：`SOCIAL_100`~`SOCIAL_500`，分类参见 API 规范与 Exception 类定义。
+详细请求/响应体见 `api-spec.md`。
 
-## 6. 集成与依赖
+### 5.2 Pydantic 模型
 
-### 6.1 外部模块交互
+- `ShareCreateRequest`, `ShareResponse`, `ShareListResponse`
+- `ShareEventCreateRequest`（支持匿名，上报 share_code + event_type + client 元信息）
+- `ReferralUpsertRequest`, `ReferralResponse`
+- `RewardClaimRequest`, `RewardResponse`
+- `DailyMetricsResponse`, `ViolationRecord`
 
-| 模块 | 接入方式 | 用途 | 超时/重试 |
-|------|----------|------|-----------|
-| `user_auth` | FastAPI 依赖 `get_current_user` | JWT 鉴权，返回 `UserContext` | 同步，超时 1s |
-| `product_catalog` | 内部 gRPC 客户端 | 校验资源状态、渠道限制 | 3 次重试，指数退避 |
-| `marketing_campaigns` | REST | 获取奖励策略、活动配置 | 缓存 60s，失败 fallback 最近成功配置 |
-| `order_management` | Kafka topic `order.completed` | 首购事件 | 消费者自动提交 offset |
-| `member_system` | gRPC `RedeemReward` | 奖励发放 | 5 次重试 + Celery 补偿 |
-| `notification_service` | REST | 奖励到账推送 | 失败走补偿任务 |
+所有模型使用 Pydantic v2 TypedDict/FieldValidationInfo 实现字段验证与派生字段（如 share_url 拼接）。
 
-### 6.2 事件契约
+### 5.3 事件契约
 
-- **发布**:
-    - `social.share_event.received`: 事件 ID、share_code、event_type、occurred_at、deduplicated。
-    - `social.reward.status_changed`: reward_id、status、reason、external_ref。
-- **订阅**:
-    - `order.completed` (来自 order_management)。
-    - `member.reward.failed` (来自 member_system，触发补偿流程)。
+- **订阅**
+    - `UserRegistered`：字段 `user_id`, `source_share_code`
+    - `OrderCompleted`：字段 `order_id`, `user_id`, `is_first_order`, `total_amount`, `share_code`
+- **发布**
+    - `RewardDispatched`：字段 `reward_id`, `referral_id`, `reward_type`, `status`
+    - `ShareLinkDisabled`：字段 `share_id`, `reason`
 
-事件格式使用 Avro Schema，版本管理存放于 `docs/standards/event-contracts.md`。
+事件格式遵循 `docs/architecture/integration.md`，通过统一事件发布器封装。消费端需实现幂等处理。
 
-## 7. 安全与访问控制
+---
 
-- **认证**: 统一使用 JWT；匿名事件接口仅限 `POST /share-events`，仍需记录 client fingerprint。
-- **授权**: 使用 `app.shared.security.permissions.require_role` 检查运营与管理员权限。
-- **速率限制**: 
-    - 用户 API：`RateLimiter(user_id, 60 req/min)`。
-    - 匿名事件：`RateLimiter(client_fingerprint, 150 req/5min)`。
-- **审计日志**: 邀请人工调整、奖励人工处理写入 `audit_log` 表。
-- **数据保护**: `client_ip` 使用 VARBINARY 以支持 IPv6；在日志中脱敏展示。
+## 6. 安全与合规设计
 
-## 8. 性能与扩展性
+1. **认证与权限**
+     - 默认使用 JWT Bearer；管理员接口需额外角色校验 (`role=admin`)
+     - 匿名事件接口仅允许 `event_type=click`，并对请求频率限流
+2. **输入校验**
+     - 所有请求通过 Pydantic 模型校验资源类型、渠道、日期范围等
+     - 自定义验证器防止 share_code 注入、XSS
+3. **风控与限流**
+     - Redis 计数器 + Lua 脚本实现滑动窗口限流
+     - 黑名单名单缓存到 Redis，命中后直接拒绝请求
+4. **数据安全**
+     - IP、UA 信息存储在 JSON 字段，敏感字段（如手机号摘要）使用 SHA256
+     - 审计日志通过 `security_logger` 记录操作类型、操作者、结果
+5. **合规**
+     - 分享文案与素材审批由运营侧负责，系统保留操作记录
+     - 提供数据导出接口满足用户数据访问请求（GDPR-like）
 
-- 事件写入采用批量提交：`EventService` 将多条事件组合事务写入（批大小 50）。
-- 缓存策略：
-    - 分享资源白名单缓存至 Redis，TTL 5 分钟。
-    - 奖励策略缓存至 Redis，TTL 同活动结束时间。
-- 数据库连接池：AsyncEngine pool size=20，max overflow=40；提供连接重试。
-- 横向扩展：API 与 Celery worker 均可多实例部署；Redis cluster 模式支持。
-- 降级策略：
-    - 当 `member_system` 不可用时，奖励状态标记为 `pending_retry` 并发送告警。
-    - 指标聚合失败则标记上一批次数据，并在后台提示“数据生成中”。
+---
 
-## 9. 可观测性
+## 7. 性能与扩展考量
 
-- **日志**: 采用结构化日志，字段包含 `request_id`, `user_id`, `share_code`, `event_type`, `reward_id`。
-- **指标**:
+- **响应性能**：核心接口目标 P95 < 300ms；长耗时操作（统计导出）通过后台任务（Celery）执行。
+- **数据库优化**：
+    - 高频查询使用覆盖索引（如 `idx_events_share_event_type`）
+    - 使用分页游标（基于 `id`）而非 offset，提高滚动查询效率
+- **缓存策略**：
+    - 热门 share 链接缓存 5 分钟；ip/session 去重缓存 5 分钟
+    - 指标查询优先读取日快照；实时指标通过 Redis Pipeline
+- **异步任务**：
+    - 奖励发放、导出任务、失败重试使用 Celery 队列 `social_features.reward`
+    - 事件消费采用 FastAPI BackgroundTask + Celery 结合
+- **可扩展性**：
+    - Service 层逻辑可拆分为 `ShareService`, `ReferralService`, `RewardService`
+    - 奖励策略使用策略模式，未来新增奖励类型无需修改主流程
+- **监控指标**：
     - `social_features_share_created_total`
-    - `social_features_share_rate_limit_rejections_total`
     - `social_features_reward_latency_seconds`
-    - `social_features_reward_retry_total`
-- **追踪**: 接入 OpenTelemetry，关键链路：分享创建、事件处理、奖励发放。
-- **告警**:
-    - 奖励发放 5 分钟内失败率 > 2%。
-    - Redis 去重命中率 < 60%（可能异常）。
-    - Kafka 消费滞后 > 120s。
+    - `social_features_referral_state_transitions_total`
+    - 通过 Prometheus 导出并在 Grafana 建立仪表板
 
-## 10. 迁移与上线策略
+---
 
-- **迁移脚本**: 见 `alembic/versions/20251105_social_features_init.py`（建表）与 `20251108_social_features_metrics.py`（视图/索引）。
-- **数据回填**: 上线前执行脚本 `tools/backfill_social_features.py` 将现有分享数据迁移至新表。
-- **灰度发布**: 第一阶段仅开放 10% 用户的分享入口，监控指标稳定后扩容。
-- **回滚策略**: 保留旧分享服务，若发现重大问题，切换 feature flag 返回旧流程，同时保留数据库写入，以便复盘。
+## 8. 变更影响与实施计划
 
-## 11. 风险与缓解
+### 8.1 对现有系统的影响
 
-| 风险 | 描述 | 缓解措施 |
-|------|------|----------|
-| 共享 Redis 限流误伤 | 高峰期导致正常用户被限流 | 动态阈值调节 + 白名单；命中阈值触发告警 |
-| Kafka 消费滞后 | 影响指标准时性 | 实现 lag 监控 + 自动扩容消费者 |
-| member_system 接口变更 | 协议不兼容导致奖励失败 | 订阅接口版本变更通知，预留适配层 |
-| Celery 任务堆积 | 奖励补偿延迟 | 配置队列优先级，任务超时后报警并可手动触发 |
+- **数据库**：新增 5 张表，需更新 Alembic 迁移并在测试/预发/生产执行
+- **配置**：新增限流、奖励策略配置项，需在配置中心登记
+- **依赖模块**：
+    - 与 `order_management`、`member_system`、`marketing_campaigns` 对齐事件/接口参数
+    - 通知服务需订阅 `RewardDispatched`
 
-## 12. 开放问题
+### 8.2 测试计划
 
-- 奖励策略中“阶梯奖励”与“团队奖励”尚未纳入范围，需要在下一阶段设计；对应需求将在 `REQ-SOCIAL-007` 立项。
-- 数据分析团队希望实时指标（< 5 分钟延迟），当前方案为 5 分钟批次，需要后续评估。
+- 单元测试：覆盖 Service/Repository 关键分支，目标覆盖率 ≥ 85%
+- 集成测试：使用 pytest + TestClient 验证主要 API、事件流程
+- 性能测试：`tests/performance/test_social_features_performance.py` （待新增）模拟高并发分享点击
+- 安全测试：注入/越权/限流等场景验证
 
-## 13. 变更记录
+### 8.3 上线步骤
 
-| 日期 | 版本 | 变更内容 | 责任人 |
+1. 合并数据库迁移脚本并执行
+2. 部署新代码，开启特性开关 `SOCIAL_FEATURES_ENABLED`
+3. 初始化限流阈值、奖励策略配置
+4. 回放测试数据（灰度环境）验证指标
+5. 正式开启功能，并监控 24 小时
+
+### 8.4 未决事项
+
+- 风控黑名单服务接口待 `risk_control_system` 提供（临时采用配置文件）
+- 数据导出超过 100MB 时的处理方案待与数据团队确认
+
+---
+
+## 9. 变更记录
+
+| 日期 | 版本 | 变更内容 | 变更人 |
 |------|------|----------|--------|
-| 2025-10-18 | v0.2 | 初始设计草案 | Chen Hao |
-| 2025-10-21 | v0.3 | 增加数据模型、流程图 | Chen Hao |
-| 2025-10-24 | v0.3.5 | 设计评审反馈：调整奖励异步流程 | Growth Tech Review |
-| 2025-10-25 | v0.4.0 | 对齐标准 v3，补充性能、安全、迁移策略 | Chen Hao |
+| 2025-10-25 | v1.0 | 初稿：完成 A8 设计、数据模型、流程与安全性能分析 | GitHub Copilot |
