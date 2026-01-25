@@ -59,7 +59,6 @@ tests/_archive/
 # 临时测试文件
 # 临时测试文件
 tests/**/test_*_temp_*.py
-tests/**/test_*_temp_*.py
 tests/**/test_*_draft_*.py
 
 # 测试生成工具的临时文件
@@ -102,3 +101,4 @@ node_modules/
 # WeChat developer local files
 /dist/
 /worktree/
+/app/frontend/.vite/
