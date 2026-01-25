@@ -4,7 +4,7 @@
 
 import os
 from datetime import datetime, timedelta
-from typing import TYPE_CHECKING, Optional, Union
+from typing import TYPE_CHECKING, Optional
 
 import jwt
 from fastapi import Depends, HTTPException, status
@@ -154,7 +154,7 @@ def increment_failed_attempts(db: Session, user: "User") -> None:
 
         log_security_event(
             event_type="account_locked",
-            message=f"Account locked due to excessive failed login attempts",
+            message="Account locked due to excessive failed login attempts",
             user_data={
                 "user_id": user.id,
                 "username": user.username,
@@ -179,7 +179,7 @@ def reset_failed_attempts(db: Session, user: "User") -> None:
 
         log_security_event(
             event_type="login_success",
-            message=f"Account login successful, failed attempts reset",
+            message="Account login successful, failed attempts reset",
             user_data={"user_id": user.id, "username": user.username},
         )
 

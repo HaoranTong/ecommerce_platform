@@ -23,6 +23,16 @@ from fastapi import FastAPI
 
 # Redis连接管理
 from app.core.redis_client import close_redis_connection
+from app.modules.inventory_management.router import router as inventory_router
+from app.modules.member_system.router import router as member_system_router
+from app.modules.order_management.router import router as order_router
+from app.modules.payment_service.router import router as payment_router
+from app.modules.product_catalog.router import router as product_router
+
+# 模块路由导入
+from app.modules.quality_control.router import router as quality_control_router
+from app.modules.shopping_cart.router import router as cart_router
+from app.modules.user_auth.router import router as user_auth_router
 
 
 @asynccontextmanager
@@ -33,31 +43,38 @@ async def lifespan(app: FastAPI):
 
     # 开发环境自动创建表
     print(f"🔍 AUTO_CREATE flag: {AUTO_CREATE}")
-    print(f"🔍 AUTO_CREATE_TABLES env: {os.environ.get('AUTO_CREATE_TABLES', 'NOT_SET')}")
+    print(
+        f"🔍 AUTO_CREATE_TABLES env: {os.environ.get('AUTO_CREATE_TABLES', 'NOT_SET')}"
+    )
     if AUTO_CREATE:
         print("📋 自动创建数据库表...")
         try:
-            from app.core.database import engine, Base
+            from app.core.database import Base, engine
+
             print(f"🔍 Engine: {engine}")
             print(f"🔍 Base: {Base}")
-            
+
             # 使用动态模型发现系统
-            from app.core.model_discovery import discover_and_register_models, validate_critical_models
-            
+            from app.core.model_discovery import (
+                discover_and_register_models,
+                validate_critical_models,
+            )
+
             # 自动发现并导入所有模块的模型
             table_count, imported_modules = discover_and_register_models()
-            
+
             # 验证关键模型（烟雾测试需要）
             if not validate_critical_models():
                 print("⚠️  关键模型验证失败，但继续创建表...")
-            
+
             print("📋 执行create_all...")
             Base.metadata.create_all(bind=engine)
             print("✅ 数据库表创建完成")
-            
+
         except Exception as e:
             print(f"❌ 数据库表创建失败: {e}")
             import traceback
+
             traceback.print_exc()
     else:
         print("⚠️  AUTO_CREATE=False，跳过数据库表创建")
@@ -104,43 +121,15 @@ async def health():
     return {"status": "ok", "message": "服务运行正常"}
 
 
-from app.modules.quality_control.router import router as quality_control_router
 # 注册模块化路由 - 按照模块化单体架构直接注册各模块路由
-from app.modules.user_auth.router import router as user_auth_router
-
 # 注册模块路由，使用统一的API前缀
 app.include_router(user_auth_router, prefix="/api/v1", tags=["用户认证"])
-
 app.include_router(quality_control_router, prefix="/api/v1", tags=["质量控制"])
-
-# 注册产品目录模块路由
-from app.modules.product_catalog.router import router as product_router
-
 app.include_router(product_router, prefix="/api/v1", tags=["商品管理"])
-
-# 注册订单管理模块路由
-from app.modules.order_management.router import router as order_router
-
 app.include_router(order_router, prefix="/api/v1", tags=["订单管理"])
-
-# 注册购物车模块路由
-from app.modules.shopping_cart.router import router as cart_router
-
 app.include_router(cart_router, prefix="/api/v1", tags=["购物车"])
-
-# 注册库存管理模块路由
-from app.modules.inventory_management.router import router as inventory_router
-
 app.include_router(inventory_router, prefix="/api/v1", tags=["库存管理"])
-
-# 注册支付服务模块路由
-from app.modules.payment_service.router import router as payment_router
-
 app.include_router(payment_router, prefix="/api/v1", tags=["支付服务"])
-
-# 注册会员系统模块路由
-from app.modules.member_system.router import router as member_system_router
-
 app.include_router(member_system_router, prefix="/api/v1", tags=["会员系统"])
 
 # TODO: 其他模块路由按需添加

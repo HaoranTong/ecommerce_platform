@@ -38,7 +38,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { _ref, computed } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { NLayout, NLayoutSider, NLayoutHeader, NLayoutContent, NMenu } from 'naive-ui';
 import type { MenuOption } from 'naive-ui';
@@ -48,10 +48,14 @@ const router = useRouter();
 const currentRoute = useRoute();
 
 // 简单的图标渲染函数（实际项目中可以使用真正的图标库）
-function renderIcon(iconName: string) {
+function renderIcon(_iconName: string) {
   // 不显示任何图标文字，只保留图标占位
   return () => {
-    return h('div', { style: 'font-size: 16px; text-align: center; width: 16px; height: 16px;' }, '');
+    return h(
+      'div',
+      { style: 'font-size: 16px; text-align: center; width: 16px; height: 16px;' },
+      '',
+    );
   };
 }
 
@@ -60,18 +64,18 @@ const menuOptions: MenuOption[] = [
   {
     label: '仪表盘',
     key: 'Dashboard',
-    icon: renderIcon('dashboard')
+    icon: renderIcon('dashboard'),
   },
   {
     label: '商品管理',
     key: 'ProductList',
-    icon: renderIcon('product')
-  }
+    icon: renderIcon('product'),
+  },
 ];
 
 // 当前页面标题
 const currentPageTitle = computed(() => {
-  const currentMenu = menuOptions.find(option => option.key === currentRoute.name);
+  const currentMenu = menuOptions.find((option) => option.key === currentRoute.name);
   return currentMenu ? currentMenu.label : '未知页面';
 });
 

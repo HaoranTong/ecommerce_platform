@@ -1,0 +1,38 @@
+# .editorconfig
+# 目的：跨系统统一换行、缩进、编码；让规则跟项目走
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+# Python：4空格
+[*.py]
+indent_style = space
+indent_size = 4
+
+# JS/TS/React：2空格
+[*.js]
+indent_style = space
+indent_size = 2
+[*.ts]
+indent_style = space
+indent_size = 2
+[*.jsx]
+indent_style = space
+indent_size = 2
+[*.tsx]
+indent_style = space
+indent_size = 2
+
+# Markdown：通常不裁剪行尾空格（有时用于换行/表格）
+[*.md]
+trim_trailing_whitespace = false
+
+# Windows脚本：保持 CRLF（可选，如果你有 .bat/.ps1）
+[*.bat]
+end_of_line = crlf
+[*.ps1]
+end_of_line = crlf
